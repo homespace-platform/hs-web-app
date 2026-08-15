@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import type Keycloak from "keycloak-js";
 import keycloak from "@/lib/keycloak";
 import { initKeycloakSession } from "@/lib/auth-init";
 
@@ -12,7 +11,6 @@ type AuthState = {
   email: string | null;
   login: () => void;
   logout: () => void;
-  keycloakInstance: Keycloak;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -62,7 +60,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       login: () => keycloak.login(),
       logout: () => keycloak.logout({ redirectUri: window.location.origin }),
-      keycloakInstance: keycloak,
     }),
     [authenticated, email, initialized, profileName],
   );

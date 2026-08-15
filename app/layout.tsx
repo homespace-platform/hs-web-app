@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Providers from "@/components/auth/Providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,16 +15,18 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "HomeSpace Web",
-  description: "HomeSpace web client with Keycloak SSO",
+  description: "HomeSpace web client",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang="vi"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col bg-slate-50">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

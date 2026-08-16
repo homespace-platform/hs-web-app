@@ -1,9 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
-  Building2,
   Mail,
-  Phone,
-  MapPin,
   Globe,
   Share2,
   ShieldCheck,
@@ -28,17 +26,16 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12 mb-14">
           {/* Brand Column */}
           <div className="flex flex-col gap-5">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xl font-black tracking-tight text-white font-heading">
-                  Home<span className="text-blue-400">Space</span>
-                </span>
-                <span className="text-[9px] uppercase tracking-widest font-semibold text-cyan-400">
-                  PropTech Web3
-                </span>
+            <Link href="/" className="flex items-center self-start group">
+              <div className="bg-white/95 rounded-xl p-1.5 shadow-md group-hover:scale-105 transition-transform duration-200">
+                <Image
+                  src="/homespace-horizontal-logo-removebg.png"
+                  alt="HomeSpace Logo"
+                  width={160}
+                  height={42}
+                  unoptimized
+                  className="h-8 sm:h-9 w-auto object-contain"
+                />
               </div>
             </Link>
 

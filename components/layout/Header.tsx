@@ -1,22 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import {
-  Building2,
   Menu,
   X,
   Smartphone,
   PlusCircle,
   LogIn,
+  UserPlus,
   LogOut,
   User as UserIcon,
 } from "lucide-react";
 
 export default function Header() {
-  const { authenticated, profileName, login, logout } = useAuth();
+  const { authenticated, profileName, login, register, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -27,19 +28,16 @@ export default function Header() {
           <div className="flex items-center gap-8 lg:gap-10">
             <Link
               href="/"
-              className="flex items-center gap-2.5 group focus:outline-none"
+              className="flex items-center group focus:outline-none"
             >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform duration-200">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white font-heading">
-                  Home<span className="text-blue-600">Space</span>
-                </span>
-                <span className="text-[9px] uppercase tracking-widest font-semibold text-cyan-600 dark:text-cyan-400">
-                  PropTech Web3
-                </span>
-              </div>
+              <Image
+                src="/homespace-horizontal-logo-removebg.png"
+                alt="HomeSpace Logo"
+                width={180}
+                height={46}
+                priority
+                className="h-10 sm:h-11 w-auto object-contain transition-transform duration-200 group-hover:scale-105"
+              />
             </Link>
 
             <nav className="hidden md:flex items-center gap-7">
@@ -108,7 +106,7 @@ export default function Header() {
                   type="button"
                   onClick={() => logout()}
                   title="Đăng xuất"
-                  className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                  className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -125,7 +123,7 @@ export default function Header() {
                 <span className="text-slate-300 dark:text-slate-600">|</span>
                 <button
                   type="button"
-                  onClick={() => login()}
+                  onClick={() => register()}
                   className="text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors px-2 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 cursor-pointer"
                 >
                   Đăng ký
@@ -220,17 +218,29 @@ export default function Header() {
                 </button>
               </div>
             ) : (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  login();
-                }}
-                className="w-full justify-center gap-2 text-blue-600 border-blue-200 hover:bg-blue-50"
-              >
-                <LogIn className="w-4 h-4" />
-                Đăng nhập qua Keycloak SSO
-              </Button>
+              <div className="flex gap-2 w-full pt-1">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    login();
+                  }}
+                  className="flex-1 justify-center gap-1.5 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Đăng nhập
+                </Button>
+                <Button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    register();
+                  }}
+                  className="flex-1 justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Đăng ký
+                </Button>
+              </div>
             )}
           </div>
         </div>

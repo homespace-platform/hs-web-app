@@ -10,6 +10,7 @@ type AuthState = {
   profileName: string | null;
   email: string | null;
   login: () => void;
+  register: () => void;
   logout: () => void;
 };
 
@@ -59,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profileName,
       email,
       login: () => keycloak.login(),
+      register: () => keycloak.register(),
       logout: () => keycloak.logout({ redirectUri: window.location.origin }),
     }),
     [authenticated, email, initialized, profileName],

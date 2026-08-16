@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import UserDropdown from "./UserDropdown";
+import NotificationDropdown from "@/components/notification/NotificationDropdown";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import provinceService from "@/services/province.service";
 import { Province } from "@/types/province.type";
@@ -24,10 +25,14 @@ import {
   Search,
   Check,
   Loader2,
+  Clock,
+  User,
+  LogOut,
+  Newspaper,
 } from "lucide-react";
 
 export default function Header() {
-  const { authenticated, login, register } = useAuth();
+  const { authenticated, login, register, logout, username, profileName } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [favoriteCount, setFavoriteCount] = useState(24);
 
@@ -254,6 +259,14 @@ export default function Header() {
                 </div>
               )}
             </div>
+            
+            {/* Link Tin tức (Dạng text link nhẹ nhàng sau chọn tỉnh) */}
+            <Link
+              href="/news"
+              className="hidden md:flex items-center text-sm font-semibold text-foreground/80 hover:text-primary transition-colors px-2 py-1"
+            >
+              <span>Tin tức</span>
+            </Link>
           </div>
 
           {/* Right Action Buttons */}
@@ -290,17 +303,8 @@ export default function Header() {
                   </span>
                 </Link>
 
-                {/* Thông báo với badge */}
-                <button
-                  type="button"
-                  title="Thông báo"
-                  className="relative w-10 h-10 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
-                >
-                  <Bell className="w-4 h-4" />
-                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center leading-none shadow-xs">
-                    6
-                  </span>
-                </button>
+                {/* Thông báo với popup danh sách */}
+                <NotificationDropdown initialCount={5} />
 
                 {/* Quản lý tin */}
                 <Link href="/profile#listings">
@@ -367,20 +371,20 @@ export default function Header() {
             )}
           </div>
 
-          {/* Mobile Menu Button & Theme Switcher */}
-          <div className="md:hidden flex items-center gap-2">
+          {/* Mobile Menu Button & Action Controls */}
+          <div className="md:hidden flex items-center gap-1.5">
             <ThemeToggle />
             {authenticated && <UserDropdown />}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg text-foreground hover:text-primary hover:bg-muted transition-colors"
+              className="w-10 h-10 rounded-full border border-border bg-card flex items-center justify-center text-foreground hover:text-primary hover:bg-muted transition-colors cursor-pointer"
               aria-label="Toggle menu"
             >
               {mobileMenuOpen ? (
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               ) : (
-                <Menu className="w-6 h-6" />
+                <Menu className="w-5 h-5" />
               )}
             </button>
           </div>
@@ -389,9 +393,9 @@ export default function Header() {
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-border bg-card/95 backdrop-blur-xl px-4 pt-3 pb-6 space-y-3 animate-in slide-in-from-top-2 duration-200">
+        <div className="md:hidden border-b border-border bg-card/95 backdrop-blur-xl px-4 pt-3 pb-6 space-y-4 animate-in slide-in-from-top-2 duration-200 shadow-xl">
           {/* Mobile Province Select */}
-          <div className="flex items-center h-10 bg-muted rounded-xl px-3 border border-border">
+          <div className="flex items-center h-11 bg-muted rounded-xl px-3 border border-border">
             <MapPin className="w-4 h-4 text-primary shrink-0 mr-2" />
             <select
               value={selectedProvinceCode}
@@ -411,46 +415,128 @@ export default function Header() {
           </div>
 
           <nav className="flex flex-col space-y-1">
+            {/* Thông báo (Navigate tới /notifications) */}
+            <Link
+              href="/notifications"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center justify-between transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Bell className="w-4 h-4 text-rose-500" />
+                <span>Thông báo</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold shadow-2xs">
+                5
+              </span>
+            </Link>
+
+            {/* Tin nhắn */}
             <Link
               href="/chat"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-foreground hover:bg-muted flex items-center justify-between"
+              className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center justify-between transition-colors"
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <MessageCircle className="w-4 h-4 text-primary" />
                 <span>Tin nhắn & Trò chuyện</span>
               </div>
-              <span className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+              <span className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold shadow-2xs">
                 3
               </span>
             </Link>
+
+            {/* Yêu thích */}
             <Link
               href="/favorites"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-foreground hover:bg-muted flex items-center justify-between"
+              className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center justify-between transition-colors"
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <Heart className="w-4 h-4 text-rose-500" />
                 <span>Danh sách yêu thích</span>
               </div>
               {favoriteCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold shadow-2xs">
                   {favoriteCount}
                 </span>
               )}
             </Link>
+
+            {/* Lịch sử xem tin */}
+            <Link
+              href="/history"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center justify-between transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Clock className="w-4 h-4 text-primary" />
+                <span>Lịch sử xem tin</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                40
+              </span>
+            </Link>
+
+            {/* Quản lý tin */}
+            {authenticated && (
+              <Link
+                href="/profile#listings"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
+              >
+                <LayoutGrid className="w-4 h-4 text-muted-foreground" />
+                <span>Quản lý tin đăng</span>
+              </Link>
+            )}
+
+            {/* Tin tức & Thị trường */}
+            <Link
+              href="/news"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
+            >
+              <Newspaper className="w-4 h-4 text-primary" />
+              <span>Tin tức & Thị trường</span>
+            </Link>
+
+            {/* Tải ứng dụng */}
             <Link
               href="#download-app"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-2"
+              className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
             >
               <Smartphone className="w-4 h-4 text-accent-ai" />
-              <span>Tải ứng dụng</span>
+              <span>Tải ứng dụng HomeSpace</span>
             </Link>
           </nav>
 
+          {/* User Auth Section */}
           <div className="pt-3 border-t border-border flex flex-col gap-2.5">
-            {!authenticated && (
+            {authenticated ? (
+              <div className="flex items-center justify-between px-1">
+                <Link
+                  href="/profile"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 text-xs font-semibold text-foreground hover:text-primary transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-xs">
+                    {(username || profileName || "U").charAt(0).toUpperCase()}
+                  </div>
+                  <span>{username || profileName || "Tài khoản của tôi"}</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    logout();
+                  }}
+                  className="text-xs font-semibold text-red-500 hover:text-red-600 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Đăng xuất</span>
+                </button>
+              </div>
+            ) : (
               <div className="flex gap-2 w-full pt-1">
                 <Button
                   variant="outline"
@@ -458,7 +544,7 @@ export default function Header() {
                     setMobileMenuOpen(false);
                     login();
                   }}
-                  className="flex-1 justify-center gap-1.5 text-foreground border-border hover:bg-muted rounded-full h-10 cursor-pointer"
+                  className="flex-1 justify-center gap-1.5 text-foreground border-border hover:bg-muted rounded-full h-10 cursor-pointer text-xs font-semibold"
                 >
                   <LogIn className="w-4 h-4" />
                   Đăng nhập
@@ -468,7 +554,7 @@ export default function Header() {
                     setMobileMenuOpen(false);
                     register();
                   }}
-                  className="flex-1 justify-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-10 cursor-pointer"
+                  className="flex-1 justify-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-10 cursor-pointer text-xs font-semibold"
                 >
                   <UserPlus className="w-4 h-4" />
                   Đăng ký

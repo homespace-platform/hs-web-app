@@ -15,7 +15,6 @@ import {
   ChevronRight,
   ArrowRight,
   Heart,
-  Bookmark,
   Clock,
   Star,
   MessageCircle,
@@ -102,7 +101,7 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
 
       {/* Dropdown Menu Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2.5 w-80 bg-popover text-popover-foreground rounded-3xl shadow-2xl border border-border p-3.5 z-50 animate-in fade-in-50 zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto no-scrollbar">
+        <div className="absolute right-0 mt-2.5 w-[calc(100vw-32px)] sm:w-80 max-w-sm bg-popover text-popover-foreground rounded-3xl shadow-2xl border border-border p-3.5 z-50 animate-in fade-in-50 zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto no-scrollbar">
           {/* 1. Wallet Card ("SỐ DƯ VÍ") */}
           <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30 rounded-2xl p-3.5 mb-3">
             <div className="flex items-center justify-between mb-3">
@@ -211,9 +210,12 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
                 <MessageCircle className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 <span className="text-xs font-semibold">Tin nhắn & Trò chuyện</span>
               </div>
-              <span className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
-                3
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+                  3
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+              </div>
             </Link>
 
             {/* Tin đã lưu */}
@@ -234,18 +236,6 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
               </div>
             </Link>
 
-            {/* Tìm kiếm đã lưu */}
-            <Link
-              href="/#featured-listings"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
-            >
-              <div className="flex items-center gap-3">
-                <Bookmark className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="text-xs font-semibold">Tìm kiếm đã lưu</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-            </Link>
 
             {/* Lịch sử xem tin */}
             <Link

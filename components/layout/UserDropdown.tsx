@@ -226,7 +226,12 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
                 <Heart className="w-4 h-4 text-muted-foreground group-hover:text-rose-500 transition-colors" />
                 <span className="text-xs font-semibold">Tin đã lưu</span>
               </div>
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+              <div className="flex items-center gap-1.5">
+                <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold">
+                  24
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+              </div>
             </Link>
 
             {/* Tìm kiếm đã lưu */}
@@ -252,7 +257,12 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
                 <Clock className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 <span className="text-xs font-semibold">Lịch sử xem tin</span>
               </div>
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+              <div className="flex items-center gap-1.5">
+                <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                  40
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+              </div>
             </Link>
 
             {/* Đánh giá từ tôi */}

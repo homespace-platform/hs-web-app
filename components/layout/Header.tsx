@@ -262,13 +262,16 @@ export default function Header() {
                 </Link>
 
                 {/* Tin nhắn / Chat */}
-                <button
-                  type="button"
+                <Link
+                  href="/chat"
                   title="Tin nhắn"
-                  className="w-10 h-10 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
+                  className="relative w-10 h-10 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted transition-colors cursor-pointer"
                 >
                   <MessageCircle className="w-4 h-4" />
-                </button>
+                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center leading-none shadow-xs">
+                    3
+                  </span>
+                </Link>
 
                 {/* Thông báo với badge */}
                 <button
@@ -399,6 +402,19 @@ export default function Header() {
           </form>
 
           <nav className="flex flex-col space-y-1 pt-2">
+            <Link
+              href="/chat"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-foreground hover:bg-muted flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-primary" />
+                <span>Tin nhắn & Trò chuyện</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+                3
+              </span>
+            </Link>
             <Link
               href="/#featured-listings"
               onClick={() => setMobileMenuOpen(false)}

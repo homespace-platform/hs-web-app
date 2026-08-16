@@ -18,6 +18,7 @@ import {
   Bookmark,
   Clock,
   Star,
+  MessageCircle,
 } from "lucide-react";
 
 interface UserDropdownProps {
@@ -199,6 +200,21 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
             <div className="text-[11px] font-bold text-muted-foreground uppercase px-3 pt-1.5 pb-1 tracking-wider">
               Tiện ích
             </div>
+
+            {/* Tin nhắn & Trò chuyện */}
+            <Link
+              href="/chat"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <MessageCircle className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                <span className="text-xs font-semibold">Tin nhắn & Trò chuyện</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+                3
+              </span>
+            </Link>
 
             {/* Tin đã lưu */}
             <Link

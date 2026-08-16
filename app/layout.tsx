@@ -31,6 +31,11 @@ export const metadata: Metadata = {
     "PropTech",
     "Hợp đồng thông minh",
   ],
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon-16x16.png",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({

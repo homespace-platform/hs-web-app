@@ -25,11 +25,11 @@ export default function TechFeatures() {
             <div>
               {/* Icon & Title */}
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-accent-ai/10 text-accent-ai flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <FileCheck className="w-6 h-6 sm:w-7 sm:h-7" />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-accent-ai uppercase tracking-wider block">
+                  <span className="text-[11px] font-bold text-primary uppercase tracking-wider block">
                     Web3 Security
                   </span>
                   <h3 className="font-heading font-bold text-lg sm:text-xl text-card-foreground">
@@ -48,17 +48,17 @@ export default function TechFeatures() {
               {/* Checklist */}
               <ul className="space-y-3 mb-8">
                 <li className="flex items-start gap-3 text-xs sm:text-sm text-foreground font-medium">
-                  <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-accent-ai shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0 mt-0.5" />
                   <span>Ký kết 100% online bảo mật bằng chữ ký số định danh</span>
                 </li>
                 <li className="flex items-start gap-3 text-xs sm:text-sm text-foreground font-medium">
-                  <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-accent-ai shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0 mt-0.5" />
                   <span>Lưu trữ dữ liệu vĩnh viễn trên sổ cái, dễ dàng tra cứu</span>
                 </li>
               </ul>
             </div>
 
-            <div className="pt-4 border-t border-border flex items-center justify-between text-xs font-semibold text-accent-ai">
+            <div className="pt-4 border-t border-border flex items-center justify-between text-xs font-semibold text-primary">
               <span className="flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5" /> Chuẩn mã hóa an toàn cao
               </span>

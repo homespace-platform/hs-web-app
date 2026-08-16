@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { Heart, MapPin, Bed, Bath, Square, ShieldCheck, Clock } from "lucide-react";
+import { Heart, MapPin, Image as ImageIcon } from "lucide-react";
 import { PropertyItem } from "@/data/home-data";
 
 interface PropertyCardProps {
@@ -14,9 +13,9 @@ export default function PropertyCard({ property }: PropertyCardProps) {
   const [isFavorited, setIsFavorited] = useState(false);
 
   return (
-    <div className="group bg-card text-card-foreground rounded-2xl overflow-hidden border border-border shadow-sm hover:shadow-xl hover:border-primary/40 transition-all duration-300 flex flex-col h-full">
-      {/* Image & Favorite Button Container */}
-      <div className="relative h-52 w-full overflow-hidden bg-muted">
+    <div className="group bg-transparent rounded-2xl transition-all duration-200 flex flex-col h-full">
+      {/* 1. Image Container */}
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-muted shadow-xs">
         <img
           src={property.imageUrl}
           alt={property.title}
@@ -24,87 +23,67 @@ export default function PropertyCard({ property }: PropertyCardProps) {
           loading="lazy"
         />
 
-        {/* Gradient overlay for better badge readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20 pointer-events-none" />
-
-        {/* Verified Status Tag on Image */}
-        <div className="absolute top-3 left-3 z-10">
-          {property.isVerified ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-verified/95 backdrop-blur-md text-white text-[11px] font-bold uppercase tracking-wider shadow-sm">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Verified On-Chain
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md text-slate-200 text-[11px] font-semibold tracking-wider">
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
-              {property.statusText || "Đang xác thực"}
-            </span>
-          )}
-        </div>
-
-        {/* Favorite Button */}
+        {/* Favorite Heart Button at Top-Right */}
         <button
           type="button"
           onClick={(e) => {
             e.preventDefault();
             setIsFavorited(!isFavorited);
           }}
-          className={`absolute top-3 right-3 z-10 p-2 rounded-full backdrop-blur-md transition-all cursor-pointer ${
-            isFavorited
-              ? "bg-rose-500 text-white shadow-md shadow-rose-500/30 scale-110"
-              : "bg-background/80 text-foreground hover:text-rose-500 hover:bg-background"
-          }`}
+          className="absolute top-2.5 right-2.5 z-10 p-1.5 rounded-full transition-transform hover:scale-110 cursor-pointer"
           aria-label="Yêu thích"
         >
           <Heart
-            className={`w-4 h-4 transition-transform ${
-              isFavorited ? "fill-current" : ""
+            className={`w-5 h-5 drop-shadow-md transition-colors ${
+              isFavorited
+                ? "fill-rose-500 text-rose-500 stroke-rose-500"
+                : "text-white fill-black/20 stroke-white stroke-[2.2]"
             }`}
           />
         </button>
+
+        {/* Bottom Dark Gradient Info Bar (Time Ago & Photos Count) */}
+        <div className="absolute bottom-0 left-0 right-0 px-3 py-1.5 bg-gradient-to-t from-black/85 via-black/45 to-transparent flex items-center justify-between text-white text-[11px] font-semibold select-none pointer-events-none">
+          <span>{property.timeAgo || "43 giây trước"}</span>
+          <div className="flex items-center gap-1">
+            <span>{property.photosCount || 12}</span>
+            <ImageIcon className="w-3.5 h-3.5" />
+          </div>
+        </div>
       </div>
 
-      {/* Property Details */}
-      <div className="p-4 sm:p-5 flex flex-col flex-grow justify-between">
+      {/* 2. Property Information Details */}
+      <div className="pt-2.5 pb-1 flex flex-col flex-grow justify-between">
         <div>
-          {/* Title */}
+          {/* Uppercase Title (2-line clamp) */}
           <Link href={`#property-${property.id}`}>
-            <h3 className="font-heading font-bold text-base sm:text-lg text-card-foreground group-hover:text-primary transition-colors line-clamp-1 mb-1.5">
+            <h3 className="font-heading font-bold text-sm sm:text-[15px] text-slate-800 dark:text-slate-100 uppercase line-clamp-2 leading-snug tracking-tight hover:text-primary transition-colors">
               {property.title}
             </h3>
           </Link>
 
-          {/* Location */}
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4 line-clamp-1">
-            <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-            <span>{property.location}</span>
-          </p>
+          {/* Bedrooms & Category Specs */}
+          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1 flex items-center gap-2">
+            {property.beds > 0 && <span>{property.beds} PN</span>}
+            <span>{property.propertyTypeLabel || "Chung cư"}</span>
+          </div>
         </div>
 
-        {/* Specs & Pricing */}
-        <div className="border-t border-border pt-3.5 mt-auto flex items-center justify-between">
-          <div>
-            <span className="text-base sm:text-lg font-extrabold text-primary">
-              {property.priceMillion}{" "}
+        <div>
+          {/* Price & Area Row */}
+          <div className="mt-1.5 flex items-baseline gap-2.5">
+            <span className="text-[#EF4444] dark:text-[#F87171] font-bold text-base sm:text-lg tracking-tight">
+              {property.priceMillion} triệu/tháng
             </span>
-            <span className="text-xs text-muted-foreground font-medium">
-              triệu/tháng
+            <span className="text-slate-700 dark:text-slate-300 font-medium text-xs sm:text-sm">
+              {property.areaM2} m²
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-muted-foreground font-medium">
-            <span className="flex items-center gap-1" title="Phòng ngủ">
-              <Bed className="w-3.5 h-3.5 text-muted-foreground/70" />
-              {property.beds}
-            </span>
-            <span className="flex items-center gap-1" title="Phòng tắm">
-              <Bath className="w-3.5 h-3.5 text-muted-foreground/70" />
-              {property.baths}
-            </span>
-            <span className="flex items-center gap-1" title="Diện tích">
-              <Square className="w-3.5 h-3.5 text-muted-foreground/70" />
-              {property.areaM2}m²
-            </span>
+          {/* City / Location */}
+          <div className="mt-1 flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 font-medium">
+            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <span>{property.city || property.location}</span>
           </div>
         </div>
       </div>

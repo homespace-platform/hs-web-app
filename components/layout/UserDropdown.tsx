@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowRight,
+  Heart,
 } from "lucide-react";
 
 interface UserDropdownProps {
@@ -43,10 +44,10 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
     };
   }, [isOpen]);
 
-  const displayName = profileName || email?.split("@")[0] || "Tài khoản";
+  const displayName = profileName || email?.split("@")[0] || "Người dùng";
   const initialLetter = displayName.charAt(0).toUpperCase() || "U";
 
-  // Mock wallet data (before API integration)
+  // Mock wallet data
   const walletData = {
     available: "0 đ",
     holding: "0 đ",
@@ -58,10 +59,10 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full border transition-all cursor-pointer ${
+        className={`h-10 flex items-center gap-2 pl-1 pr-3.5 rounded-full border transition-all cursor-pointer ${
           isOpen
             ? "border-slate-800 bg-slate-100/80 dark:bg-slate-800 dark:border-slate-600 shadow-sm"
-            : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+            : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
         }`}
       >
         {/* Avatar with status indicator */}
@@ -82,7 +83,7 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
         </div>
 
         {/* Username */}
-        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[110px] truncate">
+        <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 max-w-[120px] truncate">
           {displayName}
         </span>
 
@@ -148,6 +149,16 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
               <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold leading-none">
                 Mới
               </span>
+            </Link>
+
+            {/* Tin đăng đã lưu / Yêu thích */}
+            <Link
+              href="/#featured-listings"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors group"
+            >
+              <Heart className="w-4 h-4 text-slate-500 group-hover:text-rose-600 transition-colors" />
+              <span className="text-xs font-semibold">Tin đăng yêu thích</span>
             </Link>
 
             {/* Quản lý khách hàng */}

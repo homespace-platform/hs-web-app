@@ -16,6 +16,7 @@ import {
   Bell,
   MessageCircle,
   LayoutGrid,
+  Heart,
 } from "lucide-react";
 
 export default function Header() {
@@ -33,7 +34,7 @@ export default function Header() {
               className="flex items-center group focus:outline-none"
             >
               <Image
-                src="/homespace-horizontal-logo-removebg.png"
+                src="/homespace-horizontal-logo-crop-removebg.png"
                 alt="HomeSpace Logo"
                 width={180}
                 height={46}
@@ -49,97 +50,122 @@ export default function Header() {
               >
                 Nhà cho thuê
               </Link>
+              <Link
+                href="/#featured-listings"
+                className="text-sm font-semibold text-slate-700 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 transition-colors"
+              >
+                Tin tức
+              </Link>
             </nav>
           </div>
 
           {/* Right Action Buttons */}
           <div className="hidden md:flex items-center gap-3">
             {authenticated ? (
-              /* Authenticated User Header Actions */
+              /* State 1: Authenticated User */
               <div className="flex items-center gap-2.5">
-                {/* 1. Chat Icon */}
+                {/* Yêu thích */}
+                <Link
+                  href="/#featured-listings"
+                  title="Danh sách yêu thích"
+                  className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <Heart className="w-4 h-4" />
+                </Link>
+
+                {/* Tin nhắn / Chat */}
                 <button
                   type="button"
                   title="Tin nhắn"
-                  className="w-9 h-9 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <MessageCircle className="w-4 h-4" />
                 </button>
 
-                {/* 2. Notification Bell with Badge */}
+                {/* Thông báo với badge */}
                 <button
                   type="button"
                   title="Thông báo"
-                  className="relative w-9 h-9 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="relative w-10 h-10 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <Bell className="w-4 h-4" />
-                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center leading-none shadow-xs">
                     6
                   </span>
                 </button>
 
-                {/* 3. Quản lý tin button */}
+                {/* Quản lý tin */}
                 <Link href="/profile#listings">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 px-3.5 rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium gap-1.5"
+                  <button
+                    type="button"
+                    className="h-10 px-4 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
                   >
                     <LayoutGrid className="w-4 h-4 text-slate-500" />
                     <span>Quản lý tin</span>
-                  </Button>
+                  </button>
                 </Link>
 
-                {/* 4. Đăng tin button */}
+                {/* Đăng tin */}
                 <Link href="#landlord-cta">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 px-4 rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
+                  <button
+                    type="button"
+                    className="h-10 px-4 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium transition-colors cursor-pointer"
                   >
                     Đăng tin
-                  </Button>
+                  </button>
                 </Link>
 
-                {/* 5. User Dropdown Menu Component */}
+                {/* User Dropdown */}
                 <UserDropdown />
               </div>
             ) : (
-              /* Guest / Unauthenticated Header Actions */
-              <div className="flex items-center gap-4">
+              /* State 2: Guest / Unauthenticated */
+              <div className="flex items-center gap-3">
+                {/* Yêu thích */}
+                <Link
+                  href="/#featured-listings"
+                  title="Danh sách yêu thích"
+                  className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <Heart className="w-4 h-4" />
+                </Link>
+
+                {/* Tải ứng dụng */}
                 <Link
                   href="#download-app"
-                  className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 dark:text-slate-400 transition-colors px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="h-10 flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-blue-600 dark:text-slate-400 transition-colors px-3.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   <Smartphone className="w-4 h-4 text-cyan-600" />
                   <span>Tải ứng dụng</span>
                 </Link>
 
+                {/* Đăng tin (Blue Pill Button) */}
                 <Link href="#landlord-cta">
                   <Button
-                    size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm hover:shadow-md transition-all gap-1.5 px-4 h-9 rounded-lg"
+                    className="h-10 px-5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm hover:shadow-md transition-all gap-1.5"
                   >
                     <PlusCircle className="w-4 h-4" />
                     <span>Đăng tin</span>
                   </Button>
                 </Link>
 
+                {/* Divider */}
                 <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
 
-                <div className="flex items-center gap-2 text-xs font-semibold">
+                {/* Login / Register */}
+                <div className="flex items-center gap-1.5 text-sm font-semibold">
                   <button
                     type="button"
                     onClick={() => login()}
-                    className="text-slate-700 hover:text-blue-600 dark:text-slate-300 transition-colors px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    className="text-slate-700 hover:text-blue-600 dark:text-slate-300 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                   >
                     Đăng nhập
                   </button>
-                  <span className="text-slate-300 dark:text-slate-600">|</span>
+                  <span className="text-slate-300 dark:text-slate-600 font-light">|</span>
                   <button
                     type="button"
                     onClick={() => register()}
-                    className="text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors px-2 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 cursor-pointer"
+                    className="text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 cursor-pointer"
                   >
                     Đăng ký
                   </button>
@@ -174,9 +200,17 @@ export default function Header() {
             <Link
               href="/#featured-listings"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800"
+              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 flex items-center justify-between"
             >
-              Nhà đất cho thuê
+              <span>Nhà cho thuê</span>
+            </Link>
+            <Link
+              href="/#featured-listings"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 flex items-center gap-2"
+            >
+              <Heart className="w-4 h-4 text-rose-500" />
+              <span>Danh sách yêu thích</span>
             </Link>
             <Link
               href="/#tech-features"
@@ -207,7 +241,7 @@ export default function Header() {
               onClick={() => setMobileMenuOpen(false)}
               className="w-full"
             >
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold justify-center gap-2">
+              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold justify-center gap-2 rounded-full h-10">
                 <PlusCircle className="w-4 h-4" />
                 Đăng tin cho thuê
               </Button>
@@ -221,7 +255,7 @@ export default function Header() {
                     setMobileMenuOpen(false);
                     login();
                   }}
-                  className="flex-1 justify-center gap-1.5 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  className="flex-1 justify-center gap-1.5 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full h-10"
                 >
                   <LogIn className="w-4 h-4" />
                   Đăng nhập
@@ -231,7 +265,7 @@ export default function Header() {
                     setMobileMenuOpen(false);
                     register();
                   }}
-                  className="flex-1 justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+                  className="flex-1 justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full h-10"
                 >
                   <UserPlus className="w-4 h-4" />
                   Đăng ký

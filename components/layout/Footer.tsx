@@ -27,9 +27,9 @@ export default function Footer() {
           {/* Brand Column */}
           <div className="flex flex-col gap-5">
             <Link href="/" className="flex items-center self-start group">
-              <div className="bg-white/95 rounded-xl p-1.5 shadow-md group-hover:scale-105 transition-transform duration-200">
+              <div className="rounded-xl p-1.5 shadow-md group-hover:scale-105 transition-transform duration-200">
                 <Image
-                  src="/homespace-horizontal-logo-removebg.png"
+                  src="/homespace-horizontal-logo-crop-removebg.png"
                   alt="HomeSpace Logo"
                   width={160}
                   height={42}

@@ -2,21 +2,11 @@ import { FileCheck, Sparkles, CheckCircle2, Shield, Brain, Lock, ArrowUpRight } 
 
 export default function TechFeatures() {
   return (
-    <section id="tech-features" className="py-20 md:py-28 bg-[#F1F5F9]/60 dark:bg-slate-900/50 border-y border-slate-200/80 dark:border-slate-800 relative overflow-hidden">
-      {/* Background Accent Gradients */}
-      <div
-        className="absolute -top-24 left-1/4 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"
-        aria-hidden="true"
-      />
-      <div
-        className="absolute -bottom-24 right-1/4 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"
-        aria-hidden="true"
-      />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+    <section id="tech-features" className="py-20 md:py-28 bg-[#F1F5F9]/70 dark:bg-[#0F172A] border-y border-slate-200 dark:border-slate-800 transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-16 md:mb-20">
-          <span className="inline-block text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-3 font-heading">
+          <span className="inline-block text-xs font-bold uppercase tracking-widest text-[#2563EB] dark:text-[#3B82F6] mb-3 font-heading">
             Công Nghệ Tiên Phong
           </span>
           <h2 className="font-heading font-black text-3xl sm:text-4xl text-slate-900 dark:text-white tracking-tight mb-4">
@@ -31,15 +21,15 @@ export default function TechFeatures() {
         {/* Feature Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
           {/* Card 1: Blockchain Smart Contracts */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 sm:p-10 border border-slate-200/90 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-cyan-500/30 transition-all duration-300 flex flex-col justify-between group">
+          <div className="bg-white dark:bg-[#162032] rounded-3xl p-8 sm:p-10 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between group">
             <div>
               {/* Icon & Title */}
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 dark:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform duration-300 shadow-inner">
-                  <FileCheck className="w-8 h-8" />
+                <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 dark:bg-cyan-500/20 text-[#06B6D4] flex items-center justify-center shrink-0">
+                  <FileCheck className="w-7 h-7" />
                 </div>
                 <div>
-                  <span className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider">
+                  <span className="text-xs font-semibold text-[#06B6D4] uppercase tracking-wider">
                     Web3 Security
                   </span>
                   <h3 className="font-heading font-bold text-xl sm:text-2xl text-slate-900 dark:text-white">
@@ -58,40 +48,40 @@ export default function TechFeatures() {
               {/* Checklist */}
               <ul className="space-y-3.5 mb-8">
                 <li className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200">
-                  <CheckCircle2 className="w-5 h-5 text-cyan-500 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-5 h-5 text-[#06B6D4] shrink-0 mt-0.5" />
                   <span>Ký kết 100% online bảo mật bằng chữ ký số định danh</span>
                 </li>
                 <li className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200">
-                  <CheckCircle2 className="w-5 h-5 text-cyan-500 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-5 h-5 text-[#06B6D4] shrink-0 mt-0.5" />
                   <span>Thanh toán và giữ cọc tự động qua Ví Escrow an toàn</span>
                 </li>
                 <li className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200">
-                  <CheckCircle2 className="w-5 h-5 text-cyan-500 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-5 h-5 text-[#06B6D4] shrink-0 mt-0.5" />
                   <span>Lưu trữ dữ liệu vĩnh viễn trên sổ cái, dễ dàng tra cứu</span>
                 </li>
               </ul>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-cyan-600 dark:text-cyan-400">
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs font-semibold text-[#06B6D4]">
               <span className="flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5" /> Chuẩn mã hóa cấp ngân hàng
+                <Lock className="w-3.5 h-3.5" /> Chuẩn mã hóa an toàn cao
               </span>
-              <span className="group-hover:translate-x-1 transition-transform flex items-center gap-0.5">
+              <span className="group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
                 Chi tiết <ArrowUpRight className="w-3.5 h-3.5" />
               </span>
             </div>
           </div>
 
           {/* Card 2: AI Search & Price Valuation */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 sm:p-10 border border-slate-200/90 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-blue-500/30 transition-all duration-300 flex flex-col justify-between group">
+          <div className="bg-white dark:bg-[#162032] rounded-3xl p-8 sm:p-10 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between group">
             <div>
               {/* Icon & Title */}
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 rounded-2xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform duration-300 shadow-inner">
-                  <Brain className="w-8 h-8" />
+                <div className="w-14 h-14 rounded-2xl bg-blue-500/10 dark:bg-blue-500/20 text-[#2563EB] dark:text-[#3B82F6] flex items-center justify-center shrink-0">
+                  <Brain className="w-7 h-7" />
                 </div>
                 <div>
-                  <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                  <span className="text-xs font-semibold text-[#2563EB] dark:text-[#3B82F6] uppercase tracking-wider">
                     Smart AI Match
                   </span>
                   <h3 className="font-heading font-bold text-xl sm:text-2xl text-slate-900 dark:text-white">
@@ -110,25 +100,25 @@ export default function TechFeatures() {
               {/* Checklist */}
               <ul className="space-y-3.5 mb-8">
                 <li className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200">
-                  <CheckCircle2 className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-5 h-5 text-[#2563EB] dark:text-[#3B82F6] shrink-0 mt-0.5" />
                   <span>Xử lý ngôn ngữ tự nhiên tiếng Việt chính xác và linh hoạt</span>
                 </li>
                 <li className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200">
-                  <CheckCircle2 className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-5 h-5 text-[#2563EB] dark:text-[#3B82F6] shrink-0 mt-0.5" />
                   <span>Mô hình định giá AI theo thời gian thực giúp tránh thuê hớ</span>
                 </li>
                 <li className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200">
-                  <CheckCircle2 className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-5 h-5 text-[#2563EB] dark:text-[#3B82F6] shrink-0 mt-0.5" />
                   <span>Đề xuất khu vực và loại phòng tối ưu hóa theo ngân sách</span>
                 </li>
               </ul>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-blue-600 dark:text-blue-400">
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs font-semibold text-[#2563EB] dark:text-[#3B82F6]">
               <span className="flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" /> Mô hình dữ liệu cập nhật liên tục
               </span>
-              <span className="group-hover:translate-x-1 transition-transform flex items-center gap-0.5">
+              <span className="group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
                 Trải nghiệm <ArrowUpRight className="w-3.5 h-3.5" />
               </span>
             </div>

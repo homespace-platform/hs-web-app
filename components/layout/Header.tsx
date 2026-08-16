@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import UserDropdown from "./UserDropdown";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 import {
   Menu,
   X,
@@ -24,7 +25,7 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="fixed top-0 left-0 right-0 w-full z-50 bg-[#F8FAFC]/90 dark:bg-[#090D16]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
+    <header className="fixed top-0 left-0 right-0 w-full z-50 bg-[#F8FAFC]/90 dark:bg-[#0B1120]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
           {/* Left: Logo & Navigation Links */}
@@ -46,13 +47,13 @@ export default function Header() {
             <nav className="hidden md:flex items-center gap-7">
               <Link
                 href="/#featured-listings"
-                className="text-sm font-semibold text-slate-700 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 transition-colors"
+                className="text-sm font-semibold text-slate-700 hover:text-[#2563EB] dark:text-slate-300 dark:hover:text-[#06B6D4] transition-colors"
               >
                 Nhà cho thuê
               </Link>
               <Link
                 href="/#featured-listings"
-                className="text-sm font-semibold text-slate-700 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 transition-colors"
+                className="text-sm font-semibold text-slate-700 hover:text-[#2563EB] dark:text-slate-300 dark:hover:text-[#06B6D4] transition-colors"
               >
                 Tin tức
               </Link>
@@ -60,7 +61,10 @@ export default function Header() {
           </div>
 
           {/* Right Action Buttons */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2.5">
+            {/* Theme Mode Switcher */}
+            <ThemeToggle />
+
             {authenticated ? (
               /* State 1: Authenticated User (Đã đăng nhập) */
               <div className="flex items-center gap-2.5">
@@ -68,7 +72,7 @@ export default function Header() {
                 <Link
                   href="/#featured-listings"
                   title="Danh sách yêu thích"
-                  className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <Heart className="w-4 h-4" />
                 </Link>
@@ -77,7 +81,7 @@ export default function Header() {
                 <button
                   type="button"
                   title="Tin nhắn"
-                  className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <MessageCircle className="w-4 h-4" />
                 </button>
@@ -86,7 +90,7 @@ export default function Header() {
                 <button
                   type="button"
                   title="Thông báo"
-                  className="relative w-10 h-10 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="relative w-10 h-10 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <Bell className="w-4 h-4" />
                   <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center leading-none shadow-xs">
@@ -98,7 +102,7 @@ export default function Header() {
                 <Link href="/profile#listings">
                   <button
                     type="button"
-                    className="h-10 px-4 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
+                    className="h-10 px-4 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
                   >
                     <LayoutGrid className="w-4 h-4 text-slate-500" />
                     <span>Quản lý tin</span>
@@ -109,7 +113,7 @@ export default function Header() {
                 <Link href="#landlord-cta">
                   <button
                     type="button"
-                    className="h-10 px-4 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium transition-colors cursor-pointer"
+                    className="h-10 px-4 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium transition-colors cursor-pointer"
                   >
                     Đăng tin
                   </button>
@@ -125,7 +129,7 @@ export default function Header() {
                 <Link
                   href="/#featured-listings"
                   title="Danh sách yêu thích"
-                  className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <Heart className="w-4 h-4" />
                 </Link>
@@ -133,21 +137,21 @@ export default function Header() {
                 {/* Tải ứng dụng */}
                 <Link
                   href="#download-app"
-                  className="h-10 flex items-center gap-1.5 text-sm font-medium text-slate-700 hover:text-blue-600 dark:text-slate-300 transition-colors px-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="h-10 flex items-center gap-1.5 text-sm font-medium text-slate-700 hover:text-[#2563EB] dark:text-slate-300 dark:hover:text-[#06B6D4] transition-colors px-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
-                  <Smartphone className="w-4 h-4 text-cyan-600" />
+                  <Smartphone className="w-4 h-4 text-[#06B6D4]" />
                   <span>Tải ứng dụng</span>
                 </Link>
 
                 {/* Divider */}
-                <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
+                <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
 
                 {/* Login / Register */}
                 <div className="flex items-center gap-1.5 text-sm font-semibold">
                   <button
                     type="button"
                     onClick={() => login()}
-                    className="text-slate-700 hover:text-blue-600 dark:text-slate-300 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    className="text-slate-700 hover:text-[#2563EB] dark:text-slate-300 dark:hover:text-[#06B6D4] transition-colors px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                   >
                     Đăng nhập
                   </button>
@@ -155,7 +159,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => register()}
-                    className="text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 cursor-pointer"
+                    className="text-[#2563EB] hover:underline dark:text-[#3B82F6] transition-colors px-2.5 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 cursor-pointer"
                   >
                     Đăng ký
                   </button>
@@ -164,8 +168,9 @@ export default function Header() {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile Menu Button & Theme Switcher */}
           <div className="md:hidden flex items-center gap-2">
+            <ThemeToggle />
             {authenticated && <UserDropdown />}
             <button
               type="button"
@@ -185,7 +190,7 @@ export default function Header() {
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-[#0F172A]/95 backdrop-blur-xl px-4 pt-2 pb-6 space-y-3 animate-in slide-in-from-top-2 duration-200">
+        <div className="md:hidden border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-[#0B1120]/95 backdrop-blur-xl px-4 pt-2 pb-6 space-y-3 animate-in slide-in-from-top-2 duration-200">
           <nav className="flex flex-col space-y-1">
             <Link
               href="/#featured-listings"
@@ -218,7 +223,7 @@ export default function Header() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="w-full"
               >
-                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold justify-center gap-2 rounded-full h-10">
+                <Button className="w-full bg-[#2563EB] hover:bg-blue-700 text-white font-semibold justify-center gap-2 rounded-full h-10">
                   <PlusCircle className="w-4 h-4" />
                   Đăng tin cho thuê
                 </Button>
@@ -241,7 +246,7 @@ export default function Header() {
                     setMobileMenuOpen(false);
                     register();
                   }}
-                  className="flex-1 justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full h-10"
+                  className="flex-1 justify-center gap-1.5 bg-[#2563EB] hover:bg-blue-700 text-white rounded-full h-10"
                 >
                   <UserPlus className="w-4 h-4" />
                   Đăng ký

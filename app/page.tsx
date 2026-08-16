@@ -1,4 +1,4 @@
-import Navbar from "@/components/layout/Navbar";
+import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import HeroSection from "@/components/home/HeroSection";
 import FeaturedProperties from "@/components/home/FeaturedProperties";
@@ -10,8 +10,8 @@ import LandlordCta from "@/components/home/LandlordCta";
 export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFC] dark:bg-[#090D16] text-[#0F172A] dark:text-[#F8FAFC]">
-      {/* Top Sticky Navigation Bar */}
-      <Navbar />
+      {/* Top Sticky Header */}
+      <Header />
 
       {/* Main Content Area */}
       <main className="flex-grow pt-20">

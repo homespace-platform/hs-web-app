@@ -13,15 +13,14 @@ import {
   LogIn,
   LogOut,
   User as UserIcon,
-  ShieldCheck,
 } from "lucide-react";
 
-export default function Navbar() {
+export default function Header() {
   const { authenticated, profileName, login, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 w-full z-50 bg-[#F8FAFC]/90 dark:bg-[#090D16]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
+    <header className="fixed top-0 left-0 right-0 w-full z-50 bg-[#F8FAFC]/90 dark:bg-[#090D16]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
           {/* Logo & Navigation Links */}
@@ -43,7 +42,7 @@ export default function Navbar() {
               </div>
             </Link>
 
-            <div className="hidden md:flex items-center gap-7">
+            <nav className="hidden md:flex items-center gap-7">
               <Link
                 href="/#featured-listings"
                 className="text-sm font-semibold text-slate-700 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 transition-colors"
@@ -68,7 +67,7 @@ export default function Navbar() {
               >
                 Bản đồ vị trí
               </Link>
-            </div>
+            </nav>
           </div>
 
           {/* Right Action Buttons */}
@@ -106,6 +105,7 @@ export default function Navbar() {
                   </span>
                 </Link>
                 <button
+                  type="button"
                   onClick={() => logout()}
                   title="Đăng xuất"
                   className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
@@ -116,15 +116,17 @@ export default function Navbar() {
             ) : (
               <div className="flex items-center gap-2 text-xs font-semibold">
                 <button
+                  type="button"
                   onClick={() => login()}
-                  className="text-slate-700 hover:text-blue-600 dark:text-slate-300 transition-colors px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="text-slate-700 hover:text-blue-600 dark:text-slate-300 transition-colors px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                 >
                   Đăng nhập
                 </button>
                 <span className="text-slate-300 dark:text-slate-600">|</span>
                 <button
+                  type="button"
                   onClick={() => login()}
-                  className="text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors px-2 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800"
+                  className="text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors px-2 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 cursor-pointer"
                 >
                   Đăng ký
                 </button>
@@ -135,6 +137,7 @@ export default function Navbar() {
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center gap-2">
             <button
+              type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 rounded-lg text-slate-700 hover:text-blue-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
               aria-label="Toggle menu"
@@ -206,6 +209,7 @@ export default function Navbar() {
                   <span>{profileName || "Trang cá nhân"}</span>
                 </Link>
                 <button
+                  type="button"
                   onClick={() => {
                     setMobileMenuOpen(false);
                     logout();
@@ -222,15 +226,15 @@ export default function Navbar() {
                   setMobileMenuOpen(false);
                   login();
                 }}
-                className="w-full justify-center gap-2"
+                className="w-full justify-center gap-2 text-blue-600 border-blue-200 hover:bg-blue-50"
               >
                 <LogIn className="w-4 h-4" />
-                Đăng nhập / Đăng ký
+                Đăng nhập qua Keycloak SSO
               </Button>
             )}
           </div>
         </div>
       )}
-    </nav>
+    </header>
   );
 }

@@ -62,7 +62,7 @@ export default function Header() {
           {/* Right Action Buttons */}
           <div className="hidden md:flex items-center gap-3">
             {authenticated ? (
-              /* State 1: Authenticated User */
+              /* State 1: Authenticated User (Đã đăng nhập) */
               <div className="flex items-center gap-2.5">
                 {/* Yêu thích */}
                 <Link
@@ -119,7 +119,7 @@ export default function Header() {
                 <UserDropdown />
               </div>
             ) : (
-              /* State 2: Guest / Unauthenticated */
+              /* State 2: Guest / Unauthenticated (Chưa đăng nhập) - KHÔNG hiện Đăng tin */
               <div className="flex items-center gap-3">
                 {/* Yêu thích */}
                 <Link
@@ -133,20 +133,10 @@ export default function Header() {
                 {/* Tải ứng dụng */}
                 <Link
                   href="#download-app"
-                  className="h-10 flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-blue-600 dark:text-slate-400 transition-colors px-3.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="h-10 flex items-center gap-1.5 text-sm font-medium text-slate-700 hover:text-blue-600 dark:text-slate-300 transition-colors px-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   <Smartphone className="w-4 h-4 text-cyan-600" />
                   <span>Tải ứng dụng</span>
-                </Link>
-
-                {/* Đăng tin (Blue Pill Button) */}
-                <Link href="#landlord-cta">
-                  <Button
-                    className="h-10 px-5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm hover:shadow-md transition-all gap-1.5"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Đăng tin</span>
-                  </Button>
                 </Link>
 
                 {/* Divider */}
@@ -200,9 +190,16 @@ export default function Header() {
             <Link
               href="/#featured-listings"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 flex items-center justify-between"
+              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800"
             >
-              <span>Nhà cho thuê</span>
+              Nhà cho thuê
+            </Link>
+            <Link
+              href="/#featured-listings"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800"
+            >
+              Tin tức
             </Link>
             <Link
               href="/#featured-listings"
@@ -212,42 +209,21 @@ export default function Header() {
               <Heart className="w-4 h-4 text-rose-500" />
               <span>Danh sách yêu thích</span>
             </Link>
-            <Link
-              href="/#tech-features"
-              onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800"
-            >
-              Công nghệ & AI
-            </Link>
-            <Link
-              href="/#popular-locations"
-              onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800"
-            >
-              Khu vực nổi bật
-            </Link>
-            <Link
-              href="/#location-map"
-              onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800"
-            >
-              Khám phá bản đồ
-            </Link>
           </nav>
 
           <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2.5">
-            <Link
-              href="#landlord-cta"
-              onClick={() => setMobileMenuOpen(false)}
-              className="w-full"
-            >
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold justify-center gap-2 rounded-full h-10">
-                <PlusCircle className="w-4 h-4" />
-                Đăng tin cho thuê
-              </Button>
-            </Link>
-
-            {!authenticated && (
+            {authenticated ? (
+              <Link
+                href="#landlord-cta"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full"
+              >
+                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold justify-center gap-2 rounded-full h-10">
+                  <PlusCircle className="w-4 h-4" />
+                  Đăng tin cho thuê
+                </Button>
+              </Link>
+            ) : (
               <div className="flex gap-2 w-full pt-1">
                 <Button
                   variant="outline"

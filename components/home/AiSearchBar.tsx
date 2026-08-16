@@ -94,11 +94,10 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
                       setLocation(loc.name);
                       setIsLocationOpen(false);
                     }}
-                    className={`w-full text-left px-4 py-2 text-sm font-medium transition-colors ${
-                      location === loc.name
+                    className={`w-full text-left px-4 py-2 text-sm font-medium transition-colors ${location === loc.name
                         ? "bg-blue-50 text-blue-600 dark:bg-slate-800 dark:text-blue-400 font-semibold"
                         : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                    }`}
+                      }`}
                   >
                     {loc.name}
                   </button>
@@ -139,11 +138,10 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
                       setPropertyType(type.value);
                       setIsTypeOpen(false);
                     }}
-                    className={`w-full text-left px-4 py-2 text-sm font-medium transition-colors ${
-                      propertyType === type.value
+                    className={`w-full text-left px-4 py-2 text-sm font-medium transition-colors ${propertyType === type.value
                         ? "bg-blue-50 text-blue-600 dark:bg-slate-800 dark:text-blue-400 font-semibold"
                         : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                    }`}
+                      }`}
                   >
                     {type.label}
                   </button>
@@ -158,7 +156,7 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-7 py-3 h-auto rounded-xl shadow-md shadow-blue-600/20 hover:shadow-lg transition-all shrink-0 flex items-center justify-center gap-2"
           >
             <Sparkles className="w-4 h-4 text-cyan-200 animate-pulse" />
-            <span>Tìm kiếm</span>
+            <span>Tìm kiếm nhanh</span>
           </Button>
         </form>
       </div>

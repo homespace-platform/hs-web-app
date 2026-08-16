@@ -31,14 +31,15 @@ export const provinceService = {
     provincesPromise = (async () => {
       try {
         const response = await axios.get<Province[]>(`${PROVINCES_API_URL}/p/`, {
-          timeout: 5000,
+          timeout: 2000,
         });
         if (response.data && response.data.length > 0) {
           cachedProvinces = response.data;
           return response.data;
         }
       } catch (error) {
-        console.warn("API v1 fallback to administrative dataset:", error);
+        // Fallback tức thì sang bộ dữ liệu 63 tỉnh thành cục bộ nếu mạng ngoài chậm/lỗi
+        console.info("Using local dataset for 63 Vietnam provinces");
       }
       cachedProvinces = VIETNAM_63_PROVINCES;
       return VIETNAM_63_PROVINCES;
@@ -59,17 +60,14 @@ export const provinceService = {
     try {
       const response = await axios.get(
         `${PROVINCES_API_URL}/p/${provinceCode}?depth=2`,
-        { timeout: 5000 }
+        { timeout: 2000 }
       );
       if (response.data?.districts && response.data.districts.length > 0) {
         cachedDistricts[provinceCode] = response.data.districts;
         return response.data.districts;
       }
     } catch (error) {
-      console.warn(
-        `API v1 fallback to districts dataset for province ${provinceCode}:`,
-        error
-      );
+      // Fallback tức thì sang danh sách quận/huyện cục bộ tương ứng
     }
 
     const fallback = VIETNAM_DISTRICTS_MAP[provinceCode] || [];

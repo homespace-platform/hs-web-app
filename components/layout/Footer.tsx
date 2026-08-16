@@ -24,6 +24,7 @@ export default function Footer() {
                   width={140}
                   height={140}
                   unoptimized
+                  style={{ width: "auto" }}
                   className="h-16 sm:h-20 w-auto object-contain brightness-0 invert"
                 />
               </div>

@@ -19,6 +19,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
               width={160}
               height={130}
               priority
+              style={{ width: "auto", height: "auto" }}
               className="object-contain drop-shadow-md animate-pulse"
             />
           </div>

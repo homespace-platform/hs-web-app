@@ -254,7 +254,7 @@ export default function Header() {
               <div className="flex items-center gap-2.5">
                 {/* Yêu thích */}
                 <Link
-                  href="/#featured-listings"
+                  href="/favorites"
                   title="Danh sách yêu thích"
                   className="w-10 h-10 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50/50 dark:hover:bg-muted transition-colors cursor-pointer"
                 >
@@ -304,7 +304,7 @@ export default function Header() {
               <div className="flex items-center gap-3">
                 {/* Yêu thích */}
                 <Link
-                  href="/#featured-listings"
+                  href="/favorites"
                   title="Danh sách yêu thích"
                   className="w-10 h-10 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50/50 dark:hover:bg-muted transition-colors cursor-pointer"
                 >
@@ -416,7 +416,7 @@ export default function Header() {
               </span>
             </Link>
             <Link
-              href="/#featured-listings"
+              href="/favorites"
               onClick={() => setMobileMenuOpen(false)}
               className="px-3 py-2.5 rounded-lg text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-2"
             >

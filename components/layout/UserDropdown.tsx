@@ -244,7 +244,7 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
 
             {/* Lịch sử xem tin */}
             <Link
-              href="/#featured-listings"
+              href="/history"
               onClick={() => setIsOpen(false)}
               className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
             >

@@ -11,7 +11,7 @@ export interface PropertyItem {
   imageUrl: string;
   isVerified: boolean;
   statusText?: string;
-  category: "apartment" | "house" | "studio" | "villa";
+  category: "apartment" | "house" | "office" | "commercial" | "studio" | "room" | "villa";
   featured?: boolean;
 }
 
@@ -35,10 +35,12 @@ export const QUICK_SEARCH_SUGGESTIONS = [
 
 export const PROPERTY_CATEGORIES = [
   { id: "all", label: "Tất cả" },
-  { id: "apartment", label: "Căn hộ" },
-  { id: "house", label: "Nhà phố" },
+  { id: "apartment", label: "Căn hộ/Chung cư" },
+  { id: "house", label: "Nhà ở" },
+  { id: "office", label: "Văn phòng" },
+  { id: "commercial", label: "Mặt bằng kinh doanh" },
   { id: "studio", label: "Studio" },
-  { id: "verified", label: "Đã xác thực Blockchain" },
+  { id: "room", label: "Phòng trọ" },
 ];
 
 export const FEATURED_PROPERTIES: PropertyItem[] = [
@@ -172,7 +174,7 @@ export const FEATURED_PROPERTIES: PropertyItem[] = [
       "https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=800&q=80",
     isVerified: true,
     statusText: "Blockchain Verified",
-    category: "villa",
+    category: "house",
   },
 ];
 

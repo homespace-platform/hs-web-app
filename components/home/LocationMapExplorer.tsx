@@ -1,210 +1,245 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import React, { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
-  MapPin,
+  CheckCircle2,
+  ChevronDown,
   Search,
-  ChevronRight,
-  ArrowRight,
-  Navigation,
-  Layers,
-  ZoomIn,
-  ZoomOut,
+  Check,
+  Loader2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { POPULAR_LOCATIONS } from "@/data/home-data";
+import provinceService from "@/services/province.service";
+import { Province } from "@/types/province.type";
+
+const CATEGORIES = [
+  { id: "apartment", label: "Căn hộ/Chung cư" },
+  { id: "house", label: "Nhà ở" },
+  { id: "office", label: "Văn phòng" },
+  { id: "commercial", label: "Mặt bằng kinh doanh" },
+  { id: "studio", label: "Studio" },
+  { id: "room", label: "Phòng trọ" },
+];
 
 export default function LocationMapExplorer() {
-  const [selectedCityId, setSelectedCityId] = useState("hcm");
+  const router = useRouter();
+  const [activeCategory, setActiveCategory] = useState("apartment");
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number>(79);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const selectedCity =
-    POPULAR_LOCATIONS.find((c) => c.id === selectedCityId) ||
-    POPULAR_LOCATIONS[0];
+  // 1. Fetch real provinces from Public Free API
+  useEffect(() => {
+    let isMounted = true;
+    const fetchProvinces = async () => {
+      try {
+        setLoadingProvinces(true);
+        const data = await provinceService.getProvinces();
+        if (isMounted && data && data.length > 0) {
+          setProvinces(data);
+          // Set default to Ho Chi Minh (code 79)
+          const defaultHcm = data.find((p) => p.code === 79);
+          if (defaultHcm) {
+            setSelectedProvinceCode(defaultHcm.code);
+          } else {
+            setSelectedProvinceCode(data[0].code);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load provinces:", error);
+      } finally {
+        if (isMounted) setLoadingProvinces(false);
+      }
+    };
 
-  const mapTabs = [
-    { id: "hcm", name: "TP. Hồ Chí Minh" },
-    { id: "hn", name: "Hà Nội" },
-    { id: "dn", name: "Đà Nẵng" },
-    { id: "ct", name: "Cần Thơ" },
-    { id: "bd", name: "Bình Dương" },
-  ];
+    fetchProvinces();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Find currently selected province object
+  const currentProvince = useMemo(() => {
+    return (
+      provinces.find((p) => p.code === selectedProvinceCode) || {
+        code: 79,
+        name: "Thành phố Hồ Chí Minh",
+      }
+    );
+  }, [provinces, selectedProvinceCode]);
+
+  // Filter provinces list by user search query
+  const filteredProvinces = useMemo(() => {
+    if (!searchQuery.trim()) return provinces;
+    return provinces.filter((p) =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [provinces, searchQuery]);
 
   return (
-    <section id="location-map" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-      {/* Section Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
-        <div>
-          <h2 className="font-heading font-black text-2xl sm:text-3xl text-slate-900 dark:text-white mb-2">
-            Khám phá theo khu vực
-          </h2>
-          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400">
-            Tìm kiếm nhà cho thuê trực quan trên bản đồ theo vị trí bạn mong
-            muốn.
-          </p>
-        </div>
+    <section
+      id="location-map"
+      className="py-12 md:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full"
+    >
+      <div className="bg-card text-card-foreground rounded-3xl p-6 sm:p-8 lg:p-10 border border-border shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+          {/* Left Column: Form & Features (7 cols) */}
+          <div className="lg:col-span-6 xl:col-span-7 flex flex-col">
+            {/* Header */}
+            <h2 className="font-heading font-bold text-2xl sm:text-3xl text-foreground tracking-tight mb-2">
+              Tham khảo giá thuê nhà
+            </h2>
+            <p className="text-sm sm:text-base text-muted-foreground mb-6 max-w-2xl">
+              Cập nhật dữ liệu biến động giá thuê mới nhất tháng 01/2026 tại 63
+              tỉnh thành
+            </p>
 
-        <Link
-          href="#explore-all-map"
-          className="inline-flex items-center gap-1.5 text-sm font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors group self-start sm:self-auto"
-        >
-          <span>Mở bản đồ toàn màn hình</span>
-          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-        </Link>
-      </div>
-
-      {/* Main Container */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-        {/* Left Column: Interactive Map Component (2/3) */}
-        <div className="lg:col-span-2 rounded-3xl overflow-hidden border border-slate-200/90 dark:border-slate-800 shadow-md relative h-[420px] sm:h-[500px] bg-slate-100 dark:bg-slate-900 flex flex-col">
-          {/* Top City Pill Filter Tabs */}
-          <div className="absolute top-4 left-4 right-4 z-20 flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-            {mapTabs.map((tab) => {
-              const isActive = selectedCityId === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setSelectedCityId(tab.id)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shadow-sm backdrop-blur-md transition-all ${
-                    isActive
-                      ? "bg-blue-600 text-white shadow-blue-600/30 ring-2 ring-white/80 dark:ring-slate-900"
-                      : "bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 hover:bg-white"
-                  }`}
-                >
-                  {tab.name}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Map Visual / Imagery Container */}
-          <div className="relative w-full h-full">
-            <img
-              src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=1600&q=80"
-              alt="Bản đồ tương tác khu vực"
-              className="w-full h-full object-cover"
-            />
-            {/* Map styling gradient overlays */}
-            <div className="absolute inset-0 bg-blue-950/20 backdrop-filter" />
-
-            {/* Simulated Animated Map Pins */}
-            <div className="absolute top-1/3 left-1/3 z-10 group cursor-pointer">
-              <div className="relative flex items-center justify-center">
-                <span className="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-blue-400 opacity-75" />
-                <div className="relative px-2.5 py-1 rounded-full bg-blue-600 text-white text-xs font-bold shadow-lg flex items-center gap-1 border-2 border-white">
-                  <MapPin className="w-3.5 h-3.5 text-cyan-300" />
-                  <span>15 tr/th</span>
-                </div>
-              </div>
+            {/* Category Tabs */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 mb-6">
+              {CATEGORIES.map((cat) => {
+                const isActive = activeCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setActiveCategory(cat.id)}
+                    className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all cursor-pointer ${isActive
+                        ? "bg-foreground text-background shadow-xs"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                      }`}
+                  >
+                    {cat.label}
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="absolute top-1/2 left-1/2 z-10 group cursor-pointer">
-              <div className="relative flex items-center justify-center">
-                <span className="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-cyan-400 opacity-75" />
-                <div className="relative px-2.5 py-1 rounded-full bg-slate-900 text-white text-xs font-bold shadow-lg flex items-center gap-1 border-2 border-cyan-400">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>18 tr/th</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="absolute bottom-1/3 right-1/4 z-10 group cursor-pointer">
-              <div className="relative flex items-center justify-center">
-                <div className="relative px-2.5 py-1 rounded-full bg-blue-600 text-white text-xs font-bold shadow-lg flex items-center gap-1 border-2 border-white">
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span>22 tr/th</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Map Controls */}
-            <div className="absolute bottom-4 right-4 z-20 flex flex-col gap-2">
-              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 p-1 flex flex-col">
+            {/* City Selector & Action Button */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-8">
+              {/* Custom Searchable Province Dropdown */}
+              <div className="relative flex-1">
                 <button
                   type="button"
-                  aria-label="Zoom in"
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-700 dark:text-slate-300 transition-colors"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="w-full h-[52px] px-4 py-2 bg-card text-card-foreground rounded-xl border border-border flex items-center justify-between text-left shadow-2xs hover:border-primary/50 transition-colors cursor-pointer"
                 >
-                  <ZoomIn className="w-4 h-4" />
+                  <div>
+                    <span className="block text-[11px] font-semibold text-muted-foreground leading-none mb-1">
+                      Chọn tỉnh thành
+                    </span>
+                    <span className="block text-sm font-bold text-foreground truncate">
+                      {loadingProvinces ? (
+                        <span className="inline-flex items-center gap-1.5 text-muted-foreground font-normal">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                          Đang tải danh sách tỉnh thành...
+                        </span>
+                      ) : (
+                        currentProvince.name
+                      )}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
                 </button>
-                <div className="h-px bg-slate-200 dark:bg-slate-800 my-0.5" />
-                <button
-                  type="button"
-                  aria-label="Zoom out"
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-700 dark:text-slate-300 transition-colors"
-                >
-                  <ZoomOut className="w-4 h-4" />
-                </button>
+
+                {/* Dropdown Menu Panel with Search */}
+                {isDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 bg-popover text-popover-foreground rounded-2xl border border-border shadow-2xl z-40 p-2 animate-in fade-in-50 zoom-in-95 duration-150">
+                    {/* Search input inside dropdown */}
+                    <div className="relative mb-2 px-1">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Tìm kiếm trong 63 tỉnh thành..."
+                        className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted rounded-lg border border-border focus:outline-none focus:border-primary text-foreground"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Province list options */}
+                    <div className="max-h-56 overflow-y-auto space-y-0.5 no-scrollbar">
+                      {filteredProvinces.length > 0 ? (
+                        filteredProvinces.map((p) => {
+                          const isSelected = selectedProvinceCode === p.code;
+                          return (
+                            <button
+                              key={p.code}
+                              type="button"
+                              onClick={() => {
+                                setSelectedProvinceCode(p.code);
+                                setIsDropdownOpen(false);
+                                setSearchQuery("");
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${isSelected
+                                  ? "bg-primary/10 text-primary font-bold"
+                                  : "text-foreground hover:bg-muted"
+                                }`}
+                            >
+                              <span>{p.name}</span>
+                              {isSelected && (
+                                <Check className="w-3.5 h-3.5 text-primary" />
+                              )}
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                          Không tìm thấy tỉnh thành
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {/* CTA Button: Xem giá ngay */}
               <button
                 type="button"
-                aria-label="Vị trí của tôi"
-                className="bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-blue-600 dark:text-blue-400 transition-colors"
+                onClick={() => router.push("/#featured-listings")}
+                className="h-[52px] px-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm sm:text-base shadow-sm hover:shadow-md hover:shadow-primary/20 transition-all shrink-0 flex items-center justify-center cursor-pointer"
               >
-                <Navigation className="w-4 h-4" />
+                Xem giá ngay
               </button>
             </div>
+
+            {/* 4 Checkpoints Value Proposition */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-xs sm:text-sm text-foreground font-semibold">
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-primary shrink-0 stroke-[2.2]" />
+                <span>Dữ liệu thật từ tin đăng cho thuê</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-primary shrink-0 stroke-[2.2]" />
+                <span>Chi tiết đến quận, phường, đường</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-primary shrink-0 stroke-[2.2]" />
+                <span>Giá giao dịch thực tế</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-primary shrink-0 stroke-[2.2]" />
+                <span>Cập nhật hằng tháng</span>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Right Column: Active City Card & District List (1/3) */}
-        <div className="lg:col-span-1 flex flex-col">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 border border-slate-200/90 dark:border-slate-800 shadow-md flex flex-col h-full justify-between">
-            <div>
-              {/* City Header */}
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-14 h-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/30 shrink-0">
-                  <MapPin className="w-7 h-7" />
-                </div>
-                <div>
-                  <h3 className="font-heading font-black text-xl sm:text-2xl text-slate-900 dark:text-white">
-                    {selectedCity.name}
-                  </h3>
-                  <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-                    {selectedCity.listingCount}
-                  </p>
-                </div>
-              </div>
-
-              {/* City Search Button */}
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 h-auto rounded-xl shadow-md shadow-blue-600/20 mb-6 gap-2">
-                <Search className="w-4 h-4" />
-                <span>Tìm kiếm tại {selectedCity.name}</span>
-              </Button>
-
-              {/* Popular Districts */}
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3 font-heading">
-                  Khu vực trọng điểm
-                </p>
-
-                <div className="space-y-1.5">
-                  {(selectedCity.districts || [
-                    "Quận 1",
-                    "Quận 7",
-                    "Thủ Đức",
-                    "Bình Thạnh",
-                    "Quận 2",
-                  ]).map((district, idx) => (
-                    <Link
-                      key={idx}
-                      href={`#district-${district}`}
-                      className="flex items-center justify-between p-3 rounded-xl hover:bg-blue-50/70 dark:hover:bg-slate-800/80 transition-colors group"
-                    >
-                      <span className="text-sm font-medium text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                        {district}
-                      </span>
-                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 text-center">
-              Dữ liệu giá thuê được AI cập nhật theo thời gian thực
-            </div>
+          {/* Right Column: Live Embedded Google Maps (6 cols) */}
+          <div className="lg:col-span-6 xl:col-span-5 relative w-full h-[280px] sm:h-[340px] lg:h-[380px] rounded-2xl sm:rounded-3xl overflow-hidden border border-border shadow-md bg-muted">
+            {/* Embedded Google Maps dynamically querying selected province name */}
+            <iframe
+              title={`Bản đồ tham khảo giá ${currentProvince.name}`}
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              loading="lazy"
+              src={`https://www.google.com/maps?q=${encodeURIComponent(
+                currentProvince.name + ", Vietnam"
+              )}&z=12&output=embed`}
+              className="w-full h-full"
+            />
           </div>
         </div>
       </div>

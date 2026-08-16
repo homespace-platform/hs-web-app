@@ -35,7 +35,7 @@ export default function Header() {
               className="flex items-center group focus:outline-none"
             >
               <Image
-                src="/homespace-horizontal-logo-crop-removebg.png"
+                src="/logo/homespace-horizontal-logo-crop-removebg.png"
                 alt="HomeSpace Logo"
                 width={180}
                 height={46}

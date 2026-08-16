@@ -3,7 +3,6 @@ import Link from "next/link";
 import {
   ShieldCheck,
   Sparkles,
-  Smartphone,
   Mail,
   Globe,
   Share2,
@@ -16,15 +15,16 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12 mb-14">
           {/* Brand Column */}
           <div className="flex flex-col gap-5">
+            {/* Vertical Logo Badge */}
             <Link href="/" className="flex items-center self-start group">
-              <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl px-4 py-2.5 hover:bg-slate-700/80 hover:border-slate-600 transition-all inline-flex items-center">
+              <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl px-5 py-3.5 hover:bg-slate-700/80 hover:border-slate-600 transition-all inline-flex items-center justify-center shadow-sm">
                 <Image
-                  src="/homespace-horizontal-logo-crop-removebg.png"
+                  src="/logo/homespace-vertical-logo-removebg-crop-removebg.png"
                   alt="HomeSpace Logo"
-                  width={160}
-                  height={42}
+                  width={140}
+                  height={140}
                   unoptimized
-                  className="h-7 sm:h-8 w-auto object-contain brightness-0 invert"
+                  className="h-16 sm:h-20 w-auto object-contain brightness-0 invert"
                 />
               </div>
             </Link>
@@ -32,7 +32,7 @@ export default function Footer() {
             <p className="text-sm text-slate-400 leading-relaxed">
               Nền tảng PropTech tiên phong kết hợp sức mạnh Blockchain & AI mang
               lại sự minh bạch, bảo mật tuyệt đối và tìm kiếm thông minh cho thị
-              trường bất động sản.
+              trường nhà cho thuê.
             </p>
 
             <div className="flex items-center gap-4 text-xs text-slate-400">
@@ -114,7 +114,7 @@ export default function Footer() {
                 href="#"
                 className="hover:text-white transition-colors hover:translate-x-0.5 duration-150"
               >
-                Quy chuẩn thẩm định BĐS
+                Quy chuẩn thẩm định nhà ở
               </Link>
               <a
                 href="mailto:support@homespace.vn"
@@ -137,33 +137,51 @@ export default function Footer() {
               </p>
 
               <div className="flex flex-col gap-2.5 pt-1">
-                {/* App Store Button */}
+                {/* App Store Button with real icon */}
                 <a
                   href="#"
                   className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700/80 hover:bg-slate-700/80 hover:border-slate-600 transition-all group"
                 >
-                  <Smartphone className="w-6 h-6 text-[#2563EB] group-hover:scale-110 transition-transform" />
-                  <div className="flex flex-col">
-                    <span className="text-[10px] uppercase text-slate-400 leading-none">
+                  <div className="w-7 h-7 relative flex items-center justify-center shrink-0">
+                    <Image
+                      src="/application/appstore.png"
+                      alt="App Store"
+                      width={28}
+                      height={28}
+                      unoptimized
+                      className="w-7 h-7 object-contain rounded-lg group-hover:scale-110 transition-transform"
+                    />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-[10px] uppercase text-slate-400 leading-none font-medium">
                       Tải trên
                     </span>
-                    <span className="text-sm font-bold text-white leading-tight">
+                    <span className="text-sm font-bold text-white leading-tight mt-0.5">
                       App Store
                     </span>
                   </div>
                 </a>
 
-                {/* Google Play Button */}
+                {/* Google Play Button with real icon */}
                 <a
                   href="#"
                   className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700/80 hover:bg-slate-700/80 hover:border-slate-600 transition-all group"
                 >
-                  <Smartphone className="w-6 h-6 text-[#06B6D4] group-hover:scale-110 transition-transform" />
-                  <div className="flex flex-col">
-                    <span className="text-[10px] uppercase text-slate-400 leading-none">
+                  <div className="w-7 h-7 relative flex items-center justify-center shrink-0">
+                    <Image
+                      src="/application/googleplay.webp"
+                      alt="Google Play"
+                      width={28}
+                      height={28}
+                      unoptimized
+                      className="w-7 h-7 object-contain group-hover:scale-110 transition-transform"
+                    />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-[10px] uppercase text-slate-400 leading-none font-medium">
                       Khám phá trên
                     </span>
-                    <span className="text-sm font-bold text-white leading-tight">
+                    <span className="text-sm font-bold text-white leading-tight mt-0.5">
                       Google Play
                     </span>
                   </div>

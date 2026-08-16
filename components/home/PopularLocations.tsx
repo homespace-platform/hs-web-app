@@ -54,9 +54,10 @@ const SUB_AREAS: AreaItem[] = [
 const CATEGORIES = [
   { id: "apartment", label: "Căn hộ/Chung cư" },
   { id: "house", label: "Nhà ở" },
-  { id: "commercial", label: "Văn phòng, Mặt bằng kinh doanh" },
+  { id: "office", label: "Văn phòng" },
+  { id: "commercial", label: "Mặt bằng kinh doanh" },
   { id: "studio", label: "Studio" },
-  { id: "room", label: "Phòng trọ" }
+  { id: "room", label: "Phòng trọ" },
 ];
 
 export default function PopularLocations() {
@@ -65,17 +66,20 @@ export default function PopularLocations() {
   return (
     <section
       id="popular-locations"
-      className="py-12 md:py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full"
+      className="py-12 md:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full"
     >
-      {/* 1. Header with Title */}
+      {/* 1. Header with Title & Subtitle */}
       <div className="mb-6">
-        <h2 className="font-heading font-bold text-2xl sm:text-3xl text-slate-900 dark:text-white tracking-tight">
-          Bất động sản theo khu vực
+        <h2 className="font-heading font-bold text-2xl sm:text-3xl text-foreground tracking-tight">
+          Nhà cho thuê theo khu vực
         </h2>
+        <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-2xl">
+          Khám phá không gian sống lý tưởng tại các trung tâm đô thị sôi động nhất cả nước.
+        </p>
       </div>
 
       {/* 2. Category Sub-Tabs with Underline Indicator */}
-      <div className="flex items-center gap-6 sm:gap-8 border-b border-slate-200 dark:border-slate-800 mb-6 overflow-x-auto no-scrollbar">
+      <div className="flex items-center gap-6 sm:gap-8 border-b border-border mb-6 overflow-x-auto no-scrollbar">
         {CATEGORIES.map((cat) => {
           const isActive = activeCategory === cat.id;
           return (
@@ -83,14 +87,15 @@ export default function PopularLocations() {
               key={cat.id}
               type="button"
               onClick={() => setActiveCategory(cat.id)}
-              className={`pb-3 text-sm sm:text-base font-semibold whitespace-nowrap transition-all relative cursor-pointer ${isActive
-                ? "text-slate-900 dark:text-white"
-                : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                }`}
+              className={`pb-3 text-sm sm:text-base font-semibold whitespace-nowrap transition-all relative cursor-pointer ${
+                isActive
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
             >
               <span>{cat.label}</span>
               {isActive && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-900 dark:bg-white rounded-full" />
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground rounded-full" />
               )}
             </button>
           );

@@ -20,11 +20,12 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "HomeSpace - Tìm Nơi Ở Lý Tưởng Với Sức Mạnh AI & Blockchain",
   description:
-    "Nền tảng PropTech tiên phong kết hợp AI & Blockchain. Minh bạch, an toàn tuyệt đối và tìm kiếm thông minh cá nhân hóa.",
+    "Nền tảng PropTech tiên phong kết hợp AI & Blockchain. Minh bạch, an toàn tuyệt đối và tìm kiếm nhà cho thuê thông minh cá nhân hóa.",
   keywords: [
     "HomeSpace",
-    "Bất động sản",
+    "Nhà cho thuê",
     "Thuê căn hộ",
+    "Thuê phòng trọ",
     "Blockchain",
     "AI Search",
     "PropTech",

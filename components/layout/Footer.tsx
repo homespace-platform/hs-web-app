@@ -1,40 +1,30 @@
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 import {
-  Mail,
-  Globe,
-  Share2,
   ShieldCheck,
   Sparkles,
   Smartphone,
+  Mail,
+  Globe,
+  Share2,
 } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="w-full bg-[#0F172A] text-white border-t border-slate-800 relative overflow-hidden">
-      {/* Background Accent Glow */}
-      <div
-        className="absolute top-0 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"
-        aria-hidden="true"
-      />
-      <div
-        className="absolute bottom-0 left-10 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"
-        aria-hidden="true"
-      />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12 relative z-10">
+    <footer className="bg-[#0B1120] text-slate-300 border-t border-slate-800 transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12 mb-14">
           {/* Brand Column */}
           <div className="flex flex-col gap-5">
             <Link href="/" className="flex items-center self-start group">
-              <div className="rounded-xl p-1.5 shadow-md group-hover:scale-105 transition-transform duration-200">
+              <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl px-4 py-2.5 hover:bg-slate-700/80 hover:border-slate-600 transition-all inline-flex items-center">
                 <Image
                   src="/homespace-horizontal-logo-crop-removebg.png"
                   alt="HomeSpace Logo"
                   width={160}
                   height={42}
                   unoptimized
-                  className="h-8 sm:h-9 w-auto object-contain"
+                  className="h-7 sm:h-8 w-auto object-contain brightness-0 invert"
                 />
               </div>
             </Link>
@@ -46,11 +36,11 @@ export default function Footer() {
             </p>
 
             <div className="flex items-center gap-4 text-xs text-slate-400">
-              <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+              <div className="flex items-center gap-1.5 text-[#22C55E] font-medium">
                 <ShieldCheck className="w-4 h-4" />
                 <span>Hợp đồng On-chain</span>
               </div>
-              <div className="flex items-center gap-1.5 text-cyan-400 font-medium">
+              <div className="flex items-center gap-1.5 text-[#06B6D4] font-medium">
                 <Sparkles className="w-4 h-4" />
                 <span>AI Valuation</span>
               </div>
@@ -62,7 +52,7 @@ export default function Footer() {
             <h4 className="text-xs font-bold text-slate-200 uppercase tracking-widest font-heading">
               Về HomeSpace
             </h4>
-            <nav className="flex flex-col gap-2.5 text-sm text-slate-400">
+            <nav className="flex flex-col space-y-2.5 text-sm text-slate-400">
               <Link
                 href="#"
                 className="hover:text-white transition-colors hover:translate-x-0.5 duration-150"
@@ -96,12 +86,12 @@ export default function Footer() {
             </nav>
           </div>
 
-          {/* Column 3: Hỗ trợ */}
+          {/* Column 3: Hỗ trợ khách hàng */}
           <div className="flex flex-col gap-4">
             <h4 className="text-xs font-bold text-slate-200 uppercase tracking-widest font-heading">
               Hỗ trợ khách hàng
             </h4>
-            <nav className="flex flex-col gap-2.5 text-sm text-slate-400">
+            <nav className="flex flex-col space-y-2.5 text-sm text-slate-400">
               <Link
                 href="#"
                 className="hover:text-white transition-colors hover:translate-x-0.5 duration-150"
@@ -128,9 +118,9 @@ export default function Footer() {
               </Link>
               <a
                 href="mailto:support@homespace.vn"
-                className="hover:text-cyan-400 transition-colors flex items-center gap-2 pt-1 text-slate-300"
+                className="hover:text-[#06B6D4] transition-colors flex items-center gap-2 pt-1 text-slate-300"
               >
-                <Mail className="w-4 h-4 text-cyan-400" />
+                <Mail className="w-4 h-4 text-[#06B6D4]" />
                 <span>support@homespace.vn</span>
               </a>
             </nav>
@@ -152,7 +142,7 @@ export default function Footer() {
                   href="#"
                   className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700/80 hover:bg-slate-700/80 hover:border-slate-600 transition-all group"
                 >
-                  <Smartphone className="w-6 h-6 text-blue-400 group-hover:scale-110 transition-transform" />
+                  <Smartphone className="w-6 h-6 text-[#2563EB] group-hover:scale-110 transition-transform" />
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase text-slate-400 leading-none">
                       Tải trên
@@ -168,7 +158,7 @@ export default function Footer() {
                   href="#"
                   className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700/80 hover:bg-slate-700/80 hover:border-slate-600 transition-all group"
                 >
-                  <Smartphone className="w-6 h-6 text-cyan-400 group-hover:scale-110 transition-transform" />
+                  <Smartphone className="w-6 h-6 text-[#06B6D4] group-hover:scale-110 transition-transform" />
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase text-slate-400 leading-none">
                       Khám phá trên
@@ -181,22 +171,23 @@ export default function Footer() {
               </div>
             </div>
 
+            {/* Social Links */}
             <div className="space-y-2 pt-2">
               <h4 className="text-xs font-bold text-slate-200 uppercase tracking-widest font-heading">
                 Kết nối cộng đồng
               </h4>
-              <div className="flex gap-2.5">
+              <div className="flex items-center gap-2">
                 <a
                   href="#"
+                  className="w-8 h-8 rounded-lg bg-slate-800/80 border border-slate-700/80 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
                   aria-label="Website"
-                  className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:bg-blue-600 hover:border-blue-500 transition-colors"
                 >
                   <Globe className="w-4 h-4" />
                 </a>
                 <a
                   href="#"
-                  aria-label="Share"
-                  className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:bg-blue-600 hover:border-blue-500 transition-colors"
+                  className="w-8 h-8 rounded-lg bg-slate-800/80 border border-slate-700/80 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                  aria-label="Social Share"
                 >
                   <Share2 className="w-4 h-4" />
                 </a>
@@ -206,14 +197,14 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 border-t border-slate-800/80 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-500">
-          <p>© 2026 HomeSpace Inc. Nền tảng PropTech tiên phong Blockchain & AI.</p>
+        <div className="pt-8 border-t border-slate-800/80 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+          <p>© 2026 HomeSpace Inc. Nền tảng PropTech tiên phong Việt Nam.</p>
           <div className="flex items-center gap-6">
             <Link href="#" className="hover:text-slate-400 transition-colors">
               Chính sách quyền riêng tư
             </Link>
             <Link href="#" className="hover:text-slate-400 transition-colors">
-              Điều khoản dịch vụ
+              Điều khoản Dịch vụ
             </Link>
             <Link href="#" className="hover:text-slate-400 transition-colors">
               Sitemap

@@ -100,6 +100,14 @@ export default function Header() {
         "homespace_selected_province",
         JSON.stringify({ code: province.code, name: province.name })
       );
+      // Xóa quận/huyện cũ khi đổi tỉnh thành
+      localStorage.removeItem("homespace_selected_district");
+      // Phát sự kiện đồng bộ ngay lập tức cho AiSearchBar
+      window.dispatchEvent(
+        new CustomEvent("provinceChanged", {
+          detail: { code: province.code, name: province.name },
+        })
+      );
     } catch (e) {
       console.error("Failed to save province to localStorage:", e);
     }

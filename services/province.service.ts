@@ -1,43 +1,80 @@
 import axios from "axios";
 import { Province, District } from "@/types/province.type";
+import {
+  VIETNAM_63_PROVINCES,
+  VIETNAM_DISTRICTS_MAP,
+} from "@/data/vietnam-provinces-data";
 
-const PROVINCES_API_URL = "https://provinces.open-api.vn/api";
+// Endpoint chính thức v1 chuẩn của Open API Vietnam (tránh bị 302 redirect)
+const PROVINCES_API_URL = "https://provinces.open-api.vn/api/v1";
+
+// In-memory cache for instant 0ms responses across all components
+let cachedProvinces: Province[] | null = null;
+let provincesPromise: Promise<Province[]> | null = null;
+const cachedDistricts: Record<number, District[]> = {};
 
 export const provinceService = {
   /**
-   * Lấy danh sách toàn bộ 63 tỉnh thành Việt Nam từ Open API (Public Free)
+   * Lấy danh sách 63 tỉnh thành Việt Nam từ endpoint v1 chính thức
    */
   async getProvinces(): Promise<Province[]> {
-    try {
-      const response = await axios.get<Province[]>(`${PROVINCES_API_URL}/p/`);
-      return response.data;
-    } catch (error) {
-      console.error("Failed to fetch provinces from public API:", error);
-      // Fallback data if API is temporarily unavailable
-      return [
-        { code: 79, name: "Thành phố Hồ Chí Minh" },
-        { code: 1, name: "Thành phố Hà Nội" },
-        { code: 48, name: "Thành phố Đà Nẵng" },
-        { code: 74, name: "Tỉnh Bình Dương" },
-        { code: 92, name: "Thành phố Cần Thơ" },
-        { code: 31, name: "Thành phố Hải Phòng" },
-        { code: 56, name: "Tỉnh Khánh Hòa" },
-        { code: 77, name: "Tỉnh Bà Rịa - Vũng Tàu" },
-      ];
+    // 1. Trả về ngay lập tức từ memory cache nếu đã có
+    if (cachedProvinces && cachedProvinces.length > 0) {
+      return cachedProvinces;
     }
+
+    // 2. Tái sử dụng Promise nếu đang có request chạy để tránh gọi trùng lặp
+    if (provincesPromise) {
+      return provincesPromise;
+    }
+
+    provincesPromise = (async () => {
+      try {
+        const response = await axios.get<Province[]>(`${PROVINCES_API_URL}/p/`, {
+          timeout: 5000,
+        });
+        if (response.data && response.data.length > 0) {
+          cachedProvinces = response.data;
+          return response.data;
+        }
+      } catch (error) {
+        console.warn("API v1 fallback to administrative dataset:", error);
+      }
+      cachedProvinces = VIETNAM_63_PROVINCES;
+      return VIETNAM_63_PROVINCES;
+    })();
+
+    return provincesPromise;
   },
 
   /**
-   * Lấy danh sách quận/huyện theo mã tỉnh thành
+   * Lấy danh sách quận/huyện theo mã tỉnh thành từ endpoint v1 chính thức
    */
   async getDistrictsByProvince(provinceCode: number): Promise<District[]> {
-    try {
-      const response = await axios.get(`${PROVINCES_API_URL}/p/${provinceCode}?depth=2`);
-      return response.data?.districts || [];
-    } catch (error) {
-      console.error(`Failed to fetch districts for province ${provinceCode}:`, error);
-      return [];
+    // 1. Trả về ngay lập tức từ memory cache nếu đã có
+    if (cachedDistricts[provinceCode] && cachedDistricts[provinceCode].length > 0) {
+      return cachedDistricts[provinceCode];
     }
+
+    try {
+      const response = await axios.get(
+        `${PROVINCES_API_URL}/p/${provinceCode}?depth=2`,
+        { timeout: 5000 }
+      );
+      if (response.data?.districts && response.data.districts.length > 0) {
+        cachedDistricts[provinceCode] = response.data.districts;
+        return response.data.districts;
+      }
+    } catch (error) {
+      console.warn(
+        `API v1 fallback to districts dataset for province ${provinceCode}:`,
+        error
+      );
+    }
+
+    const fallback = VIETNAM_DISTRICTS_MAP[provinceCode] || [];
+    cachedDistricts[provinceCode] = fallback;
+    return fallback;
   },
 };
 

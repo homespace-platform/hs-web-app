@@ -53,10 +53,6 @@ export default function TechFeatures() {
                 </li>
                 <li className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200">
                   <CheckCircle2 className="w-5 h-5 text-[#06B6D4] shrink-0 mt-0.5" />
-                  <span>Thanh toán và giữ cọc tự động qua Ví Escrow an toàn</span>
-                </li>
-                <li className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200">
-                  <CheckCircle2 className="w-5 h-5 text-[#06B6D4] shrink-0 mt-0.5" />
                   <span>Lưu trữ dữ liệu vĩnh viễn trên sổ cái, dễ dàng tra cứu</span>
                 </li>
               </ul>

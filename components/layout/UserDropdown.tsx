@@ -26,7 +26,7 @@ interface UserDropdownProps {
 }
 
 export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
-  const { profileName, email, logout } = useAuth();
+  const { username, profileName, email, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -49,7 +49,7 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
     };
   }, [isOpen]);
 
-  const displayName = profileName || email?.split("@")[0] || "Người dùng";
+  const displayName = username || profileName || email?.split("@")[0] || "Người dùng";
   const initialLetter = displayName.charAt(0).toUpperCase() || "U";
 
   // Mock wallet data

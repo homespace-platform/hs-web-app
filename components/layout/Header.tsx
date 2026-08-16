@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import UserDropdown from "./UserDropdown";
@@ -21,26 +20,44 @@ import {
   LayoutGrid,
   Heart,
   MapPin,
-  Search,
   ChevronDown,
+  Search,
   Check,
   Loader2,
 } from "lucide-react";
 
 export default function Header() {
   const { authenticated, login, register } = useAuth();
-  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [favoriteCount, setFavoriteCount] = useState(24);
 
-  // Search & Province States
-  const [keyword, setKeyword] = useState("");
+  // Province States
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [selectedProvinceCode, setSelectedProvinceCode] = useState<number>(79);
   const [selectedProvinceName, setSelectedProvinceName] = useState<string>("Thành phố Hồ Chí Minh");
   const [isProvinceOpen, setIsProvinceOpen] = useState(false);
   const [provinceSearch, setProvinceSearch] = useState("");
   const [loadingProvinces, setLoadingProvinces] = useState(false);
-  const [favoriteCount, setFavoriteCount] = useState(24);
+  const provinceDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        provinceDropdownRef.current &&
+        !provinceDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsProvinceOpen(false);
+      }
+    }
+
+    if (isProvinceOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isProvinceOpen]);
 
   // Sync favorites count
   useEffect(() => {
@@ -68,11 +85,10 @@ export default function Header() {
     };
   }, []);
 
-  // 1. Fetch Provinces & Initialize from LocalStorage
+  // Fetch Provinces & Initialize from LocalStorage
   useEffect(() => {
     let isMounted = true;
 
-    // Load from LocalStorage if exists
     try {
       const saved = localStorage.getItem("homespace_selected_province");
       if (saved) {
@@ -92,7 +108,6 @@ export default function Header() {
         const data = await provinceService.getProvinces();
         if (isMounted && data && data.length > 0) {
           setProvinces(data);
-          // If no local storage was set, default to HCM (79)
           const saved = localStorage.getItem("homespace_selected_province");
           if (!saved) {
             const hcm = data.find((p) => p.code === 79);
@@ -127,9 +142,7 @@ export default function Header() {
         "homespace_selected_province",
         JSON.stringify({ code: province.code, name: province.name })
       );
-      // Xóa quận/huyện cũ khi đổi tỉnh thành
       localStorage.removeItem("homespace_selected_district");
-      // Phát sự kiện đồng bộ ngay lập tức cho AiSearchBar
       window.dispatchEvent(
         new CustomEvent("provinceChanged", {
           detail: { code: province.code, name: province.name },
@@ -148,17 +161,12 @@ export default function Header() {
     );
   }, [provinces, provinceSearch]);
 
-  const handleHeaderSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    router.push("/#featured-listings");
-  };
-
   return (
     <header className="fixed top-0 left-0 right-0 w-full z-50 bg-background/90 backdrop-blur-md border-b border-border transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20 gap-4">
-          {/* Left: Logo */}
-          <div className="flex items-center shrink-0">
+          {/* Left: Logo & Province Selector */}
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             <Link
               href="/"
               className="flex items-center group focus:outline-none"
@@ -172,103 +180,80 @@ export default function Header() {
                 className="h-10 sm:h-11 w-auto object-contain transition-transform duration-200 group-hover:scale-105"
               />
             </Link>
-          </div>
 
-          {/* Center: Integrated Province Select & Quick Search Bar */}
-          <div className="hidden md:flex flex-1 max-w-xl items-center mx-2">
-            <form
-              onSubmit={handleHeaderSearch}
-              className="w-full flex items-center h-11 bg-card text-card-foreground rounded-full border border-border px-1.5 shadow-2xs hover:border-primary/50 transition-all relative"
-            >
-              {/* Province Selector Dropdown */}
-              <div className="relative shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsProvinceOpen(!isProvinceOpen)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-muted text-xs font-semibold text-foreground transition-colors cursor-pointer max-w-[160px] lg:max-w-[200px]"
-                >
-                  <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                  <span className="truncate">
-                    {loadingProvinces ? "Đang tải..." : selectedProvinceName}
-                  </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                </button>
-
-                {/* Dropdown Menu */}
-                {isProvinceOpen && (
-                  <div className="absolute top-full left-0 mt-2 w-64 bg-popover text-popover-foreground rounded-2xl shadow-2xl border border-border p-2 z-50 animate-in fade-in-50 zoom-in-95">
-                    <div className="relative mb-2 px-1">
-                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                      <input
-                        type="text"
-                        value={provinceSearch}
-                        onChange={(e) => setProvinceSearch(e.target.value)}
-                        placeholder="Tìm tỉnh thành..."
-                        className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted rounded-lg border border-border focus:outline-none focus:border-primary text-foreground"
-                        autoFocus
-                      />
-                    </div>
-
-                    <div className="max-h-56 overflow-y-auto space-y-0.5 no-scrollbar">
-                      {loadingProvinces ? (
-                        <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                          <span>Đang tải danh sách...</span>
-                        </div>
-                      ) : filteredProvinces.length > 0 ? (
-                        filteredProvinces.map((p) => {
-                          const isSelected = selectedProvinceCode === p.code;
-                          return (
-                            <button
-                              key={p.code}
-                              type="button"
-                              onClick={() => handleSelectProvince(p)}
-                              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                                isSelected
-                                  ? "bg-primary/10 text-primary font-bold"
-                                  : "text-foreground hover:bg-muted"
-                              }`}
-                            >
-                              <span className="truncate">{p.name}</span>
-                              {isSelected && (
-                                <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                              )}
-                            </button>
-                          );
-                        })
-                      ) : (
-                        <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                          Không tìm thấy tỉnh thành
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Divider */}
-              <div className="h-4 w-px bg-border mx-1 shrink-0" />
-
-              {/* Search Keyword Input */}
-              <div className="flex-1 flex items-center px-2 min-w-0">
-                <input
-                  type="text"
-                  value={keyword}
-                  onChange={(e) => setKeyword(e.target.value)}
-                  placeholder="Tìm nhà cho thuê, phòng trọ..."
-                  className="w-full bg-transparent border-none outline-none text-xs lg:text-sm text-foreground placeholder:text-muted-foreground focus:ring-0 p-0 truncate"
-                />
-              </div>
-
-              {/* Search Action Button */}
+            {/* Select Tỉnh/Thành Phố (Không có ô search) */}
+            <div className="relative shrink-0 hidden sm:block" ref={provinceDropdownRef}>
               <button
-                type="submit"
-                className="w-8 h-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center shrink-0 shadow-xs hover:scale-105 transition-all cursor-pointer"
-                aria-label="Tìm kiếm"
+                type="button"
+                onClick={() => setIsProvinceOpen(!isProvinceOpen)}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full border transition-all cursor-pointer text-xs font-semibold shadow-2xs ${
+                  isProvinceOpen
+                    ? "border-primary/50 bg-muted text-primary"
+                    : "border-border bg-card text-foreground hover:bg-muted hover:border-primary/40"
+                }`}
               >
-                <Search className="w-3.5 h-3.5" />
+                <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span className="truncate max-w-[140px] md:max-w-[180px]">
+                  {loadingProvinces ? "Đang tải..." : selectedProvinceName}
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform duration-200 ${
+                    isProvinceOpen ? "rotate-180" : ""
+                  }`}
+                />
               </button>
-            </form>
+
+              {/* Dropdown Menu Chọn Tỉnh Thành */}
+              {isProvinceOpen && (
+                <div className="absolute top-full left-0 mt-2 w-64 bg-popover text-popover-foreground rounded-2xl shadow-2xl border border-border p-2 z-50 animate-in fade-in-50 zoom-in-95">
+                  <div className="relative mb-2 px-1">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="text"
+                      value={provinceSearch}
+                      onChange={(e) => setProvinceSearch(e.target.value)}
+                      placeholder="Tìm tỉnh thành..."
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted rounded-lg border border-border focus:outline-none focus:border-primary text-foreground"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="max-h-56 overflow-y-auto space-y-0.5 no-scrollbar">
+                    {loadingProvinces ? (
+                      <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                        <span>Đang tải danh sách...</span>
+                      </div>
+                    ) : filteredProvinces.length > 0 ? (
+                      filteredProvinces.map((p) => {
+                        const isSelected = selectedProvinceCode === p.code;
+                        return (
+                          <button
+                            key={p.code}
+                            type="button"
+                            onClick={() => handleSelectProvince(p)}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                              isSelected
+                                ? "bg-primary/10 text-primary font-bold"
+                                : "text-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <span className="truncate">{p.name}</span>
+                            {isSelected && (
+                              <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                        Không tìm thấy tỉnh thành
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right Action Buttons */}
@@ -277,7 +262,7 @@ export default function Header() {
             <ThemeToggle />
 
             {authenticated ? (
-              /* State 1: Authenticated User (Đã đăng nhập) - ĐÃ BỎ NÚT ĐĂNG TIN */
+              /* State 1: Authenticated User (Đã đăng nhập) */
               <div className="flex items-center gap-2.5">
                 {/* Yêu thích */}
                 <Link
@@ -404,41 +389,28 @@ export default function Header() {
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-border bg-card/95 backdrop-blur-xl px-4 pt-2 pb-6 space-y-3 animate-in slide-in-from-top-2 duration-200">
-          {/* Mobile Search & Province Select */}
-          <form onSubmit={handleHeaderSearch} className="space-y-2">
-            <div className="flex items-center h-10 bg-muted rounded-xl px-3 border border-border">
-              <MapPin className="w-4 h-4 text-primary shrink-0 mr-2" />
-              <select
-                value={selectedProvinceCode}
-                onChange={(e) => {
-                  const code = Number(e.target.value);
-                  const prov = provinces.find((p) => p.code === code);
-                  if (prov) handleSelectProvince(prov);
-                }}
-                className="w-full bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
-              >
-                {provinces.map((p) => (
-                  <option key={p.code} value={p.code} className="bg-card text-foreground">
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <div className="md:hidden border-b border-border bg-card/95 backdrop-blur-xl px-4 pt-3 pb-6 space-y-3 animate-in slide-in-from-top-2 duration-200">
+          {/* Mobile Province Select */}
+          <div className="flex items-center h-10 bg-muted rounded-xl px-3 border border-border">
+            <MapPin className="w-4 h-4 text-primary shrink-0 mr-2" />
+            <select
+              value={selectedProvinceCode}
+              onChange={(e) => {
+                const code = Number(e.target.value);
+                const prov = provinces.find((p) => p.code === code);
+                if (prov) handleSelectProvince(prov);
+              }}
+              className="w-full bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
+            >
+              {provinces.map((p) => (
+                <option key={p.code} value={p.code} className="bg-card text-foreground">
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <div className="flex items-center h-10 bg-muted rounded-xl px-3 border border-border">
-              <Search className="w-4 h-4 text-muted-foreground shrink-0 mr-2" />
-              <input
-                type="text"
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                placeholder="Tìm nhà cho thuê, phòng trọ..."
-                className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
-              />
-            </div>
-          </form>
-
-          <nav className="flex flex-col space-y-1 pt-2">
+          <nav className="flex flex-col space-y-1">
             <Link
               href="/chat"
               onClick={() => setMobileMenuOpen(false)}

@@ -135,10 +135,7 @@ export default function HistoryPage() {
           {/* Page Title & Stats */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-border/80 mb-8">
             <div>
-              <div className="flex items-center gap-2.5 mb-2">
-                <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900/50 flex items-center justify-center text-primary shadow-2xs">
-                  <Clock className="w-5 h-5 stroke-[2.2]" />
-                </div>
+              <div className="flex items-center gap-3 mb-2">
                 <h1 className="font-heading font-extrabold text-2xl sm:text-3xl lg:text-4xl text-foreground tracking-tight">
                   Lịch sử xem tin
                 </h1>

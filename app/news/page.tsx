@@ -6,16 +6,15 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import NewsCard from "@/components/news/NewsCard";
 import { MOCK_NEWS_ARTICLES } from "@/data/mock-news-data";
-import { NewsArticle, NewsCategory } from "@/types/news.type";
+import { NewsArticle } from "@/types/news.type";
 import {
   Newspaper,
   Search,
   ChevronLeft,
   ChevronRight,
   Home,
-  Sparkles,
-  TrendingUp,
   Flame,
+  TrendingUp,
   ArrowRight,
 } from "lucide-react";
 
@@ -103,48 +102,91 @@ export default function NewsPage() {
             <span className="font-semibold text-foreground">Tin tức</span>
           </nav>
 
-          {/* Hero Banner & Search */}
-          <div className="relative rounded-3xl bg-linear-to-r from-primary/10 via-primary/5 to-accent-ai/10 border border-primary/15 p-6 sm:p-10 mb-10 overflow-hidden shadow-xs">
-            <div className="max-w-2xl relative z-10">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold mb-3 border border-primary/20">
-                <Newspaper className="w-3.5 h-3.5" />
-                <span>BẢN TIN BẤT ĐỘNG SẢN 2026</span>
+          {/* Page Title & Stats (Đồng bộ chuẩn đẹp không dùng icon heading) */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-border/80 mb-8">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl lg:text-4xl text-foreground tracking-tight">
+                  Tin tức & Thị trường
+                </h1>
+                <span className="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                  {articles.length} bài viết
+                </span>
               </div>
-              <h1 className="font-heading font-extrabold text-2xl sm:text-4xl lg:text-5xl text-foreground tracking-tight leading-tight">
-                Tin tức & Thị trường
-              </h1>
-              <p className="text-sm sm:text-base text-muted-foreground mt-2 leading-relaxed">
+              <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
                 Cập nhật xu hướng giá thuê, chính sách pháp lý nhà ở mới nhất, quy hoạch hạ tầng và cẩm nang thuê nhà an toàn.
               </p>
+            </div>
+          </div>
 
-              {/* Search Bar */}
-              <div className="relative mt-6 max-w-lg">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Tìm kiếm bài viết, chủ đề, quy hoạch..."
-                  className="w-full pl-10 pr-4 py-2.5 sm:py-3 text-xs sm:text-sm bg-card border border-border rounded-2xl focus:border-primary/50 text-foreground placeholder:text-muted-foreground outline-none shadow-2xs transition-all"
-                />
+          {/* Search, Filter Tabs & Controls (Đồng bộ chuẩn như trang Yêu thích) */}
+          <div className="space-y-4 mb-10">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              {/* Category Tabs */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                {NEWS_CATEGORIES.map((cat) => {
+                  const count =
+                    cat.id === "all"
+                      ? articles.length
+                      : articles.filter((a) => a.category === cat.id).length;
+                  const isActive = activeCategory === cat.id;
+
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveCategory(cat.id);
+                        setCurrentPage(1);
+                      }}
+                      className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+                        isActive
+                          ? "bg-foreground text-background shadow-xs font-bold"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                      }`}
+                    >
+                      <span>{cat.label}</span>
+                      <span
+                        className={`text-[11px] px-1.5 py-0.2 rounded-full ${
+                          isActive
+                            ? "bg-background text-foreground font-bold"
+                            : "bg-background/80 text-muted-foreground"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Right: Search Input */}
+              <div className="flex items-center gap-2.5 shrink-0">
+                <div className="relative flex-1 sm:w-64 lg:w-72">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="Tìm kiếm bài viết..."
+                    className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-card border border-border rounded-xl focus:border-primary/50 text-foreground placeholder:text-muted-foreground outline-none shadow-2xs transition-all"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Section 1: Tin nổi bật (Matching Image 1) */}
+          {/* Section 1: Tin nổi bật (Theo ảnh mẫu) */}
           {!searchQuery && activeCategory === "all" && featuredArticles.length > 0 && (
             <section className="mb-14">
               <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 pb-4 border-b border-border/80 mb-6">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <Flame className="w-5 h-5 text-amber-500 fill-amber-500" />
-                    <h2 className="font-heading font-extrabold text-xl sm:text-2xl text-foreground">
-                      Tin nổi bật
-                    </h2>
-                  </div>
+                  <h2 className="font-heading font-extrabold text-xl sm:text-2xl text-foreground">
+                    Tin nổi bật
+                  </h2>
                   <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                     Tổng hợp bài viết chiến lược được chọn lọc kỹ.
                   </p>
@@ -172,58 +214,15 @@ export default function NewsPage() {
             </section>
           )}
 
-          {/* Section 2: Bản tin mới nhất (Matching Image 1) */}
+          {/* Section 2: Bản tin mới nhất (Theo ảnh mẫu) */}
           <section id="latest-news" ref={latestSectionRef} className="scroll-mt-24">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 border-b border-border/80 mb-6">
-              <div>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-primary" />
-                  <h2 className="font-heading font-extrabold text-xl sm:text-2xl text-foreground">
-                    Bản tin mới nhất
-                  </h2>
-                </div>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                  Cập nhật liên tục theo từng khu vực và phân khúc.
-                </p>
-              </div>
-
-              {/* Category Filter Tabs */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                {NEWS_CATEGORIES.map((cat) => {
-                  const isActive = activeCategory === cat.id;
-                  const count =
-                    cat.id === "all"
-                      ? articles.length
-                      : articles.filter((a) => a.category === cat.id).length;
-
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => {
-                        setActiveCategory(cat.id);
-                        setCurrentPage(1);
-                      }}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
-                        isActive
-                          ? "bg-foreground text-background shadow-xs font-bold"
-                          : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
-                      }`}
-                    >
-                      <span>{cat.label}</span>
-                      <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                          isActive
-                            ? "bg-background text-foreground font-bold"
-                            : "bg-background/70 text-muted-foreground"
-                        }`}
-                      >
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="pb-4 border-b border-border/80 mb-6">
+              <h2 className="font-heading font-extrabold text-xl sm:text-2xl text-foreground">
+                Bản tin mới nhất
+              </h2>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                Cập nhật liên tục theo từng khu vực và phân khúc.
+              </p>
             </div>
 
             {/* Articles Feed */}
@@ -236,7 +235,7 @@ export default function NewsPage() {
                   Không tìm thấy bài viết phù hợp
                 </h3>
                 <p className="text-xs sm:text-sm max-w-md text-muted-foreground">
-                  Hãy thử tìm kiếm với từ khóa khác hoặc chuyển sang danh mục tin khác.
+                  Hãy thử tìm kiếm với từ khóa khác hoặc chọn danh mục khác.
                 </p>
               </div>
             ) : (
@@ -247,7 +246,7 @@ export default function NewsPage() {
               </div>
             )}
 
-            {/* Pagination Controls */}
+            {/* Pagination Controls (Đồng bộ chuẩn như trang Yêu thích) */}
             {totalPages > 1 && (
               <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-border/80 pt-6">
                 <p className="text-xs text-muted-foreground font-medium order-2 sm:order-1">

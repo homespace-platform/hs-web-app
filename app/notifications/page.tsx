@@ -173,9 +173,6 @@ export default function NotificationsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border mb-6">
             <div>
               <div className="flex items-center gap-3 mb-1.5">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-2xs">
-                  <Bell className="w-5 h-5" />
-                </div>
                 <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-foreground">
                   Trung tâm thông báo
                 </h1>

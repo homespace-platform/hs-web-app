@@ -20,12 +20,9 @@ export default function FeaturedProperties() {
       {/* Section Title & View All */}
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
-            <h2 className="font-heading font-bold text-2xl sm:text-3xl text-foreground tracking-tight">
-              Nhà cho thuê quanh đây
-            </h2>
-          </div>
+          <h2 className="font-heading font-bold text-2xl sm:text-3xl text-foreground tracking-tight mb-2">
+            Nhà cho thuê quanh đây
+          </h2>
           <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
             Khám phá các không gian sống cho thuê tốt nhất tại khu vực của bạn, được
             xác thực On-chain và thẩm định bởi AI.

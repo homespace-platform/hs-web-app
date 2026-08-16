@@ -22,12 +22,9 @@ export default function RecentListings() {
       {/* Section Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-            <h2 className="font-heading font-bold text-2xl sm:text-3xl text-foreground tracking-tight">
-              Tin cho thuê mới đăng
-            </h2>
-          </div>
+          <h2 className="font-heading font-bold text-2xl sm:text-3xl text-foreground tracking-tight mb-2">
+            Tin cho thuê mới đăng
+          </h2>
           <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
             Các bất động sản cho thuê vừa được cập nhật trực tiếp theo thời gian thực tại khu vực đang chọn.
           </p>

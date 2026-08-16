@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { POPULAR_LOCATIONS } from "@/data/home-data";
 import { MapPin } from "lucide-react";
@@ -24,12 +26,17 @@ export default function PopularLocations() {
             href={`#city-${city.slug}`}
             className="group relative rounded-2xl sm:rounded-3xl overflow-hidden h-48 sm:h-60 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300"
           >
-            {/* City Image */}
+            {/* City Image with fallback */}
             <img
               src={city.imageUrl}
               alt={city.name}
-              className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+              className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 bg-slate-800"
               loading="lazy"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.src =
+                  "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=800&q=80";
+              }}
             />
 
             {/* Gradient Overlay */}

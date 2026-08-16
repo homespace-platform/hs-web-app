@@ -181,7 +181,7 @@ export const POPULAR_LOCATIONS: CityItem[] = [
     id: "hcm",
     name: "TP. Hồ Chí Minh",
     slug: "ho-chi-minh",
-    listingCount: "3,585 tin đăng",
+    listingCount: "0 tin đăng",
     imageUrl:
       "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=800&q=80",
     districts: ["Quận 1", "Quận 7", "Thủ Đức", "Bình Thạnh", "Quận 2"],
@@ -190,16 +190,16 @@ export const POPULAR_LOCATIONS: CityItem[] = [
     id: "hn",
     name: "Hà Nội",
     slug: "ha-noi",
-    listingCount: "1,229 tin đăng",
+    listingCount: "0 tin đăng",
     imageUrl:
-      "https://images.unsplash.com/photo-1509030450996-939a2c418053?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1599827556794-279883bc2dbb?auto=format&fit=crop&w=800&q=80",
     districts: ["Cầu Giấy", "Nam Từ Liêm", "Tây Hồ", "Đống Đa", "Ba Đình"],
   },
   {
     id: "dn",
     name: "Đà Nẵng",
     slug: "da-nang",
-    listingCount: "856 tin đăng",
+    listingCount: "0 tin đăng",
     imageUrl:
       "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=800&q=80",
     districts: ["Hải Châu", "Sơn Trà", "Ngũ Hành Sơn", "Thanh Khê"],
@@ -208,7 +208,7 @@ export const POPULAR_LOCATIONS: CityItem[] = [
     id: "ct",
     name: "Cần Thơ",
     slug: "can-tho",
-    listingCount: "342 tin đăng",
+    listingCount: "0 tin đăng",
     imageUrl:
       "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=800&q=80",
     districts: ["Ninh Kiều", "Cái Răng", "Bình Thủy"],
@@ -217,7 +217,7 @@ export const POPULAR_LOCATIONS: CityItem[] = [
     id: "bd",
     name: "Bình Dương",
     slug: "binh-duong",
-    listingCount: "478 tin đăng",
+    listingCount: "0 tin đăng",
     imageUrl:
       "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80",
     districts: ["Thủ Dầu Một", "Thuận An", "Dĩ An", "Bến Cát"],
@@ -226,16 +226,16 @@ export const POPULAR_LOCATIONS: CityItem[] = [
     id: "hp",
     name: "Hải Phòng",
     slug: "hai-phong",
-    listingCount: "215 tin đăng",
+    listingCount: "0 tin đăng",
     imageUrl:
-      "https://images.unsplash.com/photo-1477959858617-67f30bc75b82?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=800&q=80",
     districts: ["Hồng Bàng", "Ngô Quyền", "Lê Chân"],
   },
   {
     id: "nt",
     name: "Nha Trang",
     slug: "nha-trang",
-    listingCount: "184 tin đăng",
+    listingCount: "0 tin đăng",
     imageUrl:
       "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
     districts: ["Vĩnh Nguyên", "Lộc Thọ", "Phước Hải"],
@@ -244,7 +244,7 @@ export const POPULAR_LOCATIONS: CityItem[] = [
     id: "vt",
     name: "Vũng Tàu",
     slug: "vung-tau",
-    listingCount: "156 tin đăng",
+    listingCount: "0 tin đăng",
     imageUrl:
       "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80",
     districts: ["Phường 1", "Phường 2", "Thắng Tam", "Nguyễn An Ninh"],

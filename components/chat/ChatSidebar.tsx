@@ -6,9 +6,7 @@ import {
   Eye,
   EyeOff,
   Pin,
-  Bot,
   ShieldCheck,
-  CheckCheck,
 } from "lucide-react";
 import { ChatConversation, ChatFilterTab } from "@/types/chat.type";
 
@@ -190,7 +188,7 @@ export default function ChatSidebar({
         </button>
       </div>
 
-      {/* 4. Danh sách các cuộc trò chuyện */}
+      {/* 4. Danh sách các cuộc trò chuyện giữa Chủ nhà và Khách thuê */}
       <div className="flex-1 overflow-y-auto divide-y divide-border/40 p-1.5 space-y-1">
         {sortedConversations.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center gap-2">
@@ -202,7 +200,6 @@ export default function ChatSidebar({
         ) : (
           sortedConversations.map((conv) => {
             const isSelected = activeConversationId === conv.id;
-            const isAI = conv.userId.includes("ai-assistant");
             const initial = conv.userName.charAt(0).toUpperCase();
 
             return (
@@ -215,18 +212,16 @@ export default function ChatSidebar({
                     : "hover:bg-muted/80"
                 }`}
               >
-                {/* Avatar Icon / Initial */}
+                {/* Avatar Initial */}
                 <div className="relative shrink-0">
                   <div
                     className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shadow-xs ${
-                      isAI
-                        ? "bg-gradient-to-br from-cyan-500 to-blue-600 text-white"
-                        : isSelected
+                      isSelected
                         ? "bg-primary text-primary-foreground"
                         : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200"
                     }`}
                   >
-                    {isAI ? <Bot className="w-5 h-5" /> : initial}
+                    {initial}
                   </div>
 
                   {/* Online/Offline status badge */}
@@ -258,7 +253,7 @@ export default function ChatSidebar({
                     </span>
                   </div>
 
-                  {/* Role Tag */}
+                  {/* Role Tag (Chủ nhà / Khách tìm thuê) */}
                   {conv.userRole && (
                     <div className="mb-1">
                       <span className="inline-flex items-center text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium">

@@ -59,11 +59,11 @@ export default function ChatPage() {
       const autoReplies: Record<string, string> = {
         "conv-1": "2222222222",
         "conv-2":
-          "Cảm ơn bạn đã quan tâm. Mình đã ghi nhận và sẽ giữ lịch hẹn xem căn Landmark 81 với bạn nhé!",
+          "Cảm ơn bạn đã quan tâm. Mình là chủ nhà Landmark 81, mình đã ghi nhận và sẽ đón bạn xem phòng đúng giờ nhé!",
         "conv-3":
-          "Tôi đã lưu thông tin tìm kiếm của bạn vào hệ thống HomeSpace AI. Khi có căn hộ giá tốt mới nhất tại khu vực này, tôi sẽ thông báo cho bạn ngay lập tức.",
+          "Ok bạn nhé, mình là chủ căn Studio Bến Nghé Q1. Có gì cần trao đổi thêm về điều khoản thuê trực tiếp thì nhắn mình.",
         "conv-4":
-          "Ok bạn nhé, có gì cần điều chỉnh trong điều khoản hợp đồng cọc thì nhắn anh.",
+          "Chị đã nhận được tin nhắn. Căn Masteri Thảo Điền này chị chính chủ, em yên tâm qua xem nhà nhé.",
       };
 
       const replyContent =

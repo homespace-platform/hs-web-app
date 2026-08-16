@@ -16,7 +16,6 @@ import {
   CheckCheck,
   MapPin,
   ExternalLink,
-  Bot,
   ShieldCheck,
   Info,
 } from "lucide-react";
@@ -38,7 +37,7 @@ export default function ChatWindow({
   onTogglePinConversation,
 }: ChatWindowProps) {
   const [inputText, setInputText] = useState("");
-  const [showPropertyDetails, setShowPropertyDetails] = useState(true);
+  const [showPropertyDetails] = useState(true);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -75,7 +74,6 @@ export default function ChatWindow({
     onSendMessage(conversation.id, text);
   };
 
-  const isAI = conversation.userId.includes("ai-assistant");
   const initial = conversation.userName.charAt(0).toUpperCase();
 
   return (
@@ -95,17 +93,13 @@ export default function ChatWindow({
 
           {/* User Avatar & Status */}
           <div className="relative shrink-0">
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-xs ${isAI
-                  ? "bg-gradient-to-br from-cyan-500 to-blue-600 text-white"
-                  : "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200"
-                }`}
-            >
-              {isAI ? <Bot className="w-5 h-5" /> : initial}
+            <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-xs bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+              {initial}
             </div>
             <span
-              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-card ${conversation.isOnline ? "bg-emerald-500" : "bg-slate-400"
-                }`}
+              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-card ${
+                conversation.isOnline ? "bg-emerald-500" : "bg-slate-400"
+              }`}
             />
           </div>
 
@@ -131,7 +125,7 @@ export default function ChatWindow({
           <button
             type="button"
             className="p-2 rounded-xl hover:bg-muted hover:text-foreground transition-colors"
-            title="Gọi thoại"
+            title="Gọi thoại trực tiếp"
             onClick={() => alert("Tính năng gọi thoại đang kết nối...")}
           >
             <Phone className="w-4 h-4" />
@@ -139,7 +133,7 @@ export default function ChatWindow({
           <button
             type="button"
             className="p-2 rounded-xl hover:bg-muted hover:text-foreground transition-colors"
-            title="Gọi video trực tiếp"
+            title="Gọi video xem phòng trực tiếp"
             onClick={() => alert("Tính năng gọi video trực tiếp đang kết nối...")}
           >
             <Video className="w-4 h-4" />
@@ -202,7 +196,7 @@ export default function ChatWindow({
         </div>
       </div>
 
-      {/* 2. Attached Rental Property Preview Banner (if applicable) */}
+      {/* 2. Attached Rental Property Preview Banner (Căn hộ đang trao đổi trực tiếp) */}
       {conversation.relatedListing && showPropertyDetails && (
         <div className="px-4 py-2.5 bg-primary/5 dark:bg-primary/10 border-b border-primary/10 flex items-center justify-between gap-3 text-xs animate-in slide-in-from-top-2">
           <div className="flex items-center gap-3 min-w-0">
@@ -265,30 +259,34 @@ export default function ChatWindow({
 
               {/* Message Bubble Container */}
               <div
-                className={`flex flex-col ${isMe ? "items-end" : "items-start"
-                  } group`}
+                className={`flex flex-col ${
+                  isMe ? "items-end" : "items-start"
+                } group`}
               >
                 <div
-                  className={`relative max-w-[85%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-2xs transition-all ${isMe
+                  className={`relative max-w-[85%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-2xs transition-all ${
+                    isMe
                       ? "bg-blue-50 dark:bg-blue-950/60 text-foreground border border-blue-200/60 dark:border-blue-800/60 rounded-br-xs"
                       : "bg-muted/70 text-foreground border border-border/60 rounded-bl-xs"
-                    }`}
+                  }`}
                 >
                   <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                 </div>
 
                 {/* Message Timestamp & Status */}
                 <div
-                  className={`flex items-center gap-1 mt-1 px-1 text-[10px] text-muted-foreground ${isMe ? "justify-end" : "justify-start"
-                    }`}
+                  className={`flex items-center gap-1 mt-1 px-1 text-[10px] text-muted-foreground ${
+                    isMe ? "justify-end" : "justify-start"
+                  }`}
                 >
                   <span>{msg.timestamp}</span>
                   {isMe && (
                     <CheckCheck
-                      className={`w-3.5 h-3.5 ${msg.status === "read"
+                      className={`w-3.5 h-3.5 ${
+                        msg.status === "read"
                           ? "text-blue-600 dark:text-blue-400"
                           : "text-muted-foreground"
-                        }`}
+                      }`}
                     />
                   )}
                 </div>
@@ -299,7 +297,7 @@ export default function ChatWindow({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 4. Quick Suggestion Chips (Gợi ý câu hỏi nhanh) */}
+      {/* 4. Quick Suggestion Chips (Gợi ý câu hỏi trực tiếp giữa Chủ nhà và Khách thuê) */}
       <div className="px-4 py-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar border-t border-border/40 bg-background/50">
         <span className="text-[10px] font-semibold text-muted-foreground shrink-0 flex items-center gap-1">
           <Info className="w-3 h-3" /> Gợi ý:
@@ -307,7 +305,7 @@ export default function ChatWindow({
         <button
           type="button"
           onClick={() =>
-            handleQuickReply("Căn hộ này còn cho thuê không ạ?")
+            handleQuickReply("Căn hộ này của anh/chị hiện còn cho thuê không ạ?")
           }
           className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all"
         >
@@ -316,7 +314,7 @@ export default function ChatWindow({
         <button
           type="button"
           onClick={() =>
-            handleQuickReply("Em muốn hẹn lịch xem nhà trực tiếp vào ngày mai được không?")
+            handleQuickReply("Em muốn hẹn lịch qua xem nhà trực tiếp vào ngày mai được không ạ?")
           }
           className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all"
         >
@@ -325,20 +323,20 @@ export default function ChatWindow({
         <button
           type="button"
           onClick={() =>
-            handleQuickReply("Giá thuê này có thương lượng hoặc giảm giá cho hợp đồng dài hạn không ạ?")
+            handleQuickReply("Giá thuê này có thương lượng hoặc bớt lộc cho khách thuê dài hạn không ạ?")
           }
           className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all"
         >
-          💰 Đàm phán giá
+          💰 Đàm phán giá thuê
         </button>
         <button
           type="button"
           onClick={() =>
-            handleQuickReply("Cho em xin thông tin hợp đồng đặt cọc On-chain Smart Contract với ạ.")
+            handleQuickReply("Cho em hỏi quy định về tiền đặt cọc và thời hạn ký hợp đồng thuê như thế nào ạ?")
           }
           className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all"
         >
-          🛡️ Hợp đồng Smart Contract
+          📝 Tiền cọc & Thời hạn thuê
         </button>
       </div>
 
@@ -353,7 +351,7 @@ export default function ChatWindow({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Nhập tin nhắn..."
+              placeholder="Nhập tin nhắn trao đổi với chủ nhà / khách thuê..."
               className="flex-1 bg-transparent text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none py-1.5"
             />
 
@@ -388,10 +386,11 @@ export default function ChatWindow({
               <button
                 type="submit"
                 disabled={!inputText.trim()}
-                className={`p-2 rounded-xl font-semibold transition-all flex items-center justify-center ${inputText.trim()
+                className={`p-2 rounded-xl font-semibold transition-all flex items-center justify-center ${
+                  inputText.trim()
                     ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30 hover:scale-105 active:scale-95"
                     : "text-muted-foreground/40 cursor-not-allowed"
-                  }`}
+                }`}
                 title="Gửi tin nhắn"
               >
                 <Send className="w-4 h-4" />

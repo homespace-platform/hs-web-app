@@ -321,7 +321,7 @@ export default function RentPage() {
             className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start scroll-mt-24"
           >
             {/* Left Column: Filter Sidebar (Hidden on mobile, sticky on Desktop) */}
-            <div className="hidden lg:block lg:col-span-4 xl:col-span-4">
+            <div className="hidden lg:block lg:col-span-4 xl:col-span-4 sticky top-24 self-start z-20">
               <RentFilterSidebar
                 filter={filter}
                 onChange={(newFilter) => {

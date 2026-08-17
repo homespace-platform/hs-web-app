@@ -34,7 +34,7 @@ import {
 export default function Header() {
   const { authenticated, login, register, logout, username, profileName } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [favoriteCount, setFavoriteCount] = useState(24);
+  const [favoriteCount, setFavoriteCount] = useState(0);
 
   // Province States
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -64,13 +64,18 @@ export default function Header() {
     };
   }, [isProvinceOpen]);
 
-  // Sync favorites count
+  // Sync favorites count (chỉ khi đã đăng nhập)
   useEffect(() => {
+    if (!authenticated) {
+      setFavoriteCount(0);
+      return;
+    }
+
     try {
       const saved = localStorage.getItem("homespace_saved_favorites");
       if (saved) {
         const ids = JSON.parse(saved);
-        if (Array.isArray(ids) && ids.length > 0) {
+        if (Array.isArray(ids)) {
           setFavoriteCount(ids.length);
         }
       }
@@ -88,7 +93,7 @@ export default function Header() {
     return () => {
       window.removeEventListener("favoritesUpdated", handleFavUpdate);
     };
-  }, []);
+  }, [authenticated]);
 
   // Fetch Provinces & Initialize from LocalStorage
   useEffect(() => {
@@ -323,20 +328,6 @@ export default function Header() {
             ) : (
               /* State 2: Guest / Unauthenticated (Chưa đăng nhập) */
               <div className="flex items-center gap-3">
-                {/* Yêu thích */}
-                <Link
-                  href="/favorites"
-                  title="Danh sách yêu thích"
-                  className="relative w-10 h-10 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50/50 dark:hover:bg-muted transition-colors cursor-pointer"
-                >
-                  <Heart className="w-4 h-4" />
-                  {favoriteCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center leading-none shadow-xs">
-                      {favoriteCount}
-                    </span>
-                  )}
-                </Link>
-
                 {/* Tải ứng dụng */}
                 <Link
                   href="#download-app"
@@ -445,22 +436,23 @@ export default function Header() {
               </span>
             </Link>
 
-            {/* Yêu thích */}
-            <Link
-              href="/favorites"
-              onClick={() => setMobileMenuOpen(false)}
-              className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center justify-between transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Heart className="w-4 h-4 text-rose-500" />
-                <span>Danh sách yêu thích</span>
-              </div>
-              {favoriteCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold shadow-2xs">
-                  {favoriteCount}
-                </span>
-              )}
-            </Link>
+            {authenticated && (
+              <Link
+                href="/favorites"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center justify-between transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Heart className="w-4 h-4 text-rose-500" />
+                  <span>Danh sách yêu thích</span>
+                </div>
+                {favoriteCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold shadow-2xs">
+                    {favoriteCount}
+                  </span>
+                )}
+              </Link>
+            )}
 
             {/* Lịch sử xem tin */}
             <Link

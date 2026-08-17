@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Heart, MapPin, Image as ImageIcon } from "lucide-react";
 import { PropertyItem } from "@/data/home-data";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 interface PropertyCardProps {
   property: PropertyItem;
@@ -18,10 +19,15 @@ export default function PropertyCard({
   onFavoriteToggle,
   onRemoveFavorite,
 }: PropertyCardProps) {
+  const { authenticated } = useAuth();
   const [isFavorited, setIsFavorited] = useState(initialFavorited);
 
-  // Sync with localStorage favorites if available
+  // Sync with localStorage favorites if available (chỉ khi đã đăng nhập)
   useEffect(() => {
+    if (!authenticated) {
+      setIsFavorited(false);
+      return;
+    }
     try {
       const saved = localStorage.getItem("homespace_saved_favorites");
       if (saved) {
@@ -33,11 +39,13 @@ export default function PropertyCard({
     } catch {
       // ignore
     }
-  }, [property.id]);
+  }, [property.id, authenticated]);
 
   const handleToggle = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (!authenticated) return;
 
     const nextState = !isFavorited;
     setIsFavorited(nextState);
@@ -81,22 +89,23 @@ export default function PropertyCard({
           loading="lazy"
         />
 
-        {/* Favorite Heart Button at Top-Right */}
-        <button
-          type="button"
-          onClick={handleToggle}
-          className="absolute top-2.5 right-2.5 z-10 p-1.5 rounded-full transition-transform hover:scale-110 active:scale-95 cursor-pointer"
-          aria-label={isFavorited ? "Bỏ yêu thích" : "Yêu thích"}
-          title={isFavorited ? "Bỏ yêu thích" : "Lưu tin này"}
-        >
-          <Heart
-            className={`w-5 h-5 drop-shadow-md transition-colors ${
-              isFavorited
-                ? "fill-rose-500 text-rose-500 stroke-rose-500"
-                : "text-white fill-black/20 stroke-white stroke-[2.2]"
-            }`}
-          />
-        </button>
+        {authenticated && (
+          <button
+            type="button"
+            onClick={handleToggle}
+            className="absolute top-2.5 right-2.5 z-10 p-1.5 rounded-full transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+            aria-label={isFavorited ? "Bỏ yêu thích" : "Yêu thích"}
+            title={isFavorited ? "Bỏ yêu thích" : "Lưu tin này"}
+          >
+            <Heart
+              className={`w-5 h-5 drop-shadow-md transition-colors ${
+                isFavorited
+                  ? "fill-rose-500 text-rose-500 stroke-rose-500"
+                  : "text-white fill-black/20 stroke-white stroke-[2.2]"
+              }`}
+            />
+          </button>
+        )}
 
         {/* Bottom Dark Gradient Info Bar (Time Ago & Photos Count) */}
         <div className="absolute bottom-0 left-0 right-0 px-3 py-1.5 bg-gradient-to-t from-black/85 via-black/45 to-transparent flex items-center justify-between text-white text-[11px] font-semibold select-none pointer-events-none">

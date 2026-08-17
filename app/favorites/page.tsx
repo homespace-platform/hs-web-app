@@ -5,6 +5,7 @@ import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import PropertyCard from "@/components/property/PropertyCard";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { MOCK_FAVORITE_PROPERTIES } from "@/data/mock-favorites-data";
 import { PropertyItem } from "@/data/home-data";
 import {
@@ -18,7 +19,10 @@ import {
   Sparkles,
   ArrowUpDown,
   Building,
+  LogIn,
+  Loader2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -32,6 +36,7 @@ const FAVORITE_CATEGORIES = [
 ];
 
 export default function FavoritesPage() {
+  const { initialized, authenticated, login } = useAuth();
   const [favorites, setFavorites] = useState<PropertyItem[]>(
     MOCK_FAVORITE_PROPERTIES
   );
@@ -111,6 +116,46 @@ export default function FavoritesPage() {
       }
     }
   };
+
+  if (!initialized) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-3">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Đang tải...</p>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background text-foreground">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 flex items-center justify-center px-4">
+          <div className="max-w-md w-full text-center space-y-5 rounded-2xl border border-border bg-card p-8 shadow-sm">
+            <div className="mx-auto w-14 h-14 rounded-full bg-rose-50 dark:bg-rose-950/40 flex items-center justify-center">
+              <Heart className="w-7 h-7 text-rose-500" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-xl font-bold font-heading">
+                Đăng nhập để xem yêu thích
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Danh sách tin đã lưu chỉ dành cho tài khoản đã đăng nhập.
+              </p>
+            </div>
+            <Button
+              onClick={() => login()}
+              className="rounded-full h-10 px-6 cursor-pointer"
+            >
+              <LogIn className="w-4 h-4" data-icon="inline-start" />
+              Đăng nhập
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">

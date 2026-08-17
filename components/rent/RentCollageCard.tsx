@@ -149,8 +149,8 @@ export default function RentCollageCard({
           <div className="pt-3 border-t border-border flex items-center justify-between gap-3">
             {/* Landlord info */}
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0 border border-primary/20">
-                {property.landlord.name.charAt(0)}
+              <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                {property.landlord.name.charAt(0).toUpperCase()}
               </div>
               <div className="text-xs min-w-0">
                 <p className="font-semibold text-foreground truncate">

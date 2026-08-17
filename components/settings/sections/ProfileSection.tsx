@@ -5,7 +5,8 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { Camera, BadgeCheck, ShieldCheck, Check } from "lucide-react";
 
 export default function ProfileSection() {
-  const { username, profileName, email } = useAuth();
+  const { username, profileName, email, authenticated } = useAuth();
+  const isVerified = Boolean(authenticated);
 
   const [fullName, setFullName] = useState(profileName || username || "Nguyễn Văn An");
   const [phoneNumber, setPhoneNumber] = useState("+84 353 999 798");
@@ -43,16 +44,43 @@ export default function ProfileSection() {
         <div className="flex-1 text-center sm:text-left space-y-1">
           <div className="flex items-center justify-center sm:justify-start gap-1.5">
             <h3 className="font-bold text-base text-foreground">{fullName}</h3>
-            <span title="Tài khoản đã xác thực KYC">
-              <BadgeCheck className="w-4 h-4 text-primary shrink-0" />
-            </span>
+
+            {/* Biểu tượng tích xanh xác thực eKYC chuẩn sắc nét */}
+            {isVerified && (
+              <span
+                className="inline-flex items-center justify-center shrink-0 cursor-help"
+                title="Tài khoản đã xác thực danh tính điện tử (eKYC)"
+              >
+                <svg
+                  className="w-4.5 h-4.5 text-blue-600 dark:text-blue-500 fill-current drop-shadow-xs"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.67-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.34 2.19c-1.39-.46-2.9-.2-3.91.81s-1.27 2.52-.81 3.91C2.63 9.33 1.75 10.57 1.75 12s.88 2.67 2.19 3.34c-.46 1.39-.2 2.9.81 3.91s2.52 1.27 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.67-.88 3.34-2.19c1.39.46 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34z" />
+                  <path
+                    d="M10 15.5l-3.5-3.5 1.41-1.41L10 12.67l5.59-5.59L17 8.5l-7 7z"
+                    fill="white"
+                  />
+                </svg>
+              </span>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">{userEmail}</p>
+
           <div className="pt-1 flex items-center justify-center sm:justify-start gap-2">
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/20 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Đã xác thực On-chain ID
-            </span>
+            {isVerified ? (
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold border border-emerald-500/20 flex items-center gap-1.5 shadow-2xs">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>Đã xác thực danh tính (eKYC)</span>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => alert("Chuyển đến luồng xác thực eKYC bằng CCCD...")}
+                className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-bold border border-amber-500/20 flex items-center gap-1.5 shadow-2xs hover:bg-amber-500/20 transition-colors cursor-pointer"
+              >
+                <span>⚠️ Chưa xác thực danh tính • Xác thực ngay</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

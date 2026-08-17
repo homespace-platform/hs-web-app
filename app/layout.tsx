@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Montserrat, Inter } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
 import Providers from "@/components/auth/Providers";
+import FloatingChatButton from "@/components/chat/FloatingChatButton";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -63,7 +64,10 @@ export default function RootLayout({
           shadow="0 0 10px #2563eb,0 0 5px #3b82f6"
           zIndex={99999}
         />
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <FloatingChatButton />
+        </Providers>
       </body>
     </html>
   );

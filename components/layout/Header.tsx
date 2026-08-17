@@ -305,18 +305,6 @@ export default function Header() {
                   )}
                 </Link>
 
-                {/* Tin nhắn / Chat */}
-                <Link
-                  href="/chat"
-                  title="Tin nhắn"
-                  className="relative w-10 h-10 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted transition-colors cursor-pointer"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center leading-none shadow-xs">
-                    3
-                  </span>
-                </Link>
-
                 {/* Thông báo với popup danh sách */}
                 <NotificationDropdown initialCount={5} />
 
@@ -430,21 +418,6 @@ export default function Header() {
               </span>
             </Link>
 
-            {/* Tin nhắn */}
-            <Link
-              href="/chat"
-              onClick={() => setMobileMenuOpen(false)}
-              className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center justify-between transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <MessageCircle className="w-4 h-4 text-primary" />
-                <span>Tin nhắn & Trò chuyện</span>
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold shadow-2xs">
-                3
-              </span>
-            </Link>
-
             {authenticated && (
               <Link
                 href="/favorites"
@@ -510,15 +483,17 @@ export default function Header() {
               <span>Tin tức & Thị trường</span>
             </Link>
 
-            {/* Tải ứng dụng */}
-            <Link
-              href="#download-app"
-              onClick={() => setMobileMenuOpen(false)}
-              className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
-            >
-              <Smartphone className="w-4 h-4 text-accent-ai" />
-              <span>Tải ứng dụng HomeSpace</span>
-            </Link>
+            {/* Tải ứng dụng (Chỉ hiện khi chưa đăng nhập) */}
+            {!authenticated && (
+              <Link
+                href="#download-app"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
+              >
+                <Smartphone className="w-4 h-4 text-accent-ai" />
+                <span>Tải ứng dụng HomeSpace</span>
+              </Link>
+            )}
           </nav>
 
           {/* User Auth Section */}

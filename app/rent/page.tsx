@@ -241,9 +241,9 @@ export default function RentPage() {
       list = list.filter(
         (p) =>
           p.title.toLowerCase().includes(q) ||
-          p.project.toLowerCase().includes(q) ||
           p.location.toLowerCase().includes(q) ||
-          p.district.toLowerCase().includes(q)
+          p.district.toLowerCase().includes(q) ||
+          (p.ward && p.ward.toLowerCase().includes(q))
       );
     }
 
@@ -354,7 +354,7 @@ export default function RentPage() {
                     type="text"
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
-                    placeholder="Tìm theo tên dự án, căn hộ, đường, quận..."
+                    placeholder="Tìm theo tên bài đăng, đường, phường, quận..."
                     className="h-11 pl-10 pr-28 text-xs sm:text-sm bg-muted/60 border-border rounded-2xl focus-visible:border-primary focus-visible:ring-primary/20"
                   />
                   <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">

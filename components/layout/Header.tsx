@@ -29,6 +29,7 @@ import {
   User,
   LogOut,
   Newspaper,
+  Building,
 } from "lucide-react";
 
 export default function Header() {
@@ -265,6 +266,14 @@ export default function Header() {
               )}
             </div>
             
+            {/* Link Nhà Cho Thuê (Dạng text link thanh lịch) */}
+            <Link
+              href="/rent"
+              className="hidden md:flex items-center text-sm font-semibold text-foreground/90 hover:text-primary transition-colors px-2 py-1"
+            >
+              <span>Nhà Cho Thuê</span>
+            </Link>
+
             {/* Link Tin tức (Dạng text link nhẹ nhàng sau chọn tỉnh) */}
             <Link
               href="/news"
@@ -480,6 +489,16 @@ export default function Header() {
                 <span>Quản lý tin đăng</span>
               </Link>
             )}
+
+            {/* Nhà Cho Thuê */}
+            <Link
+              href="/rent"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
+            >
+              <Building className="w-4 h-4 text-primary" />
+              <span>Nhà Cho Thuê</span>
+            </Link>
 
             {/* Tin tức & Thị trường */}
             <Link

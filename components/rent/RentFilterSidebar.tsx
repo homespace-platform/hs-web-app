@@ -1,19 +1,14 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
-  LayoutGrid,
-  Building,
   Home,
-  Briefcase,
-  Store,
-  Sparkles,
-  DoorClosed,
   RotateCcw,
   Check,
   Bed,
   Banknote,
   Maximize2,
+  Search,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
@@ -34,19 +29,19 @@ export interface FilterState {
 
 interface RentFilterSidebarProps {
   filter: FilterState;
-  onChange: (newFilter: FilterState) => void;
+  onApply: (newFilter: FilterState) => void;
   onReset: () => void;
   totalResultsCount: number;
 }
 
 export const RENT_CATEGORIES = [
-  { id: "all", label: "Tất cả", icon: LayoutGrid },
-  { id: "apartment", label: "Căn hộ/Chung cư", icon: Building },
-  { id: "house", label: "Nhà ở", icon: Home },
-  { id: "office", label: "Văn phòng", icon: Briefcase },
-  { id: "commercial", label: "Mặt bằng kinh doanh", icon: Store },
-  { id: "studio", label: "Studio", icon: Sparkles },
-  { id: "room", label: "Phòng trọ", icon: DoorClosed },
+  { id: "all", label: "Tất cả" },
+  { id: "apartment", label: "Căn hộ/Chung cư" },
+  { id: "house", label: "Nhà ở" },
+  { id: "office", label: "Văn phòng" },
+  { id: "commercial", label: "Mặt bằng kinh doanh" },
+  { id: "studio", label: "Studio" },
+  { id: "room", label: "Phòng trọ" },
 ];
 
 const AREA_BUTTONS = [
@@ -72,35 +67,41 @@ const PRICE_PRESETS = [0, 5, 10, 20, 40, 70, 100];
 
 export default function RentFilterSidebar({
   filter,
-  onChange,
+  onApply,
   onReset,
   totalResultsCount,
 }: RentFilterSidebarProps) {
-  // Calculate active filters count
+  // Staged / Draft state (chỉ gửi truy vấn khi ấn "Áp dụng bộ lọc" để chống quá tải CSDL)
+  const [draft, setDraft] = useState<FilterState>(filter);
+
+  // Sync draft when external filter changes (e.g. reset or province change)
+  useEffect(() => {
+    setDraft(filter);
+  }, [filter]);
+
+  // Calculate active draft filters count
   let activeFilterCount = 0;
-  if (filter.category !== "all") activeFilterCount++;
-  if (filter.minPrice > 0 || filter.maxPrice < 100) activeFilterCount++;
-  if (filter.areaRange !== "all") activeFilterCount++;
-  if (filter.beds !== "all") activeFilterCount++;
-  if (filter.district !== "all") activeFilterCount++;
-  if (filter.hasVideoOnly) activeFilterCount++;
-  if (filter.searchQuery.trim() !== "") activeFilterCount++;
+  if (draft.category !== "all") activeFilterCount++;
+  if (draft.minPrice > 0 || draft.maxPrice < 100) activeFilterCount++;
+  if (draft.areaRange !== "all") activeFilterCount++;
+  if (draft.beds !== "all") activeFilterCount++;
+  if (draft.district !== "all") activeFilterCount++;
 
   const handleSliderChange = (vals: number[]) => {
     if (vals.length === 2) {
-      onChange({
-        ...filter,
+      setDraft((prev) => ({
+        ...prev,
         minPrice: vals[0],
         maxPrice: vals[1],
-      });
+      }));
     }
   };
 
   return (
-    <div className="bg-card text-card-foreground rounded-3xl border border-border overflow-hidden shadow-sm sticky top-24 flex flex-col max-h-[calc(100vh-120px)] transition-all">
+    <div className="bg-card text-card-foreground rounded-3xl border border-border overflow-hidden shadow-sm flex flex-col max-h-[calc(100vh-120px)] transition-all">
       {/* Scrollable Body */}
       <div className="p-5 sm:p-6 overflow-y-auto space-y-6 flex-1 no-scrollbar">
-        {/* 1. Loại phòng & nhà (Đồng nhất 7 danh mục: Tất cả, Căn hộ/Chung cư, Nhà ở, Văn phòng, Mặt bằng kinh doanh, Studio, Phòng trọ) */}
+        {/* 1. Loại phòng & nhà (Dạng nút pill bo tròn cao cấp, active màu xanh primary) */}
         <div>
           <div className="flex items-center gap-2 mb-3.5">
             <Home className="w-4 h-4 text-primary" />
@@ -109,30 +110,22 @@ export default function RentFilterSidebar({
             </h3>
           </div>
 
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="flex flex-wrap gap-2">
             {RENT_CATEGORIES.map((item) => {
-              const Icon = item.icon;
-              const isSelected = filter.category === item.id;
+              const isSelected = draft.category === item.id;
 
               return (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => onChange({ ...filter, category: item.id })}
-                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border text-center transition-all duration-200 cursor-pointer min-h-[76px] relative select-none ${
+                  onClick={() => setDraft((prev) => ({ ...prev, category: item.id }))}
+                  className={`px-3.5 py-2 rounded-2xl text-xs font-semibold transition-all duration-200 cursor-pointer select-none ${
                     isSelected
-                      ? "bg-primary/10 border-primary text-primary font-bold shadow-xs ring-2 ring-primary/20 scale-[1.02]"
-                      : "bg-background border-border hover:bg-muted/70 text-muted-foreground hover:text-foreground"
+                      ? "bg-primary text-primary-foreground font-bold shadow-md shadow-primary/25 scale-[1.03]"
+                      : "bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/70"
                   }`}
                 >
-                  <Icon
-                    className={`w-5 h-5 mb-1.5 transition-transform duration-200 ${
-                      isSelected ? "text-primary scale-110" : "text-muted-foreground"
-                    }`}
-                  />
-                  <span className="text-[11px] leading-tight line-clamp-2">
-                    {item.label}
-                  </span>
+                  {item.label}
                 </button>
               );
             })}
@@ -153,30 +146,65 @@ export default function RentFilterSidebar({
             </span>
           </div>
 
-          {/* Min - Max Box Indicators */}
+          {/* Min - Max Interactive Input Cards */}
           <div className="grid grid-cols-2 gap-3 items-center">
-            <div className="p-3 rounded-2xl border border-border bg-background text-center shadow-2xs">
-              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+            {/* Min Price Input */}
+            <div className="p-2.5 sm:p-3 rounded-2xl border border-border bg-background shadow-2xs focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all text-center">
+              <label className="block text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-0.5">
                 Tối thiểu
-              </p>
-              <p className="font-heading font-extrabold text-sm sm:text-base text-primary mt-0.5">
-                {filter.minPrice === 0 ? "0 triệu" : `${filter.minPrice} triệu`}
-              </p>
+              </label>
+              <div className="flex items-center justify-center gap-1">
+                <input
+                  type="number"
+                  min={0}
+                  max={draft.maxPrice}
+                  value={draft.minPrice === 0 ? "" : draft.minPrice}
+                  onChange={(e) => {
+                    const val = e.target.value === "" ? 0 : Number(e.target.value);
+                    if (val >= 0 && val <= 100) {
+                      setDraft((prev) => ({ ...prev, minPrice: val }));
+                    }
+                  }}
+                  placeholder="0"
+                  className="w-10 text-center font-heading font-extrabold text-sm sm:text-base text-primary bg-transparent focus:outline-none placeholder:text-primary/40 no-spinner"
+                />
+                <span className="font-heading font-bold text-xs sm:text-sm text-primary">
+                  triệu
+                </span>
+              </div>
             </div>
-            <div className="p-3 rounded-2xl border border-border bg-background text-center shadow-2xs">
-              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+
+            {/* Max Price Input */}
+            <div className="p-2.5 sm:p-3 rounded-2xl border border-border bg-background shadow-2xs focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all text-center">
+              <label className="block text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-0.5">
                 Tối đa
-              </p>
-              <p className="font-heading font-extrabold text-sm sm:text-base text-primary mt-0.5">
-                {filter.maxPrice >= 100 ? "100+ triệu" : `${filter.maxPrice} triệu`}
-              </p>
+              </label>
+              <div className="flex items-center justify-center gap-1">
+                <input
+                  type="number"
+                  min={draft.minPrice}
+                  max={100}
+                  value={draft.maxPrice >= 100 ? "" : draft.maxPrice}
+                  onChange={(e) => {
+                    const val = e.target.value === "" ? 100 : Number(e.target.value);
+                    if (val >= 0 && val <= 100) {
+                      setDraft((prev) => ({ ...prev, maxPrice: val }));
+                    }
+                  }}
+                  placeholder="100+"
+                  className="w-10 text-center font-heading font-extrabold text-sm sm:text-base text-primary bg-transparent focus:outline-none placeholder:text-primary/40 no-spinner"
+                />
+                <span className="font-heading font-bold text-xs sm:text-sm text-primary">
+                  triệu
+                </span>
+              </div>
             </div>
           </div>
 
           {/* shadcn Dual-Thumb Slider */}
           <div className="px-2 pt-3 pb-1">
             <Slider
-              value={[filter.minPrice, filter.maxPrice]}
+              value={[draft.minPrice, draft.maxPrice]}
               min={0}
               max={100}
               step={1}
@@ -190,10 +218,10 @@ export default function RentFilterSidebar({
                 <span
                   key={p}
                   onClick={() => {
-                    if (p < filter.maxPrice) {
-                      onChange({ ...filter, minPrice: p });
+                    if (p < draft.maxPrice) {
+                      setDraft((prev) => ({ ...prev, minPrice: p }));
                     } else {
-                      onChange({ ...filter, maxPrice: p });
+                      setDraft((prev) => ({ ...prev, maxPrice: p }));
                     }
                   }}
                   className="hover:text-primary cursor-pointer transition-colors"
@@ -205,7 +233,7 @@ export default function RentFilterSidebar({
           </div>
         </div>
 
-        {/* 3. Diện tích (Grid 3 cols) */}
+        {/* 3. Diện tích (Nút pill bo tròn, active màu xanh primary) */}
         <div>
           <div className="flex items-center gap-2 mb-3.5">
             <Maximize2 className="w-4 h-4 text-primary" />
@@ -216,17 +244,17 @@ export default function RentFilterSidebar({
 
           <div className="grid grid-cols-3 gap-2">
             {AREA_BUTTONS.map((item) => {
-              const isSelected = filter.areaRange === item.id;
+              const isSelected = draft.areaRange === item.id;
 
               return (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => onChange({ ...filter, areaRange: item.id })}
-                  className={`py-2.5 px-2 rounded-xl border text-center text-xs transition-all duration-200 cursor-pointer select-none ${
+                  onClick={() => setDraft((prev) => ({ ...prev, areaRange: item.id }))}
+                  className={`py-2 px-1.5 rounded-2xl border text-center text-xs transition-all duration-200 cursor-pointer select-none ${
                     isSelected
-                      ? "bg-primary/10 border-primary text-primary font-bold shadow-xs ring-1 ring-primary/30 scale-[1.02]"
-                      : "bg-background border-border hover:bg-muted/70 text-muted-foreground hover:text-foreground"
+                      ? "bg-primary text-primary-foreground font-bold shadow-md shadow-primary/25 scale-[1.03] border-primary"
+                      : "bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground border-border/70"
                   }`}
                 >
                   <span className="text-[11px] leading-tight whitespace-nowrap">
@@ -238,7 +266,7 @@ export default function RentFilterSidebar({
           </div>
         </div>
 
-        {/* 4. Số phòng ngủ (Segmented selection) */}
+        {/* 4. Số phòng ngủ (Active màu xanh primary) */}
         <div>
           <div className="flex items-center gap-2 mb-3.5">
             <Bed className="w-4 h-4 text-primary" />
@@ -249,17 +277,17 @@ export default function RentFilterSidebar({
 
           <div className="grid grid-cols-4 gap-2">
             {BEDS_ITEMS.map((item) => {
-              const isSelected = filter.beds === item.id;
+              const isSelected = draft.beds === item.id;
 
               return (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => onChange({ ...filter, beds: item.id })}
-                  className={`py-2.5 rounded-xl border text-center text-xs font-bold transition-all duration-200 cursor-pointer select-none ${
+                  onClick={() => setDraft((prev) => ({ ...prev, beds: item.id }))}
+                  className={`py-2 rounded-2xl border text-center text-xs font-bold transition-all duration-200 cursor-pointer select-none ${
                     isSelected
-                      ? "bg-primary/10 border-primary text-primary font-bold shadow-xs ring-1 ring-primary/30 scale-[1.02]"
-                      : "bg-background border-border hover:bg-muted/70 text-muted-foreground hover:text-foreground"
+                      ? "bg-primary text-primary-foreground font-bold shadow-md shadow-primary/25 scale-[1.03] border-primary"
+                      : "bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground border-border/70"
                   }`}
                 >
                   {item.label}
@@ -270,7 +298,7 @@ export default function RentFilterSidebar({
         </div>
       </div>
 
-      {/* Sticky Bottom Actions in Filter Sidebar */}
+      {/* Sticky Bottom Actions in Filter Sidebar (Chỉ gửi truy vấn khi ấn Áp dụng) */}
       <div className="p-4 border-t border-border bg-card/95 backdrop-blur-md flex items-center gap-3">
         <Button
           type="button"
@@ -284,13 +312,11 @@ export default function RentFilterSidebar({
 
         <Button
           type="button"
-          onClick={() => {
-            // Apply smoothly
-          }}
+          onClick={() => onApply(draft)}
           className="flex-1 h-11 px-4 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-primary/20 transition-all cursor-pointer"
         >
-          <Check className="w-4 h-4" />
-          <span>Tìm thấy ({totalResultsCount})</span>
+          <Search className="w-4 h-4" />
+          <span>Áp dụng bộ lọc</span>
           {activeFilterCount > 0 && (
             <span className="w-5 h-5 rounded-full bg-primary-foreground text-primary text-[10px] font-extrabold flex items-center justify-center ml-0.5">
               {activeFilterCount}

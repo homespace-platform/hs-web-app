@@ -16,6 +16,7 @@ import {
   Maximize,
   Phone,
   MessageCircle,
+  Clock,
 } from "lucide-react";
 
 interface RentCollageCardProps {
@@ -42,19 +43,19 @@ export default function RentCollageCard({
         <Link href={`/#property-${property.id}`} className="block p-4 sm:p-5">
           {/* Top Project / Specs Micro-header */}
           <div className="text-xs text-muted-foreground font-medium truncate mb-2.5 flex items-center gap-1.5">
-            <span className="text-primary font-semibold">{property.categoryLabel}</span>
+            <span className="text-primary font-bold shrink-0">{property.categoryLabel}</span>
             <span>·</span>
-            <span>{property.project}</span>
+            <span className="truncate">{property.project}</span>
             {property.floor && (
               <>
                 <span>·</span>
-                <span>{property.floor}</span>
+                <span className="shrink-0">{property.floor}</span>
               </>
             )}
             <span>·</span>
-            <span>{property.beds}PN</span>
+            <span className="shrink-0">{property.beds} PN</span>
             <span>·</span>
-            <span>{property.areaM2}m²</span>
+            <span className="shrink-0">{property.areaM2} m²</span>
           </div>
 
           {/* Multi-Image Gallery Collage (Exact match from reference image) */}
@@ -156,8 +157,13 @@ export default function RentCollageCard({
                 <p className="font-semibold text-foreground truncate">
                   {property.landlord.name}
                 </p>
-                <p className="text-[10px] text-muted-foreground">
-                  {property.landlord.listingsCount} tin đăng · {property.timeAgo}
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                  <span>{property.landlord.listingsCount} tin đăng</span>
+                  <span>·</span>
+                  <span className="text-primary font-semibold flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {property.timeAgo}
+                  </span>
                 </p>
               </div>
             </div>
@@ -217,6 +223,10 @@ export default function RentCollageCard({
           <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 z-10">
             <span className="px-2.5 py-1 rounded-full bg-black/60 text-white text-[11px] font-bold backdrop-blur-md">
               {property.categoryLabel}
+            </span>
+            <span className="px-2.5 py-1 rounded-full bg-primary/95 text-white text-[11px] font-bold backdrop-blur-md flex items-center gap-1 shadow-xs">
+              <Clock className="w-3 h-3" />
+              <span>{property.timeAgo}</span>
             </span>
           </div>
 

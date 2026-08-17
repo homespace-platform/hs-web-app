@@ -5,9 +5,8 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
   LayoutGrid,
-  Users,
-  Wallet,
   User,
+  Wallet,
   Lock,
   LogOut,
   ChevronDown,
@@ -16,7 +15,6 @@ import {
   ArrowRight,
   Heart,
   Clock,
-  Star,
   MessageCircle,
 } from "lucide-react";
 
@@ -166,32 +164,6 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
               <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
             </Link>
 
-            {/* Quản lý khách hàng */}
-            <Link
-              href="/profile#customers"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
-            >
-              <div className="flex items-center gap-3">
-                <Users className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="text-xs font-semibold">Quản lý khách hàng</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-            </Link>
-
-            {/* Ví & giao dịch */}
-            <Link
-              href="/profile#transactions"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
-            >
-              <div className="flex items-center gap-3">
-                <Wallet className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="text-xs font-semibold">Ví & giao dịch</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-            </Link>
-
             {/* Divider */}
             <div className="my-1.5 border-t border-border" />
 
@@ -236,7 +208,6 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
               </div>
             </Link>
 
-
             {/* Lịch sử xem tin */}
             <Link
               href="/history"
@@ -253,19 +224,6 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
                 </span>
                 <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
               </div>
-            </Link>
-
-            {/* Đánh giá từ tôi */}
-            <Link
-              href="/profile#reviews"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
-            >
-              <div className="flex items-center gap-3">
-                <Star className="w-4 h-4 text-muted-foreground group-hover:text-amber-500 transition-colors" />
-                <span className="text-xs font-semibold">Đánh giá từ tôi</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
             </Link>
 
             {/* Divider */}

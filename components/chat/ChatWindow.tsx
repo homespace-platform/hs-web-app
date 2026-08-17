@@ -18,6 +18,8 @@ import {
   ExternalLink,
   ShieldCheck,
   Info,
+  Sparkles,
+  Bot,
 } from "lucide-react";
 import { ChatConversation, ChatMessage } from "@/types/chat.type";
 
@@ -75,6 +77,7 @@ export default function ChatWindow({
   };
 
   const initial = conversation.userName.charAt(0).toUpperCase();
+  const isAi = conversation.id === "conv-ai-assistant";
 
   return (
     <div className="flex-1 flex flex-col h-full bg-background select-none overflow-hidden">
@@ -85,17 +88,30 @@ export default function ChatWindow({
           <button
             type="button"
             onClick={onBack}
-            className="md:hidden p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+            className="md:hidden p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
             title="Quay lại danh sách"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
 
-          {/* User Avatar & Status */}
+          {/* User / AI Avatar & Status */}
           <div className="relative shrink-0">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-xs bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
-              {initial}
-            </div>
+            {conversation.userAvatar ? (
+              <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-blue-50 dark:bg-slate-800 p-0.5 border border-primary/30 shadow-xs">
+                <Image
+                  src={conversation.userAvatar}
+                  alt={conversation.userName}
+                  width={38}
+                  height={38}
+                  className="object-contain w-full h-full"
+                  unoptimized
+                />
+              </div>
+            ) : (
+              <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-xs bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                {initial}
+              </div>
+            )}
             <span
               className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-card ${
                 conversation.isOnline ? "bg-emerald-500" : "bg-slate-400"
@@ -103,44 +119,60 @@ export default function ChatWindow({
             />
           </div>
 
-          {/* User Name and Sub-status */}
+          {/* User / AI Name and Sub-status */}
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="text-sm font-bold text-foreground truncate">
                 {conversation.userName}
               </span>
-              {conversation.userRole?.includes("xác thực") && (
+              {isAi ? (
+                <span className="px-2 py-0.2 rounded-full bg-primary/10 text-primary text-[10px] font-bold border border-primary/20 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-primary animate-pulse" />
+                  <span>Trợ lý AI</span>
+                </span>
+              ) : conversation.userRole?.includes("xác thực") ? (
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              )}
+              ) : null}
             </div>
-            <span className="text-[11px] text-muted-foreground">
-              {conversation.lastActive ||
-                (conversation.isOnline ? "Đang hoạt động" : "Ngoại tuyến")}
+            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+              {isAi ? (
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Trực tuyến 24/7
+                </span>
+              ) : (
+                conversation.lastActive ||
+                (conversation.isOnline ? "Đang hoạt động" : "Ngoại tuyến")
+              )}
             </span>
           </div>
         </div>
 
         {/* Header Action Buttons */}
         <div className="flex items-center gap-1 sm:gap-1.5 text-muted-foreground">
+          {!isAi && (
+            <>
+              <button
+                type="button"
+                className="p-2 rounded-xl hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                title="Gọi thoại trực tiếp"
+                onClick={() => alert("Tính năng gọi thoại đang kết nối...")}
+              >
+                <Phone className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                className="p-2 rounded-xl hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                title="Gọi video xem phòng trực tiếp"
+                onClick={() => alert("Tính năng gọi video trực tiếp đang kết nối...")}
+              >
+                <Video className="w-4 h-4" />
+              </button>
+            </>
+          )}
           <button
             type="button"
-            className="p-2 rounded-xl hover:bg-muted hover:text-foreground transition-colors"
-            title="Gọi thoại trực tiếp"
-            onClick={() => alert("Tính năng gọi thoại đang kết nối...")}
-          >
-            <Phone className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            className="p-2 rounded-xl hover:bg-muted hover:text-foreground transition-colors"
-            title="Gọi video xem phòng trực tiếp"
-            onClick={() => alert("Tính năng gọi video trực tiếp đang kết nối...")}
-          >
-            <Video className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            className="p-2 rounded-xl hover:bg-muted hover:text-foreground transition-colors"
+            className="p-2 rounded-xl hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
             title="Tìm trong hội thoại"
           >
             <Search className="w-4 h-4" />
@@ -264,13 +296,34 @@ export default function ChatWindow({
                 } group`}
               >
                 <div
-                  className={`relative max-w-[85%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-2xs transition-all ${
-                    isMe
-                      ? "bg-blue-50 dark:bg-blue-950/60 text-foreground border border-blue-200/60 dark:border-blue-800/60 rounded-br-xs"
-                      : "bg-muted/70 text-foreground border border-border/60 rounded-bl-xs"
+                  className={`flex items-end gap-2 max-w-[85%] sm:max-w-[75%] ${
+                    isMe ? "flex-row-reverse" : "flex-row"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  {!isMe && conversation.userAvatar && (
+                    <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center bg-blue-50 dark:bg-slate-800 p-0.5 border border-primary/20 shrink-0 mb-1 shadow-2xs">
+                      <Image
+                        src={conversation.userAvatar}
+                        alt={conversation.userName}
+                        width={24}
+                        height={24}
+                        className="object-contain w-full h-full"
+                        unoptimized
+                      />
+                    </div>
+                  )}
+
+                  <div
+                    className={`relative px-4 py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-2xs transition-all ${
+                      isMe
+                        ? "bg-blue-50 dark:bg-blue-950/60 text-foreground border border-blue-200/60 dark:border-blue-800/60 rounded-br-xs"
+                        : isAi
+                        ? "bg-primary/5 dark:bg-slate-800/90 text-foreground border border-primary/20 rounded-bl-xs"
+                        : "bg-muted/70 text-foreground border border-border/60 rounded-bl-xs"
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  </div>
                 </div>
 
                 {/* Message Timestamp & Status */}
@@ -297,47 +350,99 @@ export default function ChatWindow({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 4. Quick Suggestion Chips (Gợi ý câu hỏi trực tiếp giữa Chủ nhà và Khách thuê) */}
+      {/* 4. Quick Suggestion Chips */}
       <div className="px-4 py-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar border-t border-border/40 bg-background/50">
         <span className="text-[10px] font-semibold text-muted-foreground shrink-0 flex items-center gap-1">
-          <Info className="w-3 h-3" /> Gợi ý:
+          {isAi ? (
+            <>
+              <Sparkles className="w-3 h-3 text-primary animate-pulse" /> Gợi ý AI:
+            </>
+          ) : (
+            <>
+              <Info className="w-3 h-3" /> Gợi ý:
+            </>
+          )}
         </span>
-        <button
-          type="button"
-          onClick={() =>
-            handleQuickReply("Căn hộ này của anh/chị hiện còn cho thuê không ạ?")
-          }
-          className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all"
-        >
-          Căn này còn không?
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            handleQuickReply("Em muốn hẹn lịch qua xem nhà trực tiếp vào ngày mai được không ạ?")
-          }
-          className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all"
-        >
-          📅 Hẹn lịch xem nhà
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            handleQuickReply("Giá thuê này có thương lượng hoặc bớt lộc cho khách thuê dài hạn không ạ?")
-          }
-          className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all"
-        >
-          💰 Đàm phán giá thuê
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            handleQuickReply("Cho em hỏi quy định về tiền đặt cọc và thời hạn ký hợp đồng thuê như thế nào ạ?")
-          }
-          className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all"
-        >
-          📝 Tiền cọc & Thời hạn thuê
-        </button>
+
+        {isAi ? (
+          <>
+            <button
+              type="button"
+              onClick={() =>
+                handleQuickReply("Tìm căn hộ 2 phòng ngủ giá dưới 15 triệu tại TP.HCM")
+              }
+              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-medium transition-all cursor-pointer"
+            >
+              🔍 Căn hộ 2PN dưới 15 triệu
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                handleQuickReply("Tư vấn quy trình đặt cọc và ký hợp đồng thuê trực tiếp an toàn")
+              }
+              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-medium transition-all cursor-pointer"
+            >
+              🛡️ Quy trình cọc On-chain an toàn
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                handleQuickReply("So sánh giá thuê nhà khu vực Quận 7 và Bình Thạnh")
+              }
+              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-medium transition-all cursor-pointer"
+            >
+              📊 So sánh giá thuê Quận 7 & Bình Thạnh
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                handleQuickReply("Cần lưu ý những điều khoản gì trong hợp đồng thuê nhà?")
+              }
+              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-medium transition-all cursor-pointer"
+            >
+              ⚖️ Lưu ý pháp lý hợp đồng
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() =>
+                handleQuickReply("Căn hộ này của anh/chị hiện còn cho thuê không ạ?")
+              }
+              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all cursor-pointer"
+            >
+              Căn này còn không?
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                handleQuickReply("Em muốn hẹn lịch qua xem nhà trực tiếp vào ngày mai được không ạ?")
+              }
+              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all cursor-pointer"
+            >
+              📅 Hẹn lịch xem nhà
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                handleQuickReply("Giá thuê này có thương lượng hoặc bớt lộc cho khách thuê dài hạn không ạ?")
+              }
+              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all cursor-pointer"
+            >
+              💰 Đàm phán giá thuê
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                handleQuickReply("Cho em hỏi quy định về tiền đặt cọc và thời hạn ký hợp đồng thuê như thế nào ạ?")
+              }
+              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all cursor-pointer"
+            >
+              📝 Tiền cọc & Thời hạn thuê
+            </button>
+          </>
+        )}
       </div>
 
       {/* 5. Message Input Bar */}

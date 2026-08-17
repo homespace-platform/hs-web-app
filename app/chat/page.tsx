@@ -13,7 +13,7 @@ export default function ChatPage() {
     useState<ChatConversation[]>(MOCK_CONVERSATIONS);
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
-  >("conv-1");
+  >("conv-ai-assistant");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<ChatFilterTab>("all");
   const [showHidden, setShowHidden] = useState(false);
@@ -54,21 +54,61 @@ export default function ChatPage() {
       })
     );
 
-    // Mô phỏng phản hồi tự động sau 1.2 giây
-    setTimeout(() => {
-      const autoReplies: Record<string, string> = {
-        "conv-1": "2222222222",
-        "conv-2":
-          "Cảm ơn bạn đã quan tâm. Mình là chủ nhà Landmark 81, mình đã ghi nhận và sẽ đón bạn xem phòng đúng giờ nhé!",
-        "conv-3":
-          "Ok bạn nhé, mình là chủ căn Studio Bến Nghé Q1. Có gì cần trao đổi thêm về điều khoản thuê trực tiếp thì nhắn mình.",
-        "conv-4":
-          "Chị đã nhận được tin nhắn. Căn Masteri Thảo Điền này chị chính chủ, em yên tâm qua xem nhà nhé.",
-      };
+    // Mô phỏng phản hồi tự động
+    const delay = conversationId === "conv-ai-assistant" ? 600 : 1200;
 
-      const replyContent =
-        autoReplies[conversationId] ||
-        "Đã nhận được tin nhắn của bạn. Mình sẽ phản hồi chi tiết trong giây lát nhé!";
+    setTimeout(() => {
+      let replyContent = "";
+
+      if (conversationId === "conv-ai-assistant") {
+        const lower = text.toLowerCase();
+        if (
+          lower.includes("15") ||
+          lower.includes("2pn") ||
+          lower.includes("tìm căn") ||
+          lower.includes("tìm phòng") ||
+          lower.includes("phòng trọ")
+        ) {
+          replyContent = `Dựa trên dữ liệu thị trường mới nhất tại TP.HCM:\n\n✨ Tôi tìm thấy 3 lựa chọn nổi bật phù hợp yêu cầu của bạn:\n1. 🏢 Căn hộ 2PN Vinhomes Grand Park (12.5 tr/tháng - Full nội thất)\n2. 🏢 Căn hộ 2PN Masteri An Phú Q2 (14.5 tr/tháng - View sông thoáng mát)\n3. 🏠 Nhà nguyên căn hẻm xe hơi Bình Thạnh (14.0 tr/tháng - 2PN 2WC)\n\nBạn có muốn tôi hỗ trợ kết nối trực tiếp với chủ nhà của căn nào không?`;
+        } else if (
+          lower.includes("cọc") ||
+          lower.includes("on-chain") ||
+          lower.includes("an toàn") ||
+          lower.includes("tiền cọc")
+        ) {
+          replyContent = `🛡️ **Quy trình đặt cọc On-chain an toàn trên HomeSpace:**\n\n1. Tiền cọc được khóa trong Smart Contract độc lập (Escrow) minh bạch.\n2. Tiền chỉ được giải ngân cho chủ nhà khi bạn đã nhận nhà và xác nhận hiện trạng thực tế.\n3. Nếu có tranh chấp hoặc chủ nhà hủy phòng vô cớ, tiền cọc sẽ được hoàn trả 100% tự động.\n\nGiúp bạn hoàn toàn an tâm khi tìm thuê mà không lo bị lừa đảo tiền cọc!`;
+        } else if (
+          lower.includes("quận 7") ||
+          lower.includes("bình thạnh") ||
+          lower.includes("so sánh") ||
+          lower.includes("quận 1")
+        ) {
+          replyContent = `📊 **So sánh giá thuê trung bình tháng này:**\n\n• **Quận 7 (Phú Mỹ Hưng / Sunrise City):**\n  - Studio / 1PN: 7.5 - 11 triệu/tháng\n  - Căn hộ 2PN: 13.0 - 18 triệu/tháng\n\n• **Bình Thạnh (Vinhomes Central Park / Hàng Xanh):**\n  - Studio / 1PN: 8.0 - 12 triệu/tháng\n  - Căn hộ 2PN: 14.5 - 22 triệu/tháng\n\n👉 Khu vực Bình Thạnh kết nối trung tâm Q1 nhanh hơn, còn Quận 7 có nhiều mảng xanh và không gian yên tĩnh hơn.`;
+        } else if (
+          lower.includes("hợp đồng") ||
+          lower.includes("pháp lý") ||
+          lower.includes("lưu ý") ||
+          lower.includes("điều khoản")
+        ) {
+          replyContent = `⚖️ **3 lưu ý pháp lý quan trọng khi ký hợp đồng thuê trực tiếp:**\n\n1. **Xác minh danh tính chủ nhà:** Đảm bảo người ký là chính chủ sở hữu (mọi tin đăng trên HomeSpace đều có huy hiệu đã xác thực).\n2. **Quy định tiền cọc & bồi thường:** Nêu rõ điều kiện hoàn trả cọc và thời hạn thông báo trước khi chấm dứt hợp đồng (thường là 30 ngày).\n3. **Biên bản bàn giao hiện trạng:** Ghi nhận rõ chỉ số điện nước và tình trạng trang thiết bị trước khi dọn vào.`;
+        } else {
+          replyContent = `Tôi đã ghi nhận: "${text}".\n\nTôi là Trợ lý AI của HomeSpace. Tôi có thể hỗ trợ bạn tìm kiếm căn hộ, so sánh giá cả khu vực, giải đáp điều khoản hợp đồng thuê hoặc hướng dẫn quy trình đặt cọc On-chain an toàn!`;
+        }
+      } else {
+        const autoReplies: Record<string, string> = {
+          "conv-1": "2222222222",
+          "conv-2":
+            "Cảm ơn bạn đã quan tâm. Mình là chủ nhà Landmark 81, mình đã ghi nhận và sẽ đón bạn xem phòng đúng giờ nhé!",
+          "conv-3":
+            "Ok bạn nhé, mình là chủ căn Studio Bến Nghé Q1. Có gì cần trao đổi thêm về điều khoản thuê trực tiếp thì nhắn mình.",
+          "conv-4":
+            "Chị đã nhận được tin nhắn. Căn Masteri Thảo Điền này chị chính chủ, em yên tâm qua xem nhà nhé.",
+        };
+
+        replyContent =
+          autoReplies[conversationId] ||
+          "Đã nhận được tin nhắn của bạn. Mình sẽ phản hồi chi tiết trong giây lát nhé!";
+      }
 
       const replyTime = new Date();
       const replyTimeString = `${replyTime
@@ -102,7 +142,7 @@ export default function ChatPage() {
           return c;
         })
       );
-    }, 1200);
+    }, delay);
   };
 
   // Ẩn / Bỏ ẩn hội thoại

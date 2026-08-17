@@ -2,6 +2,39 @@ import { ChatConversation } from "@/types/chat.type";
 
 export const MOCK_CONVERSATIONS: ChatConversation[] = [
   {
+    id: "conv-ai-assistant",
+    userId: "homespace-ai-assistant",
+    userName: "HomeSpace Assistant AI",
+    userAvatar: "/logo/ai/homespace-ai-logo-removebg.png",
+    userRole: "Trợ lý AI Thông minh",
+    isOnline: true,
+    lastActive: "Trực tuyến 24/7",
+    lastMessage: "Xin chào! Tôi là Trợ lý AI của HomeSpace. Tôi có thể hỗ trợ bạn tìm nhà, so sánh giá thuê và giải đáp hợp đồng pháp lý!",
+    lastMessageTime: "Vừa xong",
+    lastMessageSender: "them",
+    unreadCount: 0,
+    isHidden: false,
+    isPinned: true,
+    messages: [
+      {
+        id: "msg-ai-1",
+        sender: "them",
+        content: "👋 Chào bạn! Tôi là HomeSpace Assistant AI – Trợ lý trí tuệ nhân tạo hỗ trợ tìm kiếm nhà và căn hộ cho thuê trực tiếp chính chủ.",
+        timestamp: "10:30",
+        dateGroup: "Hôm nay",
+        status: "read",
+      },
+      {
+        id: "msg-ai-2",
+        sender: "them",
+        content: "Tôi có thể giúp bạn:\n• 🔍 Tìm phòng/căn hộ theo ngân sách, quận huyện, số phòng ngủ\n• ⚖️ Tư vấn điều khoản hợp đồng thuê nhà & quy trình đặt cọc an toàn\n• 📊 So sánh mức giá thuê thị trường tại khu vực bạn quan tâm\n\nBạn đang cần tìm loại nhà/phòng nào hôm nay?",
+        timestamp: "10:31",
+        dateGroup: "Hôm nay",
+        status: "read",
+      },
+    ],
+  },
+  {
     id: "conv-1",
     userId: "user9083017",
     userName: "user9083017",

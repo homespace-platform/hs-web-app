@@ -1,12 +1,14 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import {
   Search,
   Eye,
   EyeOff,
   Pin,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { ChatConversation, ChatFilterTab } from "@/types/chat.type";
 
@@ -212,17 +214,30 @@ export default function ChatSidebar({
                     : "hover:bg-muted/80"
                 }`}
               >
-                {/* Avatar Initial */}
+                {/* Avatar Initial or Image */}
                 <div className="relative shrink-0">
-                  <div
-                    className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shadow-xs ${
-                      isSelected
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200"
-                    }`}
-                  >
-                    {initial}
-                  </div>
+                  {conv.userAvatar ? (
+                    <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center bg-blue-50 dark:bg-slate-800 p-0.5 border border-primary/30 shadow-xs">
+                      <Image
+                        src={conv.userAvatar}
+                        alt={conv.userName}
+                        width={44}
+                        height={44}
+                        className="object-contain w-full h-full"
+                        unoptimized
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shadow-xs ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200"
+                      }`}
+                    >
+                      {initial}
+                    </div>
+                  )}
 
                   {/* Online/Offline status badge */}
                   <span
@@ -244,19 +259,25 @@ export default function ChatSidebar({
                       >
                         {conv.userName}
                       </span>
-                      {conv.userRole?.includes("xác thực") && (
+                      {conv.id === "conv-ai-assistant" ? (
+                        <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 animate-pulse" />
+                      ) : conv.userRole?.includes("xác thực") ? (
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      )}
+                      ) : null}
                     </div>
                     <span className="text-[11px] text-muted-foreground shrink-0 font-medium">
                       {conv.lastMessageTime}
                     </span>
                   </div>
 
-                  {/* Role Tag (Chủ nhà / Khách tìm thuê) */}
+                  {/* Role Tag (Trợ lý AI / Chủ nhà / Khách tìm thuê) */}
                   {conv.userRole && (
                     <div className="mb-1">
-                      <span className="inline-flex items-center text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium">
+                      <span className={`inline-flex items-center text-[10px] px-1.5 py-0.2 rounded font-medium ${
+                        conv.id === "conv-ai-assistant"
+                          ? "bg-primary/10 text-primary font-bold border border-primary/20"
+                          : "bg-muted text-muted-foreground"
+                      }`}>
                         {conv.userRole}
                       </span>
                     </div>

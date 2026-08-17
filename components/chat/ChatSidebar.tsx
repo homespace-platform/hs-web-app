@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import {
   Search,
@@ -9,8 +9,10 @@ import {
   Pin,
   ShieldCheck,
   Sparkles,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import { ChatConversation, ChatFilterTab } from "@/types/chat.type";
+import SettingsModal from "@/components/settings/SettingsModal";
 
 interface ChatSidebarProps {
   conversations: ChatConversation[];
@@ -73,45 +75,60 @@ export default function ChatSidebar({
     return 0;
   });
 
-  return (
-    <aside className="w-full md:w-80 lg:w-96 flex flex-col bg-card border-r border-border h-full select-none shrink-0 transition-colors">
-      {/* 1. Header Tin nhắn */}
-      <div className="p-4 pb-3 border-b border-border/80 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold font-heading text-foreground tracking-tight">
-            Tin nhắn
-          </h1>
-          {unreadTotal > 0 && (
-            <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-primary/10 text-primary">
-              {unreadTotal}
-            </span>
-          )}
-        </div>
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-        {/* Toggle xem hội thoại ẩn */}
-        <button
-          type="button"
-          onClick={onToggleShowHidden}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-            showHidden || activeTab === "hidden"
-              ? "bg-primary/10 text-primary border border-primary/20"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-          title={showHidden ? "Đang hiện hội thoại ẩn" : "Xem hội thoại ẩn"}
-        >
-          {showHidden || activeTab === "hidden" ? (
-            <>
-              <EyeOff className="w-3.5 h-3.5 text-primary" />
-              <span>Hội thoại ẩn ({hiddenTotal})</span>
-            </>
-          ) : (
-            <>
-              <Eye className="w-3.5 h-3.5" />
-              <span>Hội thoại ẩn</span>
-            </>
-          )}
-        </button>
-      </div>
+  return (
+    <>
+      <aside className="w-full md:w-80 lg:w-96 flex flex-col bg-card border-r border-border h-full select-none shrink-0 transition-colors">
+        {/* 1. Header Tin nhắn */}
+        <div className="p-4 pb-3 border-b border-border/80 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold font-heading text-foreground tracking-tight">
+              Tin nhắn
+            </h1>
+            {unreadTotal > 0 && (
+              <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-primary/10 text-primary">
+                {unreadTotal}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {/* Nút mở cài đặt (Zalo Style) */}
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              title="Cài đặt"
+            >
+              <SettingsIcon className="w-4 h-4" />
+            </button>
+
+            {/* Toggle xem hội thoại ẩn */}
+            <button
+              type="button"
+              onClick={onToggleShowHidden}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                showHidden || activeTab === "hidden"
+                  ? "bg-primary/10 text-primary border border-primary/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+              title={showHidden ? "Đang hiện hội thoại ẩn" : "Xem hội thoại ẩn"}
+            >
+              {showHidden || activeTab === "hidden" ? (
+                <>
+                  <EyeOff className="w-3.5 h-3.5 text-primary" />
+                  <span>Hội thoại ẩn ({hiddenTotal})</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Hội thoại ẩn</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
 
       {/* 2. Ô Tìm kiếm hội thoại */}
       <div className="p-3 pb-2">
@@ -313,5 +330,12 @@ export default function ChatSidebar({
         )}
       </div>
     </aside>
-  );
+
+    {/* Settings Modal (Zalo Style) */}
+    <SettingsModal
+      isOpen={isSettingsOpen}
+      onClose={() => setIsSettingsOpen(false)}
+    />
+  </>
+);
 }

@@ -7,7 +7,6 @@ import {
   LayoutGrid,
   User,
   Wallet,
-  Lock,
   LogOut,
   ChevronDown,
   ChevronUp,
@@ -16,6 +15,7 @@ import {
   Heart,
   Clock,
   MessageCircle,
+  Settings,
 } from "lucide-react";
 
 interface UserDropdownProps {
@@ -229,15 +229,15 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
             {/* Divider */}
             <div className="my-1.5 border-t border-border" />
 
-            {/* Thay đổi mật khẩu */}
+            {/* Cài đặt */}
             <Link
-              href="/profile#change-password"
+              href="/settings"
               onClick={() => setIsOpen(false)}
               className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
             >
               <div className="flex items-center gap-3">
-                <Lock className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="text-xs font-semibold">Thay đổi mật khẩu</span>
+                <Settings className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                <span className="text-xs font-semibold">Cài đặt</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
             </Link>

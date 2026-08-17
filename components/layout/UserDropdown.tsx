@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
   LayoutGrid,
-  User,
   Wallet,
   LogOut,
   ChevronDown,
@@ -136,21 +135,8 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
             </div>
           </div>
 
-          {/* 2. Nhóm: Tài khoản & Quản lý (Thông tin cá nhân đưa lên đầu) */}
+          {/* 2. Nhóm: Tổng quan & Tiện ích */}
           <nav className="space-y-0.5">
-            {/* Thông tin cá nhân (Đưa lên đầu) */}
-            <Link
-              href="/profile"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
-            >
-              <div className="flex items-center gap-3">
-                <User className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="text-xs font-semibold">Thông tin cá nhân</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-            </Link>
-
             {/* Tổng quan */}
             <Link
               href="/profile"

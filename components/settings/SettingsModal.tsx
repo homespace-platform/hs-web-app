@@ -12,7 +12,7 @@ interface SettingsModalProps {
 export default function SettingsModal({
   isOpen,
   onClose,
-  initialTab = "general",
+  initialTab = "profile",
 }: SettingsModalProps) {
   // Lock body scroll when modal is open
   useEffect(() => {

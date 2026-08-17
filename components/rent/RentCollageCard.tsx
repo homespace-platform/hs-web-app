@@ -69,21 +69,7 @@ export default function RentCollageCard({
                 className="object-cover group-hover:scale-105 transition-transform duration-500"
                 unoptimized
               />
-              {/* Badges overlay */}
-              <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1.5 z-10">
-                {property.isPriority && (
-                  <span className="px-2 py-0.5 rounded-md bg-amber-500/95 text-white text-[10px] font-bold shadow-xs flex items-center gap-1">
-                    <Sparkles className="w-2.5 h-2.5" />
-                    <span>Tin ưu tiên</span>
-                  </span>
-                )}
-                {property.isVerified && (
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-600/95 text-white text-[10px] font-bold shadow-xs flex items-center gap-1">
-                    <ShieldCheck className="w-2.5 h-2.5" />
-                    <span>Xác thực On-chain</span>
-                  </span>
-                )}
-              </div>
+
             </div>
 
             {/* Sub Photo 1 (5 cols top half or stacked) */}

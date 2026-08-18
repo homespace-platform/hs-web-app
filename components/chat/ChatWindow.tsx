@@ -20,6 +20,8 @@ import {
   Info,
   Sparkles,
   Bot,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { ChatConversation, ChatMessage } from "@/types/chat.type";
 
@@ -29,6 +31,8 @@ interface ChatWindowProps {
   onSendMessage: (conversationId: string, text: string) => void;
   onToggleHideConversation: (conversationId: string) => void;
   onTogglePinConversation: (conversationId: string) => void;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export default function ChatWindow({
@@ -37,6 +41,8 @@ export default function ChatWindow({
   onSendMessage,
   onToggleHideConversation,
   onTogglePinConversation,
+  isSidebarCollapsed,
+  onToggleSidebar,
 }: ChatWindowProps) {
   const [inputText, setInputText] = useState("");
   const [showPropertyDetails] = useState(true);
@@ -83,7 +89,23 @@ export default function ChatWindow({
     <div className="flex-1 flex flex-col h-full bg-background select-none overflow-hidden">
       {/* 1. Chat Header */}
       <div className="h-16 px-4 border-b border-border flex items-center justify-between bg-card/80 backdrop-blur-sm shrink-0 z-10">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {/* Sidebar Collapse / Expand Toggle Button */}
+          {onToggleSidebar && (
+            <button
+              type="button"
+              onClick={onToggleSidebar}
+              className="p-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer hidden md:flex items-center justify-center"
+              title={isSidebarCollapsed ? "Mở thanh bên" : "Thu gọn thanh bên"}
+            >
+              {isSidebarCollapsed ? (
+                <PanelLeftOpen className="w-4 h-4 text-primary" />
+              ) : (
+                <PanelLeftClose className="w-4 h-4" />
+              )}
+            </button>
+          )}
+
           {/* Mobile Back Button */}
           <button
             type="button"
@@ -350,99 +372,47 @@ export default function ChatWindow({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 4. Quick Suggestion Chips */}
-      <div className="px-4 py-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar border-t border-border/40 bg-background/50">
-        <span className="text-[10px] font-semibold text-muted-foreground shrink-0 flex items-center gap-1">
-          {isAi ? (
-            <>
-              <Sparkles className="w-3 h-3 text-primary animate-pulse" /> Gợi ý AI:
-            </>
-          ) : (
-            <>
-              <Info className="w-3 h-3" /> Gợi ý:
-            </>
-          )}
+      {/* 4. Quick Suggestion Chips (Đồng bộ với AiChatWindow) */}
+      <div className="px-3 sm:px-4 py-2 border-t border-border/60 bg-muted/20 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        <span className="text-[11px] text-muted-foreground font-medium shrink-0 flex items-center gap-1 pl-1">
+          <span>Gợi ý:</span>
         </span>
-
-        {isAi ? (
-          <>
-            <button
-              type="button"
-              onClick={() =>
-                handleQuickReply("Tìm căn hộ 2 phòng ngủ giá dưới 15 triệu tại TP.HCM")
-              }
-              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-medium transition-all cursor-pointer"
-            >
-              🔍 Căn hộ 2PN dưới 15 triệu
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                handleQuickReply("Tư vấn quy trình đặt cọc và ký hợp đồng thuê trực tiếp an toàn")
-              }
-              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-medium transition-all cursor-pointer"
-            >
-              🛡️ Quy trình cọc On-chain an toàn
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                handleQuickReply("So sánh giá thuê nhà khu vực Quận 7 và Bình Thạnh")
-              }
-              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-medium transition-all cursor-pointer"
-            >
-              📊 So sánh giá thuê Quận 7 & Bình Thạnh
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                handleQuickReply("Cần lưu ý những điều khoản gì trong hợp đồng thuê nhà?")
-              }
-              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-medium transition-all cursor-pointer"
-            >
-              ⚖️ Lưu ý pháp lý hợp đồng
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() =>
-                handleQuickReply("Căn hộ này của anh/chị hiện còn cho thuê không ạ?")
-              }
-              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all cursor-pointer"
-            >
-              Căn này còn không?
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                handleQuickReply("Em muốn hẹn lịch qua xem nhà trực tiếp vào ngày mai được không ạ?")
-              }
-              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all cursor-pointer"
-            >
-              📅 Hẹn lịch xem nhà
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                handleQuickReply("Giá thuê này có thương lượng hoặc bớt lộc cho khách thuê dài hạn không ạ?")
-              }
-              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all cursor-pointer"
-            >
-              💰 Đàm phán giá thuê
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                handleQuickReply("Cho em hỏi quy định về tiền đặt cọc và thời hạn ký hợp đồng thuê như thế nào ạ?")
-              }
-              className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-muted text-foreground border border-border/60 transition-all cursor-pointer"
-            >
-              📝 Tiền cọc & Thời hạn thuê
-            </button>
-          </>
-        )}
+        <button
+          type="button"
+          onClick={() =>
+            handleQuickReply("Căn hộ này của anh/chị hiện còn cho thuê không ạ?")
+          }
+          className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 text-foreground border border-border/60 font-medium transition-all cursor-pointer shadow-2xs"
+        >
+          Căn này còn không?
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            handleQuickReply("Em muốn hẹn lịch qua xem nhà trực tiếp vào ngày mai được không ạ?")
+          }
+          className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 text-foreground border border-border/60 font-medium transition-all cursor-pointer shadow-2xs"
+        >
+          Hẹn lịch xem nhà
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            handleQuickReply("Giá thuê này có thương lượng hoặc bớt lộc cho khách thuê dài hạn không ạ?")
+          }
+          className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 text-foreground border border-border/60 font-medium transition-all cursor-pointer shadow-2xs"
+        >
+          Đàm phán giá thuê
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            handleQuickReply("Cho em hỏi quy định về tiền đặt cọc và thời hạn ký hợp đồng thuê như thế nào ạ?")
+          }
+          className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 text-foreground border border-border/60 font-medium transition-all cursor-pointer shadow-2xs"
+        >
+          Tiền cọc & Thời hạn thuê
+        </button>
       </div>
 
       {/* 5. Message Input Bar */}
@@ -456,7 +426,11 @@ export default function ChatWindow({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Nhập tin nhắn trao đổi với chủ nhà / khách thuê..."
+              placeholder={
+                isAi
+                  ? "Hỏi Trợ lý AI về tìm nhà, giá cả khu vực, pháp lý, cọc On-chain..."
+                  : "Nhập tin nhắn trao đổi với chủ nhà / khách thuê..."
+              }
               className="flex-1 bg-transparent text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none py-1.5"
             />
 

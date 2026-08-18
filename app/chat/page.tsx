@@ -1,37 +1,126 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Header from "@/components/layout/Header";
 import ChatSidebar from "@/components/chat/ChatSidebar";
 import ChatWindow from "@/components/chat/ChatWindow";
+import AiChatWindow from "@/components/chat/AiChatWindow";
 import ChatEmptyState from "@/components/chat/ChatEmptyState";
-import { MOCK_CONVERSATIONS } from "@/data/mock-chat-data";
-import { ChatConversation, ChatFilterTab, ChatMessage } from "@/types/chat.type";
+import {
+  MOCK_AI_SESSIONS,
+  MOCK_DIRECT_CONVERSATIONS,
+} from "@/data/mock-chat-data";
+import {
+  ChatConversation,
+  ChatFilterTab,
+  ChatMessage,
+  ChatChannelType,
+  AiChatSession,
+} from "@/types/chat.type";
 
 export default function ChatPage() {
-  const [conversations, setConversations] =
-    useState<ChatConversation[]>(MOCK_CONVERSATIONS);
-  const [activeConversationId, setActiveConversationId] = useState<
+  const [channel, setChannel] = useState<ChatChannelType>("ai");
+
+  // Sidebar Resizing & Collapse State
+  const [sidebarWidth, setSidebarWidth] = useState(320);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // Multi-session AI State
+  const [aiSessions, setAiSessions] =
+    useState<AiChatSession[]>(MOCK_AI_SESSIONS);
+  const [activeAiSessionId, setActiveAiSessionId] = useState<string | null>(
+    "ai-session-1"
+  );
+
+  // Direct Conversations State
+  const [directConversations, setDirectConversations] = useState<
+    ChatConversation[]
+  >(MOCK_DIRECT_CONVERSATIONS);
+  const [activeDirectConversationId, setActiveDirectConversationId] = useState<
     string | null
-  >("conv-ai-assistant");
+  >("conv-2");
+
+  // Search & Filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<ChatFilterTab>("all");
   const [showHidden, setShowHidden] = useState(false);
 
-  const activeConversation = conversations.find(
-    (c) => c.id === activeConversationId
-  );
+  // Active AI Session
+  const activeAiSession =
+    aiSessions.find((s) => s.id === activeAiSessionId) || null;
 
-  // Gửi tin nhắn mới
-  const handleSendMessage = (conversationId: string, text: string) => {
+  // Active Direct Conversation
+  const activeDirectConversation =
+    directConversations.find((c) => c.id === activeDirectConversationId) ||
+    directConversations[0] ||
+    null;
+
+  // Sidebar Drag-to-Resize Logic
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      // Clamp sidebar width between 240px and 520px
+      const newWidth = Math.min(Math.max(e.clientX, 240), 520);
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    } else {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [isResizing]);
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => !prev);
+  };
+
+  // 1. AI Actions
+  const handleNewAiSession = () => {
+    setChannel("ai");
+    const newSessionId = `session-${Date.now()}`;
+    const newSession: AiChatSession = {
+      id: newSessionId,
+      title: "Đoạn chat mới",
+      createdAt: "Vừa xong",
+      isPinned: false,
+      messages: [],
+    };
+    setAiSessions((prev) => [newSession, ...prev]);
+    setActiveAiSessionId(newSessionId);
+  };
+
+  const handleSendAiMessage = (sessionId: string, text: string) => {
     const now = new Date();
     const timeString = `${now.getHours().toString().padStart(2, "0")}:${now
       .getMinutes()
       .toString()
       .padStart(2, "0")}`;
 
-    const newMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
+    const userMsg: ChatMessage = {
+      id: `msg-user-${Date.now()}`,
       sender: "me",
       content: text,
       timestamp: timeString,
@@ -39,7 +128,160 @@ export default function ChatPage() {
       status: "read",
     };
 
-    setConversations((prev) =>
+    // Check if session already exists
+    const sessionExists = aiSessions.some((s) => s.id === sessionId);
+
+    if (!sessionExists) {
+      const generatedTitle =
+        text.length > 30 ? text.slice(0, 30) + "..." : text;
+      const newSession: AiChatSession = {
+        id: sessionId,
+        title: generatedTitle,
+        createdAt: "Hôm nay",
+        isPinned: false,
+        messages: [userMsg],
+      };
+      setAiSessions((prev) => [newSession, ...prev]);
+      setActiveAiSessionId(sessionId);
+    } else {
+      setAiSessions((prev) =>
+        prev.map((s) => {
+          if (s.id === sessionId) {
+            const shouldUpdateTitle =
+              s.title === "Đoạn chat mới" || s.messages.length === 0;
+            const updatedTitle = shouldUpdateTitle
+              ? text.length > 30
+                ? text.slice(0, 30) + "..."
+                : text
+              : s.title;
+
+            return {
+              ...s,
+              title: updatedTitle,
+              messages: [...s.messages, userMsg],
+            };
+          }
+          return s;
+        })
+      );
+    }
+
+    // AI Response Simulation
+    setTimeout(() => {
+      let replyContent = "";
+      const lower = text.toLowerCase();
+
+      if (
+        lower.includes("15") ||
+        lower.includes("2pn") ||
+        lower.includes("tìm căn") ||
+        lower.includes("tìm phòng") ||
+        lower.includes("phòng trọ") ||
+        lower.includes("thuê")
+      ) {
+        replyContent = `Dựa trên dữ liệu xác thực thị trường TP.HCM:\n\n1. **Căn hộ 2PN Vinhomes Central Park (Bình Thạnh)**\n- Giá: 16.5 triệu/tháng | Diện tích: 75 m²\n- View sông thoáng, full nội thất cao cấp.\n\n2. **Căn hộ 2PN Masteri Thảo Điền (TP. Thủ Đức)**\n- Giá: 18.0 triệu/tháng | Diện tích: 72 m²\n- Nhà chính chủ, hỗ trợ đăng ký tạm trú đầy đủ.\n\n3. **Căn hộ Studio Bến Nghé (Quận 1)**\n- Giá: 9.5 triệu/tháng | Diện tích: 40 m²\n- Ban công thoáng mát, ngay trung tâm.\n\nBạn có muốn tôi kết nối với chủ nhà để hẹn lịch xem thực tế không?`;
+      } else if (
+        lower.includes("cọc") ||
+        lower.includes("on-chain") ||
+        lower.includes("an toàn") ||
+        lower.includes("tiền cọc")
+      ) {
+        replyContent = `Cơ chế bảo vệ tiền cọc On-chain của HomeSpace:\n\n1. **Ký quỹ độc lập:** Tiền cọc được bảo lưu trong Smart Contract cho đến khi hai bên hoàn tất nhận bàn giao nhà.\n2. **Kiểm tra hiện trạng:** Khách thuê xác nhận nhận phòng thực tế đúng mô tả trước khi hợp đồng giải ngân.\n3. **Bảo vệ rủi ro:** Hoàn cọc 100% tự động nếu chủ nhà vi phạm điều khoản hoặc hủy lịch bất ngờ.`;
+      } else if (
+        lower.includes("quận 7") ||
+        lower.includes("bình thạnh") ||
+        lower.includes("so sánh") ||
+        lower.includes("quận 1")
+      ) {
+        replyContent = `So sánh giá thuê căn hộ trung bình tháng này:\n\n- **Quận 7 (Phú Mỹ Hưng / Tân Hưng):**\n  • 1PN / Studio: 7.5 - 11 triệu/tháng\n  • 2PN: 13.0 - 18 triệu/tháng\n\n- **Bình Thạnh (Vinhomes / Hàng Xanh):**\n  • 1PN / Studio: 8.0 - 12 triệu/tháng\n  • 2PN: 14.5 - 22 triệu/tháng\n\nKhu vực Quận 7 phù hợp không gian yên tĩnh nhiều cây xanh, Bình Thạnh thuận tiện di chuyển nhanh vào Quận 1.`;
+      } else if (
+        lower.includes("hợp đồng") ||
+        lower.includes("pháp lý") ||
+        lower.includes("lưu ý") ||
+        lower.includes("điều khoản")
+      ) {
+        replyContent = `3 lưu ý pháp lý quan trọng khi ký hợp đồng thuê:\n\n1. **Xác minh quyền sở hữu:** Đối chiếu CCCD và sổ hồng của chủ nhà với thông tin hiển thị trên tin đăng đã xác thực.\n2. **Điều khoản hoàn cọc:** Quy định rõ thời gian hoàn cọc sau khi kết thúc hợp đồng (thường từ 1-3 ngày).\n3. **Biên bản bàn giao thiết bị:** Chụp ảnh ghi nhận hiện trạng ban đầu của căn nhà và chỉ số điện nước.`;
+      } else {
+        replyContent = `Tôi đã ghi nhận câu hỏi: "${text}".\n\nHomeSpace AI hỗ trợ tra cứu thông tin bất động sản cho thuê, khảo sát mức giá thị trường và tư vấn điều khoản đặt cọc an toàn.`;
+      }
+
+      const replyTime = new Date();
+      const replyTimeString = `${replyTime
+        .getHours()
+        .toString()
+        .padStart(2, "0")}:${replyTime
+        .getMinutes()
+        .toString()
+        .padStart(2, "0")}`;
+
+      const aiReplyMsg: ChatMessage = {
+        id: `msg-ai-${Date.now()}`,
+        sender: "them",
+        content: replyContent,
+        timestamp: replyTimeString,
+        dateGroup: "Hôm nay",
+        status: "read",
+      };
+
+      setAiSessions((prev) =>
+        prev.map((s) => {
+          if (s.id === sessionId) {
+            return {
+              ...s,
+              messages: [...s.messages, aiReplyMsg],
+            };
+          }
+          return s;
+        })
+      );
+    }, 600);
+  };
+
+  const handleDeleteAiSession = (sessionId: string) => {
+    setAiSessions((prev) => {
+      const filtered = prev.filter((s) => s.id !== sessionId);
+      if (activeAiSessionId === sessionId) {
+        setActiveAiSessionId(filtered.length > 0 ? filtered[0].id : null);
+      }
+      return filtered;
+    });
+  };
+
+  const handleTogglePinAiSession = (sessionId: string) => {
+    setAiSessions((prev) =>
+      prev.map((s) => {
+        if (s.id === sessionId) {
+          return { ...s, isPinned: !s.isPinned };
+        }
+        return s;
+      })
+    );
+  };
+
+  const handleSelectAiTopic = (prompt: string) => {
+    setChannel("ai");
+    const targetSessionId = activeAiSessionId || `session-${Date.now()}`;
+    handleSendAiMessage(targetSessionId, prompt);
+  };
+
+  // 2. Direct P2P Messaging Actions
+  const handleSendDirectMessage = (conversationId: string, text: string) => {
+    const now = new Date();
+    const timeString = `${now.getHours().toString().padStart(2, "0")}:${now
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`;
+
+    const newMsg: ChatMessage = {
+      id: `msg-direct-${Date.now()}`,
+      sender: "me",
+      content: text,
+      timestamp: timeString,
+      dateGroup: "Hôm nay",
+      status: "read",
+    };
+
+    setDirectConversations((prev) =>
       prev.map((c) => {
         if (c.id === conversationId) {
           return {
@@ -54,87 +296,24 @@ export default function ChatPage() {
       })
     );
 
-    // Mô phỏng phản hồi tự động
-    const delay = conversationId === "conv-ai-assistant" ? 600 : 1200;
-
     setTimeout(() => {
-      let replyContent = "";
-
-      if (conversationId === "conv-ai-assistant") {
-        const lower = text.toLowerCase();
-        if (
-          lower.includes("15") ||
-          lower.includes("2pn") ||
-          lower.includes("tìm căn") ||
-          lower.includes("tìm phòng") ||
-          lower.includes("phòng trọ")
-        ) {
-          replyContent = `Dựa trên dữ liệu thị trường mới nhất tại TP.HCM:\n\n✨ Tôi tìm thấy 3 lựa chọn nổi bật phù hợp yêu cầu của bạn:\n1. 🏢 Căn hộ 2PN Vinhomes Grand Park (12.5 tr/tháng - Full nội thất)\n2. 🏢 Căn hộ 2PN Masteri An Phú Q2 (14.5 tr/tháng - View sông thoáng mát)\n3. 🏠 Nhà nguyên căn hẻm xe hơi Bình Thạnh (14.0 tr/tháng - 2PN 2WC)\n\nBạn có muốn tôi hỗ trợ kết nối trực tiếp với chủ nhà của căn nào không?`;
-        } else if (
-          lower.includes("cọc") ||
-          lower.includes("on-chain") ||
-          lower.includes("an toàn") ||
-          lower.includes("tiền cọc")
-        ) {
-          replyContent = `🛡️ **Quy trình đặt cọc On-chain an toàn trên HomeSpace:**\n\n1. Tiền cọc được khóa trong Smart Contract độc lập (Escrow) minh bạch.\n2. Tiền chỉ được giải ngân cho chủ nhà khi bạn đã nhận nhà và xác nhận hiện trạng thực tế.\n3. Nếu có tranh chấp hoặc chủ nhà hủy phòng vô cớ, tiền cọc sẽ được hoàn trả 100% tự động.\n\nGiúp bạn hoàn toàn an tâm khi tìm thuê mà không lo bị lừa đảo tiền cọc!`;
-        } else if (
-          lower.includes("quận 7") ||
-          lower.includes("bình thạnh") ||
-          lower.includes("so sánh") ||
-          lower.includes("quận 1")
-        ) {
-          replyContent = `📊 **So sánh giá thuê trung bình tháng này:**\n\n• **Quận 7 (Phú Mỹ Hưng / Sunrise City):**\n  - Studio / 1PN: 7.5 - 11 triệu/tháng\n  - Căn hộ 2PN: 13.0 - 18 triệu/tháng\n\n• **Bình Thạnh (Vinhomes Central Park / Hàng Xanh):**\n  - Studio / 1PN: 8.0 - 12 triệu/tháng\n  - Căn hộ 2PN: 14.5 - 22 triệu/tháng\n\n👉 Khu vực Bình Thạnh kết nối trung tâm Q1 nhanh hơn, còn Quận 7 có nhiều mảng xanh và không gian yên tĩnh hơn.`;
-        } else if (
-          lower.includes("hợp đồng") ||
-          lower.includes("pháp lý") ||
-          lower.includes("lưu ý") ||
-          lower.includes("điều khoản")
-        ) {
-          replyContent = `⚖️ **3 lưu ý pháp lý quan trọng khi ký hợp đồng thuê trực tiếp:**\n\n1. **Xác minh danh tính chủ nhà:** Đảm bảo người ký là chính chủ sở hữu (mọi tin đăng trên HomeSpace đều có huy hiệu đã xác thực).\n2. **Quy định tiền cọc & bồi thường:** Nêu rõ điều kiện hoàn trả cọc và thời hạn thông báo trước khi chấm dứt hợp đồng (thường là 30 ngày).\n3. **Biên bản bàn giao hiện trạng:** Ghi nhận rõ chỉ số điện nước và tình trạng trang thiết bị trước khi dọn vào.`;
-        } else {
-          replyContent = `Tôi đã ghi nhận: "${text}".\n\nTôi là Trợ lý AI của HomeSpace. Tôi có thể hỗ trợ bạn tìm kiếm căn hộ, so sánh giá cả khu vực, giải đáp điều khoản hợp đồng thuê hoặc hướng dẫn quy trình đặt cọc On-chain an toàn!`;
-        }
-      } else {
-        const autoReplies: Record<string, string> = {
-          "conv-1": "2222222222",
-          "conv-2":
-            "Cảm ơn bạn đã quan tâm. Mình là chủ nhà Landmark 81, mình đã ghi nhận và sẽ đón bạn xem phòng đúng giờ nhé!",
-          "conv-3":
-            "Ok bạn nhé, mình là chủ căn Studio Bến Nghé Q1. Có gì cần trao đổi thêm về điều khoản thuê trực tiếp thì nhắn mình.",
-          "conv-4":
-            "Chị đã nhận được tin nhắn. Căn Masteri Thảo Điền này chị chính chủ, em yên tâm qua xem nhà nhé.",
-        };
-
-        replyContent =
-          autoReplies[conversationId] ||
-          "Đã nhận được tin nhắn của bạn. Mình sẽ phản hồi chi tiết trong giây lát nhé!";
-      }
-
-      const replyTime = new Date();
-      const replyTimeString = `${replyTime
-        .getHours()
-        .toString()
-        .padStart(2, "0")}:${replyTime
-        .getMinutes()
-        .toString()
-        .padStart(2, "0")}`;
-
       const replyMsg: ChatMessage = {
-        id: `msg-reply-${Date.now()}`,
+        id: `msg-rep-${Date.now()}`,
         sender: "them",
-        content: replyContent,
-        timestamp: replyTimeString,
+        content:
+          "Mình đã nhận được tin nhắn của bạn. Mình sẽ phản hồi chi tiết trong giây lát nhé!",
+        timestamp: timeString,
         dateGroup: "Hôm nay",
         status: "read",
       };
 
-      setConversations((prev) =>
+      setDirectConversations((prev) =>
         prev.map((c) => {
           if (c.id === conversationId) {
             return {
               ...c,
-              lastMessage: replyContent,
-              lastMessageTime: replyTimeString,
+              lastMessage: replyMsg.content,
+              lastMessageTime: timeString,
               lastMessageSender: "them",
               messages: [...c.messages, replyMsg],
             };
@@ -142,25 +321,22 @@ export default function ChatPage() {
           return c;
         })
       );
-    }, delay);
+    }, 1000);
   };
 
-  // Ẩn / Bỏ ẩn hội thoại
-  const handleToggleHideConversation = (conversationId: string) => {
-    setConversations((prev) =>
+  const handleToggleHideDirectConversation = (conversationId: string) => {
+    setDirectConversations((prev) =>
       prev.map((c) => {
         if (c.id === conversationId) {
-          const nextHidden = !c.isHidden;
-          return { ...c, isHidden: nextHidden };
+          return { ...c, isHidden: !c.isHidden };
         }
         return c;
       })
     );
   };
 
-  // Ghim / Bỏ ghim hội thoại
-  const handleTogglePinConversation = (conversationId: string) => {
-    setConversations((prev) =>
+  const handleTogglePinDirectConversation = (conversationId: string) => {
+    setDirectConversations((prev) =>
       prev.map((c) => {
         if (c.id === conversationId) {
           return { ...c, isPinned: !c.isPinned };
@@ -172,44 +348,89 @@ export default function ChatPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      {/* 1. Header HomeSpace */}
       <Header />
 
-      {/* 2. Chat Layout Wrapper */}
       <main className="flex-1 pt-20 flex h-screen overflow-hidden">
-        <div className="w-full h-[calc(100vh-80px)] flex bg-card border-t border-border overflow-hidden">
-          {/* Cột Trái: Danh sách Hội thoại (Ẩn trên mobile khi đang mở chat) */}
+        <div className="w-full h-[calc(100vh-80px)] flex bg-card border-t border-border overflow-hidden relative">
+          {/* Cột Trái: Sidebar (Co giãn độ rộng theo thao tác kéo thả và thu gọn) */}
           <div
-            className={`w-full md:w-auto h-full ${
-              activeConversation ? "hidden md:flex" : "flex"
-            }`}
+            ref={sidebarRef}
+            style={{
+              width: isSidebarCollapsed ? 0 : `${sidebarWidth}px`,
+              minWidth: isSidebarCollapsed ? 0 : undefined,
+            }}
+            className={`h-full flex shrink-0 overflow-hidden transition-[width] ${
+              isResizing ? "duration-0" : "duration-200 ease-in-out"
+            } ${isSidebarCollapsed ? "invisible border-none" : "visible"}`}
           >
-            <ChatSidebar
-              conversations={conversations}
-              activeConversationId={activeConversationId}
-              onSelectConversation={(id) => setActiveConversationId(id)}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              showHidden={showHidden}
-              onToggleShowHidden={() => setShowHidden((prev) => !prev)}
-            />
+            <div style={{ width: `${sidebarWidth}px` }} className="h-full flex flex-col shrink-0">
+              <ChatSidebar
+                channel={channel}
+                onChannelChange={setChannel}
+                // AI Sessions
+                aiSessions={aiSessions}
+                activeAiSessionId={activeAiSessionId}
+                onSelectAiSession={(id) => {
+                  setChannel("ai");
+                  setActiveAiSessionId(id);
+                }}
+                onNewAiSession={handleNewAiSession}
+                onDeleteAiSession={handleDeleteAiSession}
+                onTogglePinAiSession={handleTogglePinAiSession}
+                // Direct P2P
+                directConversations={directConversations}
+                activeDirectConversationId={activeDirectConversationId}
+                onSelectDirectConversation={(id) => {
+                  setChannel("direct");
+                  setActiveDirectConversationId(id);
+                }}
+                // Search & Filter
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                showHidden={showHidden}
+                onToggleShowHidden={() => setShowHidden((prev) => !prev)}
+                onSelectAiTopic={handleSelectAiTopic}
+                onToggleCollapse={toggleSidebar}
+              />
+            </div>
           </div>
 
-          {/* Cột Phải: Khung Chat Chi Tiết hoặc Trạng Thái Rỗng */}
-          <div
-            className={`flex-1 h-full ${
-              activeConversation ? "flex" : "hidden md:flex"
-            }`}
-          >
-            {activeConversation ? (
+          {/* Thanh nắm kéo Co Giãn Độ Rộng Sidebar (Resize Handle) */}
+          {!isSidebarCollapsed && (
+            <div
+              onMouseDown={handleMouseDown}
+              className={`w-1.5 hover:w-2 -ml-1 h-full z-20 cursor-col-resize hover:bg-primary/40 active:bg-primary transition-all flex items-center justify-center group ${
+                isResizing ? "bg-primary w-2" : "bg-transparent"
+              }`}
+              title="Kéo sang trái/phải để co giãn độ rộng thanh bên"
+            >
+              <div className="w-0.5 h-8 rounded-full bg-border group-hover:bg-primary transition-colors" />
+            </div>
+          )}
+
+          {/* Cột Phải: Khung Chat Chi Tiết */}
+          <div className="flex-1 h-full flex flex-col overflow-hidden min-w-0">
+            {channel === "ai" ? (
+              <AiChatWindow
+                session={activeAiSession}
+                onBack={() => setActiveAiSessionId(null)}
+                onSendMessage={handleSendAiMessage}
+                onNewSession={handleNewAiSession}
+                onSelectTopic={handleSelectAiTopic}
+                isSidebarCollapsed={isSidebarCollapsed}
+                onToggleSidebar={toggleSidebar}
+              />
+            ) : activeDirectConversation ? (
               <ChatWindow
-                conversation={activeConversation}
-                onBack={() => setActiveConversationId(null)}
-                onSendMessage={handleSendMessage}
-                onToggleHideConversation={handleToggleHideConversation}
-                onTogglePinConversation={handleTogglePinConversation}
+                conversation={activeDirectConversation}
+                onBack={() => setActiveDirectConversationId(null)}
+                onSendMessage={handleSendDirectMessage}
+                onToggleHideConversation={handleToggleHideDirectConversation}
+                onTogglePinConversation={handleTogglePinDirectConversation}
+                isSidebarCollapsed={isSidebarCollapsed}
+                onToggleSidebar={toggleSidebar}
               />
             ) : (
               <ChatEmptyState />

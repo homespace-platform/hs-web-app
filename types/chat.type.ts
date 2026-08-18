@@ -42,4 +42,15 @@ export interface ChatConversation {
   messages: ChatMessage[];
 }
 
-export type ChatFilterTab = "all" | "unread" | "hidden";
+export interface AiChatSession {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt?: string;
+  isPinned?: boolean;
+  messages: ChatMessage[];
+}
+
+export type ChatChannelType = "ai" | "direct";
+
+export type ChatFilterTab = "all" | "unread" | "hidden" | "landlord" | "tenant";

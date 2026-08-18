@@ -16,6 +16,7 @@ export interface ChatMessage {
   timestamp: string;
   dateGroup?: string;
   status: "sent" | "delivered" | "read";
+  listingCard?: RelatedListing;
   attachments?: {
     type: "image" | "file";
     url: string;

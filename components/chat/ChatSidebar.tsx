@@ -478,10 +478,10 @@ export default function ChatSidebar({
                       {/* Avatar */}
                       <div className="relative shrink-0">
                         <div
-                          className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${
+                          className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs bg-primary text-primary-foreground shadow-2xs ${
                             isSelected
-                              ? "bg-primary text-primary-foreground shadow-2xs"
-                              : "bg-primary/10 text-primary border border-primary/20"
+                              ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                              : ""
                           }`}
                         >
                           {initial}

@@ -45,7 +45,6 @@ export default function ChatWindow({
   onToggleSidebar,
 }: ChatWindowProps) {
   const [inputText, setInputText] = useState("");
-  const [showPropertyDetails] = useState(true);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -130,7 +129,7 @@ export default function ChatWindow({
                 />
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-xs bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-xs bg-primary text-primary-foreground">
                 {initial}
               </div>
             )}
@@ -250,49 +249,7 @@ export default function ChatWindow({
         </div>
       </div>
 
-      {/* 2. Attached Rental Property Preview Banner (Căn hộ đang trao đổi trực tiếp) */}
-      {conversation.relatedListing && showPropertyDetails && (
-        <div className="px-4 py-2.5 bg-primary/5 dark:bg-primary/10 border-b border-primary/10 flex items-center justify-between gap-3 text-xs animate-in slide-in-from-top-2">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 border border-border">
-              <Image
-                src={conversation.relatedListing.image}
-                alt={conversation.relatedListing.title}
-                fill
-                unoptimized
-                className="object-cover"
-              />
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-foreground truncate max-w-xs sm:max-w-md">
-                {conversation.relatedListing.title}
-              </span>
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-                <span className="font-bold text-primary">
-                  {conversation.relatedListing.price}
-                </span>
-                <span>•</span>
-                <span className="truncate flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-muted-foreground shrink-0" />
-                  {conversation.relatedListing.location}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <Link
-              href="/#featured-listings"
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border text-[11px] font-semibold text-foreground transition-all shadow-2xs"
-            >
-              <span>Xem tin đăng</span>
-              <ExternalLink className="w-3 h-3 text-muted-foreground" />
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Messages Feed */}
+      {/* 2. Messages Feed */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
         {conversation.messages.map((msg, index) => {
           const isMe = msg.sender === "me";
@@ -302,7 +259,7 @@ export default function ChatWindow({
 
           return (
             <React.Fragment key={msg.id}>
-              {/* Date Group Divider (e.g. "10:17", "Hôm nay") */}
+              {/* Date Group Divider */}
               {showDateDivider && (
                 <div className="flex items-center justify-center my-4">
                   <span className="px-3 py-1 rounded-full bg-muted/60 text-[11px] font-medium text-muted-foreground shadow-2xs">
@@ -335,16 +292,52 @@ export default function ChatWindow({
                     </div>
                   )}
 
-                  <div
-                    className={`relative px-4 py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-2xs transition-all ${
-                      isMe
-                        ? "bg-blue-50 dark:bg-blue-950/60 text-foreground border border-blue-200/60 dark:border-blue-800/60 rounded-br-xs"
-                        : isAi
-                        ? "bg-primary/5 dark:bg-slate-800/90 text-foreground border border-primary/20 rounded-bl-xs"
-                        : "bg-muted/70 text-foreground border border-border/60 rounded-bl-xs"
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  <div className="flex flex-col">
+                    {/* Inline Listing Card Attachment inside message */}
+                    {msg.listingCard && (
+                      <div className="mb-2 w-full max-w-sm rounded-2xl overflow-hidden border border-border bg-card shadow-xs hover:border-primary/40 transition-all p-2.5 flex items-center gap-3 group/card">
+                        <div className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-border">
+                          <Image
+                            src={msg.listingCard.image}
+                            alt={msg.listingCard.title}
+                            fill
+                            unoptimized
+                            className="object-cover group-hover/card:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-foreground truncate group-hover/card:text-primary transition-colors">
+                            {msg.listingCard.title}
+                          </p>
+                          <p className="text-xs font-bold text-primary mt-0.5">
+                            {msg.listingCard.price}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1 mt-0.5">
+                            <MapPin className="w-3 h-3 text-muted-foreground shrink-0" />
+                            {msg.listingCard.location}
+                          </p>
+                        </div>
+                        <Link
+                          href="/rent"
+                          className="px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-semibold shrink-0 transition-colors flex items-center gap-1"
+                        >
+                          <span>Xem</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      </div>
+                    )}
+
+                    <div
+                      className={`relative px-4 py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-2xs transition-all ${
+                        isMe
+                          ? "bg-blue-50 dark:bg-blue-950/60 text-foreground border border-blue-200/60 dark:border-blue-800/60 rounded-br-xs"
+                          : isAi
+                          ? "bg-primary/5 dark:bg-slate-800/90 text-foreground border border-primary/20 rounded-bl-xs"
+                          : "bg-muted/70 text-foreground border border-border/60 rounded-bl-xs"
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                    </div>
                   </div>
                 </div>
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
-import { useAuth } from "@/components/auth/AuthProvider";
+import { useAuth } from "@/features/auth/hooks";
 import { Button } from "@/components/ui/button";
 import { getUserProfile } from "@/lib/user-api";
 import type { UserProfile } from "@/lib/types";

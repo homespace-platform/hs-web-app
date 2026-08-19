@@ -1,8 +1,9 @@
 "use client";
 
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
-import { AuthProvider } from "@/components/auth/AuthProvider";
 import AuthGuard from "@/components/auth/AuthGuard";
+import StoreProvider from "@/store/StoreProvider";
+import AuthInitializer from "@/features/auth/AuthInitializer";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -12,9 +13,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       enableSystem
       disableTransitionOnChange={false}
     >
-      <AuthProvider>
-        <AuthGuard>{children}</AuthGuard>
-      </AuthProvider>
+      <StoreProvider>
+        <AuthInitializer>
+          <AuthGuard>{children}</AuthGuard>
+        </AuthInitializer>
+      </StoreProvider>
     </ThemeProvider>
   );
 }

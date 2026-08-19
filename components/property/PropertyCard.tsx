@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Heart, MapPin, Image as ImageIcon } from "lucide-react";
 import { PropertyItem } from "@/data/home-data";
-import { useAuth } from "@/components/auth/AuthProvider";
+import { useAuth } from "@/features/auth/hooks";
 
 interface PropertyCardProps {
   property: PropertyItem;

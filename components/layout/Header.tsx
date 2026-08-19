@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useAuth } from "@/components/auth/AuthProvider";
+import { useAuth } from "@/features/auth/hooks";
 import { Button } from "@/components/ui/button";
 import UserDropdown from "./UserDropdown";
 import NotificationDropdown from "@/components/notification/NotificationDropdown";

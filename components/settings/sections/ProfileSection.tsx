@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useAuth } from "@/components/auth/AuthProvider";
+import { useAuth } from "@/features/auth/hooks";
 import { Camera, BadgeCheck, ShieldCheck, Check } from "lucide-react";
 
 export default function ProfileSection() {

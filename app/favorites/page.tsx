@@ -5,7 +5,7 @@ import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import PropertyCard from "@/components/property/PropertyCard";
-import { useAuth } from "@/components/auth/AuthProvider";
+import { useAuth } from "@/features/auth/hooks";
 import { MOCK_FAVORITE_PROPERTIES } from "@/data/mock-favorites-data";
 import { PropertyItem } from "@/data/home-data";
 import {

@@ -89,19 +89,15 @@ export default function ChatWindow({
       {/* 1. Chat Header */}
       <div className="h-16 px-4 border-b border-border flex items-center justify-between bg-card/80 backdrop-blur-sm shrink-0 z-10">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          {/* Sidebar Collapse / Expand Toggle Button */}
-          {onToggleSidebar && (
+          {/* Sidebar Expand Button (Only visible when sidebar is collapsed) */}
+          {onToggleSidebar && isSidebarCollapsed && (
             <button
               type="button"
               onClick={onToggleSidebar}
               className="p-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer hidden md:flex items-center justify-center"
-              title={isSidebarCollapsed ? "Mở thanh bên" : "Thu gọn thanh bên"}
+              title="Mở thanh bên"
             >
-              {isSidebarCollapsed ? (
-                <PanelLeftOpen className="w-4 h-4 text-primary" />
-              ) : (
-                <PanelLeftClose className="w-4 h-4" />
-              )}
+              <PanelLeftOpen className="w-4 h-4 text-primary" />
             </button>
           )}
 

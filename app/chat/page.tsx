@@ -27,20 +27,20 @@ export default function ChatPage() {
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  // Multi-session AI State
+  // Multi-session AI State (Mới vào mở trang landing rỗng chuẩn Ảnh 2)
   const [aiSessions, setAiSessions] =
     useState<AiChatSession[]>(MOCK_AI_SESSIONS);
   const [activeAiSessionId, setActiveAiSessionId] = useState<string | null>(
-    "ai-session-1"
+    null
   );
 
-  // Direct Conversations State
+  // Direct Conversations State (Mới vào không tự động trỏ hội thoại, hiển thị trang trống bảo mật)
   const [directConversations, setDirectConversations] = useState<
     ChatConversation[]
   >(MOCK_DIRECT_CONVERSATIONS);
   const [activeDirectConversationId, setActiveDirectConversationId] = useState<
     string | null
-  >("conv-2");
+  >(null);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -48,14 +48,15 @@ export default function ChatPage() {
   const [showHidden, setShowHidden] = useState(false);
 
   // Active AI Session
-  const activeAiSession =
-    aiSessions.find((s) => s.id === activeAiSessionId) || null;
+  const activeAiSession = activeAiSessionId
+    ? aiSessions.find((s) => s.id === activeAiSessionId) || null
+    : null;
 
   // Active Direct Conversation
-  const activeDirectConversation =
-    directConversations.find((c) => c.id === activeDirectConversationId) ||
-    directConversations[0] ||
-    null;
+  const activeDirectConversation = activeDirectConversationId
+    ? directConversations.find((c) => c.id === activeDirectConversationId) ||
+      null
+    : null;
 
   // Sidebar Drag-to-Resize Logic
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -433,7 +434,10 @@ export default function ChatPage() {
                 onToggleSidebar={toggleSidebar}
               />
             ) : (
-              <ChatEmptyState />
+              <ChatEmptyState
+                isSidebarCollapsed={isSidebarCollapsed}
+                onToggleSidebar={toggleSidebar}
+              />
             )}
           </div>
         </div>

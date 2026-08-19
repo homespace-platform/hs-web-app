@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
 import { useAuth } from "@/features/auth/hooks";
 import { Button } from "@/components/ui/button";
-import { getUserProfile } from "@/lib/user-api";
-import type { UserProfile } from "@/lib/types";
+import userService from "@/services/user.service";
+import type { UserProfile } from "@/types/user.type";
 
 function displayName(profile: UserProfile | null, fallback: string) {
   if (!profile) return fallback;
@@ -35,7 +35,7 @@ export default function ProfileClient() {
       setLoading(true);
       setError(null);
       try {
-        const data = await getUserProfile();
+        const data = await userService.getProfile();
         if (mounted) setProfile(data);
       } catch (err) {
         if (mounted) {
@@ -86,10 +86,6 @@ export default function ProfileClient() {
               <Field label="Ngày sinh" value={profile.dob || "—"} />
               <Field label="Giới tính" value={profile.gender || "—"} />
               <Field label="Vai trò" value={profile.role || "—"} />
-              <Field
-                label="Email đã xác thực"
-                value={profile.emailVerified ? "Có" : "Chưa"}
-              />
               <Field
                 label="Trạng thái"
                 value={profile.active ? "Active" : "Inactive"}

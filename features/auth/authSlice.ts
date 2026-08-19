@@ -7,6 +7,7 @@ export interface AuthState {
   username: string | null;
   profileName: string | null;
   email: string | null;
+  avatarUrl: string | null;
 }
 
 type AuthSession = Omit<AuthState, "initialized">;
@@ -18,6 +19,7 @@ const initialState: AuthState = {
   username: null,
   profileName: null,
   email: null,
+  avatarUrl: null,
 };
 
 const authSlice = createSlice({

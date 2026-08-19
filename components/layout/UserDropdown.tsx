@@ -17,12 +17,8 @@ import {
   Settings,
 } from "lucide-react";
 
-interface UserDropdownProps {
-  avatarUrl?: string | null;
-}
-
-export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
-  const { username, profileName, email, logout } = useAuth();
+export default function UserDropdown() {
+  const { username, profileName, email, avatarUrl, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -69,6 +65,7 @@ export default function UserDropdown({ avatarUrl }: UserDropdownProps) {
         {/* Avatar with status indicator */}
         <div className="relative">
           {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={avatarUrl}
               alt={displayName}

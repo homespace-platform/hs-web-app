@@ -33,7 +33,15 @@ import {
 } from "lucide-react";
 
 export default function Header() {
-  const { authenticated, login, register, logout, username, profileName } = useAuth();
+  const {
+    authenticated,
+    login,
+    register,
+    logout,
+    username,
+    profileName,
+    avatarUrl,
+  } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [favoriteCount, setFavoriteCount] = useState(0);
 
@@ -540,9 +548,18 @@ export default function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2.5 text-xs font-semibold text-foreground hover:text-primary transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-xs">
-                    {(username || profileName || "U").charAt(0).toUpperCase()}
-                  </div>
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={avatarUrl}
+                      alt={profileName || username || "Người dùng"}
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-xs">
+                      {(username || profileName || "U").charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <span>{username || profileName || "Tài khoản của tôi"}</span>
                 </Link>
                 <button

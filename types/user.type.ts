@@ -4,19 +4,24 @@ export type UserProfile = {
   email: string;
   firstName?: string | null;
   lastName?: string | null;
-  emailVerified?: boolean | null;
   avatarUrl?: string | null;
   phone?: string | null;
   dob?: string | null;
   gender?: string | null;
+  roleId?: string | null;
   role?: string | null;
+  onBoarded?: boolean | null;
   active?: boolean | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
 
-export type ApiResponse<T> = {
-  code: number;
-  message?: string;
-  result: T;
+export type UpdateUserProfileRequest = {
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  dob: string | null;
+  gender: "FEMALE" | "MALE" | "OTHER" | null;
 };

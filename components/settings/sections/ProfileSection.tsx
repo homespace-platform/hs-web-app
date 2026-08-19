@@ -1,39 +1,151 @@
 "use client";
 
-import React, { useState } from "react";
-import { useAuth } from "@/features/auth/hooks";
-import { Camera, BadgeCheck, ShieldCheck, Check } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import axios from "axios";
+import { Camera, Check, LoaderCircle, ShieldCheck } from "lucide-react";
+import userService from "@/services/user.service";
+import type {
+  UpdateUserProfileRequest,
+  UserProfile,
+} from "@/types/user.type";
+
+type ProfileForm = UpdateUserProfileRequest;
+
+const emptyForm: ProfileForm = {
+  username: "",
+  email: "",
+  firstName: "",
+  lastName: "",
+  phone: null,
+  dob: null,
+  gender: null,
+};
+
+function profileToForm(profile: UserProfile): ProfileForm {
+  return {
+    username: profile.username ?? "",
+    email: profile.email ?? "",
+    firstName: profile.firstName ?? "",
+    lastName: profile.lastName ?? "",
+    phone: profile.phone ?? null,
+    dob: profile.dob ?? null,
+    gender:
+      profile.gender === "FEMALE" ||
+      profile.gender === "MALE" ||
+      profile.gender === "OTHER"
+        ? profile.gender
+        : null,
+  };
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError(error)) {
+    const message = error.response?.data?.message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return error instanceof Error && error.message ? error.message : fallback;
+}
 
 export default function ProfileSection() {
-  const { username, profileName, email, authenticated } = useAuth();
-  const isVerified = Boolean(authenticated);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [form, setForm] = useState<ProfileForm>(emptyForm);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const [fullName, setFullName] = useState(profileName || username || "Nguyễn Văn An");
-  const [phoneNumber, setPhoneNumber] = useState("+84 353 999 798");
-  const [userEmail, setUserEmail] = useState(email || "an.nguyen@homespace.vn");
-  const [cccdNumber, setCccdNumber] = useState("079201008899");
-  const [address, setAddress] = useState("Bến Nghé, Quận 1, TP. Hồ Chí Minh");
-  const [dob, setDob] = useState("15/08/1995");
-  const [gender, setGender] = useState("Nam");
-  const [profileSaveSuccess, setProfileSaveSuccess] = useState(false);
+  const fullName = useMemo(() => {
+    const name = [form.firstName, form.lastName].filter(Boolean).join(" ").trim();
+    return name || form.username || "Người dùng";
+  }, [form.firstName, form.lastName, form.username]);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    setProfileSaveSuccess(true);
-    setTimeout(() => setProfileSaveSuccess(false), 3000);
-  };
+  useEffect(() => {
+    let active = true;
+
+    async function loadProfile() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await userService.getProfile();
+        if (!active) return;
+        setProfile(data);
+        setForm(profileToForm(data));
+      } catch (requestError) {
+        if (active) {
+          setError(errorMessage(requestError, "Không thể tải thông tin cá nhân."));
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void loadProfile();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function setField<K extends keyof ProfileForm>(key: K, value: ProfileForm[K]) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function handleSaveProfile(event: React.FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await userService.updateProfile({
+        ...form,
+        phone: form.phone?.trim() || null,
+        dob: form.dob || null,
+        gender: form.gender || null,
+      });
+      const refreshedProfile = await userService.getProfile();
+      setProfile(refreshedProfile);
+      setForm(profileToForm(refreshedProfile));
+      setSuccess("Cập nhật thông tin cá nhân thành công!");
+    } catch (requestError) {
+      setError(errorMessage(requestError, "Không thể cập nhật thông tin cá nhân."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-72 items-center justify-center text-sm text-muted-foreground">
+        <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
+        Đang tải thông tin cá nhân...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-xl animate-in fade-in-50 duration-200">
-      {/* Header Avatar Card */}
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
       <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 flex flex-col sm:flex-row items-center gap-4 shadow-2xs">
         <div className="relative">
-          <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-primary text-primary-foreground font-extrabold text-2xl flex items-center justify-center shadow-md">
-            {fullName.charAt(0).toUpperCase()}
-          </div>
+          {profile?.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={profile.avatarUrl}
+              alt={fullName}
+              className="h-16 w-16 rounded-full object-cover shadow-md sm:h-18 sm:w-18"
+            />
+          ) : (
+            <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-primary text-primary-foreground font-extrabold text-2xl flex items-center justify-center shadow-md">
+              {fullName.charAt(0).toUpperCase()}
+            </div>
+          )}
           <button
             type="button"
-            onClick={() => alert("Tính năng tải ảnh đại diện mới đang cập nhật...")}
             className="absolute bottom-0 right-0 p-1.5 rounded-full bg-card border border-border text-foreground hover:text-primary shadow-xs transition-colors cursor-pointer"
             title="Thay đổi ảnh đại diện"
           >
@@ -42,163 +154,152 @@ export default function ProfileSection() {
         </div>
 
         <div className="flex-1 text-center sm:text-left space-y-1">
-          <div className="flex items-center justify-center sm:justify-start gap-1.5">
-            <h3 className="font-bold text-base text-foreground">{fullName}</h3>
-
-            {/* Biểu tượng tích xanh xác thực eKYC chuẩn sắc nét */}
-            {isVerified && (
-              <span
-                className="inline-flex items-center justify-center shrink-0 cursor-help"
-                title="Tài khoản đã xác thực danh tính điện tử (eKYC)"
-              >
-                <svg
-                  className="w-4.5 h-4.5 text-blue-600 dark:text-blue-500 fill-current drop-shadow-xs"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.67-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.34 2.19c-1.39-.46-2.9-.2-3.91.81s-1.27 2.52-.81 3.91C2.63 9.33 1.75 10.57 1.75 12s.88 2.67 2.19 3.34c-.46 1.39-.2 2.9.81 3.91s2.52 1.27 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.67-.88 3.34-2.19c1.39.46 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34z" />
-                  <path
-                    d="M10 15.5l-3.5-3.5 1.41-1.41L10 12.67l5.59-5.59L17 8.5l-7 7z"
-                    fill="white"
-                  />
-                </svg>
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">{userEmail}</p>
-
-          <div className="pt-1 flex items-center justify-center sm:justify-start gap-2">
-            {isVerified ? (
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold border border-emerald-500/20 flex items-center gap-1.5 shadow-2xs">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>Đã xác thực danh tính (eKYC)</span>
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => alert("Chuyển đến luồng xác thực eKYC bằng CCCD...")}
-                className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-bold border border-amber-500/20 flex items-center gap-1.5 shadow-2xs hover:bg-amber-500/20 transition-colors cursor-pointer"
-              >
-                <span>⚠️ Chưa xác thực danh tính • Xác thực ngay</span>
-              </button>
-            )}
-          </div>
+          <h3 className="font-bold text-base text-foreground">{fullName}</h3>
+          <p className="text-xs text-muted-foreground">{form.email}</p>
         </div>
       </div>
 
-      {/* Profile Edit Form */}
-      <form onSubmit={handleSaveProfile} className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-4 shadow-2xs">
-        {profileSaveSuccess && (
+      <form
+        onSubmit={handleSaveProfile}
+        className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-4 shadow-2xs"
+      >
+        {success && (
           <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400 text-xs font-semibold flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 shrink-0" />
-            <span>Cập nhật thông tin cá nhân thành công!</span>
+            <span>{success}</span>
           </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-semibold text-foreground">
-              Họ và tên
-            </label>
-            <input
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Nhập họ và tên"
-              className="w-full h-10 px-3.5 bg-muted/50 focus:bg-background rounded-xl border border-border focus:border-primary text-xs sm:text-sm text-foreground outline-none transition-all"
-            />
-          </div>
+          <TextField label="Tên" value={form.firstName} onChange={(value) => setField("firstName", value)} />
+          <TextField label="Họ" value={form.lastName} onChange={(value) => setField("lastName", value)} />
+          <TextField label="Tên đăng nhập" value={form.username} onChange={(value) => setField("username", value)} />
+          <TextField label="Số điện thoại" value={form.phone ?? ""} onChange={(value) => setField("phone", value)} inputMode="tel" />
+          <TextField label="Email liên hệ" value={form.email} onChange={(value) => setField("email", value)} type="email" />
+          <TextField label="Ngày sinh" value={form.dob ?? ""} onChange={(value) => setField("dob", value)} type="date" />
 
           <div className="space-y-1.5">
-            <label className="block text-[11px] font-semibold text-foreground">
-              Số điện thoại
-            </label>
-            <input
-              type="text"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="Nhập số điện thoại"
-              className="w-full h-10 px-3.5 bg-muted/50 focus:bg-background rounded-xl border border-border focus:border-primary text-xs sm:text-sm text-foreground outline-none transition-all"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-semibold text-foreground">
-              Email liên hệ
-            </label>
-            <input
-              type="email"
-              value={userEmail}
-              onChange={(e) => setUserEmail(e.target.value)}
-              placeholder="Nhập email"
-              className="w-full h-10 px-3.5 bg-muted/50 focus:bg-background rounded-xl border border-border focus:border-primary text-xs sm:text-sm text-foreground outline-none transition-all"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-semibold text-foreground">
-              Số CCCD / Định danh
-            </label>
-            <input
-              type="text"
-              value={cccdNumber}
-              onChange={(e) => setCccdNumber(e.target.value)}
-              placeholder="Nhập số CCCD"
-              className="w-full h-10 px-3.5 bg-muted/50 focus:bg-background rounded-xl border border-border focus:border-primary text-xs sm:text-sm text-foreground outline-none transition-all font-mono"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-semibold text-foreground">
-              Ngày sinh
-            </label>
-            <input
-              type="text"
-              value={dob}
-              onChange={(e) => setDob(e.target.value)}
-              placeholder="DD/MM/YYYY"
-              className="w-full h-10 px-3.5 bg-muted/50 focus:bg-background rounded-xl border border-border focus:border-primary text-xs sm:text-sm text-foreground outline-none transition-all"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-semibold text-foreground">
-              Giới tính
-            </label>
+            <label className="block text-[11px] font-semibold text-foreground">Giới tính</label>
             <select
-              value={gender}
-              onChange={(e) => setGender(e.target.value)}
+              value={form.gender ?? ""}
+              onChange={(event) =>
+                setField("gender", (event.target.value || null) as ProfileForm["gender"])
+              }
               className="w-full h-10 px-3.5 bg-muted/50 focus:bg-background rounded-xl border border-border focus:border-primary text-xs sm:text-sm text-foreground outline-none transition-all cursor-pointer"
             >
-              <option value="Nam">Nam</option>
-              <option value="Nữ">Nữ</option>
-              <option value="Khác">Khác</option>
+              <option value="">Chưa cập nhật</option>
+              <option value="MALE">Nam</option>
+              <option value="FEMALE">Nữ</option>
+              <option value="OTHER">Khác</option>
             </select>
           </div>
-        </div>
 
-        <div className="space-y-1.5">
-          <label className="block text-[11px] font-semibold text-foreground">
-            Địa chỉ thường trú / liên hệ
-          </label>
-          <input
-            type="text"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Nhập địa chỉ"
-            className="w-full h-10 px-3.5 bg-muted/50 focus:bg-background rounded-xl border border-border focus:border-primary text-xs sm:text-sm text-foreground outline-none transition-all"
-          />
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-semibold text-foreground">Vai trò</label>
+            <input
+              value={profile?.role ?? "Chưa được gán"}
+              disabled
+              className="w-full h-10 px-3.5 bg-muted rounded-xl border border-border text-xs sm:text-sm text-muted-foreground outline-none"
+            />
+          </div>
         </div>
 
         <div className="pt-2 flex justify-end">
           <button
             type="submit"
-            className="h-10 px-5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-md shadow-primary/20 transition-all cursor-pointer flex items-center gap-1.5"
+            disabled={saving}
+            className="h-10 px-5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-md shadow-primary/20 transition-all cursor-pointer flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <Check className="w-4 h-4" />
-            <span>Cập nhật thông tin</span>
+            {saving ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            <span>{saving ? "Đang cập nhật..." : "Cập nhật thông tin"}</span>
           </button>
         </div>
       </form>
+
+      {profile && (
+        <section className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-4 shadow-2xs">
+          <div>
+            <h4 className="text-sm font-bold text-foreground">Thông tin hệ thống</h4>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Dữ liệu chỉ đọc được đồng bộ từ tài khoản backend.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <ReadOnlyField label="User ID" value={profile.id} mono />
+            <ReadOnlyField label="Role ID" value={profile.roleId || "Chưa được gán"} mono />
+            <ReadOnlyField
+              label="Onboarding"
+              value={profile.onBoarded ? "Đã hoàn thành" : "Chưa hoàn thành"}
+            />
+            <ReadOnlyField
+              label="Trạng thái tài khoản"
+              value={profile.active ? "Đang hoạt động" : "Đã vô hiệu hóa"}
+            />
+            <ReadOnlyField label="Ngày tạo" value={formatInstant(profile.createdAt)} />
+            <ReadOnlyField label="Cập nhật gần nhất" value={formatInstant(profile.updatedAt)} />
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function formatInstant(value?: string | null) {
+  if (!value) return "Chưa có dữ liệu";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat("vi-VN", {
+        dateStyle: "medium",
+        timeStyle: "medium",
+      }).format(date);
+}
+
+function ReadOnlyField({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-muted/40 px-3.5 py-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className={`mt-1 break-all text-xs text-foreground ${mono ? "font-mono" : "font-medium"}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function TextField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  inputMode,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: React.HTMLInputTypeAttribute;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-[11px] font-semibold text-foreground">{label}</label>
+      <input
+        type={type}
+        inputMode={inputMode}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full h-10 px-3.5 bg-muted/50 focus:bg-background rounded-xl border border-border focus:border-primary text-xs sm:text-sm text-foreground outline-none transition-all"
+      />
     </div>
   );
 }

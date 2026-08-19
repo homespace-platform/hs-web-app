@@ -19,5 +19,9 @@ export function readKeycloakSession() {
       authenticated && typeof parsed?.name === "string" ? parsed.name : null,
     email:
       authenticated && typeof parsed?.email === "string" ? parsed.email : null,
+    avatarUrl:
+      authenticated && typeof parsed?.picture === "string"
+        ? parsed.picture
+        : null,
   };
 }

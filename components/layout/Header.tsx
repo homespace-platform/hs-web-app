@@ -172,15 +172,50 @@ export default function Header() {
     );
   }, [provinces, provinceSearch]);
 
+  // Silky smooth animated glide to top (550ms easeOutCubic)
+  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (typeof window === "undefined") return;
+
+    if (window.location.pathname === "/") {
+      e.preventDefault();
+
+      const startPosition =
+        window.pageYOffset || document.documentElement.scrollTop;
+      if (startPosition <= 0) return;
+
+      const duration = 550; // ms
+      const startTime = performance.now();
+
+      // Ease out cubic function for ultra-smooth deceleration
+      const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+      const animateScroll = (currentTime: number) => {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const ease = easeOutCubic(progress);
+
+        window.scrollTo(0, startPosition * (1 - ease));
+
+        if (progress < 1) {
+          window.requestAnimationFrame(animateScroll);
+        }
+      };
+
+      window.requestAnimationFrame(animateScroll);
+    }
+  };
+
   return (
-    <header className="fixed top-0 left-0 right-0 w-full z-50 bg-background/90 backdrop-blur-md border-b border-border transition-colors">
+    <header className="fixed top-0 left-0 right-0 w-full z-50 bg-background/90 dark:bg-[#162032]/95 backdrop-blur-md border-b border-border dark:border-[#223147] transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20 gap-4">
           {/* Left: Logo & Province Selector */}
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             <Link
               href="/"
-              className="flex items-center group focus:outline-none"
+              onClick={handleLogoClick}
+              className="flex items-center group focus:outline-none cursor-pointer"
+              title="Về đầu trang HomeSpace"
             >
               <Image
                 src="/logo/homespace-horizontal-logo-crop-removebg.png"

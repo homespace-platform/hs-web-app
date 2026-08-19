@@ -11,6 +11,7 @@ import {
   FileText,
   Check,
   ExternalLink,
+  Newspaper,
 } from "lucide-react";
 import { MOCK_NOTIFICATIONS } from "@/data/mock-notification-data";
 import {
@@ -32,6 +33,24 @@ export default function NotificationDropdown({
   const [activeTab, setActiveTab] = useState<NotificationCategory>("all");
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Sync with localStorage settings if present
+  useEffect(() => {
+    try {
+      const savedPrefs = localStorage.getItem("homespace_notification_prefs");
+      if (savedPrefs) {
+        const parsed = JSON.parse(savedPrefs);
+        if (parsed.newsNotifications === false) {
+          // If news notifications are disabled in settings, filter them out from active dropdown
+          setNotifications(MOCK_NOTIFICATIONS.filter((n) => n.category !== "news"));
+        } else {
+          setNotifications(MOCK_NOTIFICATIONS);
+        }
+      }
+    } catch {
+      // fallback
+    }
+  }, [isOpen]);
 
   // Calculate unread count
   const unreadCount = useMemo(
@@ -87,8 +106,15 @@ export default function NotificationDropdown({
   };
 
   // Helper to render strictly 1 ICON per notification category type
-  const renderIcon = (category: "listing" | "contract" | "payment") => {
+  const renderIcon = (category: "listing" | "contract" | "payment" | "news") => {
     switch (category) {
+      case "news":
+        // Type 4: Tin tức & Bài viết từ Admin
+        return (
+          <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-2xs">
+            <Newspaper className="w-5 h-5" />
+          </div>
+        );
       case "payment":
         // Type 1: Thanh toán & Tiền cọc (Icon ¥ màu hồng duy nhất)
         return (
@@ -115,8 +141,14 @@ export default function NotificationDropdown({
   };
 
   // Helper to render strictly 1 tag color style per category type
-  const renderTagBadge = (tag: string, category: "listing" | "contract" | "payment") => {
+  const renderTagBadge = (tag: string, category: "listing" | "contract" | "payment" | "news") => {
     switch (category) {
+      case "news":
+        return (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200/80 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-400 shrink-0">
+            {tag}
+          </span>
+        );
       case "payment":
         return (
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200/80 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-400 shrink-0">
@@ -247,6 +279,17 @@ export default function NotificationDropdown({
               }`}
             >
               Thanh toán
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("news")}
+              className={`py-2.5 px-3 border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === "news"
+                  ? "border-foreground text-foreground font-bold"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Tin tức
             </button>
           </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
+  Newspaper,
 } from "lucide-react";
 
 const ITEMS_PER_PAGE = 8;
@@ -32,6 +33,23 @@ export default function NotificationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const sectionRef = useRef<HTMLDivElement>(null);
+
+  // Sync with localStorage preferences
+  useEffect(() => {
+    try {
+      const savedPrefs = localStorage.getItem("homespace_notification_prefs");
+      if (savedPrefs) {
+        const parsed = JSON.parse(savedPrefs);
+        if (parsed.newsNotifications === false) {
+          setNotifications(MOCK_NOTIFICATIONS.filter((n) => n.category !== "news"));
+        } else {
+          setNotifications(MOCK_NOTIFICATIONS);
+        }
+      }
+    } catch {
+      // fallback
+    }
+  }, []);
 
   // Unread count
   const unreadCount = useMemo(
@@ -95,8 +113,14 @@ export default function NotificationsPage() {
   };
 
   // Helper to render strictly 1 ICON per category
-  const renderIcon = (category: "listing" | "contract" | "payment") => {
+  const renderIcon = (category: "listing" | "contract" | "payment" | "news") => {
     switch (category) {
+      case "news":
+        return (
+          <div className="w-11 h-11 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-2xs">
+            <Newspaper className="w-5 h-5" />
+          </div>
+        );
       case "payment":
         return (
           <div className="w-11 h-11 rounded-full bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/60 text-rose-500 flex items-center justify-center font-bold text-base shrink-0 shadow-2xs">
@@ -122,9 +146,15 @@ export default function NotificationsPage() {
   // Helper to render strictly 1 tag color style per category
   const renderTagBadge = (
     tag: string,
-    category: "listing" | "contract" | "payment"
+    category: "listing" | "contract" | "payment" | "news"
   ) => {
     switch (category) {
+      case "news":
+        return (
+          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200/80 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-400 shrink-0">
+            {tag}
+          </span>
+        );
       case "payment":
         return (
           <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200/80 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-400 shrink-0">
@@ -226,7 +256,7 @@ export default function NotificationsPage() {
                   }}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                     activeTab === "all"
-                      ? "bg-foreground text-background font-bold shadow-2xs"
+                      ? "bg-primary text-primary-foreground font-bold shadow-2xs"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
@@ -240,7 +270,7 @@ export default function NotificationsPage() {
                   }}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                     activeTab === "listing"
-                      ? "bg-foreground text-background font-bold shadow-2xs"
+                      ? "bg-primary text-primary-foreground font-bold shadow-2xs"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
@@ -256,7 +286,7 @@ export default function NotificationsPage() {
                   }}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                     activeTab === "contract"
-                      ? "bg-foreground text-background font-bold shadow-2xs"
+                      ? "bg-primary text-primary-foreground font-bold shadow-2xs"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
@@ -272,12 +302,28 @@ export default function NotificationsPage() {
                   }}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                     activeTab === "payment"
-                      ? "bg-foreground text-background font-bold shadow-2xs"
+                      ? "bg-primary text-primary-foreground font-bold shadow-2xs"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
                   Thanh toán (
                   {notifications.filter((n) => n.category === "payment").length}
+                  )
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("news");
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    activeTab === "news"
+                      ? "bg-primary text-primary-foreground font-bold shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  Tin tức (
+                  {notifications.filter((n) => n.category === "news").length}
                   )
                 </button>
               </div>

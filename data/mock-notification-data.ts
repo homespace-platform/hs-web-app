@@ -1,6 +1,49 @@
 import { NotificationItem } from "@/types/notification.type";
 
 export const MOCK_NOTIFICATIONS: NotificationItem[] = [
+  // News from Admin (Mới nhất)
+  {
+    id: "notif-news-1",
+    category: "news",
+    title: "Thị trường thuê căn hộ TP.HCM tháng 8/2026: Phân khúc 2PN dẫn đầu",
+    tag: "Bản tin thị trường",
+    tagType: "news",
+    message:
+      "Báo cáo mới nhất từ Ban quản trị HomeSpace: Nhu cầu thuê căn hộ 2PN tại khu Đông và khu Nam tăng mạnh 24% so với quý trước.",
+    date: "19/08/2026",
+    isUnread: true,
+    link: "/news/thi-truong-thue-can-ho-tphcm-thang-8-2026",
+    author: "Admin HomeSpace",
+    readTime: "3 phút đọc",
+  },
+  {
+    id: "notif-news-2",
+    category: "news",
+    title: "Cập nhật tính năng: Ký quỹ Smart Contract bảo vệ 100% tiền cọc",
+    tag: "Tính năng mới",
+    tagType: "news",
+    message:
+      "HomeSpace chính thức ra mắt quy trình bảo vệ tiền cọc On-chain tự động hoàn cọc trong 3 giây khi hai bên xác nhận bàn giao.",
+    date: "18/08/2026",
+    isUnread: true,
+    link: "/news/quy-trinh-dat-coc-on-chain-an-toan",
+    author: "Ban Công Nghệ",
+    readTime: "4 phút đọc",
+  },
+  {
+    id: "notif-news-3",
+    category: "news",
+    title: "5 điều khoản hợp đồng thuê nhà trực tiếp cần lưu ý tránh mất tiền",
+    tag: "Cẩm nang thuê",
+    tagType: "news",
+    message:
+      "Luật sư tư vấn chi tiết các điều khoản hoàn trả tiền cọc, biên bản bàn giao nội thất và thủ tục đăng ký tạm trú.",
+    date: "15/08/2026",
+    isUnread: false,
+    link: "/news/luu-y-phap-ly-khi-ky-hop-dong-thue-nha",
+    author: "Pháp Lý HomeSpace",
+    readTime: "5 phút đọc",
+  },
   // Page 1 (Items 1-8)
   {
     id: "notif-1",

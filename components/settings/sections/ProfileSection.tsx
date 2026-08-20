@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { Camera, Check, LoaderCircle, ShieldCheck } from "lucide-react";
 import userService from "@/services/user.service";
+import storageService from "@/services/storage.service";
 import { fetchCurrentUser } from "@/features/user/userSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import type {
@@ -12,6 +13,9 @@ import type {
 } from "@/types/user.type";
 
 type ProfileForm = UpdateUserProfileRequest;
+
+const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
 
 function profileToForm(profile: UserProfile): ProfileForm {
   return {
@@ -68,6 +72,8 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
   const userId = useAppSelector((state) => state.auth.userId);
   const [form, setForm] = useState<ProfileForm>(() => profileToForm(profile));
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -104,6 +110,37 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
     }
   }
 
+  async function handleAvatarSelected(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || uploadingAvatar) return;
+
+    setError(null);
+    setSuccess(null);
+    if (!AVATAR_TYPES.has(file.type)) {
+      setError("Ảnh đại diện chỉ hỗ trợ JPG, PNG hoặc WebP.");
+      return;
+    }
+    if (file.size > MAX_AVATAR_SIZE) {
+      setError("Ảnh đại diện không được vượt quá 5 MB.");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const storageId = await storageService.uploadUserAvatar(file, profile.id);
+      await userService.updateAvatar({ storageId });
+      await dispatch(
+        fetchCurrentUser({ userId: userId ?? profile.id, force: true }),
+      ).unwrap();
+      setSuccess("Cập nhật ảnh đại diện thành công!");
+    } catch (requestError) {
+      setError(errorMessage(requestError, "Không thể cập nhật ảnh đại diện."));
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-xl animate-in fade-in-50 duration-200">
       {error && (
@@ -114,6 +151,13 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
 
       <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 flex flex-col sm:flex-row items-center gap-4 shadow-2xs">
         <div className="relative">
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleAvatarSelected}
+          />
           {profile?.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -128,10 +172,16 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
           )}
           <button
             type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={uploadingAvatar}
             className="absolute bottom-0 right-0 p-1.5 rounded-full bg-card border border-border text-foreground hover:text-primary shadow-xs transition-colors cursor-pointer"
             title="Thay đổi ảnh đại diện"
           >
-            <Camera className="w-3.5 h-3.5" />
+            {uploadingAvatar ? (
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Camera className="w-3.5 h-3.5" />
+            )}
           </button>
         </div>
 

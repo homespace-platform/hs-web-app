@@ -37,3 +37,7 @@ export type OnboardingRequest = {
 export type SetInitialPasswordRequest = {
   newPassword: string;
 };
+
+export type UpdateUserAvatarRequest = {
+  storageId: string;
+};

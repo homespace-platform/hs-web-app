@@ -25,3 +25,15 @@ export type UpdateUserProfileRequest = {
   dob: string | null;
   gender: "FEMALE" | "MALE" | "OTHER" | null;
 };
+
+export type OnboardingRequest = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  dob: string;
+  gender: "FEMALE" | "MALE" | "OTHER";
+};
+
+export type SetInitialPasswordRequest = {
+  newPassword: string;
+};

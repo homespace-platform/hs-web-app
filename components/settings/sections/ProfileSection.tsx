@@ -176,14 +176,6 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
             </select>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-semibold text-foreground">Vai trò</label>
-            <input
-              value={profile?.role ?? "Chưa được gán"}
-              disabled
-              className="w-full h-10 px-3.5 bg-muted rounded-xl border border-border text-xs sm:text-sm text-muted-foreground outline-none"
-            />
-          </div>
         </div>
 
         <div className="pt-2 flex justify-end">
@@ -210,6 +202,7 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <ReadOnlyField label="User ID" value={profile.id} mono />
             <ReadOnlyField label="Role ID" value={profile.roleId || "Chưa được gán"} mono />
+            <ReadOnlyField label="Vai trò" value={formatRole(profile.role)} />
             <ReadOnlyField
               label="Onboarding"
               value={profile.onBoarded ? "Đã hoàn thành" : "Chưa hoàn thành"}
@@ -236,6 +229,12 @@ function formatInstant(value?: string | null) {
         dateStyle: "medium",
         timeStyle: "medium",
       }).format(date);
+}
+
+function formatRole(role?: string | null) {
+  if (role === "USER") return "Người dùng";
+  if (role === "ADMIN") return "Quản trị viên";
+  return role || "Chưa được gán";
 }
 
 function ReadOnlyField({

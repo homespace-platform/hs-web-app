@@ -7,16 +7,12 @@ import { useAuth } from "@/features/auth/useAuth";
 import { Button } from "@/components/ui/button";
 import UserDropdown from "./UserDropdown";
 import NotificationDropdown from "@/components/notification/NotificationDropdown";
-import ThemeToggle from "@/components/theme/ThemeToggle";
 import provinceService from "@/services/province.service";
 import { Province } from "@/types/province.type";
 import {
   Menu,
   X,
   Smartphone,
-  LogIn,
-  UserPlus,
-  Bell,
   LayoutGrid,
   Heart,
   MapPin,
@@ -24,10 +20,6 @@ import {
   Search,
   Check,
   Loader2,
-  Clock,
-  LogOut,
-  Newspaper,
-  Building,
 } from "lucide-react";
 
 export default function Header() {
@@ -237,20 +229,18 @@ export default function Header() {
               <button
                 type="button"
                 onClick={() => setIsProvinceOpen(!isProvinceOpen)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full border transition-all cursor-pointer text-xs font-semibold shadow-2xs ${
-                  isProvinceOpen
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full border transition-all cursor-pointer text-xs font-semibold shadow-2xs ${isProvinceOpen
                     ? "border-primary/50 bg-muted text-primary"
                     : "border-border bg-card text-foreground hover:bg-muted hover:border-primary/40"
-                }`}
+                  }`}
               >
                 <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
                 <span className="truncate max-w-[140px] md:max-w-[180px]">
                   {loadingProvinces ? "Đang tải..." : selectedProvinceName}
                 </span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform duration-200 ${
-                    isProvinceOpen ? "rotate-180" : ""
-                  }`}
+                  className={`w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform duration-200 ${isProvinceOpen ? "rotate-180" : ""
+                    }`}
                 />
               </button>
 
@@ -283,11 +273,10 @@ export default function Header() {
                             key={p.code}
                             type="button"
                             onClick={() => handleSelectProvince(p)}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                              isSelected
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${isSelected
                                 ? "bg-primary/10 text-primary font-bold"
                                 : "text-foreground hover:bg-muted"
-                            }`}
+                              }`}
                           >
                             <span className="truncate">{p.name}</span>
                             {isSelected && (
@@ -305,7 +294,7 @@ export default function Header() {
                 </div>
               )}
             </div>
-            
+
             {/* Link Nhà Cho Thuê (Dạng text link thanh lịch) */}
             <Link
               href="/rent"
@@ -325,9 +314,6 @@ export default function Header() {
 
           {/* Right Action Buttons */}
           <div className="hidden md:flex items-center gap-2.5 shrink-0">
-            {/* Theme Mode Switcher */}
-            <ThemeToggle />
-
             {authenticated ? (
               /* State 1: Authenticated User (Đã đăng nhập) */
               <div className="flex items-center gap-2.5">
@@ -401,7 +387,6 @@ export default function Header() {
 
           {/* Mobile Menu Button & Action Controls */}
           <div className="md:hidden flex items-center gap-1.5">
-            <ThemeToggle />
             {authenticated && <UserDropdown />}
             <button
               type="button"
@@ -450,7 +435,6 @@ export default function Header() {
               className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center justify-between transition-colors"
             >
               <div className="flex items-center gap-3">
-                <Bell className="w-4 h-4 text-rose-500" />
                 <span>Thông báo</span>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold shadow-2xs">
@@ -465,7 +449,6 @@ export default function Header() {
                 className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center justify-between transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <Heart className="w-4 h-4 text-rose-500" />
                   <span>Danh sách yêu thích</span>
                 </div>
                 {favoriteCount > 0 && (
@@ -483,7 +466,6 @@ export default function Header() {
               className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center justify-between transition-colors"
             >
               <div className="flex items-center gap-3">
-                <Clock className="w-4 h-4 text-primary" />
                 <span>Lịch sử xem tin</span>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
@@ -498,7 +480,6 @@ export default function Header() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
               >
-                <LayoutGrid className="w-4 h-4 text-muted-foreground" />
                 <span>Quản lý tin đăng</span>
               </Link>
             )}
@@ -509,7 +490,6 @@ export default function Header() {
               onClick={() => setMobileMenuOpen(false)}
               className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
             >
-              <Building className="w-4 h-4 text-primary" />
               <span>Nhà Cho Thuê</span>
             </Link>
 
@@ -519,7 +499,6 @@ export default function Header() {
               onClick={() => setMobileMenuOpen(false)}
               className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
             >
-              <Newspaper className="w-4 h-4 text-primary" />
               <span>Tin tức & Thị trường</span>
             </Link>
 
@@ -530,7 +509,6 @@ export default function Header() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
               >
-                <Smartphone className="w-4 h-4 text-accent-ai" />
                 <span>Tải ứng dụng HomeSpace</span>
               </Link>
             )}
@@ -567,7 +545,6 @@ export default function Header() {
                   }}
                   className="text-xs font-semibold text-red-500 hover:text-red-600 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
                   <span>Đăng xuất</span>
                 </button>
               </div>
@@ -581,7 +558,6 @@ export default function Header() {
                   }}
                   className="flex-1 justify-center gap-1.5 text-foreground border-border hover:bg-muted rounded-full h-10 cursor-pointer text-xs font-semibold"
                 >
-                  <LogIn className="w-4 h-4" />
                   Đăng nhập
                 </Button>
                 <Button
@@ -591,7 +567,6 @@ export default function Header() {
                   }}
                   className="flex-1 justify-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-10 cursor-pointer text-xs font-semibold"
                 >
-                  <UserPlus className="w-4 h-4" />
                   Đăng ký
                 </Button>
               </div>

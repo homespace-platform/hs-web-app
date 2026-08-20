@@ -9,6 +9,7 @@ import {
   NotificationItem,
   NotificationCategory,
 } from "@/types/notification.type";
+import { toast } from "sonner";
 import {
   Bell,
   CheckCheck,
@@ -97,12 +98,14 @@ export default function NotificationsPage() {
   // Mark all as read
   const handleMarkAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isUnread: false })));
+    toast.success("Đã đánh dấu tất cả thông báo là đã đọc.");
   };
 
   // Clear all notifications
   const handleClearAll = () => {
     if (window.confirm("Bạn có chắc chắn muốn xóa toàn bộ thông báo?")) {
       setNotifications([]);
+      toast.success("Đã xóa tất cả thông báo.");
     }
   };
 
@@ -110,6 +113,7 @@ export default function NotificationsPage() {
   const handleRemoveSingle = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    toast.success("Đã xóa thông báo.");
   };
 
   // Helper to render strictly 1 ICON per category

@@ -12,6 +12,7 @@ import type {
   UpdateUserProfileRequest,
   UserProfile,
 } from "@/types/user.type";
+import { toast } from "sonner";
 
 type ProfileForm = UpdateUserProfileRequest;
 
@@ -125,9 +126,13 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
       if (userId) {
         await dispatch(fetchCurrentUser({ userId, force: true })).unwrap();
       }
-      setSuccess("Cập nhật thông tin cá nhân thành công!");
+      const message = "Cập nhật thông tin cá nhân thành công!";
+      setSuccess(message);
+      toast.success(message);
     } catch (requestError) {
-      setError(errorMessage(requestError, "Không thể cập nhật thông tin cá nhân."));
+      const message = errorMessage(requestError, "Không thể cập nhật thông tin cá nhân.");
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -141,11 +146,15 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
     setError(null);
     setSuccess(null);
     if (!AVATAR_TYPES.has(file.type)) {
-      setError("Ảnh đại diện chỉ hỗ trợ JPG, PNG hoặc WebP.");
+      const message = "Ảnh đại diện chỉ hỗ trợ JPG, PNG hoặc WebP.";
+      setError(message);
+      toast.error(message);
       return;
     }
     if (file.size > MAX_SOURCE_IMAGE_SIZE) {
-      setError("Ảnh gốc không được vượt quá 20 MB.");
+      const message = "Ảnh gốc không được vượt quá 20 MB.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -163,10 +172,13 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
       await dispatch(
         fetchCurrentUser({ userId: userId ?? profile.id, force: true }),
       ).unwrap();
-      setSuccess("Cập nhật ảnh đại diện thành công!");
+      const message = "Cập nhật ảnh đại diện thành công!";
+      setSuccess(message);
+      toast.success(message);
     } catch (requestError) {
       const message = errorMessage(requestError, "Không thể cập nhật ảnh đại diện.");
       setError(message);
+      toast.error(message);
       throw new Error(message);
     } finally {
       setUploadingAvatar(false);

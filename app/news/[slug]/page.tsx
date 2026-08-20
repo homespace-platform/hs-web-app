@@ -7,6 +7,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import NewsCard from "@/components/news/NewsCard";
 import { MOCK_NEWS_ARTICLES } from "@/data/mock-news-data";
+import { toast } from "sonner";
 import {
   Calendar,
   Eye,
@@ -34,11 +35,16 @@ export default function NewsDetailPage({ params }: NewsDetailProps) {
     (a) => a.id !== article.id
   ).slice(0, 3);
 
-  const handleShare = () => {
+  const handleShare = async () => {
     if (typeof window !== "undefined") {
-      navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        setCopied(true);
+        toast.success("Đã sao chép liên kết bài viết.");
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        toast.error("Không thể sao chép liên kết.");
+      }
     }
   };
 

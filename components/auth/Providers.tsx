@@ -5,6 +5,7 @@ import AuthGuard from "@/components/auth/AuthGuard";
 import StoreProvider from "@/store/StoreProvider";
 import AuthInitializer from "@/features/auth/AuthInitializer";
 import OnboardingInitializer from "@/features/onboarding/OnboardingInitializer";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -20,6 +21,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           <OnboardingInitializer />
         </AuthInitializer>
       </StoreProvider>
+      <Toaster position="top-right" richColors closeButton />
     </ThemeProvider>
   );
 }

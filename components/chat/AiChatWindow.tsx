@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { AiChatSession, ChatMessage } from "@/types/chat.type";
 import { AI_QUICK_TOPICS } from "@/data/mock-chat-data";
+import { toast } from "sonner";
 
 interface AiChatWindowProps {
   session: AiChatSession | null;
@@ -66,10 +67,15 @@ export default function AiChatWindow({
     }
   };
 
-  const handleCopy = (content: string, id: string) => {
-    navigator.clipboard.writeText(content);
-    setCopiedMessageId(id);
-    setTimeout(() => setCopiedMessageId(null), 2000);
+  const handleCopy = async (content: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedMessageId(id);
+      toast.success("Đã sao chép câu trả lời.");
+      setTimeout(() => setCopiedMessageId(null), 2000);
+    } catch {
+      toast.error("Không thể sao chép nội dung.");
+    }
   };
 
   return (

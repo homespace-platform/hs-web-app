@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Heart, MapPin, Image as ImageIcon } from "lucide-react";
 import { PropertyItem } from "@/data/home-data";
 import { useAuth } from "@/features/auth/useAuth";
+import { toast } from "sonner";
 
 interface PropertyCardProps {
   property: PropertyItem;
@@ -45,7 +46,10 @@ export default function PropertyCard({
     e.preventDefault();
     e.stopPropagation();
 
-    if (!authenticated) return;
+    if (!authenticated) {
+      toast.info("Vui lòng đăng nhập để lưu tin yêu thích.");
+      return;
+    }
 
     const nextState = !isFavorited;
     setIsFavorited(nextState);
@@ -60,13 +64,14 @@ export default function PropertyCard({
         ids = ids.filter((id) => id !== property.id);
       }
       localStorage.setItem("homespace_saved_favorites", JSON.stringify(ids));
+      toast.success(nextState ? "Đã lưu tin vào danh sách yêu thích." : "Đã bỏ tin khỏi danh sách yêu thích.");
 
       // Trigger custom event for cross-component sync
       window.dispatchEvent(
         new CustomEvent("favoritesUpdated", { detail: { ids } })
       );
     } catch {
-      // ignore
+      toast.error("Không thể cập nhật danh sách yêu thích.");
     }
 
     if (onFavoriteToggle) {

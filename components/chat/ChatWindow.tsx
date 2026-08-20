@@ -24,6 +24,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { ChatConversation, ChatMessage } from "@/types/chat.type";
+import { toast } from "sonner";
 
 interface ChatWindowProps {
   conversation: ChatConversation;
@@ -173,7 +174,7 @@ export default function ChatWindow({
                 type="button"
                 className="p-2 rounded-xl hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
                 title="Gọi thoại trực tiếp"
-                onClick={() => alert("Tính năng gọi thoại đang kết nối...")}
+                onClick={() => toast.info("Tính năng gọi thoại đang được phát triển.")}
               >
                 <Phone className="w-4 h-4" />
               </button>
@@ -181,7 +182,7 @@ export default function ChatWindow({
                 type="button"
                 className="p-2 rounded-xl hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
                 title="Gọi video xem phòng trực tiếp"
-                onClick={() => alert("Tính năng gọi video trực tiếp đang kết nối...")}
+                onClick={() => toast.info("Tính năng gọi video đang được phát triển.")}
               >
                 <Video className="w-4 h-4" />
               </button>
@@ -232,7 +233,7 @@ export default function ChatWindow({
                 <button
                   type="button"
                   onClick={() => {
-                    alert("Đã xóa lịch sử trò chuyện cục bộ.");
+                    toast.info("Tính năng xóa lịch sử trò chuyện đang được phát triển.");
                     setIsMoreMenuOpen(false);
                   }}
                   className="w-full text-left px-3 py-2 text-xs font-medium rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600"
@@ -435,7 +436,7 @@ export default function ChatWindow({
               </button>
               <button
                 type="button"
-                onClick={() => alert("Tính năng gửi hình ảnh đang mở...")}
+                onClick={() => toast.info("Tính năng gửi hình ảnh đang được phát triển.")}
                 className="p-1.5 rounded-lg hover:text-foreground hover:bg-muted transition-colors"
                 title="Gửi hình ảnh"
               >
@@ -443,7 +444,7 @@ export default function ChatWindow({
               </button>
               <button
                 type="button"
-                onClick={() => alert("Tính năng đính kèm tệp tin đang mở...")}
+                onClick={() => toast.info("Tính năng đính kèm tệp đang được phát triển.")}
                 className="p-1.5 rounded-lg hover:text-foreground hover:bg-muted transition-colors"
                 title="Đính kèm tệp"
               >

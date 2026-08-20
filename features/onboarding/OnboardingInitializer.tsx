@@ -7,6 +7,7 @@ import userService from "@/services/user.service";
 import { fetchCurrentUser } from "@/features/user/userSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import type { OnboardingRequest, UserProfile } from "@/types/user.type";
+import { toast } from "sonner";
 
 type Step = "profile" | "password";
 
@@ -105,17 +106,19 @@ export default function OnboardingInitializer() {
       await dispatch(fetchCurrentUser({ userId: userId!, force: true })).unwrap();
 
       if (hasPassword === false) {
+        toast.success("Thông tin cá nhân đã được cập nhật.");
         setStep("password");
       } else {
         setOpen(false);
+        toast.success("Thiết lập tài khoản hoàn tất.");
       }
     } catch (requestError) {
-      setError(
-        getErrorMessage(
+      const message = getErrorMessage(
           requestError,
           "Không thể hoàn tất thông tin cá nhân. Vui lòng thử lại.",
-        ),
-      );
+        );
+      setError(message);
+      toast.error(message);
       throw requestError;
     }
   }
@@ -125,13 +128,14 @@ export default function OnboardingInitializer() {
     try {
       await userService.setInitialPassword({ newPassword });
       setOpen(false);
+      toast.success("Tạo mật khẩu thành công. Tài khoản đã sẵn sàng.");
     } catch (requestError) {
-      setError(
-        getErrorMessage(
+      const message = getErrorMessage(
           requestError,
           "Không thể tạo mật khẩu. Vui lòng thử lại.",
-        ),
-      );
+        );
+      setError(message);
+      toast.error(message);
       throw requestError;
     }
   }

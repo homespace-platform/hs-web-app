@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 
 export default function PrivacySection() {
   const [birthdayVisibility, setBirthdayVisibility] = useState("Không hiện");
@@ -109,7 +110,7 @@ export default function PrivacySection() {
       <div className="space-y-2">
         <h3 className="text-sm font-bold text-foreground">Chặn tin nhắn</h3>
         <div
-          onClick={() => alert("Danh sách chặn hiện đang trống.")}
+          onClick={() => toast.info("Danh sách chặn hiện đang trống.")}
           className="bg-card rounded-2xl border border-border p-4 flex items-center justify-between shadow-2xs cursor-pointer hover:bg-muted/40 transition-colors"
         >
           <span className="text-xs sm:text-sm font-medium text-foreground">

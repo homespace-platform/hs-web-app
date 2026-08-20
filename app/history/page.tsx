@@ -7,6 +7,7 @@ import Footer from "@/components/layout/Footer";
 import PropertyCard from "@/components/property/PropertyCard";
 import { MOCK_HISTORY_PROPERTIES } from "@/data/mock-history-data";
 import { PropertyItem } from "@/data/home-data";
+import { toast } from "sonner";
 import {
   Clock,
   Search,
@@ -103,8 +104,10 @@ export default function HistoryPage() {
       try {
         localStorage.removeItem("homespace_viewed_history");
       } catch {
-        // ignore
+        toast.error("Không thể cập nhật lịch sử trên trình duyệt.");
+        return;
       }
+      toast.success("Đã xóa lịch sử xem tin.");
     }
   };
 

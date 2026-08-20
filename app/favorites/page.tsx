@@ -8,6 +8,7 @@ import PropertyCard from "@/components/property/PropertyCard";
 import { useAuth } from "@/features/auth/useAuth";
 import { MOCK_FAVORITE_PROPERTIES } from "@/data/mock-favorites-data";
 import { PropertyItem } from "@/data/home-data";
+import { toast } from "sonner";
 import {
   Heart,
   Search,
@@ -112,8 +113,10 @@ export default function FavoritesPage() {
       try {
         localStorage.removeItem("homespace_saved_favorites");
       } catch {
-        // ignore
+        toast.error("Không thể cập nhật dữ liệu yêu thích trên trình duyệt.");
+        return;
       }
+      toast.success("Đã xóa tất cả tin yêu thích.");
     }
   };
 

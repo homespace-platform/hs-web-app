@@ -5,6 +5,7 @@ export type UserProfile = {
   firstName?: string | null;
   lastName?: string | null;
   avatarUrl?: string | null;
+  avatarStorageId?: string | null;
   phone?: string | null;
   dob?: string | null;
   gender?: string | null;

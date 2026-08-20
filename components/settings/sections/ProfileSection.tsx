@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { Camera, Check, LoaderCircle, ShieldCheck } from "lucide-react";
 import userService from "@/services/user.service";
 import storageService from "@/services/storage.service";
+import AvatarCropModal from "@/components/avatar/AvatarCropModal";
 import { fetchCurrentUser } from "@/features/user/userSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import type {
@@ -15,7 +16,7 @@ import type {
 type ProfileForm = UpdateUserProfileRequest;
 
 const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+const MAX_SOURCE_IMAGE_SIZE = 20 * 1024 * 1024;
 
 function profileToForm(profile: UserProfile): ProfileForm {
   return {
@@ -73,6 +74,10 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
   const [form, setForm] = useState<ProfileForm>(() => profileToForm(profile));
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarSource, setAvatarSource] = useState<{
+    url: string;
+    fileName: string;
+  } | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -81,6 +86,12 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
     const name = [form.firstName, form.lastName].filter(Boolean).join(" ").trim();
     return name || form.username || "Người dùng";
   }, [form.firstName, form.lastName, form.username]);
+
+  useEffect(() => {
+    return () => {
+      if (avatarSource) URL.revokeObjectURL(avatarSource.url);
+    };
+  }, [avatarSource]);
 
   function setField<K extends keyof ProfileForm>(key: K, value: ProfileForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -110,7 +121,7 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
     }
   }
 
-  async function handleAvatarSelected(event: React.ChangeEvent<HTMLInputElement>) {
+  function handleAvatarSelected(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || uploadingAvatar) return;
@@ -121,11 +132,18 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
       setError("Ảnh đại diện chỉ hỗ trợ JPG, PNG hoặc WebP.");
       return;
     }
-    if (file.size > MAX_AVATAR_SIZE) {
-      setError("Ảnh đại diện không được vượt quá 5 MB.");
+    if (file.size > MAX_SOURCE_IMAGE_SIZE) {
+      setError("Ảnh gốc không được vượt quá 20 MB.");
       return;
     }
 
+    setAvatarSource({
+      url: URL.createObjectURL(file),
+      fileName: file.name,
+    });
+  }
+
+  async function handleCroppedAvatar(file: File) {
     setUploadingAvatar(true);
     try {
       const storageId = await storageService.uploadUserAvatar(file, profile.id);
@@ -135,14 +153,29 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
       ).unwrap();
       setSuccess("Cập nhật ảnh đại diện thành công!");
     } catch (requestError) {
-      setError(errorMessage(requestError, "Không thể cập nhật ảnh đại diện."));
+      const message = errorMessage(requestError, "Không thể cập nhật ảnh đại diện.");
+      setError(message);
+      throw new Error(message);
     } finally {
       setUploadingAvatar(false);
     }
   }
 
+  function closeAvatarCrop() {
+    if (uploadingAvatar) return;
+    setAvatarSource(null);
+  }
+
   return (
     <div className="space-y-6 max-w-xl animate-in fade-in-50 duration-200">
+      {avatarSource && (
+        <AvatarCropModal
+          imageUrl={avatarSource.url}
+          originalFileName={avatarSource.fileName}
+          onCancel={closeAvatarCrop}
+          onConfirm={handleCroppedAvatar}
+        />
+      )}
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
           {error}

@@ -11,6 +11,14 @@ import { toast } from "sonner";
 
 type Step = "profile" | "password";
 
+function getLatestAdultBirthDate() {
+  const today = new Date();
+  const year = today.getFullYear() - 18;
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
     const message = error.response?.data?.message;
@@ -267,7 +275,7 @@ function ProfileStep({
         <Input label="Tên" value={form.firstName} onValueChange={(value) => setField("firstName", value)} required minLength={2} maxLength={50} />
         <Input label="Họ" value={form.lastName} onValueChange={(value) => setField("lastName", value)} required minLength={2} maxLength={50} />
         <Input label="Số điện thoại" value={form.phone} onValueChange={(value) => setField("phone", value.replace(/\D/g, ""))} required inputMode="numeric" pattern="[0-9]{10,15}" />
-        <Input label="Ngày sinh" value={form.dob} onValueChange={(value) => setField("dob", value)} required type="date" max={new Date().toISOString().slice(0, 10)} />
+        <Input label="Ngày sinh" value={form.dob} onValueChange={(value) => setField("dob", value)} required type="date" max={getLatestAdultBirthDate()} />
         <label className="space-y-1.5 sm:col-span-2">
           <span className="text-xs font-semibold text-foreground">Giới tính</span>
           <select

@@ -35,6 +35,15 @@ function profileToForm(profile: UserProfile): ProfileForm {
   };
 }
 
+function normalizeProfileForm(form: ProfileForm): ProfileForm {
+  return {
+    ...form,
+    phone: form.phone?.trim() || null,
+    dob: form.dob || null,
+    gender: form.gender || null,
+  };
+}
+
 function errorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
     const message = error.response?.data?.message;
@@ -82,6 +91,13 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const isDirty = useMemo(
+    () =>
+      JSON.stringify(normalizeProfileForm(form)) !==
+      JSON.stringify(normalizeProfileForm(profileToForm(profile))),
+    [form, profile],
+  );
+
   const fullName = useMemo(() => {
     const name = [form.firstName, form.lastName].filter(Boolean).join(" ").trim();
     return name || form.username || "Người dùng";
@@ -99,17 +115,13 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
 
   async function handleSaveProfile(event: React.FormEvent) {
     event.preventDefault();
+    if (!isDirty || saving) return;
     setSaving(true);
     setError(null);
     setSuccess(null);
 
     try {
-      await userService.updateProfile({
-        ...form,
-        phone: form.phone?.trim() || null,
-        dob: form.dob || null,
-        gender: form.gender || null,
-      });
+      await userService.updateProfile(normalizeProfileForm(form));
       if (userId) {
         await dispatch(fetchCurrentUser({ userId, force: true })).unwrap();
       }
@@ -264,7 +276,7 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
         <div className="pt-2 flex justify-end">
           <button
             type="submit"
-            disabled={saving}
+            disabled={!isDirty || saving}
             className="h-10 px-5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-md shadow-primary/20 transition-all cursor-pointer flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}

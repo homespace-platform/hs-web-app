@@ -1,44 +1,58 @@
 "use client";
 
 import React, { useState } from "react";
-import { Lock, ShieldCheck, X, Check } from "lucide-react";
+import axios from "axios";
+import { Lock, Check, LoaderCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import userService from "@/services/user.service";
+import { changePasswordSchema } from "@/validation/password.schema";
+import { useAuth } from "@/features/auth/useAuth";
+import { toast } from "sonner";
 
 export default function AccountSecuritySection() {
+  const { logout } = useAuth();
   const [twoFactorAuth, setTwoFactorAuth] = useState(true);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordStatus, setPasswordStatus] = useState<"idle" | "success" | "error">("idle");
-  const [passwordMessage, setPasswordMessage] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordStatus("error");
-      setPasswordMessage("Vui lòng điền đầy đủ tất cả các trường thông tin.");
-      return;
-    }
-    if (newPassword.length < 6) {
-      setPasswordStatus("error");
-      setPasswordMessage("Mật khẩu mới phải có ít nhất 6 ký tự.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordStatus("error");
-      setPasswordMessage("Mật khẩu xác nhận không trùng khớp.");
+
+    const validation = changePasswordSchema.safeParse({
+      oldPassword: currentPassword,
+      newPassword,
+      confirmPassword,
+    });
+    if (!validation.success) {
+      toast.error(validation.error.issues[0]?.message ?? "Thông tin mật khẩu không hợp lệ");
       return;
     }
 
-    setPasswordStatus("success");
-    setPasswordMessage("Đã đổi mật khẩu thành công!");
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-    setTimeout(() => {
-      setPasswordStatus("idle");
-      setPasswordMessage("");
-    }, 4000);
+    setSavingPassword(true);
+    try {
+      await userService.updatePassword({
+        oldPassword: validation.data.oldPassword,
+        newPassword: validation.data.newPassword,
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast.success("Đổi mật khẩu thành công. Đang đăng xuất...");
+      window.setTimeout(logout, 800);
+    } catch (error) {
+      const responseMessage = axios.isAxiosError(error)
+        ? error.response?.data?.message
+        : null;
+      toast.error(
+        typeof responseMessage === "string" && responseMessage.trim()
+          ? responseMessage
+          : "Không thể đổi mật khẩu. Vui lòng thử lại.",
+      );
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   return (
@@ -54,19 +68,6 @@ export default function AccountSecuritySection() {
         </p>
 
         <form onSubmit={handleChangePassword} className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-3.5 shadow-2xs">
-          {passwordStatus === "success" && (
-            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400 text-xs font-semibold flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 shrink-0" />
-              <span>{passwordMessage}</span>
-            </div>
-          )}
-          {passwordStatus === "error" && (
-            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-400 text-xs font-semibold flex items-center gap-2">
-              <X className="w-4 h-4 shrink-0" />
-              <span>{passwordMessage}</span>
-            </div>
-          )}
-
           <div className="space-y-1.5">
             <label className="block text-[11px] font-semibold text-foreground">
               Mật khẩu hiện tại
@@ -88,7 +89,7 @@ export default function AccountSecuritySection() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
+              placeholder="Tối thiểu 8 ký tự, có chữ hoa, số và ký tự đặc biệt"
               className="w-full h-10 px-3.5 bg-muted/50 focus:bg-background rounded-xl border border-border focus:border-primary text-xs sm:text-sm text-foreground outline-none transition-all"
             />
           </div>
@@ -109,27 +110,14 @@ export default function AccountSecuritySection() {
           <div className="pt-2 flex justify-end">
             <button
               type="submit"
-              className="h-10 px-5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-md shadow-primary/20 transition-all cursor-pointer flex items-center gap-1.5"
+              disabled={savingPassword}
+              className="h-10 px-5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-md shadow-primary/20 transition-all cursor-pointer flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Check className="w-4 h-4" />
-              <span>Lưu mật khẩu mới</span>
+              {savingPassword ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              <span>{savingPassword ? "Đang lưu..." : "Lưu mật khẩu mới"}</span>
             </button>
           </div>
         </form>
-      </div>
-
-      {/* 2. Bảo mật 2 lớp */}
-      <div className="space-y-2">
-        <h3 className="text-sm font-bold text-foreground">Bảo mật 2 lớp (2FA)</h3>
-        <div className="bg-card rounded-2xl border border-border p-4 flex items-center justify-between gap-4 shadow-2xs">
-          <p className="text-xs text-muted-foreground leading-relaxed pr-2">
-            Sau khi bật, bạn sẽ được yêu cầu nhập mã OTP hoặc xác thực từ thiết bị di động sau khi đăng nhập trên thiết bị lạ.
-          </p>
-          <Switch
-            checked={twoFactorAuth}
-            onCheckedChange={setTwoFactorAuth}
-          />
-        </div>
       </div>
     </div>
   );

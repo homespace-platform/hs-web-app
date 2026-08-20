@@ -39,6 +39,11 @@ export type SetInitialPasswordRequest = {
   newPassword: string;
 };
 
+export type UpdatePasswordRequest = {
+  oldPassword: string;
+  newPassword: string;
+};
+
 export type UpdateUserAvatarRequest = {
   storageId: string;
 };

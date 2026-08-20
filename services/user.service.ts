@@ -3,6 +3,7 @@ import type { ApiResponse } from "@/types/api.type";
 import type {
   OnboardingRequest,
   SetInitialPasswordRequest,
+  UpdatePasswordRequest,
   UpdateUserAvatarRequest,
   UpdateUserProfileRequest,
   UserProfile,
@@ -54,6 +55,13 @@ const userService = {
   async setInitialPassword(request: SetInitialPasswordRequest): Promise<void> {
     await axiosClient.post<ApiResponse<null>>(
       "/api/v1/users/me/password/initial",
+      request,
+    );
+  },
+
+  async updatePassword(request: UpdatePasswordRequest): Promise<void> {
+    await axiosClient.post<ApiResponse<null>>(
+      "/api/v1/users/me/password",
       request,
     );
   },

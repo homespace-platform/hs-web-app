@@ -12,7 +12,7 @@ import { fetchCurrentUser } from '@/features/user/userSlice';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import type { UpdateUserProfileRequest, UserProfile } from '@/types/user.type';
 import { toast } from 'sonner';
-import { userProfileSchema, type UserProfileForm } from '@/lib/validation/user.schema';
+import { userProfileSchema, type UserProfileForm } from '@/validation/user.schema';
 
 type ProfileForm = UserProfileForm;
 

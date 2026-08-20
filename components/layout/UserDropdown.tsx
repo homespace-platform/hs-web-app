@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useAuth } from "@/features/auth/hooks";
+import { useAuth } from "@/features/auth/useAuth";
 import {
   LayoutGrid,
   Wallet,
@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 export default function UserDropdown() {
-  const { username, profileName, email, avatarUrl, logout } = useAuth();
+  const { username, avatarUrl, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -41,7 +41,7 @@ export default function UserDropdown() {
     };
   }, [isOpen]);
 
-  const displayName = username || profileName || email?.split("@")[0] || "Người dùng";
+  const displayName = username || "Người dùng";
   const initialLetter = displayName.charAt(0).toUpperCase() || "U";
 
   // Mock wallet data

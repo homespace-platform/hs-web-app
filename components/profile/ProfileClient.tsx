@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
-import { useAuth } from "@/features/auth/hooks";
+import { useAuth } from "@/features/auth/useAuth";
 import { Button } from "@/components/ui/button";
-import userService from "@/services/user.service";
 import type { UserProfile } from "@/types/user.type";
 
 function displayName(profile: UserProfile | null, fallback: string) {
@@ -23,34 +21,8 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 export default function ProfileClient() {
-  const { email, logout } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await userService.getProfile();
-        if (mounted) setProfile(data);
-      } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err.message : "Không tải được hồ sơ");
-        }
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const { logout, profile } = useAuth();
+  const loading = !profile;
 
   return (
     <div className="min-h-screen">
@@ -66,16 +38,10 @@ export default function ProfileClient() {
 
       <main className="mx-auto max-w-3xl px-6 py-10 space-y-6">
         <h1 className="text-2xl font-bold text-slate-800">
-          {loading ? "Đang tải..." : displayName(profile, email ?? "Người dùng")}
+          {loading ? "Đang tải..." : displayName(profile, profile?.email ?? "Người dùng")}
         </h1>
 
-        {error && (
-          <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-            {error}
-          </p>
-        )}
-
-        {!loading && !error && profile && (
+        {!loading && profile && (
           <section className="rounded-xl border border-slate-200 bg-white p-6">
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Username" value={profile.username} />

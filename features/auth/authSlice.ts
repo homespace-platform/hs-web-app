@@ -4,10 +4,6 @@ export interface AuthState {
   initialized: boolean;
   authenticated: boolean;
   userId: string | null;
-  username: string | null;
-  profileName: string | null;
-  email: string | null;
-  avatarUrl: string | null;
 }
 
 type AuthSession = Omit<AuthState, "initialized">;
@@ -16,10 +12,6 @@ const initialState: AuthState = {
   initialized: false,
   authenticated: false,
   userId: null,
-  username: null,
-  profileName: null,
-  email: null,
-  avatarUrl: null,
 };
 
 const authSlice = createSlice({

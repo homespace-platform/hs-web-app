@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useAuth } from "@/features/auth/hooks";
+import { useAuth } from "@/features/auth/useAuth";
 import { Button } from "@/components/ui/button";
 import UserDropdown from "./UserDropdown";
 import NotificationDropdown from "@/components/notification/NotificationDropdown";
@@ -17,7 +17,6 @@ import {
   LogIn,
   UserPlus,
   Bell,
-  MessageCircle,
   LayoutGrid,
   Heart,
   MapPin,
@@ -26,7 +25,6 @@ import {
   Check,
   Loader2,
   Clock,
-  User,
   LogOut,
   Newspaper,
   Building,
@@ -39,7 +37,6 @@ export default function Header() {
     register,
     logout,
     username,
-    profileName,
     avatarUrl,
   } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -552,15 +549,15 @@ export default function Header() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={avatarUrl}
-                      alt={profileName || username || "Người dùng"}
+                      alt={username || "Người dùng"}
                       className="h-8 w-8 rounded-full object-cover"
                     />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-xs">
-                      {(username || profileName || "U").charAt(0).toUpperCase()}
+                      {(username || "U").charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <span>{username || profileName || "Tài khoản của tôi"}</span>
+                  <span>{username || "Tài khoản của tôi"}</span>
                 </Link>
                 <button
                   type="button"

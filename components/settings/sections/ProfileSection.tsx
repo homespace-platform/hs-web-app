@@ -1,25 +1,17 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import axios from "axios";
 import { Camera, Check, LoaderCircle, ShieldCheck } from "lucide-react";
 import userService from "@/services/user.service";
+import { fetchCurrentUser } from "@/features/user/userSlice";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import type {
   UpdateUserProfileRequest,
   UserProfile,
 } from "@/types/user.type";
 
 type ProfileForm = UpdateUserProfileRequest;
-
-const emptyForm: ProfileForm = {
-  username: "",
-  email: "",
-  firstName: "",
-  lastName: "",
-  phone: null,
-  dob: null,
-  gender: null,
-};
 
 function profileToForm(profile: UserProfile): ProfileForm {
   return {
@@ -47,9 +39,34 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export default function ProfileSection() {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [form, setForm] = useState<ProfileForm>(emptyForm);
-  const [loading, setLoading] = useState(true);
+  const profile = useAppSelector((state) => state.user.profile);
+  const status = useAppSelector((state) => state.user.status);
+  const loadError = useAppSelector((state) => state.user.error);
+
+  if (status === "loading" || status === "idle") {
+    return (
+      <div className="flex min-h-72 items-center justify-center text-sm text-muted-foreground">
+        <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
+        Đang tải thông tin cá nhân...
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
+        {loadError || "Không có dữ liệu người dùng."}
+      </div>
+    );
+  }
+
+  return <ProfileContent key={profile.updatedAt ?? profile.id} profile={profile} />;
+}
+
+function ProfileContent({ profile }: { profile: UserProfile }) {
+  const dispatch = useAppDispatch();
+  const userId = useAppSelector((state) => state.auth.userId);
+  const [form, setForm] = useState<ProfileForm>(() => profileToForm(profile));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -58,32 +75,6 @@ export default function ProfileSection() {
     const name = [form.firstName, form.lastName].filter(Boolean).join(" ").trim();
     return name || form.username || "Người dùng";
   }, [form.firstName, form.lastName, form.username]);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadProfile() {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await userService.getProfile();
-        if (!active) return;
-        setProfile(data);
-        setForm(profileToForm(data));
-      } catch (requestError) {
-        if (active) {
-          setError(errorMessage(requestError, "Không thể tải thông tin cá nhân."));
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-
-    void loadProfile();
-    return () => {
-      active = false;
-    };
-  }, []);
 
   function setField<K extends keyof ProfileForm>(key: K, value: ProfileForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -102,24 +93,15 @@ export default function ProfileSection() {
         dob: form.dob || null,
         gender: form.gender || null,
       });
-      const refreshedProfile = await userService.getProfile();
-      setProfile(refreshedProfile);
-      setForm(profileToForm(refreshedProfile));
+      if (userId) {
+        await dispatch(fetchCurrentUser({ userId, force: true })).unwrap();
+      }
       setSuccess("Cập nhật thông tin cá nhân thành công!");
     } catch (requestError) {
       setError(errorMessage(requestError, "Không thể cập nhật thông tin cá nhân."));
     } finally {
       setSaving(false);
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex min-h-72 items-center justify-center text-sm text-muted-foreground">
-        <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
-        Đang tải thông tin cá nhân...
-      </div>
-    );
   }
 
   return (

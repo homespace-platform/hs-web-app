@@ -208,20 +208,6 @@ export default function ChatSidebar({
               </button>
             </div>
 
-            {/* AI Session Search Bar */}
-            <div className="px-3 pb-2">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => onSearchChange(e.target.value)}
-                  placeholder="Tìm lịch sử đoạn chat..."
-                  className="w-full pl-8 pr-2.5 py-1.5 bg-muted/50 focus:bg-background text-xs rounded-lg border border-transparent focus:border-primary/50 text-foreground placeholder:text-muted-foreground transition-all outline-none"
-                />
-              </div>
-            </div>
-
             {/* AI Sessions List (Pinned, Recents & Gợi ý bên dưới) */}
             <div className="flex-1 overflow-y-auto px-2 py-1 space-y-4">
               {/* Section 1: Đã ghim */}

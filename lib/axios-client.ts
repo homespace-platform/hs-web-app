@@ -34,7 +34,14 @@ const processQueue = (error: unknown, token: string | null = null) => {
 
 axiosClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    await keycloak.updateToken(30);
+    try {
+      await keycloak.updateToken(30);
+    } catch (error) {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("hs:auth-session-expired"));
+      }
+      return Promise.reject(error);
+    }
     if (keycloak.token) {
       config.headers.Authorization = `Bearer ${keycloak.token}`;
     }
@@ -52,10 +59,7 @@ axiosClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const authHeader = error.response.headers["www-authenticate"];
-    const isExpired = authHeader && String(authHeader).includes("expired");
-
-    if (error.response.status === 401 && isExpired && !originalRequest._retry) {
+    if (error.response.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise<string | null>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -81,13 +85,17 @@ axiosClient.interceptors.response.use(
           })
           .catch((err: unknown) => {
             processQueue(err, null);
-            keycloak.logout({ redirectUri: window.location.origin });
+            window.dispatchEvent(new Event("hs:auth-session-expired"));
             reject(err);
           })
           .finally(() => {
             isRefreshing = false;
           });
       });
+    }
+
+    if (error.response.status === 401 && originalRequest._retry) {
+      window.dispatchEvent(new Event("hs:auth-session-expired"));
     }
 
     return Promise.reject(error);

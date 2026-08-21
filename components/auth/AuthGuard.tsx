@@ -1,13 +1,27 @@
 "use client";
 
+import { useEffect } from "react";
 import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/useAuth";
+import { isProtectedRoute } from "@/features/auth/protectedRoutes";
 import { Loader2 } from "lucide-react";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { initialized } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { initialized, authenticated } = useAuth();
+  const requiresAuthentication = isProtectedRoute(pathname);
+  const shouldRedirect = initialized && requiresAuthentication && !authenticated;
 
-  if (!initialized) {
+  useEffect(() => {
+    if (!shouldRedirect) return;
+
+    sessionStorage.setItem("hs:return-url", pathname);
+    router.replace("/");
+  }, [pathname, router, shouldRedirect]);
+
+  if (!initialized || shouldRedirect) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] dark:bg-[#090D16] p-4 select-none">
         <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in-95 duration-500 max-w-xs text-center">

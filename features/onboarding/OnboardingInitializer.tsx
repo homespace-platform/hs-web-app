@@ -11,6 +11,14 @@ import { toast } from "sonner";
 
 type Step = "profile" | "password";
 
+type OnboardingForm = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  dob: string;
+  gender: "FEMALE" | "MALE" | "OTHER";
+};
+
 function getLatestAdultBirthDate() {
   const today = new Date();
   const year = today.getFullYear() - 18;
@@ -27,7 +35,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-function profileToForm(profile: UserProfile): OnboardingRequest {
+function profileToForm(profile: UserProfile): OnboardingForm {
   return {
     firstName: profile.firstName ?? "",
     lastName: profile.lastName ?? "",
@@ -38,7 +46,7 @@ function profileToForm(profile: UserProfile): OnboardingRequest {
       profile.gender === "FEMALE" ||
       profile.gender === "OTHER"
         ? profile.gender
-        : "MALE",
+        : "OTHER",
   };
 }
 
@@ -252,7 +260,7 @@ function ProfileStep({
   const [form, setForm] = useState(() => profileToForm(profile));
   const [saving, setSaving] = useState(false);
 
-  function setField<K extends keyof OnboardingRequest>(key: K, value: OnboardingRequest[K]) {
+  function setField<K extends keyof OnboardingForm>(key: K, value: OnboardingForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
@@ -260,7 +268,13 @@ function ProfileStep({
     event.preventDefault();
     setSaving(true);
     try {
-      await onSubmit({ ...form, phone: form.phone.trim() });
+      await onSubmit({
+        firstName: form.firstName.trim() || null,
+        lastName: form.lastName.trim() || null,
+        phone: form.phone.trim() || null,
+        dob: form.dob || null,
+        gender: form.gender,
+      });
     } catch {
       // Error is displayed by the parent modal.
     } finally {
@@ -272,20 +286,20 @@ function ProfileStep({
     <form onSubmit={submit} className="space-y-4">
       {error && <ErrorBox message={error} />}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Input label="Tên" value={form.firstName} onValueChange={(value) => setField("firstName", value)} required minLength={2} maxLength={50} />
-        <Input label="Họ" value={form.lastName} onValueChange={(value) => setField("lastName", value)} required minLength={2} maxLength={50} />
-        <Input label="Số điện thoại" value={form.phone} onValueChange={(value) => setField("phone", value.replace(/\D/g, ""))} required inputMode="numeric" pattern="[0-9]{10,15}" />
-        <Input label="Ngày sinh" value={form.dob} onValueChange={(value) => setField("dob", value)} required type="date" max={getLatestAdultBirthDate()} />
+        <Input label="Tên" value={form.firstName} onValueChange={(value) => setField("firstName", value)} minLength={2} maxLength={50} />
+        <Input label="Họ" value={form.lastName} onValueChange={(value) => setField("lastName", value)} minLength={2} maxLength={50} />
+        <Input label="Số điện thoại" value={form.phone} onValueChange={(value) => setField("phone", value.replace(/\D/g, ""))} inputMode="numeric" pattern="[0-9]{10,15}" />
+        <Input label="Ngày sinh" value={form.dob} onValueChange={(value) => setField("dob", value)} type="date" max={getLatestAdultBirthDate()} />
         <label className="space-y-1.5 sm:col-span-2">
           <span className="text-xs font-semibold text-foreground">Giới tính</span>
           <select
             value={form.gender}
-            onChange={(event) => setField("gender", event.target.value as OnboardingRequest["gender"])}
+            onChange={(event) => setField("gender", event.target.value as OnboardingForm["gender"])}
             className="h-11 w-full rounded-xl border border-border bg-background px-3.5 text-sm outline-none focus:border-primary"
           >
+            <option value="OTHER">Khác</option>
             <option value="MALE">Nam</option>
             <option value="FEMALE">Nữ</option>
-            <option value="OTHER">Khác</option>
           </select>
         </label>
       </div>

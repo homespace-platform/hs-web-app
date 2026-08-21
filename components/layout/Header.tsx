@@ -519,7 +519,7 @@ export default function Header() {
             {authenticated ? (
               <div className="flex items-center justify-between px-1">
                 <Link
-                  href="/profile"
+                  href="#"
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2.5 text-xs font-semibold text-foreground hover:text-primary transition-colors"
                 >
@@ -527,7 +527,7 @@ export default function Header() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={avatarUrl}
-                      alt={username || "Người dùng"}
+                      alt={username || "Đang tải"}
                       className="h-8 w-8 rounded-full object-cover"
                     />
                   ) : (

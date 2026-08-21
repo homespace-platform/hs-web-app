@@ -1,6 +1,5 @@
 const PROTECTED_ROUTE_PREFIXES = [
   "/settings",
-  "/profile",
   "/favorites",
   "/history",
   "/notifications",

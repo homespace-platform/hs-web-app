@@ -118,11 +118,11 @@ export default function Footer() {
                 Quy chuẩn thẩm định nhà ở
               </Link>
               <a
-                href="mailto:support@homespace.vn"
+                href="mailto:homespace.platform.cskh@gmail.com"
                 className="hover:text-cyan-300 transition-colors flex items-center gap-2 pt-1 text-slate-200 dark:text-slate-300"
               >
                 <Mail className="w-4 h-4 text-cyan-400" />
-                <span>support@homespace.vn</span>
+                <span>homespace.platform.cskh@gmail.com</span>
               </a>
             </nav>
           </div>

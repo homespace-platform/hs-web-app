@@ -335,7 +335,7 @@ export default function Header() {
                 <NotificationDropdown initialCount={5} />
 
                 {/* Quản lý tin */}
-                <Link href="/profile#listings">
+                <Link href="#">
                   <button
                     type="button"
                     className="h-10 px-4 rounded-full border border-border bg-card text-foreground hover:bg-muted text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
@@ -476,7 +476,7 @@ export default function Header() {
             {/* Quản lý tin */}
             {authenticated && (
               <Link
-                href="/profile#listings"
+                href="#"
                 onClick={() => setMobileMenuOpen(false)}
                 className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
               >

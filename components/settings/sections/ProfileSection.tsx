@@ -259,7 +259,7 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                         error={errors.phone?.message}
                     />
                     <TextField
-                        label="Email liên hệ"
+                        label="Email"
                         value={form.email}
                         onChange={(value) => setField('email', value)}
                         type="email"
@@ -343,9 +343,9 @@ function formatInstant(value?: string | null) {
     return Number.isNaN(date.getTime())
         ? value
         : new Intl.DateTimeFormat('vi-VN', {
-              dateStyle: 'medium',
-              timeStyle: 'medium',
-          }).format(date);
+            dateStyle: 'medium',
+            timeStyle: 'medium',
+        }).format(date);
 }
 
 function getLatestAdultBirthDate() {
@@ -398,9 +398,8 @@ function TextField({
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 aria-invalid={Boolean(error)}
-                className={`w-full h-10 px-3.5 bg-muted/50 focus:bg-background rounded-xl border text-xs sm:text-sm text-foreground outline-none transition-all ${
-                    error ? 'border-red-500 focus:border-red-500' : 'border-border focus:border-primary'
-                }`}
+                className={`w-full h-10 px-3.5 bg-muted/50 focus:bg-background rounded-xl border text-xs sm:text-sm text-foreground outline-none transition-all ${error ? 'border-red-500 focus:border-red-500' : 'border-border focus:border-primary'
+                    }`}
             />
             {error && <p className="text-[11px] font-medium text-red-600">{error}</p>}
         </div>

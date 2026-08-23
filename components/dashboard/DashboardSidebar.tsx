@@ -99,23 +99,21 @@ export default function DashboardSidebar({
 
   return (
     <aside
-      className={`fixed top-20 left-0 z-40 h-[calc(100vh-5rem)] bg-card border-r border-border flex flex-col transition-all duration-300 select-none ${
-        collapsed ? "w-20" : "w-64"
-      }`}
+      className={`fixed top-20 left-0 z-40 h-[calc(100vh-5rem)] bg-card border-r border-border flex flex-col transition-all duration-300 select-none ${collapsed ? "w-20" : "w-64"
+        }`}
     >
       {/* 1. Sidebar Header with Collapse Toggle */}
       <div className="h-12 px-4 border-b border-border/60 flex items-center justify-between shrink-0">
         {!collapsed && (
           <span className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider">
-            MENU ĐIỀU HƯỚNG
+            MENU
           </span>
         )}
         <button
           type="button"
           onClick={onToggleCollapse}
-          className={`p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center justify-center ${
-            collapsed ? "mx-auto" : ""
-          }`}
+          className={`p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center justify-center ${collapsed ? "mx-auto" : ""
+            }`}
           title={collapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
         >
           {collapsed ? (
@@ -149,17 +147,15 @@ export default function DashboardSidebar({
                   <Link
                     key={item.title}
                     href={item.path}
-                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
-                      isActive
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${isActive
                         ? "bg-primary/10 text-primary font-bold shadow-2xs"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
-                    } ${collapsed ? "justify-center px-0" : ""}`}
+                      } ${collapsed ? "justify-center px-0" : ""}`}
                     title={collapsed ? item.title : undefined}
                   >
                     <Icon
-                      className={`w-4 h-4 shrink-0 ${
-                        isActive ? "text-primary" : "text-muted-foreground"
-                      }`}
+                      className={`w-4 h-4 shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"
+                        }`}
                     />
                     {!collapsed && (
                       <span className="truncate">{item.title}</span>

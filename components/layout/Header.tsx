@@ -208,7 +208,8 @@ export default function Header() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 w-full z-50 bg-background/90 dark:bg-[#162032]/95 backdrop-blur-md border-b border-border dark:border-[#223147] transition-colors">
+    <>
+      <header className="fixed top-0 left-0 right-0 w-full z-50 bg-background/90 dark:bg-[#162032]/95 backdrop-blur-md border-b border-border dark:border-[#223147] transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20 gap-4">
           {/* Left: Logo & Province Selector */}
@@ -339,26 +340,28 @@ export default function Header() {
                 {/* Thông báo với popup danh sách */}
                 <NotificationDropdown initialCount={5} />
 
-                {/* Quản lý tin / Đăng tin */}
-                {isDashboard ? (
-                  <button
-                    type="button"
-                    className="h-10 px-4 rounded-full border border-primary/20 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Đăng tin</span>
-                  </button>
-                ) : (
-                  <Link href="/dashboard">
+                {/* Quản lý tin / Đăng tin (Chỉ hiển thị trên Desktop) */}
+                <div className="hidden sm:block">
+                  {isDashboard ? (
                     <button
                       type="button"
                       className="h-10 px-4 rounded-full border border-border bg-card text-foreground hover:bg-muted text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
                     >
-                      <LayoutGrid className="w-4 h-4 text-muted-foreground" />
-                      <span>Quản lý tin</span>
+                      <Plus className="w-4 h-4 text-muted-foreground" />
+                      <span>Đăng tin</span>
                     </button>
-                  </Link>
-                )}
+                  ) : (
+                    <Link href="/dashboard">
+                      <button
+                        type="button"
+                        className="h-10 px-4 rounded-full border border-border bg-card text-foreground hover:bg-muted text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <LayoutGrid className="w-4 h-4 text-muted-foreground" />
+                        <span>Quản lý tin</span>
+                      </button>
+                    </Link>
+                  )}
+                </div>
 
                 {/* User Dropdown */}
                 <UserDropdown />
@@ -488,29 +491,6 @@ export default function Header() {
               </span>
             </Link>
 
-            {/* Quản lý tin / Đăng tin */}
-            {authenticated && (
-              isDashboard ? (
-                <button
-                  type="button"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold text-primary hover:bg-muted flex items-center gap-3 transition-colors cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Đăng tin</span>
-                </button>
-              ) : (
-                <Link
-                  href="/dashboard"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
-                >
-                  <LayoutGrid className="w-4 h-4 text-muted-foreground" />
-                  <span>Quản lý tin đăng</span>
-                </Link>
-              )
-            )}
-
             {/* Nhà Cho Thuê */}
             <Link
               href="/rent"
@@ -602,5 +582,29 @@ export default function Header() {
         </div>
       )}
     </header>
+
+      {/* Nút bấm trên màn hình nhỏ đặt dưới Header (Bên trên bên phải, đối diện Nút Chat ở góc dưới bên phải) */}
+      {authenticated && !mobileMenuOpen && (
+        <div className="fixed top-[88px] right-4 z-40 sm:hidden select-none animate-in fade-in-50 duration-200">
+          {isDashboard ? (
+            <button
+              type="button"
+              className="h-9 px-3.5 rounded-full border border-border bg-card/95 backdrop-blur-md shadow-md text-foreground hover:bg-muted text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+              <span>Đăng tin</span>
+            </button>
+          ) : (
+            <Link
+              href="/dashboard"
+              className="h-9 px-3.5 rounded-full border border-border bg-card/95 backdrop-blur-md shadow-md text-foreground hover:bg-muted text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+            >
+              <LayoutGrid className="w-3.5 h-3.5 text-muted-foreground" />
+              <span>Quản lý tin</span>
+            </Link>
+          )}
+        </div>
+      )}
+    </>
   );
 }

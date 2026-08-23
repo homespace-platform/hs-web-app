@@ -281,7 +281,7 @@ export default function HistoryPage() {
               </h3>
               <p className="text-sm text-muted-foreground max-w-md mb-6 leading-relaxed">
                 {historyList.length === 0
-                  ? "Các tin đăng bất động sản bạn mở xem sẽ được tự động lưu vào đây để bạn dễ dàng theo dõi lại."
+                  ? "Các tin đăng cho thuê bạn mở xem sẽ được tự động lưu vào đây để bạn dễ dàng theo dõi lại."
                   : "Thử thay đổi bộ lọc thể loại hoặc tìm kiếm với từ khóa khác."}
               </p>
               <Link

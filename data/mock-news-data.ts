@@ -4,8 +4,8 @@ export const MOCK_NEWS_ARTICLES: NewsArticle[] = [
   // 1. Featured Article 1
   {
     id: "news-1",
-    slug: "gia-bat-dong-san-thue-ho-chi-minh-quy-3-2026",
-    title: "Giá bất động sản cho thuê TP. Hồ Chí Minh thiết lập mặt bằng mới trong Quý 3/2026",
+    slug: "gia-thue-nha-ho-chi-minh-quy-3-2026",
+    title: "Giá thuê nhà và căn hộ TP. Hồ Chí Minh thiết lập mặt bằng mới trong Quý 3/2026",
     summary:
       "Báo cáo thị trường cho thấy phân khúc căn hộ dịch vụ và studio tại khu vực trung tâm TP.HCM ghi nhận tỷ lệ lấp đầy đạt 92% nhờ nhu cầu từ chuyên gia và người đi làm.",
     content: `
@@ -136,7 +136,7 @@ Từ năm 2026, các giao dịch thuê nhà dân sự đã được pháp luật
     author: {
       name: "Hoàng Đức Nam",
       avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80",
-      role: "Nhà đầu tư Bất động sản",
+      role: "Nhà đầu tư cho thuê",
     },
   },
 
@@ -167,7 +167,7 @@ Từ năm 2026, các giao dịch thuê nhà dân sự đã được pháp luật
   {
     id: "news-7",
     slug: "quy-hoach-tuyen-metro-so-2-tac-dong-the-nao-den-gia-thue",
-    title: "Tiến độ quy hoạch tuyến Metro số 2 Bến Thành - Tham Lương tác động thế nào đến giá thuê bất động sản?",
+    title: "Tiến độ quy hoạch tuyến Metro số 2 Bến Thành - Tham Lương tác động thế nào đến giá thuê nhà?",
     summary:
       "Phân tích tiềm năng tăng trưởng giá trị cho thuê của các dự án căn hộ nằm trong bán kính 500m quanh các ga ngầm tuyến Metro số 2.",
     coverImage:
@@ -251,7 +251,7 @@ Từ năm 2026, các giao dịch thuê nhà dân sự đã được pháp luật
     author: {
       name: "Hoàng Đức Nam",
       avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80",
-      role: "Nhà đầu tư Bất động sản",
+      role: "Nhà đầu tư cho thuê",
     },
   },
 

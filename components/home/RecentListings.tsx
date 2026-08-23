@@ -25,8 +25,8 @@ export default function RecentListings() {
           <h2 className="font-heading font-bold text-2xl sm:text-3xl text-foreground tracking-tight mb-2">
             Tin cho thuê mới đăng
           </h2>
-          <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
-            Các bất động sản cho thuê vừa được cập nhật trực tiếp theo thời gian thực tại khu vực đang chọn.
+          <p className="text-sm text-muted-foreground mt-1">
+            Các tin cho thuê nhà và phòng vừa được cập nhật trực tiếp theo thời gian thực tại khu vực đang chọn.
           </p>
         </div>
 

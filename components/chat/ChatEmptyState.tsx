@@ -78,7 +78,7 @@ export default function ChatEmptyState({
                 Xác thực minh bạch
               </h3>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Mọi tài khoản đều được định danh và kiểm duyệt quyền sở hữu bất động sản.
+                Mọi tài khoản đều được định danh và kiểm duyệt quyền sở hữu nhà cho thuê.
               </p>
             </div>
 

@@ -203,7 +203,7 @@ export default function ChatPage() {
       ) {
         replyContent = `3 lưu ý pháp lý quan trọng khi ký hợp đồng thuê:\n\n1. **Xác minh quyền sở hữu:** Đối chiếu CCCD và sổ hồng của chủ nhà với thông tin hiển thị trên tin đăng đã xác thực.\n2. **Điều khoản hoàn cọc:** Quy định rõ thời gian hoàn cọc sau khi kết thúc hợp đồng (thường từ 1-3 ngày).\n3. **Biên bản bàn giao thiết bị:** Chụp ảnh ghi nhận hiện trạng ban đầu của căn nhà và chỉ số điện nước.`;
       } else {
-        replyContent = `Tôi đã ghi nhận câu hỏi: "${text}".\n\nHomeSpace AI hỗ trợ tra cứu thông tin bất động sản cho thuê, khảo sát mức giá thị trường và tư vấn điều khoản đặt cọc an toàn.`;
+        replyContent = `Tôi đã ghi nhận câu hỏi: "${text}".\n\nHomeSpace AI hỗ trợ tra cứu thông tin nhà và phòng cho thuê, khảo sát mức giá thị trường và tư vấn điều khoản đặt cọc an toàn.`;
       }
 
       const replyTime = new Date();

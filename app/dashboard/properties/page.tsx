@@ -10,7 +10,7 @@ export default function PropertiesPage() {
           Tin đăng
         </h1>
         <p className="text-xs sm:text-sm text-muted-foreground">
-          Quản lý toàn bộ danh sách tin đăng bất động sản cho thuê của bạn.
+          Quản lý toàn bộ danh sách tin cho thuê nhà và phòng của bạn.
         </p>
       </div>
 

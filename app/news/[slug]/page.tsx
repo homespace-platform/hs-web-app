@@ -169,7 +169,7 @@ export default function NewsDetailPage({ params }: NewsDetailProps) {
           {/* Body Content */}
           <div className="prose dark:prose-invert max-w-none text-muted-foreground text-sm sm:text-base leading-relaxed space-y-5">
             <p>
-              Thị trường bất động sản cho thuê tại Việt Nam đang bước vào giai đoạn phát triển mới với tính minh bạch và tiêu chuẩn hóa cao hơn bao giờ hết. Người thuê nhà hiện đại không chỉ quan tâm đến vị trí hay giá cả đơn thuần, mà còn đặc biệt chú trọng đến sự an toàn pháp lý, tính tiện nghi của không gian sống và sự tiện lợi trong các thủ tục hợp đồng.
+              Thị trường nhà cho thuê tại Việt Nam đang bước vào giai đoạn phát triển mới với tính minh bạch và tiêu chuẩn hóa cao hơn bao giờ hết. Người thuê nhà hiện đại không chỉ quan tâm đến vị trí hay giá cả đơn thuần, mà còn đặc biệt chú trọng đến sự an toàn pháp lý, tính tiện nghi của không gian sống và sự tiện lợi trong các thủ tục hợp đồng.
             </p>
             <h2 className="font-heading font-bold text-lg sm:text-xl text-foreground pt-4">
               1. Chuyển dịch mạnh mẽ sang giao dịch trực tiếp chủ nhà

@@ -172,7 +172,7 @@ export default function AiChatWindow({
               Tôi có thể giúp gì cho bạn hôm nay?
             </h2>
             <p className="text-xs sm:text-sm text-muted-foreground max-w-md mb-6">
-              Hỗ trợ tìm kiếm bất động sản cho thuê chính chủ, khảo sát mức giá thị trường và bảo vệ tiền cọc On-chain.
+              Hỗ trợ tìm kiếm nhà và phòng cho thuê chính chủ, khảo sát mức giá thị trường và bảo vệ tiền cọc On-chain.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">

@@ -39,7 +39,7 @@ export default function RentPage() {
   const listContainerRef = useRef<HTMLDivElement>(null);
 
   // Dynamic Province & Districts synced with Header
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number>(79);
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | string>(79);
   const [selectedProvinceName, setSelectedProvinceName] = useState<string>(
     "Thành phố Hồ Chí Minh"
   );
@@ -73,7 +73,7 @@ export default function RentPage() {
 
   // Sync selected province from LocalStorage and Header CustomEvent
   useEffect(() => {
-    const loadProvinceAndDistricts = async (pCode: number, pName: string) => {
+    const loadProvinceAndDistricts = async (pCode: number | string, pName: string) => {
       setSelectedProvinceCode(pCode);
       setSelectedProvinceName(pName);
       try {
@@ -103,7 +103,7 @@ export default function RentPage() {
 
     // 2. Listen to custom event when user changes province in Header
     const handleProvinceChanged = (e: Event) => {
-      const customEvent = e as CustomEvent<{ code: number; name: string }>;
+      const customEvent = e as CustomEvent<{ code: number | string; name: string }>;
       if (customEvent.detail?.code) {
         loadProvinceAndDistricts(
           customEvent.detail.code,

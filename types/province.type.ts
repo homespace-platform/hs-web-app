@@ -1,25 +1,38 @@
 export interface Province {
-  code: number;
+  code: string | number;
   name: string;
+  full_name?: string;
+  type?: string;
+  type_name?: string;
   division_type?: string;
   codename?: string;
   phone_code?: number;
+  postal_code_prefixes?: string[];
   districts?: District[];
 }
 
 export interface District {
-  code: number;
+  code: string | number;
   name: string;
+  full_name?: string;
+  type?: string;
+  type_name?: string;
   division_type?: string;
   codename?: string;
-  province_code?: number;
+  province_code?: string | number;
+  postal_code?: string | null;
   wards?: Ward[];
 }
 
 export interface Ward {
-  code: number;
+  code: string | number;
   name: string;
+  full_name?: string;
+  type?: string;
+  type_name?: string;
   division_type?: string;
   codename?: string;
-  district_code?: number;
+  province_code?: string | number;
+  district_code?: string | number;
+  postal_code?: string | null;
 }

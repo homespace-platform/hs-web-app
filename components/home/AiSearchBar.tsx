@@ -26,7 +26,7 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
   const [isTypeOpen, setIsTypeOpen] = useState(false);
 
   // Selected Province from Header (Synced via localStorage & custom events)
-  const [provinceCode, setProvinceCode] = useState<number>(79);
+  const [provinceCode, setProvinceCode] = useState<number | string>(79);
   const [provinceName, setProvinceName] = useState<string>("Thành phố Hồ Chí Minh");
 
   // Districts corresponding to selected province
@@ -47,7 +47,7 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
 
   // 1. Load initial province & district from localStorage and fetch districts
   useEffect(() => {
-    let currentCode = 79;
+    let currentCode: number | string = 79;
     let currentName = "Thành phố Hồ Chí Minh";
 
     try {
@@ -72,7 +72,7 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
     setProvinceName(currentName);
 
     // Fetch districts for this province
-    const loadDistricts = async (pCode: number) => {
+    const loadDistricts = async (pCode: number | string) => {
       try {
         setLoadingDistricts(true);
         const data = await provinceService.getDistrictsByProvince(pCode);
@@ -88,7 +88,7 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
 
     // 2. Listen to custom event when Header changes province
     const handleProvinceChanged = (event: Event) => {
-      const customEvent = event as CustomEvent<{ code: number; name: string }>;
+      const customEvent = event as CustomEvent<{ code: number | string; name: string }>;
       if (customEvent.detail?.code) {
         const newCode = customEvent.detail.code;
         const newName = customEvent.detail.name;

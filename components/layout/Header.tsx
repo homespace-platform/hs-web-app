@@ -41,7 +41,7 @@ export default function Header() {
 
   // Province States
   const [provinces, setProvinces] = useState<Province[]>([]);
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number>(79);
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | string>(79);
   const [selectedProvinceName, setSelectedProvinceName] = useState<string>("Thành phố Hồ Chí Minh");
   const [isProvinceOpen, setIsProvinceOpen] = useState(false);
   const [provinceSearch, setProvinceSearch] = useState("");
@@ -123,10 +123,10 @@ export default function Header() {
           setProvinces(data);
           const saved = localStorage.getItem("homespace_selected_province");
           if (!saved) {
-            const hcm = data.find((p) => p.code === 79);
+            const hcm = data.find((p) => String(p.code) === "79" || p.code === 79);
             if (hcm) {
               setSelectedProvinceCode(hcm.code);
-              setSelectedProvinceName(hcm.name);
+              setSelectedProvinceName(hcm.full_name || hcm.name);
             }
           }
         }
@@ -273,7 +273,7 @@ export default function Header() {
                       </div>
                     ) : filteredProvinces.length > 0 ? (
                       filteredProvinces.map((p) => {
-                        const isSelected = selectedProvinceCode === p.code;
+                        const isSelected = String(selectedProvinceCode) === String(p.code);
                         return (
                           <button
                             key={p.code}

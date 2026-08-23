@@ -25,12 +25,12 @@ export default function LocationMapExplorer() {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState("apartment");
   const [provinces, setProvinces] = useState<Province[]>([]);
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number>(79);
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | string>(79);
   const [loadingProvinces, setLoadingProvinces] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // 1. Fetch real provinces from Public Free API
+  // 1. Fetch real provinces from hs-location-service
   useEffect(() => {
     let isMounted = true;
     const fetchProvinces = async () => {
@@ -40,7 +40,7 @@ export default function LocationMapExplorer() {
         if (isMounted && data && data.length > 0) {
           setProvinces(data);
           // Set default to Ho Chi Minh (code 79)
-          const defaultHcm = data.find((p) => p.code === 79);
+          const defaultHcm = data.find((p) => String(p.code) === "79" || p.code === 79);
           if (defaultHcm) {
             setSelectedProvinceCode(defaultHcm.code);
           } else {

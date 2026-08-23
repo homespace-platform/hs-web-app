@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/features/auth/useAuth";
 import { Button } from "@/components/ui/button";
 import UserDropdown from "./UserDropdown";
@@ -20,9 +21,13 @@ import {
   Search,
   Check,
   Loader2,
+  Plus,
 } from "lucide-react";
 
 export default function Header() {
+  const pathname = usePathname();
+  const isDashboard = pathname?.startsWith("/dashboard");
+
   const {
     authenticated,
     login,
@@ -334,16 +339,26 @@ export default function Header() {
                 {/* Thông báo với popup danh sách */}
                 <NotificationDropdown initialCount={5} />
 
-                {/* Quản lý tin */}
-                <Link href="#">
+                {/* Quản lý tin / Đăng tin */}
+                {isDashboard ? (
                   <button
                     type="button"
-                    className="h-10 px-4 rounded-full border border-border bg-card text-foreground hover:bg-muted text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
+                    className="h-10 px-4 rounded-full border border-primary/20 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    <LayoutGrid className="w-4 h-4 text-muted-foreground" />
-                    <span>Quản lý tin</span>
+                    <Plus className="w-4 h-4" />
+                    <span>Đăng tin</span>
                   </button>
-                </Link>
+                ) : (
+                  <Link href="/dashboard">
+                    <button
+                      type="button"
+                      className="h-10 px-4 rounded-full border border-border bg-card text-foreground hover:bg-muted text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <LayoutGrid className="w-4 h-4 text-muted-foreground" />
+                      <span>Quản lý tin</span>
+                    </button>
+                  </Link>
+                )}
 
                 {/* User Dropdown */}
                 <UserDropdown />
@@ -473,15 +488,27 @@ export default function Header() {
               </span>
             </Link>
 
-            {/* Quản lý tin */}
+            {/* Quản lý tin / Đăng tin */}
             {authenticated && (
-              <Link
-                href="#"
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
-              >
-                <span>Quản lý tin đăng</span>
-              </Link>
+              isDashboard ? (
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold text-primary hover:bg-muted flex items-center gap-3 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Đăng tin</span>
+                </button>
+              ) : (
+                <Link
+                  href="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
+                >
+                  <LayoutGrid className="w-4 h-4 text-muted-foreground" />
+                  <span>Quản lý tin đăng</span>
+                </Link>
+              )
             )}
 
             {/* Nhà Cho Thuê */}

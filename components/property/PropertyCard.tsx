@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 interface PropertyCardProps {
   property: PropertyItem;
+  detailHref?: string;
   initialFavorited?: boolean;
   onFavoriteToggle?: (id: string, isFavorited: boolean) => void;
   onRemoveFavorite?: (id: string) => void;
@@ -16,12 +17,14 @@ interface PropertyCardProps {
 
 export default function PropertyCard({
   property,
+  detailHref,
   initialFavorited = false,
   onFavoriteToggle,
   onRemoveFavorite,
 }: PropertyCardProps) {
   const { authenticated } = useAuth();
   const [isFavorited, setIsFavorited] = useState(initialFavorited);
+  const propertyHref = detailHref ?? `#property-${property.id}`;
 
   // Sync with localStorage favorites if available (chỉ khi đã đăng nhập)
   useEffect(() => {
@@ -87,6 +90,11 @@ export default function PropertyCard({
     <div className="group bg-transparent rounded-2xl transition-all duration-200 flex flex-col h-full">
       {/* 1. Image Container */}
       <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-muted shadow-xs">
+        <Link
+          href={propertyHref}
+          aria-label={`Xem chi tiết ${property.title}`}
+          className="absolute inset-0 z-[1]"
+        />
         <img
           src={property.imageUrl}
           alt={property.title}
@@ -126,7 +134,7 @@ export default function PropertyCard({
       <div className="pt-2.5 pb-1 flex flex-col flex-grow justify-between">
         <div>
           {/* Uppercase Title (2-line clamp) */}
-          <Link href={`#property-${property.id}`}>
+          <Link href={propertyHref}>
             <h3 className="font-heading font-bold text-sm sm:text-[15px] text-slate-800 dark:text-slate-100 uppercase line-clamp-2 leading-snug tracking-tight hover:text-primary transition-colors">
               {property.title}
             </h3>

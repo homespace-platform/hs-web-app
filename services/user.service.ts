@@ -1,3 +1,4 @@
+import axios from "axios";
 import axiosClient from "@/lib/axios-client";
 import type { ApiResponse } from "@/types/api.type";
 import type {
@@ -6,6 +7,8 @@ import type {
   UpdatePasswordRequest,
   UpdateUserAvatarRequest,
   UpdateUserProfileRequest,
+  UpsertUserAddressRequest,
+  UserAddress,
   UserProfile,
 } from "@/types/user.type";
 
@@ -36,6 +39,28 @@ const userService = {
       "/api/v1/users/me/avatar",
       request,
     );
+  },
+
+  async getAddress(): Promise<UserAddress | null> {
+    try {
+      const response = await axiosClient.get<ApiResponse<UserAddress>>(
+        "/api/v1/users/me/address",
+      );
+      return response.data.result;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async saveAddress(request: UpsertUserAddressRequest): Promise<UserAddress> {
+    const response = await axiosClient.put<ApiResponse<UserAddress>>(
+      "/api/v1/users/me/address",
+      request,
+    );
+    return response.data.result;
   },
 
   async completeOnboarding(request: OnboardingRequest): Promise<void> {

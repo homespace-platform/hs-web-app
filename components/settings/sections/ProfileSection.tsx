@@ -13,6 +13,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import type { UpdateUserProfileRequest, UserProfile } from '@/types/user.type';
 import { toast } from 'sonner';
 import { userProfileSchema, type UserProfileForm } from '@/validation/user.schema';
+import AddressEditor from '@/components/settings/AddressEditor';
 
 type ProfileForm = UserProfileForm;
 
@@ -177,7 +178,7 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
     }
 
     return (
-        <div className="space-y-6 max-w-xl animate-in fade-in-50 duration-200">
+        <div className="space-y-6 max-w-2xl animate-in fade-in-50 duration-200">
             {avatarSource && (
                 <AvatarCropModal
                     imageUrl={avatarSource.url}
@@ -306,6 +307,13 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                     </button>
                 </div>
             </form>
+
+            <AddressEditor
+                initialAddress={profile.address}
+                onSaved={async () => {
+                    await dispatch(fetchCurrentUser({ userId: userId ?? profile.id, force: true })).unwrap();
+                }}
+            />
 
             {profile && (
                 <section className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-4 shadow-2xs">

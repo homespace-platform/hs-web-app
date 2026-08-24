@@ -1,3 +1,15 @@
+export type UserAddress = {
+  id: string;
+  provinceCode: string;
+  provinceName: string;
+  wardCode: string;
+  wardName: string;
+  streetLine: string;
+  fullAddress: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export type UserProfile = {
   id: string;
   username: string;
@@ -15,6 +27,15 @@ export type UserProfile = {
   active?: boolean | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  address?: UserAddress | null;
+};
+
+export type UpsertUserAddressRequest = {
+  provinceCode: string;
+  provinceName: string;
+  wardCode: string;
+  wardName: string;
+  streetLine: string;
 };
 
 export type UpdateUserProfileRequest = {

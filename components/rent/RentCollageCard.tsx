@@ -45,7 +45,7 @@ export default function RentCollageCard({
   if (viewMode === "collage") {
     return (
       <div className="bg-card rounded-2xl sm:rounded-3xl border border-border overflow-hidden shadow-2xs hover:shadow-xl hover:border-primary/40 transition-all duration-300 group">
-        <Link href={`/#property-${property.id}`} className="block p-4 sm:p-5">
+        <Link href={`/rent/${property.id}`} className="block p-4 sm:p-5">
           {/* Multi-Image Gallery Collage */}
           <div className="grid grid-cols-12 gap-1.5 sm:gap-2 h-56 sm:h-64 rounded-2xl overflow-hidden relative mb-4 bg-muted">
             {/* Main Big Photo (7 cols) */}
@@ -211,7 +211,7 @@ export default function RentCollageCard({
   // 2. Standard Grid Card View (Đồng bộ hoàn toàn với Collage View)
   return (
     <div className="bg-card rounded-2xl sm:rounded-3xl border border-border overflow-hidden shadow-2xs hover:shadow-xl hover:border-primary/40 transition-all duration-300 flex flex-col h-full group">
-      <Link href={`/#property-${property.id}`} className="flex flex-col h-full">
+      <Link href={`/rent/${property.id}`} className="flex flex-col h-full">
         {/* Image Thumbnail */}
         <div className="relative w-full aspect-16/10 overflow-hidden bg-muted">
           <Image

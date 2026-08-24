@@ -11,7 +11,8 @@ import {
   Send,
   FileCheck,
   Calendar,
-  ArrowLeftRight,
+  Wallet,
+  Banknote,
   CreditCard,
   PanelLeftClose,
   PanelLeftOpen,
@@ -77,10 +78,20 @@ const NAV_GROUPS: NavGroup[] = [
         path: "/dashboard/viewing-schedules",
         icon: Calendar,
       },
+    ],
+  },
+  {
+    groupTitle: "TÀI CHÍNH",
+    items: [
       {
-        title: "Giao dịch",
-        path: "/dashboard/transactions",
-        icon: ArrowLeftRight,
+        title: "Nạp tiền",
+        path: "/dashboard/deposit",
+        icon: Wallet,
+      },
+      {
+        title: "Rút tiền",
+        path: "/dashboard/withdraw",
+        icon: Banknote,
       },
       {
         title: "Thanh toán",

@@ -38,12 +38,20 @@ const BREADCRUMB_MAP: Record<string, BreadcrumbItem> = {
     parent: { title: "Quản lý", path: "/dashboard/properties" },
     title: "Lịch xem nhà",
   },
+  "/dashboard/deposit": {
+    parent: { title: "Tài chính", path: "/dashboard/deposit" },
+    title: "Nạp tiền",
+  },
+  "/dashboard/withdraw": {
+    parent: { title: "Tài chính", path: "/dashboard/withdraw" },
+    title: "Rút tiền",
+  },
   "/dashboard/transactions": {
-    parent: { title: "Quản lý", path: "/dashboard/properties" },
-    title: "Giao dịch",
+    parent: { title: "Tài chính", path: "/dashboard/transactions" },
+    title: "Lịch sử giao dịch",
   },
   "/dashboard/payments": {
-    parent: { title: "Quản lý", path: "/dashboard/properties" },
+    parent: { title: "Tài chính", path: "/dashboard/payments" },
     title: "Thanh toán",
   },
 };

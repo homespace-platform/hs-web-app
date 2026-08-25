@@ -1,16 +1,21 @@
 "use client";
 
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { startTransition, useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import RentCollageCard from "@/components/rent/RentCollageCard";
 import RentFilterSidebar, {
   FilterState,
-  RENT_CATEGORIES,
 } from "@/components/rent/RentFilterSidebar";
 import { MOCK_RENT_PROPERTIES, RentPropertyItem } from "@/data/mock-rent-data";
+import {
+  getMockRentListings,
+  MOCK_RENT_LISTINGS_UPDATED,
+} from "@/lib/mock-rent-listings";
 import provinceService from "@/services/province.service";
+import listingService from "@/services/listing.service";
+import { toRentProperty } from "@/lib/listing-to-rent-property";
 import { District } from "@/types/province.type";
 import {
   Home,
@@ -33,7 +38,8 @@ import { Input } from "@/components/ui/input";
 const ITEMS_PER_PAGE = 10;
 
 export default function RentPage() {
-  const [properties] = useState<RentPropertyItem[]>(MOCK_RENT_PROPERTIES);
+  const [properties, setProperties] = useState<RentPropertyItem[]>(MOCK_RENT_PROPERTIES);
+  const [apiProperties, setApiProperties] = useState<RentPropertyItem[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const listContainerRef = useRef<HTMLDivElement>(null);
@@ -65,6 +71,19 @@ export default function RentPage() {
     searchQuery: "",
   });
 
+  useEffect(() => {
+    const syncListings = () => setProperties(mergeListings(apiProperties, getMockRentListings()));
+    syncListings();
+    window.addEventListener(MOCK_RENT_LISTINGS_UPDATED, syncListings);
+    return () => window.removeEventListener(MOCK_RENT_LISTINGS_UPDATED, syncListings);
+  }, [apiProperties]);
+
+  useEffect(() => {
+    listingService.getPublished()
+      .then((listings) => setApiProperties(listings.map(toRentProperty)))
+      .catch(() => setApiProperties([]));
+  }, []);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFilter((prev) => ({ ...prev, searchQuery: searchInput.trim() }));
@@ -84,24 +103,36 @@ export default function RentPage() {
       }
     };
 
-    // 1. Initial read from localStorage
-    try {
-      const saved = localStorage.getItem("homespace_selected_province");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.code && parsed?.name) {
-          loadProvinceAndDistricts(parsed.code, parsed.name);
+    // 1. URL filter from detail breadcrumb takes precedence.
+    const params = new URLSearchParams(window.location.search);
+    const urlProvinceCode = params.get("provinceCode");
+    const urlProvinceName = params.get("provinceName");
+    const urlWard = params.get("ward");
+    if (urlProvinceCode && urlProvinceName) {
+      loadProvinceAndDistricts(urlProvinceCode, urlProvinceName);
+      startTransition(() => setFilter((prev) => ({ ...prev, district: urlWard || "all" })));
+    }
+
+    // 2. Initial read from localStorage
+    if (!urlProvinceCode || !urlProvinceName) {
+      try {
+        const saved = localStorage.getItem("homespace_selected_province");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.code && parsed?.name) {
+            loadProvinceAndDistricts(parsed.code, parsed.name);
+          } else {
+            loadProvinceAndDistricts(79, "Thành phố Hồ Chí Minh");
+          }
         } else {
           loadProvinceAndDistricts(79, "Thành phố Hồ Chí Minh");
         }
-      } else {
+      } catch {
         loadProvinceAndDistricts(79, "Thành phố Hồ Chí Minh");
       }
-    } catch {
-      loadProvinceAndDistricts(79, "Thành phố Hồ Chí Minh");
     }
 
-    // 2. Listen to custom event when user changes province in Header
+    // 3. Listen to custom event when user changes province in Header
     const handleProvinceChanged = (e: Event) => {
       const customEvent = e as CustomEvent<{ code: number | string; name: string }>;
       if (customEvent.detail?.code) {
@@ -158,7 +189,10 @@ export default function RentPage() {
   const filteredProperties = useMemo(() => {
     let list = [...properties];
 
-    // 1. Category (Exact match for 7 categories)
+    // 1. Province
+    list = list.filter((property) => belongsToProvince(property, selectedProvinceCode, selectedProvinceName));
+
+    // 2. Category (Exact match for 7 categories)
     if (filter.category !== "all") {
       list = list.filter((p) => {
         if (filter.category === "apartment") return p.category === "apartment";
@@ -171,7 +205,7 @@ export default function RentPage() {
       });
     }
 
-    // 2. Price Range (in millions)
+    // 3. Price Range (in millions)
     if (filter.minPrice > 0) {
       list = list.filter((p) => p.priceMillion >= filter.minPrice);
     }
@@ -179,7 +213,7 @@ export default function RentPage() {
       list = list.filter((p) => p.priceMillion <= filter.maxPrice);
     }
 
-    // 3. District
+    // 4. District
     if (filter.district !== "all") {
       const targetDistrict = filter.district
         .replace("Quận ", "")
@@ -199,7 +233,7 @@ export default function RentPage() {
       });
     }
 
-    // 4. Area Range
+    // 5. Area Range
     if (filter.areaRange !== "all") {
       if (filter.areaRange === "under_30") {
         list = list.filter((p) => p.areaM2 < 30);
@@ -220,7 +254,7 @@ export default function RentPage() {
       }
     }
 
-    // 5. Beds
+    // 6. Beds
     if (filter.beds !== "all") {
       const bedsNum = parseInt(filter.beds, 10);
       if (bedsNum === 3) {
@@ -230,12 +264,12 @@ export default function RentPage() {
       }
     }
 
-    // 6. Video Only
+    // 7. Video Only
     if (filter.hasVideoOnly) {
       list = list.filter((p) => p.hasVideo);
     }
 
-    // 7. Search Query
+    // 8. Search Query
     if (filter.searchQuery.trim()) {
       const q = filter.searchQuery.toLowerCase().trim();
       list = list.filter(
@@ -247,7 +281,7 @@ export default function RentPage() {
       );
     }
 
-    // 8. Sorting
+    // 9. Sorting
     if (filter.sortBy === "price_asc") {
       list.sort((a, b) => a.priceMillion - b.priceMillion);
     } else if (filter.sortBy === "price_desc") {
@@ -257,7 +291,7 @@ export default function RentPage() {
     }
 
     return list;
-  }, [properties, filter]);
+  }, [properties, filter, selectedProvinceCode, selectedProvinceName]);
 
   // Pagination calculation
   const totalItems = filteredProperties.length;
@@ -677,4 +711,28 @@ export default function RentPage() {
       <Footer />
     </div>
   );
+}
+
+function belongsToProvince(
+  property: RentPropertyItem,
+  selectedProvinceCode: number | string,
+  selectedProvinceName: string,
+) {
+  if (property.provinceCode) return String(property.provinceCode) === String(selectedProvinceCode);
+
+  return normalizeProvinceName(property.city) === normalizeProvinceName(selectedProvinceName);
+}
+
+function normalizeProvinceName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/^(thanh pho|tinh|tp)\.?\s*/i, "")
+    .trim();
+}
+
+function mergeListings(apiListings: RentPropertyItem[], mockListings: RentPropertyItem[]) {
+  const apiIds = new Set(apiListings.map((property) => property.id));
+  return [...apiListings, ...mockListings.filter((property) => !apiIds.has(property.id))];
 }

@@ -341,17 +341,25 @@ export default function Header() {
                 <NotificationDropdown initialCount={5} />
 
                 {/* Quản lý tin / Đăng tin (Chỉ hiển thị trên Desktop) */}
-                <div className="hidden sm:block">
+                <div className="hidden items-center gap-2 sm:flex">
                   {isDashboard ? (
-                    <button
-                      type="button"
+                    <Link
+                      href="/dashboard/properties/new"
                       className="h-10 px-4 rounded-full border border-border bg-card text-foreground hover:bg-muted text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <Plus className="w-4 h-4 text-muted-foreground" />
                       <span>Đăng tin</span>
-                    </button>
+                    </Link>
                   ) : (
-                    <Link href="/dashboard">
+                    <>
+                      <Link
+                        href="/dashboard/properties/new"
+                        className="h-10 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Đăng tin</span>
+                      </Link>
+                      <Link href="/dashboard">
                       <button
                         type="button"
                         className="h-10 px-4 rounded-full border border-border bg-card text-foreground hover:bg-muted text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
@@ -359,7 +367,8 @@ export default function Header() {
                         <LayoutGrid className="w-4 h-4 text-muted-foreground" />
                         <span>Quản lý tin</span>
                       </button>
-                    </Link>
+                      </Link>
+                    </>
                   )}
                 </div>
 
@@ -585,23 +594,32 @@ export default function Header() {
 
       {/* Nút bấm trên màn hình nhỏ đặt dưới Header (Bên trên bên phải, đối diện Nút Chat ở góc dưới bên phải) */}
       {authenticated && !mobileMenuOpen && (
-        <div className="fixed top-[88px] right-4 z-40 sm:hidden select-none animate-in fade-in-50 duration-200">
+        <div className="fixed top-[88px] right-4 z-40 flex gap-2 sm:hidden select-none animate-in fade-in-50 duration-200">
           {isDashboard ? (
-            <button
-              type="button"
+            <Link
+              href="/dashboard/properties/new"
               className="h-9 px-3.5 rounded-full border border-border bg-card/95 backdrop-blur-md shadow-md text-foreground hover:bg-muted text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5 text-muted-foreground" />
               <span>Đăng tin</span>
-            </button>
-          ) : (
-            <Link
-              href="/dashboard"
-              className="h-9 px-3.5 rounded-full border border-border bg-card/95 backdrop-blur-md shadow-md text-foreground hover:bg-muted text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
-            >
-              <LayoutGrid className="w-3.5 h-3.5 text-muted-foreground" />
-              <span>Quản lý tin</span>
             </Link>
+          ) : (
+            <>
+              <Link
+                href="/dashboard/properties/new"
+                className="h-9 px-3.5 rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Đăng tin</span>
+              </Link>
+              <Link
+                href="/dashboard"
+                className="h-9 px-3.5 rounded-full border border-border bg-card/95 backdrop-blur-md shadow-md text-foreground hover:bg-muted text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+              >
+                <LayoutGrid className="w-3.5 h-3.5 text-muted-foreground" />
+                <span>Quản lý tin</span>
+              </Link>
+            </>
           )}
         </div>
       )}

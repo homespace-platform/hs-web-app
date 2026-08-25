@@ -1,5 +1,6 @@
 import { PlusCircle, ArrowRight, ShieldCheck, Zap, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function LandlordCta() {
   return (
@@ -25,12 +26,13 @@ export default function LandlordCta() {
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 w-full sm:w-auto mb-10">
-            <Button
-              className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8 py-3 h-auto rounded-full shadow-md transition-all text-sm cursor-pointer"
+            <Link
+              href="/dashboard/properties/new"
+              className="inline-flex w-full items-center justify-center sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8 py-3 h-auto rounded-full shadow-md transition-all text-sm cursor-pointer"
             >
               <PlusCircle className="w-4 h-4 mr-2" />
               Đăng tin ngay
-            </Button>
+            </Link>
 
             <Button
               variant="outline"

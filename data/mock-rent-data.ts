@@ -1,10 +1,14 @@
 export interface RentPropertyItem {
   id: string;
   title: string;
+  description?: string;
   floor?: string;
   location: string;
   district: string;
   ward?: string;
+  provinceCode?: string;
+  provinceName?: string;
+  wardCode?: string;
   city: string;
   priceMillion: number;
   beds: number;
@@ -19,6 +23,7 @@ export interface RentPropertyItem {
   timeAgo: string;
   photosCount: number;
   viewsCount?: number;
+  details?: Record<string, unknown>;
   landlord: {
     name: string;
     avatar?: string;
@@ -910,6 +915,68 @@ export const MOCK_RENT_PROPERTIES: RentPropertyItem[] = [
     photosCount: 12,
     landlord: {
       name: "Ông Tư Thanh Đa",
+      role: "Chính chủ",
+      listingsCount: 1,
+    },
+  },
+  {
+    id: "rent-31",
+    title: "Căn hộ 2 phòng ngủ gần hồ Tây, nội thất sáng thoáng",
+    floor: "Tầng 8",
+    location: "Phường Xuân Đỉnh, Hà Nội",
+    district: "Tây Hồ",
+    ward: "Phường Xuân Đỉnh",
+    provinceCode: "01",
+    provinceName: "Thành phố Hà Nội",
+    city: "Hà Nội",
+    priceMillion: 13.5,
+    beds: 2,
+    baths: 2,
+    areaM2: 68,
+    images: [
+      "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=800&q=80",
+    ],
+    isVerified: true,
+    hasVideo: false,
+    category: "apartment",
+    categoryLabel: "Chung cư",
+    timeAgo: "Vừa đăng",
+    photosCount: 6,
+    viewsCount: 1842,
+    landlord: {
+      name: "Nguyễn Minh Anh",
+      role: "Chính chủ",
+      listingsCount: 2,
+    },
+  },
+  {
+    id: "rent-32",
+    title: "Studio trung tâm Đà Nẵng, ban công rộng gần sông Hàn",
+    floor: "Tầng 5",
+    location: "Phường Hải Châu, Đà Nẵng",
+    district: "Hải Châu",
+    ward: "Phường Hải Châu",
+    provinceCode: "48",
+    provinceName: "Thành phố Đà Nẵng",
+    city: "Đà Nẵng",
+    priceMillion: 7.2,
+    beds: 1,
+    baths: 1,
+    areaM2: 38,
+    images: [
+      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=800&q=80",
+    ],
+    isVerified: false,
+    hasVideo: true,
+    category: "studio",
+    categoryLabel: "Studio",
+    timeAgo: "Hôm nay",
+    photosCount: 5,
+    viewsCount: 967,
+    landlord: {
+      name: "Lê Hoàng Nam",
       role: "Chính chủ",
       listingsCount: 1,
     },

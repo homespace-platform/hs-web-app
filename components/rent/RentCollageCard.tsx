@@ -38,8 +38,8 @@ export default function RentCollageCard({
   };
 
   const views =
-    property.viewsCount ||
-    Math.floor(parseInt(property.id.replace(/\D/g, "") || "1", 10) * 87 + 142);
+    property.viewsCount ?? getMockViews(property.id);
+  const formattedViews = views.toLocaleString("vi-VN");
 
   // 1. Collage View (Clean, Non-duplicated, Price Focused)
   if (viewMode === "collage") {
@@ -167,7 +167,7 @@ export default function RentCollageCard({
                 title="Lượt xem bài đăng"
               >
                 <Eye className="w-3.5 h-3.5 text-muted-foreground/70" />
-                <span>{views}</span>
+                <span>{formattedViews}</span>
               </div>
 
               {/* Nút Chat */}
@@ -307,7 +307,7 @@ export default function RentCollageCard({
                 title="Lượt xem bài đăng"
               >
                 <Eye className="w-3.5 h-3.5 text-muted-foreground/70" />
-                <span>{views}</span>
+                <span>{formattedViews}</span>
               </div>
 
               {/* Nút Chat nhanh */}
@@ -347,4 +347,10 @@ export default function RentCollageCard({
       </Link>
     </div>
   );
+}
+
+function getMockViews(id: string) {
+  let hash = 0;
+  for (const character of id) hash = (hash * 31 + character.charCodeAt(0)) % 10_000;
+  return 120 + Math.abs(hash);
 }

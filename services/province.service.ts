@@ -17,6 +17,21 @@ let provincesPromise: Promise<Province[]> | null = null;
 const cachedWardsByProvince: Record<string, Ward[]> = {};
 
 export const provinceService = {
+  async getCurrentProvinces(): Promise<Province[]> {
+    const response = await axios.get<Province[]>(`${API_V1_URL}/provinces`, {
+      timeout: 5000,
+    });
+    return response.data;
+  },
+
+  async getCurrentWardsByProvince(provinceCode: string | number): Promise<Ward[]> {
+    const key = String(provinceCode).padStart(2, "0");
+    const response = await axios.get<Ward[]>(`${API_V1_URL}/provinces/${key}/wards`, {
+      timeout: 5000,
+    });
+    return response.data;
+  },
+
   /**
    * Lấy danh sách tất cả các Tỉnh / Thành phố từ hs-location-service
    */

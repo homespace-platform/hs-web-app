@@ -1,10 +1,14 @@
 export interface RentPropertyItem {
   id: string;
   title: string;
+  description?: string;
   floor?: string;
   location: string;
   district: string;
   ward?: string;
+  provinceCode?: string;
+  provinceName?: string;
+  wardCode?: string;
   city: string;
   priceMillion: number;
   beds: number;

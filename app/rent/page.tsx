@@ -10,6 +10,10 @@ import RentFilterSidebar, {
   RENT_CATEGORIES,
 } from "@/components/rent/RentFilterSidebar";
 import { MOCK_RENT_PROPERTIES, RentPropertyItem } from "@/data/mock-rent-data";
+import {
+  getMockRentListings,
+  MOCK_RENT_LISTINGS_UPDATED,
+} from "@/lib/mock-rent-listings";
 import provinceService from "@/services/province.service";
 import { District } from "@/types/province.type";
 import {
@@ -33,7 +37,7 @@ import { Input } from "@/components/ui/input";
 const ITEMS_PER_PAGE = 10;
 
 export default function RentPage() {
-  const [properties] = useState<RentPropertyItem[]>(MOCK_RENT_PROPERTIES);
+  const [properties, setProperties] = useState<RentPropertyItem[]>(MOCK_RENT_PROPERTIES);
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const listContainerRef = useRef<HTMLDivElement>(null);
@@ -64,6 +68,13 @@ export default function RentPage() {
     viewMode: "collage",
     searchQuery: "",
   });
+
+  useEffect(() => {
+    const syncListings = () => setProperties(getMockRentListings());
+    syncListings();
+    window.addEventListener(MOCK_RENT_LISTINGS_UPDATED, syncListings);
+    return () => window.removeEventListener(MOCK_RENT_LISTINGS_UPDATED, syncListings);
+  }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

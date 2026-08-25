@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import RentCollageCard from "@/components/rent/RentCollageCard";
@@ -20,12 +23,9 @@ import {
   Sparkles,
   Video,
 } from "lucide-react";
-import { MOCK_RENT_PROPERTIES, RentPropertyItem } from "@/data/mock-rent-data";
+import { RentPropertyItem } from "@/data/mock-rent-data";
 import { FEATURED_PROPERTIES, RECENT_PROPERTIES, PropertyItem } from "@/data/home-data";
-
-type RentDetailPageProps = {
-  params: Promise<{ id: string }>;
-};
+import { getMockRentListings } from "@/lib/mock-rent-listings";
 
 const formatPrice = (priceMillion: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -59,9 +59,9 @@ const toRentProperty = (property: PropertyItem): RentPropertyItem => ({
   },
 });
 
-export default async function RentDetailPage({ params }: RentDetailPageProps) {
-  const { id } = await params;
-  const rentProperty = MOCK_RENT_PROPERTIES.find((item) => item.id === id);
+export default function RentDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const rentProperty = getMockRentListings().find((item) => item.id === id);
   const homeProperty = HOME_RENT_PROPERTIES.find((item) => item.id === id);
   const property = rentProperty || (homeProperty ? toRentProperty(homeProperty) : null);
 
@@ -88,10 +88,10 @@ export default async function RentDetailPage({ params }: RentDetailPageProps) {
     (_, index) => property.images[index] ?? property.images[0],
   );
   const similarProperties = [
-    ...MOCK_RENT_PROPERTIES.filter(
+    ...getMockRentListings().filter(
       (item) => item.id !== property.id && item.category === property.category,
     ),
-    ...MOCK_RENT_PROPERTIES.filter(
+    ...getMockRentListings().filter(
       (item) => item.id !== property.id && item.category !== property.category,
     ),
   ].slice(0, 4);
@@ -218,9 +218,7 @@ export default async function RentDetailPage({ params }: RentDetailPageProps) {
               <section>
                 <h2 className="font-heading text-2xl font-semibold mb-4">Mô tả chi tiết</h2>
                 <div className="space-y-3 text-sm sm:text-base leading-7 text-muted-foreground">
-                  <p>
-                    {property.title}. Tin {property.categoryLabel.toLowerCase()} tại {property.location}, diện tích {property.areaM2} m² với {property.beds} phòng ngủ và {property.baths} phòng tắm.
-                  </p>
+                  <p>{property.description || `${property.title}. Tin ${property.categoryLabel.toLowerCase()} tại ${property.location}, diện tích ${property.areaM2} m² với ${property.beds} phòng ngủ và ${property.baths} phòng tắm.`}</p>
                   <p>
                     Hình ảnh và thông tin do {property.landlord.name} đăng tải {property.timeAgo.toLowerCase()}. Liên hệ chủ nhà để xác nhận tình trạng nhà, nội thất và lịch xem.
                   </p>

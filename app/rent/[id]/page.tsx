@@ -37,6 +37,21 @@ const formatPrice = (priceMillion: number) =>
     maximumFractionDigits: 0,
   }).format(priceMillion * 1_000_000);
 
+const VIEWING_DAY_LABELS: Record<string, string> = {
+  MONDAY: "Thứ 2",
+  TUESDAY: "Thứ 3",
+  WEDNESDAY: "Thứ 4",
+  THURSDAY: "Thứ 5",
+  FRIDAY: "Thứ 6",
+  SATURDAY: "Thứ 7",
+  SUNDAY: "Chủ nhật",
+};
+const VIEWING_SLOT_LABELS: Record<string, string> = {
+  MORNING: "Buổi sáng (08:00–12:00)",
+  AFTERNOON: "Buổi chiều (13:00–17:00)",
+  EVENING: "Buổi tối (18:00–21:00)",
+};
+
 const HOME_RENT_PROPERTIES = [...FEATURED_PROPERTIES, ...RECENT_PROPERTIES];
 
 const toRentHomeProperty = (property: PropertyItem): RentPropertyItem => ({
@@ -139,6 +154,53 @@ export default function RentDetailPage() {
       ? { icon: Video, label: "Có video tham quan" }
       : { icon: ImageIcon, label: "Xem thư viện hình ảnh" },
   ];
+  const apartmentDetails = [
+    { label: "Phòng khách", value: formatDetail(property.details?.livingRooms, " phòng") },
+    { label: "Phòng bếp", value: formatDetail(property.details?.kitchens, " phòng") },
+    { label: "Khu bếp", value: formatLabel(property.details?.hasKitchen, { YES: "Có", NO: "Không" }) },
+    { label: "Ban công", value: typeof property.details?.hasBalcony === "boolean" ? (property.details.hasBalcony ? "Có" : "Không") : formatDetail(property.details?.balconies, "") },
+    { label: "Tầng căn hộ", value: formatDetail(property.details?.apartmentFloor, "") },
+    { label: "Tổng số tầng chung cư", value: formatDetail(property.details?.buildingTotalFloors, "") },
+    { label: "Tầng", value: formatDetail(property.details?.floor, "") },
+    { label: "Tổng số tầng", value: formatDetail(property.details?.totalFloors, "") },
+    { label: "Nội thất", value: formatLabel(property.details?.furnishing, { NONE: "Chưa nội thất", BASIC: "Nội thất cơ bản", FULL: "Đầy đủ nội thất" }) },
+    { label: "Pháp lý", value: formatLabel(property.details?.legalStatus, { NONE: "Chưa cập nhật", PINK_BOOK: "Sổ hồng / sổ đỏ", CONTRACT: "Hợp đồng mua bán" }) },
+    { label: "Tầng phòng", value: formatDetail(property.details?.roomFloor, "") },
+    { label: "Ở chung với chủ nhà", value: formatLabel(property.details?.sharedWithOwner, { YES: "Có", NO: "Không" }) },
+    { label: "WC của phòng", value: formatLabel(property.details?.privateBathroom, { PRIVATE: "WC riêng trong phòng", SHARED: "WC dùng chung" }) },
+    { label: "Nội thất phòng", value: formatLabel(property.details?.roomFurnishing, { NONE: "Không nội thất", BASIC: "Nội thất cơ bản", FULL: "Đầy đủ nội thất" }) },
+    { label: "Gác lửng", value: typeof property.details?.hasLoft === "boolean" ? (property.details.hasLoft ? "Có" : "Không") : "" },
+    { label: "Sân thượng", value: typeof property.details?.hasRooftopTerrace === "boolean" ? (property.details.hasRooftopTerrace ? "Có" : "Không") : "" },
+    { label: "Vị trí không gian", value: formatLabel(property.details?.spacePosition, { GROUND_LEVEL: "Mặt đất / tầng trệt", BUILDING_FLOOR: "Một tầng trong tòa nhà" }) },
+    { label: "Thang máy", value: formatLabel(property.details?.elevator, { YES: "Có", NO: "Không" }) },
+  ].filter((item) => item.value);
+  const rentalDetails = [
+    { label: "Hình thức thuê", value: formatLabel(property.details?.rentalMode, { WHOLE_PROPERTY: "Nguyên căn / nguyên mặt bằng", SINGLE_UNIT: "Một phòng / một căn", MULTIPLE_UNITS: "Nhiều phòng / nhiều căn" }) },
+    { label: "Đơn vị cho thuê", value: formatDetail(property.details?.unitLabel, "") },
+    { label: "Tổng số đơn vị", value: formatDetail(property.details?.totalUnits, "") },
+    { label: "Đơn vị còn trống", value: formatDetail(property.details?.availableUnits, "") },
+    { label: "Chính sách gửi xe", value: formatLabel(property.details?.parkingPolicy, { NONE: "Không thu phí gửi xe", PAID: "Có thu phí gửi xe" }) },
+    { label: "Tiền cọc", value: formatMoney(property.details?.depositAmount) },
+    { label: "Thuê tối thiểu", value: formatDetail(property.details?.minimumLeaseMonths, " tháng") },
+    { label: "Phí gửi xe", value: formatMoney(property.details?.parkingFee) },
+    { label: "Số người tối đa", value: formatDetail(property.details?.maxOccupants, " người") },
+    { label: "Số xe tối đa", value: formatDetail(property.details?.maxVehicles, " xe") },
+    { label: property.category === "apartment" ? "Phí quản lý chung cư" : "Phí quản lý", value: formatMoney(property.details?.managementFee) },
+    { label: "Giá điện", value: formatMoney(property.details?.electricityPrice, "/ kWh") },
+    { label: "Giá nước", value: formatMoney(property.details?.waterPrice, "/ m³") },
+  ].filter((item) => item.value);
+  const amenities = Array.isArray(property.details?.amenities)
+    ? property.details.amenities.filter((item): item is string => typeof item === "string")
+    : [];
+  const roomFeatures = Array.isArray(property.details?.roomFeatures)
+    ? property.details.roomFeatures.filter((item): item is string => typeof item === "string")
+    : [];
+  const viewingDays = Array.isArray(property.details?.viewingDays)
+    ? property.details.viewingDays.filter((item): item is string => typeof item === "string")
+    : [];
+  const viewingSlots = Array.isArray(property.details?.viewingSlots)
+    ? property.details.viewingSlots.filter((item): item is string => typeof item === "string")
+    : [];
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -234,6 +296,45 @@ export default function RentDetailPage() {
                   <DetailMetric icon={MapPin} label="Loại hình" value={property.categoryLabel} />
                 </div>
               </section>
+
+              {(apartmentDetails.length > 0 || rentalDetails.length > 0) && (
+                <section>
+                  <h2 className="font-heading text-2xl font-semibold mb-4">Thông tin chi tiết</h2>
+                  {apartmentDetails.length > 0 && (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {apartmentDetails.map((item) => <DetailValue key={item.label} {...item} />)}
+                    </div>
+                  )}
+                  {rentalDetails.length > 0 && (
+                    <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {rentalDetails.map((item) => <DetailValue key={item.label} {...item} />)}
+                    </div>
+                  )}
+                  {amenities.length > 0 && (
+                    <div className="mt-5">
+                      <p className="mb-2 text-sm font-semibold text-foreground">Tiện ích</p>
+                      <div className="flex flex-wrap gap-2">
+                        {amenities.map((amenity) => <span key={amenity} className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">{amenity}</span>)}
+                      </div>
+                    </div>
+                  )}
+                  {roomFeatures.length > 0 && (
+                    <div className="mt-5">
+                      <p className="mb-2 text-sm font-semibold text-foreground">Nội thất có sẵn trong phòng</p>
+                      <div className="flex flex-wrap gap-2">
+                        {roomFeatures.map((feature) => <span key={feature} className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">{feature}</span>)}
+                      </div>
+                    </div>
+                  )}
+                  {viewingDays.length > 0 && viewingSlots.length > 0 && (
+                    <div className="mt-5 rounded-xl border border-border bg-muted/20 p-4">
+                      <p className="mb-2 text-sm font-semibold text-foreground">Lịch xem nhà</p>
+                      <p className="text-sm text-muted-foreground"><span className="font-semibold text-foreground">Ngày:</span> {viewingDays.map((day) => VIEWING_DAY_LABELS[day] ?? day).join(", ")}</p>
+                      <p className="mt-1 text-sm text-muted-foreground"><span className="font-semibold text-foreground">Thời gian:</span> {viewingSlots.map((slot) => VIEWING_SLOT_LABELS[slot] ?? slot).join(", ")}</p>
+                    </div>
+                  )}
+                </section>
+              )}
 
               <section className="relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-[0_4px_12px_rgba(15,23,42,0.08)]">
                 <Sparkles className="absolute right-4 top-4 w-16 h-16 text-accent-ai opacity-10" />
@@ -366,6 +467,28 @@ function formatLocationLabel(value: string) {
   return value
     .replace(/^(thành phố|tỉnh|tp\.?|p\.?|phường|xã)\s*/i, "")
     .trim();
+}
+
+function formatDetail(value: unknown, suffix: string) {
+  return value === undefined || value === null || value === "" ? "" : `${value}${suffix}`;
+}
+
+function formatLabel(value: unknown, labels: Record<string, string>) {
+  return typeof value === "string" ? labels[value] ?? value : "";
+}
+
+function formatMoney(value: unknown, suffix = "") {
+  if (value === undefined || value === null || value === "") return "";
+  return `${new Intl.NumberFormat("vi-VN").format(Number(value))} VNĐ${suffix}`;
+}
+
+function DetailValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2.5">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-foreground">{value}</p>
+    </div>
+  );
 }
 
 function DetailMetric({ icon: Icon, label, value }: { icon: typeof BedDouble; label: string; value: string }) {

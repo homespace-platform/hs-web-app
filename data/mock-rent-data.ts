@@ -23,6 +23,7 @@ export interface RentPropertyItem {
   timeAgo: string;
   photosCount: number;
   viewsCount?: number;
+  details?: Record<string, unknown>;
   landlord: {
     name: string;
     avatar?: string;

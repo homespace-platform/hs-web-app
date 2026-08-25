@@ -1,10 +1,11 @@
-export type ListingCategory = "ROOM" | "STUDIO" | "COMMERCIAL";
+export type ListingCategory = "APARTMENT" | "HOUSE" | "ROOM" | "STUDIO" | "COMMERCIAL";
 
 export type CreateListingRequest = {
   title: string;
   description?: string;
   category: ListingCategory;
   priceMonthly?: number;
+  depositAmount?: number;
   areaM2?: number;
   bedrooms?: number;
   bathrooms?: number;

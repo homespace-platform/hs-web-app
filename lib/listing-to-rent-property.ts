@@ -4,15 +4,27 @@ import type { ListingResponse } from "@/types/listing.type";
 const API_PLACEHOLDER_IMAGE = "/area/hcm-1.jpg";
 
 export function toRentProperty(listing: ListingResponse): RentPropertyItem {
-  const details = listing.details ?? {};
+  const details = {
+    ...(listing.details ?? {}),
+    ...(listing.depositAmount != null ? { depositAmount: listing.depositAmount } : {}),
+  };
   const provinceName = readDetail(details, "provinceName", listing.provinceCode ?? "");
   const wardName = readDetail(details, "wardName", listing.wardCode ?? "");
   const category = {
+    APARTMENT: "apartment",
+    HOUSE: "house",
     ROOM: "room",
     STUDIO: "studio",
     COMMERCIAL: "commercial",
   } as const;
-  const propertyCategory = category[listing.category];
+  const propertyCategory = category[listing.category] ?? "room";
+  const categoryLabel = {
+    apartment: "Căn hộ / Chung cư",
+    house: "Nhà ở",
+    commercial: "Mặt bằng kinh doanh",
+    studio: "Văn phòng / Studio",
+    room: "Nhà trọ",
+  }[propertyCategory];
 
   return {
     id: listing.id,
@@ -33,9 +45,10 @@ export function toRentProperty(listing: ListingResponse): RentPropertyItem {
     isVerified: listing.status === "PUBLISHED",
     hasVideo: false,
     category: propertyCategory,
-    categoryLabel: propertyCategory === "room" ? "Phòng trọ" : propertyCategory === "studio" ? "Studio" : "Mặt bằng kinh doanh",
+    categoryLabel,
     timeAgo: "Từ API",
     photosCount: listing.images?.length ?? 0,
+    details,
     landlord: {
       name: readDetail(details, "landlordName", "Chủ nhà"),
       role: "Chính chủ",

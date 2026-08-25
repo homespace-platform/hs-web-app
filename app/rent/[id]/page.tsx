@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import RentCollageCard from "@/components/rent/RentCollageCard";
@@ -26,6 +27,8 @@ import {
 import { RentPropertyItem } from "@/data/mock-rent-data";
 import { FEATURED_PROPERTIES, RECENT_PROPERTIES, PropertyItem } from "@/data/home-data";
 import { getMockRentListings } from "@/lib/mock-rent-listings";
+import listingService from "@/services/listing.service";
+import { toRentProperty } from "@/lib/listing-to-rent-property";
 
 const formatPrice = (priceMillion: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -36,7 +39,7 @@ const formatPrice = (priceMillion: number) =>
 
 const HOME_RENT_PROPERTIES = [...FEATURED_PROPERTIES, ...RECENT_PROPERTIES];
 
-const toRentProperty = (property: PropertyItem): RentPropertyItem => ({
+const toRentHomeProperty = (property: PropertyItem): RentPropertyItem => ({
   id: property.id,
   title: property.title,
   location: property.location,
@@ -63,7 +66,30 @@ export default function RentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const rentProperty = getMockRentListings().find((item) => item.id === id);
   const homeProperty = HOME_RENT_PROPERTIES.find((item) => item.id === id);
-  const property = rentProperty || (homeProperty ? toRentProperty(homeProperty) : null);
+  const [apiProperty, setApiProperty] = useState<RentPropertyItem | null>(null);
+  const [apiLoading, setApiLoading] = useState(!rentProperty && !homeProperty);
+
+  useEffect(() => {
+    if (rentProperty || homeProperty) return;
+
+    let cancelled = false;
+    listingService.getById(id)
+      .then((listing) => {
+        if (!cancelled) setApiProperty(toRentProperty(listing));
+      })
+      .catch(() => {
+        if (!cancelled) setApiProperty(null);
+      })
+      .finally(() => {
+        if (!cancelled) setApiLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, rentProperty, homeProperty]);
+
+  const property = rentProperty || (homeProperty ? toRentHomeProperty(homeProperty) : apiProperty);
 
   if (!property) {
     return (
@@ -71,7 +97,7 @@ export default function RentDetailPage() {
         <Header />
         <main className="flex-1 pt-24 pb-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h1 className="font-heading text-2xl font-bold">Không tìm thấy tin cho thuê</h1>
+            <h1 className="font-heading text-2xl font-bold">{apiLoading ? "Đang tải tin cho thuê..." : "Không tìm thấy tin cho thuê"}</h1>
             <Link href="/rent" className="mt-4 inline-flex text-primary font-semibold hover:underline">
               Quay lại danh sách
             </Link>
@@ -82,7 +108,13 @@ export default function RentDetailPage() {
     );
   }
 
-  const locationParts = property.location.split(",").map((part) => part.trim());
+  const provinceCode = property.provinceCode ?? inferProvinceCode(property.city);
+  const provinceName = property.provinceName ?? property.city;
+  const wardName = property.ward ?? property.district;
+  const provinceLabel = formatLocationLabel(provinceName);
+  const wardLabel = formatLocationLabel(wardName);
+  const provinceHref = `/rent?provinceCode=${encodeURIComponent(provinceCode)}&provinceName=${encodeURIComponent(provinceName)}`;
+  const wardHref = `${provinceHref}&ward=${encodeURIComponent(wardName)}`;
   const galleryImages = Array.from(
     { length: 5 },
     (_, index) => property.images[index] ?? property.images[0],
@@ -119,12 +151,14 @@ export default function RentDetailPage() {
               <ArrowLeft className="w-3.5 h-3.5" />
               Trở lại danh sách
             </Link>
-            {locationParts.map((part) => (
-              <span key={part} className="inline-flex items-center gap-2">
-                <ChevronRight className="w-3.5 h-3.5 text-border" />
-                <span>{part}</span>
-              </span>
-            ))}
+            <span className="inline-flex items-center gap-2">
+              <ChevronRight className="w-3.5 h-3.5 text-border" />
+              <Link href={wardHref} className="hover:text-primary transition-colors">{wardLabel}</Link>
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <ChevronRight className="w-3.5 h-3.5 text-border" />
+              <Link href={provinceHref} className="hover:text-primary transition-colors">{provinceLabel}</Link>
+            </span>
             <span className="inline-flex items-center gap-2 text-foreground truncate max-w-full">
               <ChevronRight className="w-3.5 h-3.5 text-border shrink-0" />
               {property.title}
@@ -322,6 +356,16 @@ export default function RentDetailPage() {
       <Footer />
     </div>
   );
+}
+
+function inferProvinceCode(city: string) {
+  return /hồ chí minh|ho chi minh|tp\.?\s*(hcm|hồ chí minh|ho chi minh)/i.test(city) ? "79" : "";
+}
+
+function formatLocationLabel(value: string) {
+  return value
+    .replace(/^(thành phố|tỉnh|tp\.?|p\.?|phường|xã)\s*/i, "")
+    .trim();
 }
 
 function DetailMetric({ icon: Icon, label, value }: { icon: typeof BedDouble; label: string; value: string }) {

@@ -6,15 +6,21 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ImagePlus, LoaderCircle, Save, Search, X } from "lucide-react";
 import { toast } from "sonner";
-import { addMockRentListing } from "@/lib/mock-rent-listings";
+import listingService from "@/services/listing.service";
 import provinceService from "@/services/province.service";
 import type { Province, Ward } from "@/types/province.type";
+import type { ListingCategory } from "@/types/listing.type";
 
 const CATEGORIES = [
   ["room", "Phòng trọ"],
   ["studio", "Studio"],
   ["commercial", "Mặt bằng kinh doanh"],
 ] as const;
+const API_CATEGORIES: Record<(typeof CATEGORIES)[number][0], ListingCategory> = {
+  room: "ROOM",
+  studio: "STUDIO",
+  commercial: "COMMERCIAL",
+};
 const MAX_IMAGES = 6;
 
 type SelectedImage = { name: string; dataUrl: string };
@@ -31,6 +37,7 @@ function readImage(file: File) {
 export default function CreateMockListingPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [createdListingId, setCreatedListingId] = useState("");
   const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
@@ -118,7 +125,7 @@ export default function CreateMockListingPage() {
     }
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
 
@@ -131,28 +138,45 @@ export default function CreateMockListingPage() {
       return;
     }
 
+    if (selectedImages.length) {
+      toast.error("Bản test API hiện chưa upload ảnh. Hãy xoá ảnh trước khi tạo draft.");
+      setSubmitting(false);
+      return;
+    }
+
+    let listingId = "";
     try {
-      const property = addMockRentListing({
+      const listing = await listingService.createDraft({
         title: String(form.get("title") ?? ""),
-        category: String(form.get("category")) as "room" | "studio" | "commercial",
-        priceMillion: Number(form.get("priceMillion")),
+        category: API_CATEGORIES[String(form.get("category")) as keyof typeof API_CATEGORIES],
+        priceMonthly: Number(form.get("priceMillion")) * 1_000_000,
         areaM2: Number(form.get("areaM2")),
-        beds: Number(form.get("beds")),
-        baths: Number(form.get("baths")),
+        bedrooms: Number(form.get("beds")),
+        bathrooms: Number(form.get("baths")),
         address: String(form.get("address") ?? ""),
         provinceCode,
-        provinceName: selectedProvince.name,
         wardCode,
-        wardName: selectedWard.name,
-        description: String(form.get("description") ?? ""),
-        imageUrls: selectedImages.map((image) => image.dataUrl),
-        landlordName: String(form.get("landlordName") ?? ""),
-        phone: String(form.get("phone") ?? ""),
+        description: String(form.get("description") ?? "").trim() || undefined,
+        details: {
+          provinceName: selectedProvince.name,
+          wardName: selectedWard.name,
+          landlordName: String(form.get("landlordName") ?? ""),
+          phone: String(form.get("phone") ?? ""),
+        },
       });
-      toast.success("Đã tạo tin đăng mock.");
-      router.push(`/rent/${property.id}`);
-    } catch {
-      toast.error("Không thể tạo tin đăng mock.");
+      listingId = listing.id;
+      await listingService.publish(listing.id);
+      setCreatedListingId(listing.id);
+      toast.success("Đã tạo và publish tin qua API.");
+      setSubmitting(false);
+    } catch (error) {
+      if (listingId) setCreatedListingId(listingId);
+      const message = listingId
+        ? `Đã tạo draft ${listingId} nhưng publish thất bại.`
+        : error instanceof Error
+          ? error.message
+          : "Không thể tạo và publish tin qua API.";
+      toast.error(message);
       setSubmitting(false);
     }
   }
@@ -161,8 +185,14 @@ export default function CreateMockListingPage() {
     <div className="mx-auto max-w-4xl space-y-6 animate-in fade-in-50 duration-200">
       <div className="space-y-1">
         <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Đăng tin cho thuê</h1>
-        <p className="text-xs text-muted-foreground sm:text-sm">Bản mock để kiểm tra giao diện; chưa gửi dữ liệu đến API.</p>
+        <p className="text-xs text-muted-foreground sm:text-sm">Đang kết nối API; tạo và publish tin không ảnh để kiểm tra danh sách.</p>
       </div>
+
+      {createdListingId && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+          Đã publish tin API với ID: <code className="font-semibold">{createdListingId}</code>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <section className="rounded-2xl border border-border bg-card p-5 shadow-2xs sm:p-6">
@@ -263,7 +293,7 @@ export default function CreateMockListingPage() {
                   className="sr-only"
                 />
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  {selectedImages.length ? "Bạn có thể thêm ảnh mà không mất ảnh đã chọn." : `Chọn tối đa ${MAX_IMAGES} ảnh để xem trước.`}
+                  {selectedImages.length ? "Bạn có thể thêm ảnh mà không mất ảnh đã chọn." : `Chọn tối đa ${MAX_IMAGES} ảnh để xem trước. Upload ảnh sẽ nối ở bước S3.`}
                 </p>
                 {selectedImages.length > 0 && (
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -309,7 +339,7 @@ export default function CreateMockListingPage() {
           <button type="button" onClick={() => router.back()} className="h-10 rounded-xl border border-border px-4 text-xs font-bold text-foreground hover:bg-muted">Hủy</button>
           <button type="submit" disabled={submitting} className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-5 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
             {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {submitting ? "Đang tạo..." : "Tạo tin mock"}
+            {submitting ? "Đang publish..." : "Tạo & publish API"}
           </button>
         </div>
       </form>

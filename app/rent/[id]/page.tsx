@@ -29,6 +29,7 @@ import { FEATURED_PROPERTIES, RECENT_PROPERTIES, PropertyItem } from "@/data/hom
 import { getMockRentListings } from "@/lib/mock-rent-listings";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
+import { getRentDetailSections } from "@/lib/rent-detail-sections";
 
 const formatPrice = (priceMillion: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -154,41 +155,8 @@ export default function RentDetailPage() {
       ? { icon: Video, label: "Có video tham quan" }
       : { icon: ImageIcon, label: "Xem thư viện hình ảnh" },
   ];
-  const apartmentDetails = [
-    { label: "Phòng khách", value: formatDetail(property.details?.livingRooms, " phòng") },
-    { label: "Phòng bếp", value: formatDetail(property.details?.kitchens, " phòng") },
-    { label: "Khu bếp", value: formatLabel(property.details?.hasKitchen, { YES: "Có", NO: "Không" }) },
-    { label: "Ban công", value: typeof property.details?.hasBalcony === "boolean" ? (property.details.hasBalcony ? "Có" : "Không") : formatDetail(property.details?.balconies, "") },
-    { label: "Tầng căn hộ", value: formatDetail(property.details?.apartmentFloor, "") },
-    { label: "Tổng số tầng chung cư", value: formatDetail(property.details?.buildingTotalFloors, "") },
-    { label: "Tầng", value: formatDetail(property.details?.floor, "") },
-    { label: "Tổng số tầng", value: formatDetail(property.details?.totalFloors, "") },
-    { label: "Nội thất", value: formatLabel(property.details?.furnishing, { NONE: "Chưa nội thất", BASIC: "Nội thất cơ bản", FULL: "Đầy đủ nội thất" }) },
-    { label: "Pháp lý", value: formatLabel(property.details?.legalStatus, { NONE: "Chưa cập nhật", PINK_BOOK: "Sổ hồng / sổ đỏ", CONTRACT: "Hợp đồng mua bán" }) },
-    { label: "Tầng phòng", value: formatDetail(property.details?.roomFloor, "") },
-    { label: "Ở chung với chủ nhà", value: formatLabel(property.details?.sharedWithOwner, { YES: "Có", NO: "Không" }) },
-    { label: "WC của phòng", value: formatLabel(property.details?.privateBathroom, { PRIVATE: "WC riêng trong phòng", SHARED: "WC dùng chung" }) },
-    { label: "Nội thất phòng", value: formatLabel(property.details?.roomFurnishing, { NONE: "Không nội thất", BASIC: "Nội thất cơ bản", FULL: "Đầy đủ nội thất" }) },
-    { label: "Gác lửng", value: typeof property.details?.hasLoft === "boolean" ? (property.details.hasLoft ? "Có" : "Không") : "" },
-    { label: "Sân thượng", value: typeof property.details?.hasRooftopTerrace === "boolean" ? (property.details.hasRooftopTerrace ? "Có" : "Không") : "" },
-    { label: "Vị trí không gian", value: formatLabel(property.details?.spacePosition, { GROUND_LEVEL: "Mặt đất / tầng trệt", BUILDING_FLOOR: "Một tầng trong tòa nhà" }) },
-    { label: "Thang máy", value: formatLabel(property.details?.elevator, { YES: "Có", NO: "Không" }) },
-  ].filter((item) => item.value);
-  const rentalDetails = [
-    { label: "Hình thức thuê", value: formatLabel(property.details?.rentalMode, { WHOLE_PROPERTY: "Nguyên căn / nguyên mặt bằng", SINGLE_UNIT: "Một phòng / một căn", MULTIPLE_UNITS: "Nhiều phòng / nhiều căn" }) },
-    { label: "Đơn vị cho thuê", value: formatDetail(property.details?.unitLabel, "") },
-    { label: "Tổng số đơn vị", value: formatDetail(property.details?.totalUnits, "") },
-    { label: "Đơn vị còn trống", value: formatDetail(property.details?.availableUnits, "") },
-    { label: "Chính sách gửi xe", value: formatLabel(property.details?.parkingPolicy, { NONE: "Không thu phí gửi xe", PAID: "Có thu phí gửi xe" }) },
-    { label: "Tiền cọc", value: formatMoney(property.details?.depositAmount) },
-    { label: "Thuê tối thiểu", value: formatDetail(property.details?.minimumLeaseMonths, " tháng") },
-    { label: "Phí gửi xe", value: formatMoney(property.details?.parkingFee) },
-    { label: "Số người tối đa", value: formatDetail(property.details?.maxOccupants, " người") },
-    { label: "Số xe tối đa", value: formatDetail(property.details?.maxVehicles, " xe") },
-    { label: property.category === "apartment" ? "Phí quản lý chung cư" : "Phí quản lý", value: formatMoney(property.details?.managementFee) },
-    { label: "Giá điện", value: formatMoney(property.details?.electricityPrice, "/ kWh") },
-    { label: "Giá nước", value: formatMoney(property.details?.waterPrice, "/ m³") },
-  ].filter((item) => item.value);
+  const detailSections = getRentDetailSections(property);
+  const showBedroomMetric = ["apartment", "house", "villa"].includes(property.category);
   const amenities = Array.isArray(property.details?.amenities)
     ? property.details.amenities.filter((item): item is string => typeof item === "string")
     : [];
@@ -290,26 +258,24 @@ export default function RentDetailPage() {
                   <span className="text-base text-muted-foreground">/ tháng</span>
                 </div>
                 <div className="flex flex-wrap gap-x-7 gap-y-4 mt-6 py-5 border-y border-border">
-                  <DetailMetric icon={BedDouble} label="Phòng ngủ" value={`${property.beds} PN`} />
+                  {showBedroomMetric && <DetailMetric icon={BedDouble} label="Phòng ngủ" value={`${property.beds} PN`} />}
                   <DetailMetric icon={Bath} label="Phòng tắm" value={`${property.baths} WC`} />
                   <DetailMetric icon={Building2} label="Diện tích" value={`${property.areaM2} m²`} />
                   <DetailMetric icon={MapPin} label="Loại hình" value={property.categoryLabel} />
                 </div>
               </section>
 
-              {(apartmentDetails.length > 0 || rentalDetails.length > 0) && (
+              {detailSections.length > 0 && (
                 <section>
                   <h2 className="font-heading text-2xl font-semibold mb-4">Thông tin chi tiết</h2>
-                  {apartmentDetails.length > 0 && (
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {apartmentDetails.map((item) => <DetailValue key={item.label} {...item} />)}
+                  {detailSections.map((section) => (
+                    <div key={section.title} className="mb-5 last:mb-0">
+                      <p className="mb-2 text-sm font-semibold text-foreground">{section.title}</p>
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {section.items.map((item) => <DetailValue key={item.label} {...item} />)}
+                      </div>
                     </div>
-                  )}
-                  {rentalDetails.length > 0 && (
-                    <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {rentalDetails.map((item) => <DetailValue key={item.label} {...item} />)}
-                    </div>
-                  )}
+                  ))}
                   {amenities.length > 0 && (
                     <div className="mt-5">
                       <p className="mb-2 text-sm font-semibold text-foreground">Tiện ích</p>
@@ -467,19 +433,6 @@ function formatLocationLabel(value: string) {
   return value
     .replace(/^(thành phố|tỉnh|tp\.?|p\.?|phường|xã)\s*/i, "")
     .trim();
-}
-
-function formatDetail(value: unknown, suffix: string) {
-  return value === undefined || value === null || value === "" ? "" : `${value}${suffix}`;
-}
-
-function formatLabel(value: unknown, labels: Record<string, string>) {
-  return typeof value === "string" ? labels[value] ?? value : "";
-}
-
-function formatMoney(value: unknown, suffix = "") {
-  if (value === undefined || value === null || value === "") return "";
-  return `${new Intl.NumberFormat("vi-VN").format(Number(value))} VNĐ${suffix}`;
 }
 
 function DetailValue({ label, value }: { label: string; value: string }) {

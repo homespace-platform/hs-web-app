@@ -8,6 +8,7 @@ import { Check, ChevronDown, ImagePlus, LoaderCircle, Save, Search, X } from "lu
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/useAuth";
 import listingService from "@/services/listing.service";
+import storageService from "@/services/storage.service";
 import provinceService from "@/services/province.service";
 import type { Province, Ward } from "@/types/province.type";
 import type { ListingCategory } from "@/types/listing.type";
@@ -58,7 +59,7 @@ const ALLOWED_RENTAL_MODES: Record<CategoryKey, RentalMode[]> = {
 };
 const MAX_IMAGES = 6;
 
-type SelectedImage = { name: string; dataUrl: string };
+type SelectedImage = { name: string; dataUrl: string; file: File };
 
 function readImage(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -189,7 +190,7 @@ export default function CreateMockListingPage() {
       const dataUrls = await Promise.all(files.map(readImage));
       setSelectedImages((current) => [
         ...current,
-        ...files.map((file, index) => ({ name: file.name, dataUrl: dataUrls[index] })),
+        ...files.map((file, index) => ({ name: file.name, dataUrl: dataUrls[index], file })),
       ]);
     } catch {
       toast.error("Không thể đọc ảnh đã chọn.");
@@ -211,12 +212,6 @@ export default function CreateMockListingPage() {
 
     if (!selectedViewingDays.length || !selectedViewingSlots.length) {
       toast.error("Vui lòng chọn ngày và buổi có thể xem nhà.");
-      setSubmitting(false);
-      return;
-    }
-
-    if (selectedImages.length) {
-      toast.error("Bản test API hiện chưa upload ảnh. Hãy xoá ảnh trước khi tạo draft.");
       setSubmitting(false);
       return;
     }
@@ -298,6 +293,10 @@ export default function CreateMockListingPage() {
         },
       });
       listingId = listing.id;
+      for (const [index, image] of selectedImages.entries()) {
+        const storageId = await storageService.uploadPropertyImage(image.file, listing.id);
+        await listingService.addImage(listing.id, storageId, index, index === 0);
+      }
       await listingService.publish(listing.id);
       setCreatedListingId(listing.id);
       toast.success("Đã tạo và publish tin qua API.");
@@ -305,7 +304,7 @@ export default function CreateMockListingPage() {
     } catch (error) {
       if (listingId) setCreatedListingId(listingId);
       const message = listingId
-        ? `Đã tạo draft ${listingId} nhưng publish thất bại.`
+        ? `Đã tạo draft ${listingId} nhưng upload ảnh hoặc publish thất bại.`
         : error instanceof Error
           ? error.message
           : "Không thể tạo và publish tin qua API.";
@@ -318,7 +317,7 @@ export default function CreateMockListingPage() {
     <div className="mx-auto max-w-4xl space-y-6 animate-in fade-in-50 duration-200">
       <div className="space-y-1">
         <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Đăng tin cho thuê</h1>
-        <p className="text-xs text-muted-foreground sm:text-sm">Đang kết nối API; tạo và publish tin không ảnh để kiểm tra danh sách.</p>
+        <p className="text-xs text-muted-foreground sm:text-sm">Tin đăng sẽ được tạo và publish trực tiếp qua API.</p>
       </div>
 
       {createdListingId && (
@@ -752,13 +751,13 @@ export default function CreateMockListingPage() {
                 <input
                   id="listing-images"
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   multiple
                   onChange={handleImageChange}
                   className="sr-only"
                 />
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  {selectedImages.length ? "Bạn có thể thêm ảnh mà không mất ảnh đã chọn." : `Chọn tối đa ${MAX_IMAGES} ảnh để xem trước. Upload ảnh sẽ nối ở bước S3.`}
+                  {selectedImages.length ? "Bạn có thể thêm ảnh mà không mất ảnh đã chọn." : `Chọn tối đa ${MAX_IMAGES} ảnh để tải lên cùng tin đăng.`}
                 </p>
                 {selectedImages.length > 0 && (
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">

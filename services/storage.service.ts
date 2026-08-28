@@ -1,13 +1,37 @@
+import axios from "axios";
 import axiosClient from "@/lib/axios-client";
+import keycloak from "@/lib/keycloak";
 import type { ApiResponse } from "@/types/api.type";
 import type {
   CreateStorageUploadRequest,
   CreateStorageUploadResponse,
 } from "@/types/storage.type";
 
+async function uploadFile(file: File, request: CreateStorageUploadRequest): Promise<string> {
+  const upload = await axiosClient.post<
+    ApiResponse<CreateStorageUploadResponse>
+  >("/api/v1/storage/uploads", request);
+  const { storageId, uploadUrl } = upload.data.result;
+
+  const s3Response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  if (!s3Response.ok) {
+    throw new Error(`Không thể tải ảnh lên S3 (${s3Response.status}).`);
+  }
+
+  await axiosClient.post<ApiResponse<unknown>>(
+    `/api/v1/storage/${storageId}/complete`,
+    {},
+  );
+  return storageId;
+}
+
 const storageService = {
   async uploadUserAvatar(file: File, userId: string): Promise<string> {
-    const request: CreateStorageUploadRequest = {
+    return uploadFile(file, {
       fileName: file.name,
       contentType: file.type,
       size: file.size,
@@ -15,27 +39,27 @@ const storageService = {
       visibility: "PUBLIC",
       referenceType: "USER",
       referenceId: userId,
-    };
-
-    const upload = await axiosClient.post<
-      ApiResponse<CreateStorageUploadResponse>
-    >("/api/v1/storage/uploads", request);
-    const { storageId, uploadUrl } = upload.data.result;
-
-    const s3Response = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": file.type },
-      body: file,
     });
-    if (!s3Response.ok) {
-      throw new Error(`Không thể tải ảnh lên S3 (${s3Response.status}).`);
-    }
+  },
 
-    await axiosClient.post<ApiResponse<unknown>>(
-      `/api/v1/storage/${storageId}/complete`,
-      {},
+  async uploadPropertyImage(file: File, listingId: string): Promise<string> {
+    return uploadFile(file, {
+      fileName: file.name,
+      contentType: file.type,
+      size: file.size,
+      purpose: "PROPERTY_IMAGE",
+      visibility: "PUBLIC",
+      referenceType: "LISTING",
+      referenceId: listingId,
+    });
+  },
+
+  async getViewUrl(storageId: string): Promise<string> {
+    const response = await axios.get<ApiResponse<{ url: string }>>(
+      `${process.env.NEXT_PUBLIC_GATEWAY_BASE_URL}/api/v1/storage/${storageId}/view-url`,
+      { headers: keycloak.token ? { Authorization: `Bearer ${keycloak.token}` } : undefined },
     );
-    return storageId;
+    return response.data.result.url;
   },
 };
 

@@ -8,14 +8,12 @@ import RentCollageCard from "@/components/rent/RentCollageCard";
 import RentFilterSidebar, {
   FilterState,
 } from "@/components/rent/RentFilterSidebar";
-import { MOCK_RENT_PROPERTIES, RentPropertyItem } from "@/data/mock-rent-data";
-import {
-  getMockRentListings,
-  MOCK_RENT_LISTINGS_UPDATED,
-} from "@/lib/mock-rent-listings";
+import { RentPropertyItem } from "@/data/mock-rent-data";
 import provinceService from "@/services/province.service";
 import listingService from "@/services/listing.service";
+import storageService from "@/services/storage.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
+import { getListingImageUrls } from "@/lib/listing-images";
 import { District } from "@/types/province.type";
 import {
   Home,
@@ -38,8 +36,9 @@ import { Input } from "@/components/ui/input";
 const ITEMS_PER_PAGE = 10;
 
 export default function RentPage() {
-  const [properties, setProperties] = useState<RentPropertyItem[]>(MOCK_RENT_PROPERTIES);
-  const [apiProperties, setApiProperties] = useState<RentPropertyItem[]>([]);
+  const [properties, setProperties] = useState<RentPropertyItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const listContainerRef = useRef<HTMLDivElement>(null);
@@ -72,16 +71,35 @@ export default function RentPage() {
   });
 
   useEffect(() => {
-    const syncListings = () => setProperties(mergeListings(apiProperties, getMockRentListings()));
-    syncListings();
-    window.addEventListener(MOCK_RENT_LISTINGS_UPDATED, syncListings);
-    return () => window.removeEventListener(MOCK_RENT_LISTINGS_UPDATED, syncListings);
-  }, [apiProperties]);
-
-  useEffect(() => {
+    let cancelled = false;
     listingService.getPublished()
-      .then((listings) => setApiProperties(listings.map(toRentProperty)))
-      .catch(() => setApiProperties([]));
+      .then(async (listings) => {
+        const mapped = await Promise.all(listings.map(async (listing) => {
+          const imageEntries = await Promise.all(
+            (listing.images ?? []).map(async (image) => {
+              try {
+                return [image.storageId, await storageService.getViewUrl(image.storageId)] as const;
+              } catch {
+                return [image.storageId, ""] as const;
+              }
+            }),
+          );
+          return toRentProperty(
+            listing,
+            getListingImageUrls(listing.images ?? [], Object.fromEntries(imageEntries), "/area/hcm-1.jpg"),
+          );
+        }));
+        if (!cancelled) setProperties(mapped);
+      })
+      .catch(() => {
+        if (!cancelled) setApiError("Không thể tải danh sách tin từ API.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -569,7 +587,15 @@ export default function RentPage() {
               </div>
 
               {/* Feed: Empty State or Listings Cards */}
-              {currentItems.length === 0 ? (
+              {isLoading ? (
+                <div className="bg-card rounded-3xl border border-border p-12 text-center text-muted-foreground shadow-sm">
+                  Đang tải tin đăng từ API...
+                </div>
+              ) : apiError ? (
+                <div className="bg-card rounded-3xl border border-border p-12 text-center text-destructive shadow-sm">
+                  {apiError}
+                </div>
+              ) : currentItems.length === 0 ? (
                 <div className="bg-card rounded-3xl border border-border p-12 text-center text-muted-foreground flex flex-col items-center justify-center gap-3.5 shadow-sm">
                   <div className="w-16 h-16 rounded-3xl bg-muted flex items-center justify-center text-muted-foreground/50">
                     <Building className="w-8 h-8" />
@@ -730,9 +756,4 @@ function normalizeProvinceName(value: string) {
     .toLowerCase()
     .replace(/^(thanh pho|tinh|tp)\.?\s*/i, "")
     .trim();
-}
-
-function mergeListings(apiListings: RentPropertyItem[], mockListings: RentPropertyItem[]) {
-  const apiIds = new Set(apiListings.map((property) => property.id));
-  return [...apiListings, ...mockListings.filter((property) => !apiIds.has(property.id))];
 }

@@ -3,7 +3,7 @@ import type { ListingResponse } from "@/types/listing.type";
 
 const API_PLACEHOLDER_IMAGE = "/area/hcm-1.jpg";
 
-export function toRentProperty(listing: ListingResponse): RentPropertyItem {
+export function toRentProperty(listing: ListingResponse, imageUrls?: string[]): RentPropertyItem {
   const details = {
     ...(listing.details ?? {}),
     ...(listing.depositAmount != null ? { depositAmount: listing.depositAmount } : {}),
@@ -41,7 +41,7 @@ export function toRentProperty(listing: ListingResponse): RentPropertyItem {
     beds: listing.bedrooms ?? 0,
     baths: listing.bathrooms ?? 0,
     areaM2: Number(listing.areaM2 ?? 0),
-    images: [API_PLACEHOLDER_IMAGE],
+    images: imageUrls?.length ? imageUrls : [API_PLACEHOLDER_IMAGE],
     isVerified: listing.status === "PUBLISHED",
     hasVideo: false,
     category: propertyCategory,

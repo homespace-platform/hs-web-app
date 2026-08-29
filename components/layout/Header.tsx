@@ -351,24 +351,13 @@ export default function Header() {
                       <span>Đăng tin</span>
                     </Link>
                   ) : (
-                    <>
-                      <Link
-                        href="/dashboard/properties/new"
-                        className="h-10 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 flex items-center gap-2 cursor-pointer"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Đăng tin</span>
-                      </Link>
-                      <Link href="/dashboard">
-                      <button
-                        type="button"
-                        className="h-10 px-4 rounded-full border border-border bg-card text-foreground hover:bg-muted text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
-                      >
-                        <LayoutGrid className="w-4 h-4 text-muted-foreground" />
-                        <span>Quản lý tin</span>
-                      </button>
-                      </Link>
-                    </>
+                    <Link
+                      href="/dashboard"
+                      className="h-10 px-4 rounded-full border border-border bg-card text-foreground hover:bg-muted text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <LayoutGrid className="w-4 h-4 text-muted-foreground" />
+                      <span>Quản lý tin</span>
+                    </Link>
                   )}
                 </div>
 
@@ -604,22 +593,13 @@ export default function Header() {
               <span>Đăng tin</span>
             </Link>
           ) : (
-            <>
-              <Link
-                href="/dashboard/properties/new"
-                className="h-9 px-3.5 rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Đăng tin</span>
-              </Link>
-              <Link
-                href="/dashboard"
-                className="h-9 px-3.5 rounded-full border border-border bg-card/95 backdrop-blur-md shadow-md text-foreground hover:bg-muted text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
-              >
-                <LayoutGrid className="w-3.5 h-3.5 text-muted-foreground" />
-                <span>Quản lý tin</span>
-              </Link>
-            </>
+            <Link
+              href="/dashboard"
+              className="h-9 px-3.5 rounded-full border border-border bg-card/95 backdrop-blur-md shadow-md text-foreground hover:bg-muted text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+            >
+              <LayoutGrid className="w-3.5 h-3.5 text-muted-foreground" />
+              <span>Quản lý tin</span>
+            </Link>
           )}
         </div>
       )}

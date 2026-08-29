@@ -28,6 +28,7 @@ import {
   MapPin,
   ChevronDown,
   Check,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -50,6 +51,8 @@ export default function RentPage() {
   );
   const [districts, setDistricts] = useState<District[]>([]);
   const [isDistrictDropdownOpen, setIsDistrictDropdownOpen] = useState(false);
+  const [districtSearch, setDistrictSearch] = useState("");
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
   const districtDropdownRef = useRef<HTMLDivElement>(null);
 
   // Search input state (chỉ tìm khi bấm submit hoặc enter để tránh quá tải CSDL)
@@ -114,10 +117,13 @@ export default function RentPage() {
       setSelectedProvinceCode(pCode);
       setSelectedProvinceName(pName);
       try {
+        setLoadingDistricts(true);
         const dList = await provinceService.getDistrictsByProvince(pCode);
         setDistricts(dList || []);
       } catch (err) {
         console.error("Error loading districts for province:", err);
+      } finally {
+        setLoadingDistricts(false);
       }
     };
 
@@ -180,9 +186,19 @@ export default function RentPage() {
         setIsDistrictDropdownOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
+    if (isDistrictDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isDistrictDropdownOpen]);
+
+  // Filter districts based on search
+  const filteredDistricts = useMemo(() => {
+    if (!districtSearch.trim()) return districts;
+    return districts.filter((d) =>
+      d.name.toLowerCase().includes(districtSearch.toLowerCase())
+    );
+  }, [districts, districtSearch]);
 
   // Handle reset filter
   const handleReset = () => {
@@ -463,51 +479,78 @@ export default function RentPage() {
 
                     {/* District Dropdown Menu */}
                     {isDistrictDropdownOpen && (
-                      <div className="absolute top-full left-0 mt-2 w-64 max-h-72 overflow-y-auto bg-popover border border-border rounded-2xl shadow-2xl p-1.5 z-50 animate-in fade-in-50 zoom-in-95 no-scrollbar">
-                        {/* Option: Tất cả quận huyện */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFilter({ ...filter, district: "all" });
-                            setIsDistrictDropdownOpen(false);
-                            setCurrentPage(1);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-2 text-xs rounded-xl font-semibold transition-colors cursor-pointer ${
-                            filter.district === "all"
-                              ? "bg-primary/10 text-primary font-bold"
-                              : "text-foreground hover:bg-muted"
-                          }`}
-                        >
-                          <span>Tất cả Quận/Huyện</span>
-                          {filter.district === "all" && (
-                            <Check className="w-3.5 h-3.5 text-primary" />
-                          )}
-                        </button>
+                      <div className="absolute top-full left-0 mt-2 w-64 bg-popover text-popover-foreground rounded-2xl shadow-2xl border border-border p-2 z-50 animate-in fade-in-50 zoom-in-95">
+                        <div className="relative mb-2 px-1">
+                          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                          <input
+                            type="text"
+                            value={districtSearch}
+                            onChange={(e) => setDistrictSearch(e.target.value)}
+                            placeholder="Tìm quận/huyện..."
+                            className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted rounded-lg border border-border focus:outline-none focus:border-primary text-foreground"
+                            autoFocus
+                          />
+                        </div>
 
-                        {districts.map((d) => {
-                          const isSelected = filter.district === d.name;
-                          return (
-                            <button
-                              key={d.code}
-                              type="button"
-                              onClick={() => {
-                                setFilter({ ...filter, district: d.name });
-                                setIsDistrictDropdownOpen(false);
-                                setCurrentPage(1);
-                              }}
-                              className={`w-full flex items-center justify-between px-3 py-2 text-xs rounded-xl transition-colors cursor-pointer ${
-                                isSelected
-                                  ? "bg-primary/10 text-primary font-bold"
-                                  : "text-foreground hover:bg-muted"
-                              }`}
-                            >
-                              <span className="truncate">{d.name}</span>
-                              {isSelected && (
-                                <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                              )}
-                            </button>
-                          );
-                        })}
+                        <div className="max-h-56 overflow-y-auto space-y-0.5 no-scrollbar">
+                          {/* Option: Tất cả quận huyện */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFilter({ ...filter, district: "all" });
+                              setIsDistrictDropdownOpen(false);
+                              setDistrictSearch("");
+                              setCurrentPage(1);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                              filter.district === "all"
+                                ? "bg-primary/10 text-primary font-bold"
+                                : "text-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <span>Tất cả Quận/Huyện</span>
+                            {filter.district === "all" && (
+                              <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                            )}
+                          </button>
+
+                          {loadingDistricts ? (
+                            <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                              <span>Đang tải danh sách...</span>
+                            </div>
+                          ) : filteredDistricts.length > 0 ? (
+                            filteredDistricts.map((d) => {
+                              const isSelected = filter.district === d.name;
+                              return (
+                                <button
+                                  key={d.code}
+                                  type="button"
+                                  onClick={() => {
+                                    setFilter({ ...filter, district: d.name });
+                                    setIsDistrictDropdownOpen(false);
+                                    setDistrictSearch("");
+                                    setCurrentPage(1);
+                                  }}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                                    isSelected
+                                      ? "bg-primary/10 text-primary font-bold"
+                                      : "text-foreground hover:bg-muted"
+                                  }`}
+                                >
+                                  <span className="truncate">{d.name}</span>
+                                  {isSelected && (
+                                    <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                                  )}
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                              Không tìm thấy quận/huyện
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

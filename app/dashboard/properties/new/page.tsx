@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ImagePlus, LoaderCircle, Save, Search, Video, X } from "lucide-react";
 import { toast } from "sonner";
+import axios from "axios";
 import { useAuth } from "@/features/auth/useAuth";
 import listingService from "@/services/listing.service";
 import listingMediaService from "@/services/listing-media.service";
@@ -99,6 +100,7 @@ export default function CreateMockListingPage() {
   const [openLocation, setOpenLocation] = useState<"province" | "ward" | null>(null);
   const [wardLoading, setWardLoading] = useState(true);
   const [locationError, setLocationError] = useState("");
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -149,10 +151,23 @@ export default function CreateMockListingPage() {
   const availableRentalModes = RENTAL_MODES.filter((mode) => ALLOWED_RENTAL_MODES[selectedCategory].includes(mode.value));
   const isUnitRental = rentalMode !== "WHOLE_PROPERTY";
   const isMultipleUnits = rentalMode === "MULTIPLE_UNITS";
+  const usesParkingFeePolicy = selectedCategory === "room" || (selectedCategory === "house" && isUnitRental);
 
   function defaultUnitLabel(category: CategoryKey) {
     return category === "room" || category === "house" ? "phòng" : category === "commercial" ? "mặt bằng" : category === "apartment" ? "căn" : "đơn vị";
   }
+
+  useEffect(() => {
+    if (!ALLOWED_RENTAL_MODES[selectedCategory].includes(rentalMode)) {
+      setRentalMode(ALLOWED_RENTAL_MODES[selectedCategory][0]);
+    }
+  }, [selectedCategory, rentalMode]);
+
+  useEffect(() => {
+    if (!usesParkingFeePolicy) {
+      setParkingPolicy("NONE");
+    }
+  }, [usesParkingFeePolicy]);
 
   function handleCategoryChange(category: CategoryKey) {
     setSelectedCategory(category);
@@ -160,6 +175,17 @@ export default function CreateMockListingPage() {
     setUnitLabel(defaultUnitLabel(category));
     setSpacePosition("GROUND_LEVEL");
     setParkingPolicy("NONE");
+    setSubmitError("");
+
+    const extraRequired =
+      category === "apartment"
+        ? "Vui lòng nhập số phòng ngủ và phòng tắm trong phần Thông tin chi tiết."
+        : category === "house"
+          ? "Nếu cho thuê nguyên căn, hãy nhập số phòng ngủ và phòng tắm trong phần Thông tin chi tiết."
+          : category === "office"
+            ? "Vui lòng nhập số nhà vệ sinh trong phần Thông tin chi tiết."
+            : null;
+    if (extraRequired) toast.info(extraRequired);
   }
 
   function addCustomAmenity() {
@@ -220,22 +246,40 @@ export default function CreateMockListingPage() {
     if (submitting) return;
 
     const form = new FormData(event.currentTarget);
-    setSubmitting(true);
-
-    if (!selectedProvince || !selectedWard) {
-      toast.error("Vui lòng chọn tỉnh/thành và phường/xã.");
-      setSubmitting(false);
+    const validationError = validateForm(form, {
+      selectedCategory,
+      isUnitRental,
+      isMultipleUnits,
+      provinceCode,
+      wardCode,
+      selectedProvince,
+      selectedWard,
+      selectedViewingDays,
+      selectedViewingSlots,
+    });
+    if (validationError) {
+      setSubmitError(validationError.message);
+      toast.error(validationError.message);
+      scrollToFormField(validationError.focusId);
       return;
     }
 
-    if (!selectedViewingDays.length || !selectedViewingSlots.length) {
-      toast.error("Vui lòng chọn ngày và buổi có thể xem nhà.");
+    setSubmitError("");
+    setSubmitting(true);
+
+    if (!selectedProvince || !selectedWard) {
+      const message = "Vui lòng chọn tỉnh/thành và phường/xã.";
+      setSubmitError(message);
+      toast.error(message);
       setSubmitting(false);
       return;
     }
 
     if (!ALLOWED_RENTAL_MODES[selectedCategory].includes(rentalMode)) {
-      toast.error("Hình thức cho thuê không phù hợp với loại bất động sản đã chọn.");
+      const message = "Hình thức cho thuê không phù hợp với loại bất động sản đã chọn.";
+      setSubmitError(message);
+      toast.error(message);
+      scrollToFormField("listing-rental-mode");
       setSubmitting(false);
       return;
     }
@@ -243,7 +287,10 @@ export default function CreateMockListingPage() {
     const totalUnits = optionalNumber(form, "totalUnits");
     const availableUnits = optionalNumber(form, "availableUnits");
     if (isMultipleUnits && (totalUnits === undefined || availableUnits === undefined || availableUnits > totalUnits)) {
-      toast.error("Số phòng/căn còn trống không được lớn hơn tổng số phòng/căn.");
+      const message = "Số phòng/căn còn trống không được lớn hơn tổng số phòng/căn.";
+      setSubmitError(message);
+      toast.error(message);
+      scrollToFormField("listing-rental-mode");
       setSubmitting(false);
       return;
     }
@@ -287,8 +334,8 @@ export default function CreateMockListingPage() {
           hasBalcony: selectedCategory === "apartment" ? form.get("hasBalcony") === "on" : undefined,
           furnishing: optionalText(form, "furnishing"),
           legalStatus: optionalText(form, "legalStatus"),
-          parkingPolicy: optionalText(form, "parkingPolicy"),
-          parkingFee: parkingPolicy === "PAID" ? optionalNumber(form, "parkingFee") : undefined,
+          parkingPolicy: usesParkingFeePolicy ? optionalText(form, "parkingPolicy") : "INCLUDED",
+          parkingFee: usesParkingFeePolicy && parkingPolicy === "PAID" ? optionalNumber(form, "parkingFee") : undefined,
           maxOccupants: optionalNumber(form, "maxOccupants"),
           maxVehicles: optionalNumber(form, "maxVehicles"),
           managementFee: optionalNumber(form, "managementFee"),
@@ -331,9 +378,8 @@ export default function CreateMockListingPage() {
       if (listingId) setCreatedListingId(listingId);
       const message = listingId
         ? `Đã tạo draft ${listingId} nhưng upload ảnh hoặc publish thất bại.`
-        : error instanceof Error
-          ? error.message
-          : "Không thể tạo và publish tin qua API.";
+        : getSubmitErrorMessage(error);
+      setSubmitError(message);
       toast.error(message);
       setSubmitting(false);
     }
@@ -352,12 +398,12 @@ export default function CreateMockListingPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
         <section className="rounded-2xl border border-border bg-card p-5 shadow-2xs sm:p-6">
           <h2 className="text-base font-bold text-foreground">Thông tin cơ bản</h2>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Tiêu đề tin đăng" className="sm:col-span-2">
-              <input name="title" required minLength={10} placeholder="Ví dụ: Phòng trọ đầy đủ nội thất gần đại học" className={inputClass} />
+              <input id="listing-title" name="title" required minLength={10} placeholder="Ví dụ: Phòng trọ đầy đủ nội thất gần đại học" className={inputClass} />
             </Field>
 
             <Field label={`Hình ảnh (${selectedImages.length}/${MAX_IMAGES})`} className="sm:col-span-2">
@@ -454,7 +500,7 @@ export default function CreateMockListingPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-border bg-card p-5 shadow-2xs sm:p-6">
+        <section id="listing-rental-mode" className="rounded-2xl border border-border bg-card p-5 shadow-2xs sm:p-6">
           <h2 className="text-base font-bold text-foreground">Hình thức cho thuê</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             {availableRentalModes.length === 1 ? "Loại bất động sản này chỉ phù hợp với một hình thức cho thuê." : "Một tin có thể đại diện cho toàn bộ căn nhà hoặc nhiều phòng cùng địa điểm."}
@@ -535,16 +581,23 @@ export default function CreateMockListingPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-border bg-card p-5 shadow-2xs sm:p-6">
+        <section id="listing-details" className="rounded-2xl border border-border bg-card p-5 shadow-2xs sm:p-6">
           <h2 className="text-base font-bold text-foreground">
             {selectedCategory === "house" && isUnitRental ? "Thông tin chi tiết phòng trong nhà" : selectedCategory === "room" ? "Thông tin chi tiết phòng trọ" : `Thông tin chi tiết - ${categoryLabel}`}
           </h2>
+          {(selectedCategory === "apartment" || (selectedCategory === "house" && !isUnitRental) || selectedCategory === "office") && (
+            <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              {selectedCategory === "office"
+                ? "Loại này bắt buộc nhập số nhà vệ sinh."
+                : "Loại này bắt buộc nhập số phòng ngủ và số phòng tắm."}
+            </p>
+          )}
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Diện tích (m²)">
               <input name="areaM2" required min="1" step="1" type="number" placeholder="Nhập diện tích" className={inputClass} />
             </Field>
             {selectedCategory === "office" && <>
-              <Field label="Số nhà vệ sinh">
+              <Field label="Số nhà vệ sinh *">
                 <input name="baths" required min="0" step="1" type="number" placeholder="Ví dụ: 1" className={inputClass} />
               </Field>
               <Field label="Khu bếp">
@@ -555,10 +608,10 @@ export default function CreateMockListingPage() {
               </Field>
             </>}
             {(selectedCategory === "apartment" || (selectedCategory === "house" && !isUnitRental)) && <>
-              <Field label="Số phòng ngủ">
+              <Field label="Số phòng ngủ *">
                 <input name="beds" required min="0" step="1" type="number" placeholder="Số phòng ngủ" className={inputClass} />
               </Field>
-              <Field label="Số phòng tắm">
+              <Field label="Số phòng tắm *">
                 <input name="baths" required min="0" step="1" type="number" placeholder="Số phòng tắm" className={inputClass} />
               </Field>
             </>}
@@ -673,7 +726,7 @@ export default function CreateMockListingPage() {
                 </Field>
               </>}
             </>}
-            {(selectedCategory === "house" || selectedCategory === "room") ? <>
+            {usesParkingFeePolicy && <>
               <Field label="Chính sách phí gửi xe">
                 <select name="parkingPolicy" value={parkingPolicy} onChange={(event) => setParkingPolicy(event.target.value)} className={inputClass}>
                   <option value="NONE">Không thu phí gửi xe</option>
@@ -683,6 +736,13 @@ export default function CreateMockListingPage() {
               {parkingPolicy === "PAID" && <Field label="Phí gửi xe (VNĐ/tháng)">
                 <input name="parkingFee" min="0" step="1000" type="number" placeholder="Ví dụ: 150000" className={inputClass} />
               </Field>}
+            </>}
+            {!usesParkingFeePolicy && (
+              <p className="sm:col-span-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                Cho thuê nguyên căn / nguyên mặt bằng: chỗ để xe ghi trong tiện ích (ví dụ &quot;Chỗ để xe&quot;), không thu phí gửi xe riêng.
+              </p>
+            )}
+            {(selectedCategory === "house" || selectedCategory === "room") && <>
               <div className="sm:col-span-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {selectedCategory === "room" && <Field label="Gác lửng">
                   <label className="flex h-10 items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 text-sm text-foreground">
@@ -697,9 +757,7 @@ export default function CreateMockListingPage() {
               <Field label={isUnitRental ? "Số xe tối đa / phòng" : "Số xe tối đa"}>
                 <input name="maxVehicles" min="0" step="1" type="number" placeholder={isUnitRental ? "Ví dụ: 2 xe" : "Ví dụ: 4 xe"} className={inputClass} />
               </Field>
-            </> : <Field label="Phí gửi xe (VNĐ/tháng)">
-              <input name="parkingFee" min="0" step="1000" type="number" placeholder="Ví dụ: 150000" className={inputClass} />
-            </Field>}
+            </>}
             {(selectedCategory === "apartment" || selectedCategory === "office" || selectedCategory === "commercial") && <Field label={selectedCategory === "apartment" ? "Phí quản lý chung cư (VNĐ/tháng)" : "Phí quản lý (VNĐ/tháng)"}>
               <div>
                 <input name="managementFee" min="0" step="1000" type="number" placeholder="Ví dụ: 500000" className={inputClass} />
@@ -783,7 +841,7 @@ export default function CreateMockListingPage() {
           </section>
         )}
 
-        <section className="rounded-2xl border border-border bg-card p-5 shadow-2xs sm:p-6">
+        <section id="listing-pricing" className="rounded-2xl border border-border bg-card p-5 shadow-2xs sm:p-6">
           <h2 className="text-base font-bold text-foreground">Giá &amp; điều kiện thuê</h2>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Giá thuê (triệu/tháng)">
@@ -798,7 +856,7 @@ export default function CreateMockListingPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-border bg-card p-5 shadow-2xs sm:p-6">
+        <section id="listing-location" className="rounded-2xl border border-border bg-card p-5 shadow-2xs sm:p-6">
           <h2 className="text-base font-bold text-foreground">Vị trí</h2>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Địa chỉ">
@@ -835,7 +893,12 @@ export default function CreateMockListingPage() {
                 name="wardCode"
                 placeholder={wardLoading ? "Đang tải phường/xã..." : "Tìm phường/xã..."}
                 value={wardQuery}
-                onChange={setWardQuery}
+                onChange={(value) => {
+                  setWardQuery(value);
+                  if (value !== selectedWard?.name) {
+                    setWardCode("");
+                  }
+                }}
                 open={openLocation === "ward"}
                 onOpen={() => {
                   setOpenLocation("ward");
@@ -872,10 +935,10 @@ export default function CreateMockListingPage() {
               <input name="phone" inputMode="tel" placeholder="0901234567" className={inputClass} />
             </Field>
           </div>
-          <div className="mt-6 space-y-4 border-t border-border pt-5">
+          <div id="viewing-schedule" className={`mt-6 space-y-4 border-t pt-5 transition-colors ${submitError.includes("buổi") || submitError.includes("ngày") ? "border-destructive/40" : "border-border"}`}>
             <div>
-              <h3 className="text-sm font-bold text-foreground">Lịch xem nhà</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Chọn các ngày và buổi bạn thường sẵn sàng để người thuê chủ động hẹn lịch.</p>
+              <h3 className="text-sm font-bold text-foreground">Lịch xem nhà <span className="text-destructive">*</span></h3>
+              <p className="mt-1 text-xs text-muted-foreground">Chọn ít nhất một ngày và một buổi (sáng / chiều / tối) bạn sẵn sàng cho khách xem nhà.</p>
             </div>
             <div>
               <p className="mb-2 text-xs font-semibold text-foreground">Ngày trong tuần</p>
@@ -896,8 +959,8 @@ export default function CreateMockListingPage() {
                 })}
               </div>
             </div>
-            <div>
-              <p className="mb-2 text-xs font-semibold text-foreground">Buổi có thể xem</p>
+            <div className={submitError.includes("buổi") ? "rounded-xl border border-destructive/50 bg-destructive/5 p-3" : ""}>
+              <p className="mb-2 text-xs font-semibold text-foreground">Buổi có thể xem <span className="text-destructive">*</span></p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 {VIEWING_SLOTS.map(([value, label]) => {
                   const selected = selectedViewingSlots.includes(value);
@@ -918,11 +981,17 @@ export default function CreateMockListingPage() {
           </div>
         </section>
 
+        {submitError && (
+          <div id="form-errors" role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
+            {submitError}
+          </div>
+        )}
+
         <div className="flex justify-end gap-3">
           <button type="button" onClick={() => router.back()} className="h-10 rounded-xl border border-border px-4 text-xs font-bold text-foreground hover:bg-muted">Hủy</button>
           <button type="submit" disabled={submitting} className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-5 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
             {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {submitting ? "Đang publish..." : "Tạo & publish API"}
+            {submitting ? "Đang đăng..." : "Đăng tin"}
           </button>
         </div>
       </form>
@@ -942,6 +1011,89 @@ function optionalNumber(form: FormData, name: string) {
 function optionalText(form: FormData, name: string) {
   const value = String(form.get(name) ?? "").trim();
   return value || undefined;
+}
+
+type FormValidationError = { message: string; focusId?: string };
+
+function getSubmitErrorMessage(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    const apiMessage = error.response?.data?.message;
+    if (typeof apiMessage === "string" && apiMessage.trim()) return apiMessage;
+  }
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return "Không thể tạo và publish tin qua API.";
+}
+
+function scrollToFormField(focusId?: string) {
+  if (!focusId) return;
+  window.setTimeout(() => {
+    document.getElementById(focusId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 0);
+}
+
+function validateForm(
+  form: FormData,
+  context: {
+    selectedCategory: CategoryKey;
+    isUnitRental: boolean;
+    isMultipleUnits: boolean;
+    provinceCode: string;
+    wardCode: string;
+    selectedProvince: Province | undefined;
+    selectedWard: Ward | undefined;
+    selectedViewingDays: string[];
+    selectedViewingSlots: string[];
+  },
+): FormValidationError | null {
+  const title = String(form.get("title") ?? "").trim();
+  if (title.length < 10) return { message: "Tiêu đề phải có ít nhất 10 ký tự.", focusId: "listing-title" };
+
+  const areaM2 = optionalNumber(form, "areaM2");
+  if (!areaM2 || areaM2 <= 0) return { message: "Vui lòng nhập diện tích (m²).", focusId: "listing-details" };
+
+  const priceMillion = optionalNumber(form, "priceMillion");
+  if (!priceMillion || priceMillion <= 0) return { message: "Vui lòng nhập giá thuê (triệu/tháng).", focusId: "listing-pricing" };
+
+  const address = String(form.get("address") ?? "").trim();
+  if (!address) return { message: "Vui lòng nhập địa chỉ.", focusId: "listing-location" };
+
+  if (!context.selectedProvince || !context.provinceCode) {
+    return { message: "Vui lòng chọn tỉnh/thành phố từ danh sách (click vào tên trong dropdown).", focusId: "listing-location" };
+  }
+  if (!context.selectedWard || !context.wardCode) {
+    return { message: "Vui lòng chọn phường/xã từ danh sách (click vào tên trong dropdown).", focusId: "listing-location" };
+  }
+
+  if (!context.selectedViewingDays.length) {
+    return { message: "Vui lòng chọn ít nhất một ngày trong tuần cho lịch xem nhà.", focusId: "viewing-schedule" };
+  }
+  if (!context.selectedViewingSlots.length) {
+    return { message: "Vui lòng chọn ít nhất một buổi xem nhà: Buổi sáng, Buổi chiều hoặc Buổi tối.", focusId: "viewing-schedule" };
+  }
+
+  if (context.selectedCategory === "apartment" || (context.selectedCategory === "house" && !context.isUnitRental)) {
+    if (optionalNumber(form, "beds") === undefined) {
+      return { message: "Căn hộ / nhà nguyên căn: vui lòng nhập số phòng ngủ trong phần Thông tin chi tiết.", focusId: "listing-details" };
+    }
+    if (optionalNumber(form, "baths") === undefined) {
+      return { message: "Căn hộ / nhà nguyên căn: vui lòng nhập số phòng tắm trong phần Thông tin chi tiết.", focusId: "listing-details" };
+    }
+  }
+
+  if (context.selectedCategory === "office") {
+    if (optionalNumber(form, "baths") === undefined) {
+      return { message: "Văn phòng / Studio: vui lòng nhập số nhà vệ sinh trong phần Thông tin chi tiết.", focusId: "listing-details" };
+    }
+  }
+
+  if (context.isMultipleUnits) {
+    const totalUnits = optionalNumber(form, "totalUnits");
+    const availableUnits = optionalNumber(form, "availableUnits");
+    if (!totalUnits || totalUnits < 1) return { message: "Vui lòng nhập tổng số phòng/căn.", focusId: "listing-rental-mode" };
+    if (availableUnits === undefined || availableUnits < 0) return { message: "Vui lòng nhập số phòng/căn còn trống.", focusId: "listing-rental-mode" };
+  }
+
+  return null;
 }
 
 function Field({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
@@ -987,7 +1139,6 @@ function SearchableLocationField({
       <input
         name={name}
         value={value}
-        required
         disabled={disabled}
         placeholder={placeholder}
         autoComplete="off"

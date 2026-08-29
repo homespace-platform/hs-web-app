@@ -1,6 +1,4 @@
-import axios from "axios";
 import axiosClient from "@/lib/axios-client";
-import keycloak from "@/lib/keycloak";
 import type { ApiResponse } from "@/types/api.type";
 import type {
   CreateStorageUploadRequest,
@@ -40,26 +38,6 @@ const storageService = {
       referenceType: "USER",
       referenceId: userId,
     });
-  },
-
-  async uploadPropertyImage(file: File, listingId: string): Promise<string> {
-    return uploadFile(file, {
-      fileName: file.name,
-      contentType: file.type,
-      size: file.size,
-      purpose: "PROPERTY_IMAGE",
-      visibility: "PUBLIC",
-      referenceType: "LISTING",
-      referenceId: listingId,
-    });
-  },
-
-  async getViewUrl(storageId: string): Promise<string> {
-    const response = await axios.get<ApiResponse<{ url: string }>>(
-      `${process.env.NEXT_PUBLIC_GATEWAY_BASE_URL}/api/v1/storage/${storageId}/view-url`,
-      { headers: keycloak.token ? { Authorization: `Bearer ${keycloak.token}` } : undefined },
-    );
-    return response.data.result.url;
   },
 };
 

@@ -1,4 +1,4 @@
-export type StoragePurpose = "USER_AVATAR" | "PROPERTY_IMAGE";
+export type StoragePurpose = "USER_AVATAR";
 
 export type StorageVisibility = "PUBLIC" | "PRIVATE";
 

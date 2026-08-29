@@ -11,9 +11,7 @@ import RentFilterSidebar, {
 import { RentPropertyItem } from "@/data/mock-rent-data";
 import provinceService from "@/services/province.service";
 import listingService from "@/services/listing.service";
-import storageService from "@/services/storage.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
-import { getListingImageUrls } from "@/lib/listing-images";
 import { District } from "@/types/province.type";
 import {
   Home,
@@ -76,23 +74,10 @@ export default function RentPage() {
   useEffect(() => {
     let cancelled = false;
     listingService.getPublished()
-      .then(async (listings) => {
-        const mapped = await Promise.all(listings.map(async (listing) => {
-          const imageEntries = await Promise.all(
-            (listing.images ?? []).map(async (image) => {
-              try {
-                return [image.storageId, await storageService.getViewUrl(image.storageId)] as const;
-              } catch {
-                return [image.storageId, ""] as const;
-              }
-            }),
-          );
-          return toRentProperty(
-            listing,
-            getListingImageUrls(listing.images ?? [], Object.fromEntries(imageEntries), "/area/hcm-1.jpg"),
-          );
-        }));
-        if (!cancelled) setProperties(mapped);
+      .then((listings) => {
+        if (!cancelled) {
+          setProperties(listings.map((listing) => toRentProperty(listing)));
+        }
       })
       .catch(() => {
         if (!cancelled) setApiError("Không thể tải danh sách tin từ API.");

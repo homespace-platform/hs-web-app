@@ -1,12 +1,8 @@
-import type { ListingImage } from "@/types/listing.type";
+import type { ListingResponse } from "@/types/listing.type";
 
-export function getListingImageUrls(
-  images: ListingImage[],
-  urlsByStorageId: Record<string, string>,
+export function getListingDisplayImages(
+  listing: Pick<ListingResponse, "imageUrls">,
   fallback: string,
 ) {
-  const urls = images
-    .map((image) => urlsByStorageId[image.storageId])
-    .filter((url): url is string => Boolean(url));
-  return urls.length ? urls : [fallback];
+  return listing.imageUrls?.length ? listing.imageUrls : [fallback];
 }

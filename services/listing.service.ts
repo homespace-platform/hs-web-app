@@ -45,14 +45,6 @@ const listingService = {
     );
     return response.data.result;
   },
-
-  async addImage(listingId: string, storageId: string, sortOrder: number, cover: boolean): Promise<ListingResponse> {
-    const response = await axiosClient.post<ApiResponse<ListingResponse>>(
-      `/api/v1/listings/${listingId}/images`,
-      { storageId, sortOrder, cover },
-    );
-    return response.data.result;
-  },
 };
 
 export default listingService;

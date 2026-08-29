@@ -1,9 +1,10 @@
 import type { RentPropertyItem } from "@/data/mock-rent-data";
 import type { ListingResponse } from "@/types/listing.type";
+import { getListingDisplayImages } from "@/lib/listing-images";
 
 const API_PLACEHOLDER_IMAGE = "/area/hcm-1.jpg";
 
-export function toRentProperty(listing: ListingResponse, imageUrls?: string[]): RentPropertyItem {
+export function toRentProperty(listing: ListingResponse): RentPropertyItem {
   const details = {
     ...(listing.details ?? {}),
     ...(listing.depositAmount != null ? { depositAmount: listing.depositAmount } : {}),
@@ -25,6 +26,7 @@ export function toRentProperty(listing: ListingResponse, imageUrls?: string[]): 
     studio: "Văn phòng / Studio",
     room: "Nhà trọ",
   }[propertyCategory];
+  const imageUrls = getListingDisplayImages(listing, API_PLACEHOLDER_IMAGE);
 
   return {
     id: listing.id,
@@ -41,13 +43,13 @@ export function toRentProperty(listing: ListingResponse, imageUrls?: string[]): 
     beds: listing.bedrooms ?? 0,
     baths: listing.bathrooms ?? 0,
     areaM2: Number(listing.areaM2 ?? 0),
-    images: imageUrls?.length ? imageUrls : [API_PLACEHOLDER_IMAGE],
+    images: imageUrls,
     isVerified: listing.status === "PUBLISHED",
-    hasVideo: false,
+    hasVideo: (listing.videoUrls?.length ?? 0) > 0,
     category: propertyCategory,
     categoryLabel,
     timeAgo: "Từ API",
-    photosCount: listing.images?.length ?? 0,
+    photosCount: imageUrls.length,
     details,
     landlord: {
       name: readDetail(details, "landlordName", "Chủ nhà"),

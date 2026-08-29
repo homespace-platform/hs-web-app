@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ImagePlus, LoaderCircle, Save, Search, X } from "lucide-react";
+import { Check, ChevronDown, ImagePlus, LoaderCircle, Save, Search, Video, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/useAuth";
 import listingService from "@/services/listing.service";
-import storageService from "@/services/storage.service";
+import listingMediaService from "@/services/listing-media.service";
 import provinceService from "@/services/province.service";
 import type { Province, Ward } from "@/types/province.type";
 import type { ListingCategory } from "@/types/listing.type";
@@ -58,8 +58,10 @@ const ALLOWED_RENTAL_MODES: Record<CategoryKey, RentalMode[]> = {
   room: ["SINGLE_UNIT", "MULTIPLE_UNITS"],
 };
 const MAX_IMAGES = 6;
+const MAX_VIDEOS = 3;
 
 type SelectedImage = { name: string; dataUrl: string; file: File };
+type SelectedVideo = { name: string; file: File };
 
 function readImage(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -87,6 +89,7 @@ export default function CreateMockListingPage() {
   const [customAmenity, setCustomAmenity] = useState("");
   const [createdListingId, setCreatedListingId] = useState("");
   const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
+  const [selectedVideos, setSelectedVideos] = useState<SelectedVideo[]>([]);
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
   const [provinceCode, setProvinceCode] = useState("79");
@@ -197,6 +200,21 @@ export default function CreateMockListingPage() {
     }
   }
 
+  async function handleVideoChange(event: ChangeEvent<HTMLInputElement>) {
+    const remainingSlots = MAX_VIDEOS - selectedVideos.length;
+    const files = Array.from(event.target.files ?? []).slice(0, remainingSlots);
+    event.target.value = "";
+    if (!files.length) {
+      if (remainingSlots === 0) toast.info(`Bạn đã chọn đủ ${MAX_VIDEOS} video.`);
+      return;
+    }
+
+    setSelectedVideos((current) => [
+      ...current,
+      ...files.map((file) => ({ name: file.name, file })),
+    ]);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
@@ -232,6 +250,16 @@ export default function CreateMockListingPage() {
 
     let listingId = "";
     try {
+      const imageUrls: string[] = [];
+      for (const image of selectedImages) {
+        imageUrls.push(await listingMediaService.uploadImage(image.file));
+      }
+
+      const videoUrls: string[] = [];
+      for (const video of selectedVideos) {
+        videoUrls.push(await listingMediaService.uploadVideo(video.file));
+      }
+
       const listing = await listingService.createDraft({
         title: String(form.get("title") ?? ""),
         category: API_CATEGORIES[selectedCategory],
@@ -291,12 +319,10 @@ export default function CreateMockListingPage() {
           viewingDays: selectedViewingDays,
           viewingSlots: selectedViewingSlots,
         },
+        imageUrls,
+        videoUrls,
       });
       listingId = listing.id;
-      for (const [index, image] of selectedImages.entries()) {
-        const storageId = await storageService.uploadPropertyImage(image.file, listing.id);
-        await listingService.addImage(listing.id, storageId, index, index === 0);
-      }
       await listingService.publish(listing.id);
       setCreatedListingId(listing.id);
       toast.success("Đã tạo và publish tin qua API.");
@@ -333,6 +359,93 @@ export default function CreateMockListingPage() {
             <Field label="Tiêu đề tin đăng" className="sm:col-span-2">
               <input name="title" required minLength={10} placeholder="Ví dụ: Phòng trọ đầy đủ nội thất gần đại học" className={inputClass} />
             </Field>
+
+            <Field label={`Hình ảnh (${selectedImages.length}/${MAX_IMAGES})`} className="sm:col-span-2">
+              <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4">
+                <label
+                  htmlFor="listing-images"
+                  className="inline-flex cursor-pointer rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  {selectedImages.length ? "Thêm ảnh" : "Chọn ảnh"}
+                </label>
+                <input
+                  id="listing-images"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  onChange={handleImageChange}
+                  className="sr-only"
+                />
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Tối đa {MAX_IMAGES} ảnh.
+                </p>
+                {selectedImages.length > 0 && (
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {selectedImages.map((image, index) => (
+                      <div key={`${image.name}-${index}`} className="group relative overflow-hidden rounded-xl border border-border bg-card">
+                        <Image src={image.dataUrl} alt={image.name} width={240} height={160} unoptimized className="h-28 w-full object-cover" />
+                        {index === 0 && (
+                          <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">
+                            Ảnh bìa
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          aria-label={`Xoá ảnh ${index + 1}`}
+                          onClick={() => setSelectedImages((current) => current.filter((_, imageIndex) => imageIndex !== index))}
+                          className="absolute right-2 top-2 rounded-full bg-black/65 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Field>
+
+            <Field label={`Video (${selectedVideos.length}/${MAX_VIDEOS})`} className="sm:col-span-2">
+              <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4">
+                <label
+                  htmlFor="listing-videos"
+                  className="inline-flex cursor-pointer rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted"
+                >
+                  {selectedVideos.length ? "Thêm video" : "Chọn video"}
+                </label>
+                <input
+                  id="listing-videos"
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime"
+                  multiple
+                  onChange={handleVideoChange}
+                  className="sr-only"
+                />
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Video là tùy chọn. Hỗ trợ MP4, WebM, MOV. Tối đa {MAX_VIDEOS} video.
+                </p>
+                {selectedVideos.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {selectedVideos.map((video, index) => (
+                      <div key={`${video.name}-${index}`} className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <Video className="h-4 w-4 shrink-0 text-primary" />
+                          <span className="truncate text-xs font-medium text-foreground">{video.name}</span>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label={`Xoá video ${index + 1}`}
+                          onClick={() => setSelectedVideos((current) => current.filter((_, videoIndex) => videoIndex !== index))}
+                          className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Field>
+
             <Field label="Loại hình">
               <select name="category" value={selectedCategory} onChange={(event) => handleCategoryChange(event.target.value as CategoryKey)} className={inputClass}>
                 {CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -740,44 +853,6 @@ export default function CreateMockListingPage() {
               />
             </Field>
             {locationError && <p className="sm:col-span-2 text-xs text-destructive">{locationError}</p>}
-            <Field label={`Hình ảnh (${selectedImages.length}/${MAX_IMAGES})`} className="sm:col-span-2">
-              <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4">
-                <label
-                  htmlFor="listing-images"
-                  className="inline-flex cursor-pointer rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
-                >
-                  {selectedImages.length ? "Thêm ảnh" : "Chọn ảnh"}
-                </label>
-                <input
-                  id="listing-images"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  onChange={handleImageChange}
-                  className="sr-only"
-                />
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  {selectedImages.length ? "Bạn có thể thêm ảnh mà không mất ảnh đã chọn." : `Chọn tối đa ${MAX_IMAGES} ảnh để tải lên cùng tin đăng.`}
-                </p>
-                {selectedImages.length > 0 && (
-                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {selectedImages.map((image, index) => (
-                      <div key={`${image.name}-${index}`} className="group relative overflow-hidden rounded-xl border border-border bg-card">
-                        <Image src={image.dataUrl} alt={image.name} width={240} height={160} unoptimized className="h-28 w-full object-cover" />
-                        <button
-                          type="button"
-                          aria-label={`Xoá ảnh ${index + 1}`}
-                          onClick={() => setSelectedImages((current) => current.filter((_, imageIndex) => imageIndex !== index))}
-                          className="absolute right-2 top-2 rounded-full bg-black/65 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Field>
             <Field label="Mô tả chi tiết" className="sm:col-span-2">
               <textarea name="description" rows={5} placeholder="Mô tả nội thất, tiện ích, điều kiện thuê..." className={`${inputClass} h-auto py-3`} />
             </Field>

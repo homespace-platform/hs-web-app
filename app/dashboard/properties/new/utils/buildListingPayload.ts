@@ -30,6 +30,7 @@ import type {
 } from "../types";
 
 export interface BuildPayloadParams {
+  id?: string | null;
   basicInfo: BasicInfoData;
   apartmentDetails: ApartmentDetailsData;
   houseDetails: HouseDetailsData;
@@ -48,6 +49,8 @@ export interface BuildPayloadParams {
   streetLine: string;
   fullAddress: string;
   uploadedMediaList: { storageObjectId: string; mediaType: "IMAGE" | "VIDEO" }[];
+  selectedViewingDays?: string[];
+  selectedViewingSlots?: string[];
 }
 
 function resolveCategory(cat: string): ListingCategory {
@@ -548,6 +551,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
         };
 
   return {
+    id: params.id || null,
     title: basicInfo.title.trim(),
     description: basicInfo.description.trim(),
     category,
@@ -567,5 +571,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
     charges,
     addressSource,
     media,
+    viewingDays: params.selectedViewingDays || [],
+    viewingSlots: params.selectedViewingSlots || [],
   };
 }

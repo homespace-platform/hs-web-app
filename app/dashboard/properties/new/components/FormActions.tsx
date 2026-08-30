@@ -6,6 +6,8 @@ interface FormActionsProps {
   onValidateForm: () => void;
   onSubmit: () => void;
   isSubmitting?: boolean;
+  submitLabel?: string;
+  loadingLabel?: string;
 }
 
 export default function FormActions({
@@ -13,6 +15,8 @@ export default function FormActions({
   onValidateForm,
   onSubmit,
   isSubmitting = false,
+  submitLabel = "Đăng tin",
+  loadingLabel = "Đang đăng tin...",
 }: FormActionsProps) {
   return (
     <div className="sticky bottom-4 z-20 flex flex-col gap-3 rounded-2xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
@@ -51,12 +55,12 @@ export default function FormActions({
           {isSubmitting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Đang đăng tin...</span>
+              <span>{loadingLabel}</span>
             </>
           ) : (
             <>
               <Save className="h-4 w-4" />
-              <span>Đăng tin</span>
+              <span>{submitLabel}</span>
             </>
           )}
         </button>

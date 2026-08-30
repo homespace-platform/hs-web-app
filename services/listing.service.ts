@@ -1,13 +1,15 @@
 import axios from "axios";
 import axiosClient from "@/lib/axios-client";
 import keycloak from "@/lib/keycloak";
-import type { ApiResponse } from "@/types/api.type";
+import type { ApiResponse, PageResponse } from "@/types/api.type";
 import type {
   CreateListingRequest,
   CreateListingResponse,
   ListingCategory,
+  ListingDetailResponse,
   ListingOptionsResponse,
   ListingResponse,
+  MyListingSummaryResponse,
 } from "@/types/listing.type";
 
 type ListingPageResponse = ApiResponse<ListingResponse[]> & {
@@ -26,8 +28,19 @@ const listingService = {
     );
     return response.data.result;
   },
-  async getById(listingId: string): Promise<ListingResponse> {
-    const response = await axiosClient.get<ApiResponse<ListingResponse>>(
+
+  async getMyListings(page = 1): Promise<PageResponse<MyListingSummaryResponse>> {
+    const response = await axiosClient.get<PageResponse<MyListingSummaryResponse>>(
+      "/api/v1/listings/me",
+      {
+        params: { page },
+      },
+    );
+    return response.data;
+  },
+
+  async getById(listingId: string): Promise<ListingDetailResponse> {
+    const response = await axiosClient.get<ApiResponse<ListingDetailResponse>>(
       `/api/v1/listings/${listingId}`,
     );
     return response.data.result;
@@ -44,20 +57,16 @@ const listingService = {
     return response.data.result ?? [];
   },
 
-  async create(request: CreateListingRequest): Promise<CreateListingResponse> {
+  async upsert(request: CreateListingRequest): Promise<CreateListingResponse> {
     const response = await axiosClient.post<ApiResponse<CreateListingResponse>>(
-      "/api/v1/listings",
+      "/api/v1/listings/upsert",
       request,
     );
     return response.data.result;
   },
 
-  async createDraft(request: CreateListingRequest): Promise<CreateListingResponse> {
-    const response = await axiosClient.post<ApiResponse<CreateListingResponse>>(
-      "/api/v1/listings",
-      request,
-    );
-    return response.data.result;
+  async create(request: CreateListingRequest): Promise<CreateListingResponse> {
+    return this.upsert(request);
   },
 
   async publish(listingId: string): Promise<ListingResponse> {

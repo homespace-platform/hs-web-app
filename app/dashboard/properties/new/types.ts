@@ -40,12 +40,15 @@ export type RoomSubtype =
 export type SelectedMediaImage = {
   name: string;
   dataUrl: string;
-  file: File;
+  file?: File;
+  storageObjectId?: string;
 };
 
 export type SelectedMediaVideo = {
   name: string;
-  file: File;
+  file?: File;
+  url?: string;
+  storageObjectId?: string;
 };
 
 export type DepositType = "NONE" | "AMOUNT" | "MONTHS" | "NEGOTIATE";

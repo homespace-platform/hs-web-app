@@ -344,7 +344,7 @@ export default function Header() {
                 <div className="hidden items-center gap-2 sm:flex">
                   {isDashboard ? (
                     <Link
-                      href="/dashboard/properties/new"
+                      href="/dashboard/properties/upsert"
                       className="h-10 px-4 rounded-full border border-border bg-card text-foreground hover:bg-muted text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <Plus className="w-4 h-4 text-muted-foreground" />
@@ -586,7 +586,7 @@ export default function Header() {
         <div className="fixed top-[88px] right-4 z-40 flex gap-2 sm:hidden select-none animate-in fade-in-50 duration-200">
           {isDashboard ? (
             <Link
-              href="/dashboard/properties/new"
+              href="/dashboard/properties/upsert"
               className="h-9 px-3.5 rounded-full border border-border bg-card/95 backdrop-blur-md shadow-md text-foreground hover:bg-muted text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5 text-muted-foreground" />

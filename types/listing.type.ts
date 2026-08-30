@@ -266,6 +266,7 @@ export type ListingMediaRequest = {
 };
 
 export type CreateListingRequest = {
+  id?: string | null;
   title: string;
   description: string;
   category: ListingCategory;
@@ -285,6 +286,8 @@ export type CreateListingRequest = {
   charges?: ListingChargeRequest[];
   addressSource: ListingAddressSourceRequest;
   media: ListingMediaRequest[];
+  viewingDays?: string[];
+  viewingSlots?: string[];
 };
 
 export type CreateListingResponse = {
@@ -292,6 +295,90 @@ export type CreateListingResponse = {
   status: "DRAFT" | "PUBLISHED" | "RENTED" | "ARCHIVED";
   title: string;
   publishedAt: string;
+};
+
+export type MyListingSummaryResponse = {
+  id: string;
+  title: string;
+  category: ListingCategory;
+  subtype: ListingSubtype;
+  status: "DRAFT" | "PUBLISHED" | "RENTED" | "ARCHIVED";
+  availableFrom: string;
+  areaM2: number;
+  priceAmount: number;
+  currency: string;
+  priceUnit: PriceUnit;
+  negotiable: boolean;
+  coverImageUrl?: string | null;
+  coverStorageObjectId?: string | null;
+  mediaCount: number;
+  fullAddress: string;
+  publishedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type ListingOptionItemResponse = {
+  code: string;
+  name: string;
+  icon?: string | null;
+};
+
+export type ListingMediaResponse = {
+  id: string;
+  storageObjectId: string;
+  mediaType: ListingMediaType;
+  sortOrder: number;
+  cover: boolean;
+  url: string;
+  contentType: string;
+  sizeBytes: number;
+};
+
+export type ListingAddressResponse = {
+  id?: string;
+  listingId?: string;
+  provinceCode: string;
+  provinceName: string;
+  wardCode: string;
+  wardName: string;
+  streetLine: string;
+  fullAddress?: string;
+};
+
+export type ListingDetailResponse = {
+  id: string;
+  ownerId: string;
+  title: string;
+  description: string;
+  category: ListingCategory;
+  subtype: ListingSubtype;
+  rentalMode: RentalMode;
+  status: "DRAFT" | "PUBLISHED" | "RENTED" | "ARCHIVED";
+  availableFrom: string;
+  areaM2: number;
+  pricing: ListingPricingRequest;
+  apartmentDetail?: ApartmentDetailRequest | null;
+  houseDetail?: HouseDetailRequest | null;
+  officeDetail?: OfficeDetailRequest | null;
+  commercialDetail?: CommercialDetailRequest | null;
+  roomDetail?: RoomDetailRequest | null;
+  amenities: ListingOptionItemResponse[];
+  customAmenities: string[];
+  furnishings: ListingOptionItemResponse[];
+  charges: ListingChargeRequest[];
+  address?: ListingAddressResponse | null;
+  owner?: ListingOwner | null;
+  media: ListingMediaResponse[];
+  imageUrls?: string[];
+  viewingDays?: string[];
+  viewingSlots?: string[];
+  active: boolean;
+  publishedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  createdBy?: string | null;
+  updatedBy?: string | null;
 };
 
 export type ListingOptionItem = {

@@ -60,23 +60,11 @@ export function getRentDetailSections(
     office: [],
     villa: [],
   }[property.category];
-  const isHouseUnit = property.category === "house"
-    && details.rentalMode !== undefined
-    && details.rentalMode !== "WHOLE_PROPERTY";
-
   const sections: RentDetailSection[] = [
-    { title: categoryTitle(property.category), items: clean(isHouseUnit ? [] : categoryItems) },
+    { title: categoryTitle(property.category), items: clean(categoryItems) },
     {
       title: "Điều kiện thuê",
       items: clean([
-        detail("Hình thức thuê", label(details.rentalMode, {
-          WHOLE_PROPERTY: "Nguyên căn / nguyên mặt bằng",
-          SINGLE_UNIT: "Một phòng / một căn",
-          MULTIPLE_UNITS: "Nhiều phòng / nhiều căn",
-        })),
-        detail("Đơn vị cho thuê", details.unitLabel),
-        detail("Tổng số đơn vị", details.totalUnits),
-        detail("Đơn vị còn trống", details.availableUnits),
         detail("Tiền cọc", details.depositAmount, "", true),
         detail("Thuê tối thiểu", details.minimumLeaseMonths, " tháng"),
         ...(property.category === "house" || property.category === "room"
@@ -95,43 +83,6 @@ export function getRentDetailSections(
       ]),
     },
   ];
-
-  if (isHouseUnit) {
-    sections.splice(1, 0, {
-      title: "Thông tin phòng",
-      items: clean([
-        detail("Tầng phòng", details.roomFloor),
-        detail("WC của phòng", label(details.privateBathroom, { PRIVATE: "WC riêng trong phòng", SHARED: "WC dùng chung" })),
-        detail("Nội thất phòng", label(details.roomFurnishing, FURNISHING_LABELS)),
-        detail("Cửa sổ / ban công", label(details.roomHasWindow, { YES: "Có", NO: "Không" })),
-        detail("Ở chung với chủ nhà", label(details.sharedWithOwner, { YES: "Có", NO: "Không" })),
-      ]),
-    });
-    sections.splice(1, 0, {
-      title: "Thông tin tổng thể căn nhà",
-      items: clean([
-        detail("Phòng khách dùng chung", details.livingRooms, " phòng"),
-        detail("Phòng bếp dùng chung", details.kitchens, " phòng"),
-        detail("Sân thượng", booleanLabel(details.hasRooftopTerrace)),
-        detail("Tổng số tầng", details.totalFloors),
-        detail("Nội thất chung", label(details.furnishing, FURNISHING_LABELS)),
-        detail("Pháp lý", label(details.legalStatus, LEGAL_LABELS)),
-      ]),
-    });
-  }
-
-  if (property.category === "room" && details.rentalMode === "MULTIPLE_UNITS") {
-    sections.splice(1, 0, {
-      title: "Thông tin tổng thể dãy trọ",
-      items: clean([
-        detail("Tổng số tầng", details.totalFloors),
-        detail("Giờ mở cửa / ra vào", details.openingHours),
-        detail("Giờ giới nghiêm", details.curfew),
-        detail("Bếp dùng chung", label(details.sharedKitchen, { YES: "Có", NO: "Không" })),
-        detail("Chỗ để xe chung", label(details.sharedParking, { YES: "Có", NO: "Không" })),
-      ]),
-    });
-  }
 
   return sections.filter((section) => section.items.length);
 }

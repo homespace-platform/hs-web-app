@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ImagePlus, LoaderCircle, Save, Search, Video, X } from "lucide-react";
+import { Check, ChevronDown, ImagePlus, LoaderCircle, MapPin, Save, Search, Video, X } from "lucide-react";
+import AddressMapPreview from "@/components/address/AddressMapPreview";
 import { toast } from "sonner";
 import axios from "axios";
 import { useAuth } from "@/features/auth/useAuth";
@@ -12,7 +13,10 @@ import listingService from "@/services/listing.service";
 import listingMediaService from "@/services/listing-media.service";
 import provinceService from "@/services/province.service";
 import type { Province, Ward } from "@/types/province.type";
-import type { ListingCategory } from "@/types/listing.type";
+import type { ListingCategory, ListingAddress } from "@/types/listing.type";
+import type { UserAddress } from "@/types/user.type";
+
+type AddressMode = "saved" | "new";
 
 const CATEGORIES = [
   ["apartment", "Căn hộ / Chung cư"],
@@ -77,7 +81,6 @@ export default function CreateMockListingPage() {
   const router = useRouter();
   const { profile } = useAuth();
   const [submitting, setSubmitting] = useState(false);
-  const [landlordName, setLandlordName] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<CategoryKey>("room");
   const [rentalMode, setRentalMode] = useState<RentalMode>("SINGLE_UNIT");
   const [unitLabel, setUnitLabel] = useState("phòng");
@@ -101,6 +104,15 @@ export default function CreateMockListingPage() {
   const [wardLoading, setWardLoading] = useState(true);
   const [locationError, setLocationError] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const [streetLine, setStreetLine] = useState("");
+  const savedUserAddress = profile?.address ?? null;
+  const [addressMode, setAddressMode] = useState<AddressMode>("new");
+
+  useEffect(() => {
+    if (savedUserAddress) {
+      setAddressMode("saved");
+    }
+  }, [savedUserAddress?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,11 +158,17 @@ export default function CreateMockListingPage() {
 
   const selectedProvince = provinces.find((province) => String(province.code) === provinceCode);
   const selectedWard = wards.find((ward) => String(ward.code) === wardCode);
-  const profileDisplayName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ").trim() || profile?.username;
   const categoryLabel = CATEGORIES.find(([value]) => value === selectedCategory)?.[1] ?? "Nhà cho thuê";
   const availableRentalModes = RENTAL_MODES.filter((mode) => ALLOWED_RENTAL_MODES[selectedCategory].includes(mode.value));
   const isUnitRental = rentalMode !== "WHOLE_PROPERTY";
   const isMultipleUnits = rentalMode === "MULTIPLE_UNITS";
+  const previewFullAddress = useMemo(() => {
+    if (addressMode === "saved" && savedUserAddress) {
+      return savedUserAddress.fullAddress
+        || [savedUserAddress.streetLine, savedUserAddress.wardName, savedUserAddress.provinceName].filter(Boolean).join(", ");
+    }
+    return [streetLine.trim(), selectedWard?.name, selectedProvince?.name].filter(Boolean).join(", ");
+  }, [addressMode, savedUserAddress, streetLine, selectedWard?.name, selectedProvince?.name]);
   const usesParkingFeePolicy = selectedCategory === "room" || (selectedCategory === "house" && isUnitRental);
 
   function defaultUnitLabel(category: CategoryKey) {
@@ -176,16 +194,6 @@ export default function CreateMockListingPage() {
     setSpacePosition("GROUND_LEVEL");
     setParkingPolicy("NONE");
     setSubmitError("");
-
-    const extraRequired =
-      category === "apartment"
-        ? "Vui lòng nhập số phòng ngủ và phòng tắm trong phần Thông tin chi tiết."
-        : category === "house"
-          ? "Nếu cho thuê nguyên căn, hãy nhập số phòng ngủ và phòng tắm trong phần Thông tin chi tiết."
-          : category === "office"
-            ? "Vui lòng nhập số nhà vệ sinh trong phần Thông tin chi tiết."
-            : null;
-    if (extraRequired) toast.info(extraRequired);
   }
 
   function addCustomAmenity() {
@@ -241,19 +249,63 @@ export default function CreateMockListingPage() {
     ]);
   }
 
+  function resolveListingAddress(): ListingAddress | null {
+    if (addressMode === "saved" && savedUserAddress) {
+      return {
+        provinceCode: savedUserAddress.provinceCode,
+        provinceName: savedUserAddress.provinceName,
+        wardCode: savedUserAddress.wardCode,
+        wardName: savedUserAddress.wardName,
+        streetLine: savedUserAddress.streetLine,
+      };
+    }
+
+    if (!selectedProvince || !provinceCode || !selectedWard || !wardCode) return null;
+    const normalizedStreetLine = streetLine.trim();
+    if (!normalizedStreetLine) return null;
+
+    return {
+      provinceCode,
+      provinceName: selectedProvince.name,
+      wardCode,
+      wardName: selectedWard.name,
+      streetLine: normalizedStreetLine,
+    };
+  }
+
+  function switchToNewAddressMode(prefill?: UserAddress) {
+    setAddressMode("new");
+    if (!prefill) return;
+    setStreetLine(prefill.streetLine);
+    setProvinceCode(prefill.provinceCode);
+    setProvinceQuery(prefill.provinceName);
+    setWardCode(prefill.wardCode);
+    setWardQuery(prefill.wardName);
+    setWardLoading(true);
+    provinceService.getCurrentWardsByProvince(prefill.provinceCode)
+      .then((data) => {
+        setWards(data);
+        setWardLoading(false);
+      })
+      .catch(() => {
+        setWards([]);
+        setWardLoading(false);
+      });
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
 
     const form = new FormData(event.currentTarget);
+    const listingAddress = resolveListingAddress();
     const validationError = validateForm(form, {
       selectedCategory,
       isUnitRental,
       isMultipleUnits,
-      provinceCode,
-      wardCode,
-      selectedProvince,
-      selectedWard,
+      listingAddress,
+      addressMode,
+      hasSavedUserAddress: Boolean(savedUserAddress),
       selectedViewingDays,
       selectedViewingSlots,
     });
@@ -267,10 +319,11 @@ export default function CreateMockListingPage() {
     setSubmitError("");
     setSubmitting(true);
 
-    if (!selectedProvince || !selectedWard) {
-      const message = "Vui lòng chọn tỉnh/thành và phường/xã.";
+    if (!listingAddress) {
+      const message = "Vui lòng chọn hoặc nhập địa chỉ cho tin đăng.";
       setSubmitError(message);
       toast.error(message);
+      scrollToFormField("listing-location");
       setSubmitting(false);
       return;
     }
@@ -315,15 +368,9 @@ export default function CreateMockListingPage() {
         areaM2: Number(form.get("areaM2")),
         bedrooms: optionalNumber(form, "beds"),
         bathrooms: optionalNumber(form, "baths"),
-        address: String(form.get("address") ?? ""),
-        provinceCode,
-        wardCode,
+        address: listingAddress,
         description: String(form.get("description") ?? "").trim() || undefined,
         details: {
-          provinceName: selectedProvince.name,
-          wardName: selectedWard.name,
-          landlordName: String(form.get("landlordName") ?? ""),
-          phone: String(form.get("phone") ?? ""),
           livingRooms: optionalNumber(form, "livingRooms"),
           kitchens: optionalNumber(form, "kitchens"),
           balconies: optionalNumber(form, "balconies"),
@@ -858,63 +905,110 @@ export default function CreateMockListingPage() {
 
         <section id="listing-location" className="rounded-2xl border border-border bg-card p-5 shadow-2xs sm:p-6">
           <h2 className="text-base font-bold text-foreground">Vị trí</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Chọn hoặc nhập địa chỉ cho tin đăng. Bản đồ chỉ để xem trước, không lưu tọa độ.
+          </p>
+          {savedUserAddress && (
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setAddressMode("saved")}
+                className={`rounded-xl border px-4 py-2.5 text-left text-xs font-semibold transition-colors ${addressMode === "saved" ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted/20 text-muted-foreground hover:border-primary/60"}`}
+              >
+                Dùng địa chỉ đã lưu trong cài đặt
+              </button>
+              <button
+                type="button"
+                onClick={() => switchToNewAddressMode(savedUserAddress)}
+                className={`rounded-xl border px-4 py-2.5 text-left text-xs font-semibold transition-colors ${addressMode === "new" ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted/20 text-muted-foreground hover:border-primary/60"}`}
+              >
+                Nhập địa chỉ mới cho tin đăng
+              </button>
+            </div>
+          )}
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Địa chỉ">
-              <input name="address" required placeholder="12 Nguyễn Huệ" className={inputClass} />
-            </Field>
-            <Field label="Tỉnh / Thành phố">
-              <SearchableLocationField
-                name="provinceName"
-                placeholder="Tìm tỉnh/thành phố..."
-                value={provinceQuery}
-                onChange={(value) => {
-                  setProvinceQuery(value);
-                  if (value !== selectedProvince?.name) {
-                    setProvinceCode("");
-                    setWardCode("");
-                    setWardQuery("");
-                    setWards([]);
-                  }
-                }}
-                open={openLocation === "province"}
-                onOpen={() => {
-                  setOpenLocation("province");
-                  setProvinceQuery("");
-                }}
-                options={provinces.filter((province) => matchesLocation(province, provinceQuery))}
-                selectedCode={provinceCode}
-                onSelect={handleProvinceSelect}
-                disabled={!provinces.length}
-                emptyText="Không tìm thấy tỉnh/thành phố"
-              />
-            </Field>
-            <Field label="Phường / Xã">
-              <SearchableLocationField
-                name="wardCode"
-                placeholder={wardLoading ? "Đang tải phường/xã..." : "Tìm phường/xã..."}
-                value={wardQuery}
-                onChange={(value) => {
-                  setWardQuery(value);
-                  if (value !== selectedWard?.name) {
-                    setWardCode("");
-                  }
-                }}
-                open={openLocation === "ward"}
-                onOpen={() => {
-                  setOpenLocation("ward");
-                  setWardQuery("");
-                }}
-                options={wards.filter((ward) => matchesLocation(ward, wardQuery))}
-                selectedCode={wardCode}
-                onSelect={(ward) => {
-                  setWardCode(String(ward.code));
-                  setWardQuery(ward.name);
-                  setOpenLocation(null);
-                }}
-                disabled={wardLoading || !wards.length}
-                emptyText="Không tìm thấy phường/xã"
-              />
-            </Field>
+            {addressMode === "saved" && savedUserAddress ? (
+              <div className="sm:col-span-2 rounded-xl border border-border bg-muted/20 px-4 py-3">
+                <p className="text-xs font-semibold text-foreground">Địa chỉ sẽ gắn với tin đăng này</p>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Hệ thống sẽ tạo bản ghi địa chỉ riêng cho tin đăng, không thay đổi địa chỉ trong cài đặt.
+                </p>
+              </div>
+            ) : (
+              <>
+                <Field label="Địa chỉ">
+                  <input
+                    name="streetLine"
+                    value={streetLine}
+                    onChange={(event) => setStreetLine(event.target.value)}
+                    placeholder="12 Nguyễn Huệ"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Tỉnh / Thành phố">
+                  <SearchableLocationField
+                    name="provinceName"
+                    placeholder="Tìm tỉnh/thành phố..."
+                    value={provinceQuery}
+                    onChange={(value) => {
+                      setProvinceQuery(value);
+                      if (value !== selectedProvince?.name) {
+                        setProvinceCode("");
+                        setWardCode("");
+                        setWardQuery("");
+                        setWards([]);
+                      }
+                    }}
+                    open={openLocation === "province"}
+                    onOpen={() => {
+                      setOpenLocation("province");
+                      setProvinceQuery("");
+                    }}
+                    options={provinces.filter((province) => matchesLocation(province, provinceQuery))}
+                    selectedCode={provinceCode}
+                    onSelect={handleProvinceSelect}
+                    disabled={!provinces.length}
+                    emptyText="Không tìm thấy tỉnh/thành phố"
+                  />
+                </Field>
+                <Field label="Phường / Xã">
+                  <SearchableLocationField
+                    name="wardCode"
+                    placeholder={wardLoading ? "Đang tải phường/xã..." : "Tìm phường/xã..."}
+                    value={wardQuery}
+                    onChange={(value) => {
+                      setWardQuery(value);
+                      if (value !== selectedWard?.name) {
+                        setWardCode("");
+                      }
+                    }}
+                    open={openLocation === "ward"}
+                    onOpen={() => {
+                      setOpenLocation("ward");
+                      setWardQuery("");
+                    }}
+                    options={wards.filter((ward) => matchesLocation(ward, wardQuery))}
+                    selectedCode={wardCode}
+                    onSelect={(ward) => {
+                      setWardCode(String(ward.code));
+                      setWardQuery(ward.name);
+                      setOpenLocation(null);
+                    }}
+                    disabled={wardLoading || !wards.length}
+                    emptyText="Không tìm thấy phường/xã"
+                  />
+                </Field>
+              </>
+            )}
+            {previewFullAddress && (
+              <div className="sm:col-span-2 space-y-3">
+                <div className="flex items-start gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs font-medium text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-100">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                  <span>{previewFullAddress}</span>
+                </div>
+                <AddressMapPreview fullAddress={previewFullAddress} />
+              </div>
+            )}
             {locationError && <p className="sm:col-span-2 text-xs text-destructive">{locationError}</p>}
             <Field label="Mô tả chi tiết" className="sm:col-span-2">
               <textarea name="description" rows={5} placeholder="Mô tả nội thất, tiện ích, điều kiện thuê..." className={`${inputClass} h-auto py-3`} />
@@ -923,21 +1017,9 @@ export default function CreateMockListingPage() {
         </section>
 
         <section className="rounded-2xl border border-border bg-card p-5 shadow-2xs sm:p-6">
-          <div className="flex items-center gap-2">
-            <ImagePlus className="h-4 w-4 text-primary" />
-            <h2 className="text-base font-bold text-foreground">Thông tin liên hệ</h2>
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Tên người đăng">
-              <input name="landlordName" value={landlordName ?? profileDisplayName ?? "Bạn"} onChange={(event) => setLandlordName(event.target.value)} className={inputClass} />
-            </Field>
-            <Field label="Số điện thoại">
-              <input name="phone" inputMode="tel" placeholder="0901234567" className={inputClass} />
-            </Field>
-          </div>
-          <div id="viewing-schedule" className={`mt-6 space-y-4 border-t pt-5 transition-colors ${submitError.includes("buổi") || submitError.includes("ngày") ? "border-destructive/40" : "border-border"}`}>
+          <div id="viewing-schedule" className={`space-y-4 transition-colors ${submitError.includes("buổi") || submitError.includes("ngày") ? "border-destructive/40" : ""}`}>
             <div>
-              <h3 className="text-sm font-bold text-foreground">Lịch xem nhà <span className="text-destructive">*</span></h3>
+              <h2 className="text-base font-bold text-foreground">Lịch xem nhà <span className="text-destructive">*</span></h2>
               <p className="mt-1 text-xs text-muted-foreground">Chọn ít nhất một ngày và một buổi (sáng / chiều / tối) bạn sẵn sàng cho khách xem nhà.</p>
             </div>
             <div>
@@ -1037,10 +1119,9 @@ function validateForm(
     selectedCategory: CategoryKey;
     isUnitRental: boolean;
     isMultipleUnits: boolean;
-    provinceCode: string;
-    wardCode: string;
-    selectedProvince: Province | undefined;
-    selectedWard: Ward | undefined;
+    listingAddress: ListingAddress | null;
+    addressMode: AddressMode;
+    hasSavedUserAddress: boolean;
     selectedViewingDays: string[];
     selectedViewingSlots: string[];
   },
@@ -1054,14 +1135,11 @@ function validateForm(
   const priceMillion = optionalNumber(form, "priceMillion");
   if (!priceMillion || priceMillion <= 0) return { message: "Vui lòng nhập giá thuê (triệu/tháng).", focusId: "listing-pricing" };
 
-  const address = String(form.get("address") ?? "").trim();
-  if (!address) return { message: "Vui lòng nhập địa chỉ.", focusId: "listing-location" };
-
-  if (!context.selectedProvince || !context.provinceCode) {
-    return { message: "Vui lòng chọn tỉnh/thành phố từ danh sách (click vào tên trong dropdown).", focusId: "listing-location" };
-  }
-  if (!context.selectedWard || !context.wardCode) {
-    return { message: "Vui lòng chọn phường/xã từ danh sách (click vào tên trong dropdown).", focusId: "listing-location" };
+  if (!context.listingAddress) {
+    if (context.addressMode === "saved" && context.hasSavedUserAddress) {
+      return { message: "Không tải được địa chỉ đã lưu. Vui lòng nhập địa chỉ mới.", focusId: "listing-location" };
+    }
+    return { message: "Vui lòng nhập đầy đủ địa chỉ, tỉnh/thành và phường/xã cho tin đăng.", focusId: "listing-location" };
   }
 
   if (!context.selectedViewingDays.length) {

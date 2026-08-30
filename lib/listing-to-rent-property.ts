@@ -9,8 +9,10 @@ export function toRentProperty(listing: ListingResponse): RentPropertyItem {
     ...(listing.details ?? {}),
     ...(listing.depositAmount != null ? { depositAmount: listing.depositAmount } : {}),
   };
-  const provinceName = readDetail(details, "provinceName", listing.provinceCode ?? "");
-  const wardName = readDetail(details, "wardName", listing.wardCode ?? "");
+  const address = listing.address;
+  const provinceName = address?.provinceName ?? "";
+  const wardName = address?.wardName ?? "";
+  const streetLine = address?.streetLine ?? "";
   const category = {
     APARTMENT: "apartment",
     HOUSE: "house",
@@ -32,12 +34,12 @@ export function toRentProperty(listing: ListingResponse): RentPropertyItem {
     id: listing.id,
     title: listing.title,
     description: listing.description ?? undefined,
-    location: [listing.address, wardName, provinceName].filter(Boolean).join(", "),
+    location: address?.fullAddress ?? [streetLine, wardName, provinceName].filter(Boolean).join(", "),
     district: wardName,
     ward: wardName,
-    provinceCode: listing.provinceCode,
+    provinceCode: address?.provinceCode,
     provinceName,
-    wardCode: listing.wardCode,
+    wardCode: address?.wardCode,
     city: provinceName,
     priceMillion: Number(listing.priceMonthly ?? 0) / 1_000_000,
     beds: listing.bedrooms ?? 0,
@@ -52,14 +54,11 @@ export function toRentProperty(listing: ListingResponse): RentPropertyItem {
     photosCount: imageUrls.length,
     details,
     landlord: {
-      name: readDetail(details, "landlordName", "Chủ nhà"),
+      name: listing.owner?.displayName ?? "Chủ nhà",
       role: "Chính chủ",
       listingsCount: 1,
-      phone: readDetail(details, "phone", "") || undefined,
+      phone: listing.owner?.phone || undefined,
+      avatar: listing.owner?.avatarUrl || undefined,
     },
   };
-}
-
-function readDetail(details: Record<string, unknown>, key: string, fallback: string) {
-  return typeof details[key] === "string" ? details[key] : fallback;
 }

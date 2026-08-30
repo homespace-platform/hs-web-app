@@ -5,6 +5,7 @@ import axios from "axios";
 import { Check, LoaderCircle, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import SearchableSelect from "@/components/ui/searchable-select";
+import AddressMapPreview from "@/components/address/AddressMapPreview";
 import provinceService from "@/services/province.service";
 import userService from "@/services/user.service";
 import type { Province, Ward } from "@/types/province.type";
@@ -17,10 +18,6 @@ type AddressEditorProps = {
 
 function codeOf(value: string | number) {
   return String(value);
-}
-
-function mapsEmbedSrc(query: string) {
-  return `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
 }
 
 export default function AddressEditor({ initialAddress, onSaved }: AddressEditorProps) {
@@ -183,28 +180,7 @@ export default function AddressEditor({ initialAddress, onSaved }: AddressEditor
         </div>
       )}
 
-      {fullAddress && (
-        <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
-            Xác nhận vị trí trên bản đồ
-          </p>
-          <div className="overflow-hidden rounded-xl border border-border">
-            <iframe
-              key={fullAddress}
-              title="Xác nhận vị trí địa chỉ"
-              width="100%"
-              height="280"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              className="border-0"
-              src={mapsEmbedSrc(`${fullAddress}, Việt Nam`)}
-            />
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Kiểm tra vị trí trên bản đồ có đúng địa chỉ nhà của bạn không.
-          </p>
-        </div>
-      )}
+      {fullAddress && <AddressMapPreview fullAddress={fullAddress} />}
 
       <div className="flex justify-end pt-1">
         <button

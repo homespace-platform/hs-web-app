@@ -2,6 +2,17 @@ export type ListingCategory = "APARTMENT" | "HOUSE" | "ROOM" | "STUDIO" | "COMME
 
 export type ListingMediaType = "IMAGE" | "VIDEO";
 
+export type ListingAddress = {
+  id?: string;
+  listingId?: string;
+  provinceCode: string;
+  provinceName: string;
+  wardCode: string;
+  wardName: string;
+  streetLine: string;
+  fullAddress?: string;
+};
+
 export type CreateListingRequest = {
   title: string;
   description?: string;
@@ -11,9 +22,7 @@ export type CreateListingRequest = {
   areaM2?: number;
   bedrooms?: number;
   bathrooms?: number;
-  provinceCode?: string;
-  wardCode?: string;
-  address?: string;
+  address: ListingAddress;
   details?: Record<string, unknown>;
   imageUrls?: string[];
   videoUrls?: string[];
@@ -45,9 +54,17 @@ export type CompleteListingMediaUploadResponse = {
   sizeBytes: number;
 };
 
+export type ListingOwner = {
+  id: string;
+  displayName: string;
+  phone?: string;
+  avatarUrl?: string;
+};
+
 export type ListingResponse = CreateListingRequest & {
   id: string;
   ownerId: string;
+  owner?: ListingOwner | null;
   status: "DRAFT" | "PUBLISHED" | "RENTED" | "ARCHIVED";
   imageUrls: string[];
   videoUrls: string[];

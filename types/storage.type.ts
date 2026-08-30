@@ -1,4 +1,9 @@
-export type StoragePurpose = "USER_AVATAR";
+export type StoragePurpose =
+  | "USER_AVATAR"
+  | "CONTRACT_DOCUMENT"
+  | "IDENTITY_DOCUMENT"
+  | "CHAT_ATTACHMENT"
+  | "GENERAL";
 
 export type StorageVisibility = "PUBLIC" | "PRIVATE";
 

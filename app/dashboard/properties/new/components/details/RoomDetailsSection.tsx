@@ -3,21 +3,23 @@ import { Check } from "lucide-react";
 import FormField, { inputClass, selectClass } from "../FormField";
 import FormSectionWrapper from "../FormSectionWrapper";
 import {
-  ROOM_FURNITURE_LIST,
   FURNISHING_OPTIONS,
 } from "../../constants";
+import type { ListingOptionItem } from "@/types/listing.type";
 import type { RoomDetailsData, FormErrors } from "../../types";
 
 interface RoomDetailsSectionProps {
   data: RoomDetailsData;
   errors: FormErrors;
   onChange: (updates: Partial<RoomDetailsData>) => void;
+  furnishingOptions: ListingOptionItem[];
 }
 
 export default function RoomDetailsSection({
   data,
   errors,
   onChange,
+  furnishingOptions,
 }: RoomDetailsSectionProps) {
   function toggleFurniture(item: string) {
     const list = data.selectedFurniture || [];
@@ -197,13 +199,13 @@ export default function RoomDetailsSection({
           className="sm:col-span-2"
         >
           <div className="flex flex-wrap gap-2">
-            {ROOM_FURNITURE_LIST.map((item) => {
-              const selected = (data.selectedFurniture || []).includes(item);
+            {furnishingOptions.map((item) => {
+              const selected = (data.selectedFurniture || []).includes(item.code);
               return (
                 <button
-                  key={item}
+                  key={item.code}
                   type="button"
-                  onClick={() => toggleFurniture(item)}
+                  onClick={() => toggleFurniture(item.code)}
                   className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
                     selected
                       ? "border-primary bg-primary text-primary-foreground shadow-2xs"
@@ -211,7 +213,7 @@ export default function RoomDetailsSection({
                   }`}
                 >
                   {selected && <Check className="h-3 w-3" />}
-                  {item}
+                  {item.name}
                 </button>
               );
             })}

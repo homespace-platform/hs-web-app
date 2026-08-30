@@ -39,6 +39,18 @@ const storageService = {
       referenceId: userId,
     });
   },
+
+  async uploadListingMedia(file: File, referenceId = "listing"): Promise<string> {
+    return uploadFile(file, {
+      fileName: file.name,
+      contentType: file.type,
+      size: file.size,
+      purpose: "GENERAL",
+      visibility: "PUBLIC",
+      referenceType: "LISTING",
+      referenceId,
+    });
+  },
 };
 
 export default storageService;

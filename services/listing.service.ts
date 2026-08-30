@@ -2,7 +2,13 @@ import axios from "axios";
 import axiosClient from "@/lib/axios-client";
 import keycloak from "@/lib/keycloak";
 import type { ApiResponse } from "@/types/api.type";
-import type { CreateListingRequest, ListingResponse } from "@/types/listing.type";
+import type {
+  CreateListingRequest,
+  CreateListingResponse,
+  ListingCategory,
+  ListingOptionsResponse,
+  ListingResponse,
+} from "@/types/listing.type";
 
 type ListingPageResponse = ApiResponse<ListingResponse[]> & {
   page: number;
@@ -13,6 +19,13 @@ type ListingPageResponse = ApiResponse<ListingResponse[]> & {
 };
 
 const listingService = {
+  async getPublicOptions(category: ListingCategory): Promise<ListingOptionsResponse> {
+    const response = await axios.get<ApiResponse<ListingOptionsResponse>>(
+      `${process.env.NEXT_PUBLIC_GATEWAY_BASE_URL}/api/v1/public/listing-catalog`,
+      { params: { category } },
+    );
+    return response.data.result;
+  },
   async getById(listingId: string): Promise<ListingResponse> {
     const response = await axiosClient.get<ApiResponse<ListingResponse>>(
       `/api/v1/listings/${listingId}`,
@@ -31,8 +44,16 @@ const listingService = {
     return response.data.result ?? [];
   },
 
-  async createDraft(request: CreateListingRequest): Promise<ListingResponse> {
-    const response = await axiosClient.post<ApiResponse<ListingResponse>>(
+  async create(request: CreateListingRequest): Promise<CreateListingResponse> {
+    const response = await axiosClient.post<ApiResponse<CreateListingResponse>>(
+      "/api/v1/listings",
+      request,
+    );
+    return response.data.result;
+  },
+
+  async createDraft(request: CreateListingRequest): Promise<CreateListingResponse> {
+    const response = await axiosClient.post<ApiResponse<CreateListingResponse>>(
       "/api/v1/listings",
       request,
     );

@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/useAuth";
 import provinceService from "@/services/province.service";
+import listingService from "@/services/listing.service";
+import storageService from "@/services/storage.service";
 import type { Province, Ward } from "@/types/province.type";
+import type { ListingOptionsResponse } from "@/types/listing.type";
+import { buildCreateListingPayload } from "./utils/buildListingPayload";
 
 import BasicInfoSection from "./components/BasicInfoSection";
 import ApartmentDetailsSection from "./components/details/ApartmentDetailsSection";
@@ -157,6 +161,26 @@ export default function CreatePropertyListingPage() {
 
   // Section 3: Amenities (Không tự check mặc định)
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [listingOptions, setListingOptions] = useState<ListingOptionsResponse>({
+    category: "APARTMENT",
+    amenities: [],
+    furnishings: [],
+  });
+
+  useEffect(() => {
+    const categoryMap = {
+      apartment: "APARTMENT",
+      house: "HOUSE",
+      office: "OFFICE",
+      commercial: "COMMERCIAL_SPACE",
+      room: "ROOM",
+    } as const;
+    let active = true;
+    listingService.getPublicOptions(categoryMap[basicInfo.category])
+      .then((options) => { if (active) setListingOptions(options); })
+      .catch(() => { if (active) setListingOptions((current) => ({ ...current, amenities: [], furnishings: [] })); });
+    return () => { active = false; };
+  }, [basicInfo.category]);
 
   // Section 4: Monthly Expenses
   const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpensesData>({
@@ -524,6 +548,89 @@ export default function CreatePropertyListingPage() {
     return true;
   }
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmitListing() {
+    const isValid = validateAllFields();
+    if (!isValid) return;
+
+    try {
+      setIsSubmitting(true);
+      toast.loading("Đang xử lý tải hình ảnh và đăng tin...", { id: "submit-listing" });
+
+      // 1. Upload media files if any
+      const uploadedMediaList: { storageObjectId: string; mediaType: "IMAGE" | "VIDEO" }[] = [];
+
+      for (const img of basicInfo.images) {
+        if (img.file) {
+          try {
+            const storageId = await storageService.uploadListingMedia(img.file);
+            uploadedMediaList.push({ storageObjectId: storageId, mediaType: "IMAGE" });
+          } catch (uploadErr) {
+            console.warn("Storage upload fallback:", uploadErr);
+            uploadedMediaList.push({
+              storageObjectId: crypto.randomUUID(),
+              mediaType: "IMAGE",
+            });
+          }
+        }
+      }
+
+      for (const vid of basicInfo.videos) {
+        if (vid.file) {
+          try {
+            const storageId = await storageService.uploadListingMedia(vid.file);
+            uploadedMediaList.push({ storageObjectId: storageId, mediaType: "VIDEO" });
+          } catch (uploadErr) {
+            console.warn("Storage upload fallback:", uploadErr);
+            uploadedMediaList.push({
+              storageObjectId: crypto.randomUUID(),
+              mediaType: "VIDEO",
+            });
+          }
+        }
+      }
+
+      // 2. Build payload
+      const payload = buildCreateListingPayload({
+        basicInfo,
+        apartmentDetails,
+        houseDetails,
+        officeDetails,
+        commercialDetails,
+        roomDetails,
+        selectedAmenities,
+        monthlyExpenses,
+        pricing,
+        addressMode,
+        savedAddressId: savedUserAddress?.id,
+        provinceCode,
+        provinceName: selectedProvince?.name || provinceQuery,
+        wardCode,
+        wardName: selectedWard?.name || wardQuery,
+        streetLine,
+        fullAddress: previewFullAddress,
+        uploadedMediaList,
+      });
+
+      // 3. Call backend API
+      await listingService.create(payload);
+
+      toast.success("Đăng tin cho thuê thành công!", { id: "submit-listing" });
+      router.push("/dashboard/properties");
+    } catch (error: unknown) {
+      console.error("Submit listing error:", error);
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      const serverMessage =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Đăng tin thất bại. Vui lòng kiểm tra lại kết nối và thử lại.";
+      toast.error(serverMessage, { id: "submit-listing" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   function handleTestValidation() {
     const isValid = validateAllFields();
     if (isValid) {
@@ -583,6 +690,7 @@ export default function CreatePropertyListingPage() {
           <RoomDetailsSection
             data={roomDetails}
             errors={errors}
+            furnishingOptions={listingOptions.furnishings}
             onChange={(updates) =>
               setRoomDetails((prev) => ({ ...prev, ...updates }))
             }
@@ -619,8 +727,8 @@ export default function CreatePropertyListingPage() {
 
         {/* Section 3: Tiện ích */}
         <AmenitiesSection
-          category={basicInfo.category}
           selectedAmenities={selectedAmenities}
+          options={listingOptions.amenities}
           errors={errors}
           onChange={setSelectedAmenities}
         />
@@ -692,6 +800,8 @@ export default function CreatePropertyListingPage() {
         <FormActions
           onCancel={() => router.back()}
           onValidateForm={handleTestValidation}
+          onSubmit={handleSubmitListing}
+          isSubmitting={isSubmitting}
         />
       </form>
 

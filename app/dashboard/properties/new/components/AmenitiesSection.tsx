@@ -2,25 +2,25 @@ import React, { useState } from "react";
 import { Check, Plus, X } from "lucide-react";
 import FormSectionWrapper from "./FormSectionWrapper";
 import { inputClass } from "./FormField";
-import { AMENITIES_BY_CATEGORY } from "../constants";
-import type { PropertyCategoryKey, FormErrors } from "../types";
+import type { ListingOptionItem } from "@/types/listing.type";
+import type { FormErrors } from "../types";
 
 interface AmenitiesSectionProps {
-  category: PropertyCategoryKey;
   selectedAmenities: string[];
   errors: FormErrors;
   onChange: (amenities: string[]) => void;
+  options: ListingOptionItem[];
 }
 
 export default function AmenitiesSection({
-  category,
   selectedAmenities,
   errors,
   onChange,
+  options,
 }: AmenitiesSectionProps) {
   const [customAmenityInput, setCustomAmenityInput] = useState("");
 
-  const defaultAmenitiesList = AMENITIES_BY_CATEGORY[category] || [];
+  const defaultAmenityCodes = options.map((item) => item.code);
 
   function toggleAmenity(amenity: string) {
     if (selectedAmenities.includes(amenity)) {
@@ -38,7 +38,7 @@ export default function AmenitiesSection({
   }
 
   const customAddedAmenities = selectedAmenities.filter(
-    (item) => !defaultAmenitiesList.includes(item)
+    (item) => !defaultAmenityCodes.includes(item)
   );
 
   return (
@@ -51,13 +51,13 @@ export default function AmenitiesSection({
       <div className="space-y-4">
         {/* Danh sách tiện ích theo loại hình */}
         <div className="flex flex-wrap gap-2.5">
-          {defaultAmenitiesList.map((amenity) => {
-            const isSelected = selectedAmenities.includes(amenity);
+          {options.map((amenity) => {
+            const isSelected = selectedAmenities.includes(amenity.code);
             return (
               <button
-                key={amenity}
+                key={amenity.code}
                 type="button"
-                onClick={() => toggleAmenity(amenity)}
+                onClick={() => toggleAmenity(amenity.code)}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold transition-all ${
                   isSelected
                     ? "border-primary bg-primary text-primary-foreground shadow-2xs ring-2 ring-primary/20"
@@ -65,7 +65,7 @@ export default function AmenitiesSection({
                 }`}
               >
                 {isSelected && <Check className="h-3.5 w-3.5" />}
-                {amenity}
+                {amenity.name}
               </button>
             );
           })}

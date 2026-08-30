@@ -13,13 +13,15 @@ export function toRentProperty(listing: ListingResponse): RentPropertyItem {
   const provinceName = address?.provinceName ?? "";
   const wardName = address?.wardName ?? "";
   const streetLine = address?.streetLine ?? "";
-  const category = {
+  const category: Record<string, "apartment" | "house" | "room" | "studio" | "commercial"> = {
     APARTMENT: "apartment",
     HOUSE: "house",
     ROOM: "room",
     STUDIO: "studio",
+    OFFICE: "studio",
     COMMERCIAL: "commercial",
-  } as const;
+    COMMERCIAL_SPACE: "commercial",
+  };
   const propertyCategory = category[listing.category] ?? "room";
   const categoryLabel = {
     apartment: "Căn hộ / Chung cư",

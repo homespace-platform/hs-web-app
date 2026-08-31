@@ -8,6 +8,7 @@ import { useAuth } from "@/features/auth/useAuth";
 import { Button } from "@/components/ui/button";
 import UserDropdown from "./UserDropdown";
 import NotificationDropdown from "@/components/notification/NotificationDropdown";
+import UserAvatar from "@/components/common/UserAvatar";
 import provinceService from "@/services/province.service";
 import { Province } from "@/types/province.type";
 import {
@@ -528,18 +529,11 @@ export default function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2.5 text-xs font-semibold text-foreground hover:text-primary transition-colors"
                 >
-                  {avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={avatarUrl}
-                      alt={username || "Đang tải"}
-                      className="h-8 w-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-xs">
-                      {(username || "U").charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <UserAvatar
+                    src={avatarUrl}
+                    name={username || "User"}
+                    sizeClassName="h-8 w-8 text-xs"
+                  />
                   <span>{username || "Tài khoản của tôi"}</span>
                 </Link>
                 <button

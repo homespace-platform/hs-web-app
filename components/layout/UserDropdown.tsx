@@ -16,6 +16,7 @@ import {
   MessageCircle,
   Settings,
 } from "lucide-react";
+import UserAvatar from "@/components/common/UserAvatar";
 
 export default function UserDropdown() {
   const { username, avatarUrl, logout } = useAuth();
@@ -64,18 +65,11 @@ export default function UserDropdown() {
       >
         {/* Avatar with status indicator */}
         <div className="relative">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatarUrl}
-              alt={displayName}
-              className="w-8 h-8 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-sm shadow-xs">
-              {initialLetter}
-            </div>
-          )}
+          <UserAvatar
+            src={avatarUrl}
+            name={displayName}
+            sizeClassName="w-8 h-8 text-sm"
+          />
           {/* Active online green dot */}
           <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-verified border-2 border-card rounded-full" />
         </div>

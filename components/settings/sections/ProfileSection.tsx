@@ -14,6 +14,7 @@ import type { UpdateUserProfileRequest, UserProfile } from '@/types/user.type';
 import { toast } from 'sonner';
 import { userProfileSchema, type UserProfileForm } from '@/validation/user.schema';
 import AddressEditor from '@/components/settings/AddressEditor';
+import UserAvatar from '@/components/common/UserAvatar';
 
 type ProfileForm = UserProfileForm;
 
@@ -196,18 +197,11 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                         className="hidden"
                         onChange={handleAvatarSelected}
                     />
-                    {profile?.avatarUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                            src={profile.avatarUrl}
-                            alt={fullName}
-                            className="h-16 w-16 rounded-full object-cover shadow-md sm:h-18 sm:w-18"
-                        />
-                    ) : (
-                        <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-primary text-primary-foreground font-extrabold text-2xl flex items-center justify-center shadow-md">
-                            {fullName.charAt(0).toUpperCase()}
-                        </div>
-                    )}
+                    <UserAvatar
+                        src={profile?.avatarUrl}
+                        name={fullName}
+                        sizeClassName="h-16 w-16 sm:h-18 sm:w-18 text-2xl"
+                    />
                     <button
                         type="button"
                         onClick={() => avatarInputRef.current?.click()}

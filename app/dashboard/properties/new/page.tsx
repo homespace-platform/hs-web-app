@@ -984,7 +984,7 @@ function CreatePropertyListingContent() {
   function renderDetailsSection() {
     switch (basicInfo.category) {
       case "apartment":
-        return (
+              return (
           <ApartmentDetailsSection
             data={apartmentDetails}
             subtype={basicInfo.subtype}
@@ -1006,7 +1006,7 @@ function CreatePropertyListingContent() {
           />
         );
       case "office":
-        return (
+                    return (
           <OfficeDetailsSection
             data={officeDetails}
             subtype={basicInfo.subtype}
@@ -1048,7 +1048,7 @@ function CreatePropertyListingContent() {
       <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
         <Loader2 className="h-9 w-9 animate-spin text-primary mb-3" />
         <p className="text-sm font-medium">Đang tải thông tin tin đăng để chỉnh sửa...</p>
-      </div>
+            </div>
     );
   }
 
@@ -1064,7 +1064,7 @@ function CreatePropertyListingContent() {
             ? "Cập nhật lại các thông tin của tin đăng để đảm bảo tính chính xác và thu hút khách thuê."
             : "Nhập đầy đủ thông tin để tạo tin đăng cho thuê chuyên nghiệp và tiếp cận hàng ngàn khách hàng tiềm năng."}
         </p>
-      </div>
+            </div>
 
       <form onSubmit={(e) => e.preventDefault()} noValidate className="space-y-6">
         {/* Section 1: Thông tin cơ bản */}
@@ -1125,12 +1125,12 @@ function CreatePropertyListingContent() {
           onProvinceQueryChange={(val) => {
             setProvinceQuery(val);
             if (val !== selectedProvince?.name) {
-              setProvinceCode("");
-              setWardCode("");
-              setWardQuery("");
-              setWards([]);
-            }
-          }}
+                    setProvinceCode("");
+                    setWardCode("");
+                    setWardQuery("");
+                    setWards([]);
+                  }
+                }}
           onWardSelect={handleWardSelect}
           onWardQueryChange={(val) => {
             setWardQuery(val);

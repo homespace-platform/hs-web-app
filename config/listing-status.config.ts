@@ -35,11 +35,19 @@ export const LISTING_STATUS_CONFIG: Record<ListingStatus, ListingStatusConfigIte
   },
   RENTED: {
     status: "RENTED",
-    label: "Đã cho thuê",
+    label: "Đã cho thuê qua HomeSpace",
     badgeClassName:
       "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border-blue-200 dark:border-blue-800",
     dotClassName: "bg-blue-500",
-    description: "Bất động sản đã có khách thuê",
+    description: "Tin đã có hợp đồng thuê hoàn tất trên HomeSpace",
+  },
+  RENTED_EXTERNALLY: {
+    status: "RENTED_EXTERNALLY",
+    label: "Cho thuê ngoài hệ thống",
+    badgeClassName:
+      "bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300 border-violet-200 dark:border-violet-800",
+    dotClassName: "bg-violet-500",
+    description: "Chủ tin tự tìm được khách thuê bên ngoài HomeSpace",
   },
   EXPIRED: {
     status: "EXPIRED",
@@ -82,4 +90,124 @@ export function getListingStatusConfig(
     return LISTING_STATUS_CONFIG[status as ListingStatus];
   }
   return LISTING_STATUS_CONFIG.DRAFT;
+}
+
+export type ListingOwnerActionIcon =
+  | "hide"
+  | "show"
+  | "rented"
+  | "rentedExternally"
+  | "resubmit";
+
+export interface ListingOwnerAction {
+  targetStatus: ListingStatus;
+  label: string;
+  /** Shown inside the confirmation dialog */
+  title: string;
+  description: string;
+  icon: ListingOwnerActionIcon;
+  accentClassName: string;
+  confirmClassName: string;
+  /** Only available while the publication window is still open */
+  requiresOpenPublicationWindow?: boolean;
+  /** Only available after the publication window has ended */
+  requiresClosedPublicationWindow?: boolean;
+  noteLabel?: string;
+  notePlaceholder?: string;
+}
+
+const HIDE_ACTION: ListingOwnerAction = {
+  targetStatus: "HIDDEN",
+  label: "Ẩn tin",
+  title: "Ẩn tin đăng",
+  description:
+    "Tin sẽ không còn hiển thị với khách thuê nhưng vẫn được giữ lại. Bạn có thể hiện lại trong thời hạn hiển thị còn lại.",
+  icon: "hide",
+  accentClassName:
+    "text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60",
+  confirmClassName: "bg-amber-600 hover:bg-amber-700",
+};
+
+const RENTED_EXTERNALLY_ACTION: ListingOwnerAction = {
+  targetStatus: "RENTED_EXTERNALLY",
+  label: "Đã cho thuê ngoài hệ thống",
+  title: "Đánh dấu đã cho thuê ngoài hệ thống",
+  description:
+    "Dùng khi bạn tự tìm được khách thuê bên ngoài HomeSpace. Tin sẽ ngừng hiển thị công khai để tránh khách liên hệ thêm.",
+  icon: "rentedExternally",
+  accentClassName:
+    "text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-950/60",
+  confirmClassName: "bg-violet-600 hover:bg-violet-700",
+  noteLabel: "Ghi chú (không bắt buộc)",
+  notePlaceholder: "Ví dụ: Khách thuê tự liên hệ qua người quen, đã ký hợp đồng ngày 20/08...",
+};
+
+const AVAILABLE_AGAIN_ACTION: ListingOwnerAction = {
+  targetStatus: "PUBLISHED",
+  label: "Phòng trống, hiển thị lại",
+  title: "Hiển thị lại tin đăng",
+  description:
+    "Dùng khi phòng đã trống và bạn muốn cho thuê lại trên HomeSpace. Tin sẽ hiển thị ngay trong thời hạn còn lại.",
+  icon: "show",
+  accentClassName:
+    "text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60",
+  confirmClassName: "bg-emerald-600 hover:bg-emerald-700",
+  requiresOpenPublicationWindow: true,
+};
+
+const REPUBLISH_ACTION: ListingOwnerAction = {
+  targetStatus: "PUBLISHED",
+  label: "Hiển thị lại tin",
+  title: "Hiển thị lại tin đăng",
+  description:
+    "Tin sẽ hiển thị lại ngay với khách thuê, sử dụng thời hạn hiển thị còn lại mà không cần duyệt lại.",
+  icon: "show",
+  accentClassName:
+    "text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60",
+  confirmClassName: "bg-emerald-600 hover:bg-emerald-700",
+  requiresOpenPublicationWindow: true,
+};
+
+const RESUBMIT_ACTION: ListingOwnerAction = {
+  targetStatus: "PENDING_REVIEW",
+  label: "Gửi duyệt lại",
+  title: "Gửi tin đăng đi duyệt lại",
+  description:
+    "Tin sẽ được gửi tới quản trị viên. Sau khi được duyệt, thời hạn hiển thị sẽ được làm mới.",
+  icon: "resubmit",
+  accentClassName: "text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60",
+  confirmClassName: "bg-amber-600 hover:bg-amber-700",
+};
+
+const RESUBMIT_AFTER_HIDDEN_ACTION: ListingOwnerAction = {
+  ...RESUBMIT_ACTION,
+  description:
+    "Thời hạn hiển thị đã hết. Gửi tin để quản trị viên duyệt lại và cấp thời hạn hiển thị mới.",
+  requiresClosedPublicationWindow: true,
+};
+
+/**
+ * Owner-initiated status transitions. Must stay in sync with
+ * ListingStatusService.OWNER_TRANSITIONS on the backend.
+ */
+export const LISTING_OWNER_ACTIONS: Partial<Record<ListingStatus, ListingOwnerAction[]>> = {
+  PUBLISHED: [HIDE_ACTION, RENTED_EXTERNALLY_ACTION],
+  HIDDEN: [REPUBLISH_ACTION, RENTED_EXTERNALLY_ACTION, RESUBMIT_AFTER_HIDDEN_ACTION],
+  RENTED_EXTERNALLY: [AVAILABLE_AGAIN_ACTION],
+  EXPIRED: [RESUBMIT_ACTION],
+  REJECTED: [RESUBMIT_ACTION],
+};
+
+export function getListingOwnerActions(
+  status?: ListingStatus | null,
+  expiresAt?: string | null
+): ListingOwnerAction[] {
+  if (!status) return [];
+  const actions = LISTING_OWNER_ACTIONS[status] ?? [];
+  const publicationWindowOpen = Boolean(expiresAt && new Date(expiresAt).getTime() > Date.now());
+  return actions.filter((action) => {
+    if (action.requiresOpenPublicationWindow && !publicationWindowOpen) return false;
+    if (action.requiresClosedPublicationWindow && publicationWindowOpen) return false;
+    return true;
+  });
 }

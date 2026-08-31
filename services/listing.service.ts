@@ -71,23 +71,26 @@ const listingService = {
   },
 
   /**
-   * Ẩn bài đăng của chính chủ
+   * Chủ tin tự đổi trạng thái bài đăng (ẩn tin, đã cho thuê, cho thuê ngoài hệ thống,
+   * hiển thị lại, gửi duyệt lại)
    */
-  async hide(listingId: string): Promise<ListingDetailResponse> {
+  async changeStatus(
+    listingId: string,
+    status: ListingStatus,
+    reason?: string,
+  ): Promise<ListingDetailResponse> {
     const response = await axiosClient.patch<ApiResponse<ListingDetailResponse>>(
-      `/api/v1/listings/${listingId}/hide`,
+      `/api/v1/listings/${listingId}/status`,
+      { status, reason: reason?.trim() || undefined },
     );
     return response.data.result;
   },
 
   /**
-   * Đánh dấu bài đăng đã cho thuê
+   * Ẩn bài đăng của chính chủ
    */
-  async markRented(listingId: string): Promise<ListingDetailResponse> {
-    const response = await axiosClient.patch<ApiResponse<ListingDetailResponse>>(
-      `/api/v1/listings/${listingId}/mark-rented`,
-    );
-    return response.data.result;
+  async hide(listingId: string): Promise<ListingDetailResponse> {
+    return this.changeStatus(listingId, "HIDDEN");
   },
 
   /**

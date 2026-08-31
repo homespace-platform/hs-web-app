@@ -23,6 +23,7 @@ import listingService from "@/services/listing.service";
 import AddressMapPreview from "@/components/address/AddressMapPreview";
 import type { ListingDetailResponse } from "@/types/listing.type";
 import { getListingStatusConfig } from "@/config/listing-status.config";
+import ListingStatusActionMenu from "../components/ListingStatusActionMenu";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("vi-VN").format(amount);
@@ -257,6 +258,16 @@ function PropertyDetailPageContent() {
             <ArrowLeft className="h-4 w-4" />
             Danh sách tin
           </Link>
+          <ListingStatusActionMenu
+            listing={{
+              id: data.id,
+              title: data.title,
+              status: data.status,
+              expiresAt: data.expiresAt,
+            }}
+            onChanged={setData}
+            size="md"
+          />
           <Link
             href={`/dashboard/properties/upsert?id=${data.id}`}
             className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-sm transition-all"
@@ -438,7 +449,7 @@ function PropertyDetailPageContent() {
             />
             <DetailItem label="Ngày có thể vào ở" value={data.availableFrom} />
             <DetailItem label="Tổng diện tích" value={`${data.areaM2} m²`} />
-            <DetailItem label="Trạng thái" value={data.status} />
+            <DetailItem label="Trạng thái" value={getListingStatusConfig(data.status).label} />
             <DetailItem label="Thương lượng giá" value={data.pricing?.negotiable ? "Có thương lượng" : "Giá cố định"} />
             <DetailItem label="Mã tin đăng" value={data.id} />
           </div>

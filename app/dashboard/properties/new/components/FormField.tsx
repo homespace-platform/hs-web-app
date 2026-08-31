@@ -7,6 +7,7 @@ interface FormFieldProps {
   error?: string;
   hint?: string;
   className?: string;
+  action?: ReactNode;
   children: ReactNode;
 }
 
@@ -26,15 +27,17 @@ export default function FormField({
   error,
   hint,
   className = "",
+  action,
   children,
 }: FormFieldProps) {
   return (
     <div id={id} className={`space-y-1.5 ${className}`}>
-      <label className="flex items-center justify-between text-xs font-semibold text-foreground">
-        <span>
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-semibold text-foreground">
           {label} {required && <span className="text-destructive">*</span>}
-        </span>
-      </label>
+        </label>
+        {action}
+      </div>
       {children}
       {hint && !error && (
         <p className="text-[11px] text-muted-foreground">{hint}</p>

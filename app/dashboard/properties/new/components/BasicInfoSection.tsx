@@ -1,11 +1,7 @@
 import React, { ChangeEvent } from "react";
 import Image from "next/image";
 import { ImagePlus, Video as VideoIcon, X } from "lucide-react";
-import FormField, {
-  inputClass,
-  selectClass,
-  textareaClass,
-} from "./FormField";
+import FormField, { inputClass, selectClass } from "./FormField";
 import FormSectionWrapper from "./FormSectionWrapper";
 import {
   PROPERTY_CATEGORIES,
@@ -347,26 +343,6 @@ export default function BasicInfoSection({
               }`}
             />
           </div>
-        </FormField>
-
-        {/* Mô tả chi tiết */}
-        <FormField
-          id="field-description"
-          label="Mô tả chi tiết"
-          required
-          error={errors.description}
-          hint="Mô tả ưu điểm, tiện ích xung quanh, nội thất, quy định..."
-          className="sm:col-span-2"
-        >
-          <textarea
-            rows={5}
-            value={data.description}
-            onChange={(e) => onChange({ description: e.target.value })}
-            placeholder="Mô tả chi tiết về không gian, tình trạng phòng, môi trường sống, giao thông thuận tiện..."
-            className={`${textareaClass} ${
-              errors.description ? "border-destructive focus:border-destructive" : ""
-            }`}
-          />
         </FormField>
       </div>
     </FormSectionWrapper>

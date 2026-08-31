@@ -23,6 +23,7 @@ import MonthlyExpensesSection from "./components/MonthlyExpensesSection";
 import PricingSection from "./components/PricingSection";
 import LocationSection, { type AddressMode } from "./components/LocationSection";
 import ViewingScheduleSection from "./components/ViewingScheduleSection";
+import DescriptionSection from "./components/DescriptionSection";
 import FormActions from "./components/FormActions";
 import CategoryChangeConfirmModal from "./components/CategoryChangeConfirmModal";
 
@@ -725,7 +726,7 @@ function CreatePropertyListingContent() {
     }
   };
 
-  function validateAllFields(): boolean {
+  function validateAllFields(options?: { skipDescription?: boolean }): boolean {
     const newErrors: FormErrors = {};
     let firstErrorId = "";
 
@@ -741,12 +742,6 @@ function CreatePropertyListingContent() {
       addError("field-title", "title", "Vui lòng nhập tiêu đề bài đăng.");
     } else if (basicInfo.title.trim().length < 15) {
       addError("field-title", "title", "Tiêu đề quá ngắn (tối thiểu 15 ký tự).");
-    }
-
-    if (!basicInfo.description.trim()) {
-      addError("field-description", "description", "Vui lòng nhập mô tả chi tiết bài đăng.");
-    } else if (basicInfo.description.trim().length < 30) {
-      addError("field-description", "description", "Mô tả chi tiết quá ngắn (tối thiểu 30 ký tự).");
     }
 
     if (basicInfo.images.length === 0) {
@@ -837,6 +832,15 @@ function CreatePropertyListingContent() {
       addError("field-viewing-slots", "viewingSlots", "Vui lòng chọn ít nhất một buổi có thể xem.");
     }
 
+    // 6. Description (only if not skipping)
+    if (!options?.skipDescription) {
+      if (!basicInfo.description.trim()) {
+        addError("field-description", "description", "Vui lòng nhập mô tả chi tiết bài đăng.");
+      } else if (basicInfo.description.trim().length < 30) {
+        addError("field-description", "description", "Mô tả chi tiết quá ngắn (tối thiểu 30 ký tự).");
+      }
+    }
+
     setErrors(newErrors);
 
     if (firstErrorId) {
@@ -847,6 +851,16 @@ function CreatePropertyListingContent() {
     }
 
     return true;
+  }
+
+  function handleGenerateAiDescription() {
+    const isValid = validateAllFields({ skipDescription: true });
+    if (!isValid) {
+      toast.error("Vui lòng hoàn thành các thông tin ở các bước trên để AI có đủ dữ liệu tạo mô tả.");
+      return;
+    }
+
+    toast.info("Tính năng đang phát triển");
   }
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1123,7 +1137,15 @@ function CreatePropertyListingContent() {
           onChangeSlots={setSelectedViewingSlots}
         />
 
-        {/* Section 8: Hành động cuối form */}
+        {/* Section 8: Mô tả chi tiết */}
+        <DescriptionSection
+          value={basicInfo.description}
+          errors={errors}
+          onChange={(val) => setBasicInfo((prev) => ({ ...prev, description: val }))}
+          onGenerateAiDescription={handleGenerateAiDescription}
+        />
+
+        {/* Hành động cuối form */}
         <FormActions
           onCancel={() => router.back()}
           onValidateForm={handleTestValidation}

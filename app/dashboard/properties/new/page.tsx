@@ -648,9 +648,15 @@ function CreatePropertyListingContent() {
   }, [editId]);
 
   const selectedProvince = provinces.find(
-    (p) => String(p.code) === provinceCode
+    (p) =>
+      String(p.code) === String(provinceCode) ||
+      (provinceQuery && p.name.toLowerCase().trim() === provinceQuery.toLowerCase().trim())
   );
-  const selectedWard = wards.find((w) => String(w.code) === wardCode);
+  const selectedWard = wards.find(
+    (w) =>
+      String(w.code) === String(wardCode) ||
+      (wardQuery && w.name.toLowerCase().trim() === wardQuery.toLowerCase().trim())
+  );
 
   const previewFullAddress = useMemo(() => {
     if (addressMode === "saved" && savedUserAddress) {

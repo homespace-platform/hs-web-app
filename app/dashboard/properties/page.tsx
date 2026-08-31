@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import listingService from "@/services/listing.service";
 import type { MyListingSummaryResponse } from "@/types/listing.type";
-import ListingDetailModal from "./components/ListingDetailModal";
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   APARTMENT: <Building className="h-3.5 w-3.5" />,
@@ -56,10 +55,6 @@ export default function MyPropertiesPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
 
-  // Detail Modal
-  const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-
   useEffect(() => {
     let active = true;
 
@@ -87,8 +82,7 @@ export default function MyPropertiesPage() {
   }, [page]);
 
   function handleOpenDetail(id: string) {
-    setSelectedListingId(id);
-    setIsDetailModalOpen(true);
+    router.push(`/dashboard/properties/view?id=${id}`);
   }
 
   function handleEditListing(id: string) {
@@ -298,14 +292,6 @@ export default function MyPropertiesPage() {
           )}
         </div>
       )}
-
-      {/* Listing Detail Modal */}
-      <ListingDetailModal
-        listingId={selectedListingId}
-        isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
-        onEdit={(id) => handleEditListing(id)}
-      />
     </div>
   );
 }

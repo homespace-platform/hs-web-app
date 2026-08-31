@@ -2,6 +2,7 @@ import type {
   CreateListingRequest,
   ListingCategory,
   ListingSubtype,
+  ListingSubmissionAction,
   RentalMode,
   PriceUnit,
   DepositType,
@@ -16,6 +17,8 @@ import type {
   FurnishingStatus,
   PositionType,
   ParkingType,
+  DayOfWeek,
+  ViewingSlot,
 } from "@/types/listing.type";
 
 import type {
@@ -31,6 +34,7 @@ import type {
 
 export interface BuildPayloadParams {
   id?: string | null;
+  submissionAction: ListingSubmissionAction;
   basicInfo: BasicInfoData;
   apartmentDetails: ApartmentDetailsData;
   houseDetails: HouseDetailsData;
@@ -552,6 +556,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
 
   return {
     id: params.id || null,
+    submissionAction: params.submissionAction,
     title: basicInfo.title.trim(),
     description: basicInfo.description.trim(),
     category,
@@ -571,7 +576,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
     charges,
     addressSource,
     media,
-    viewingDays: params.selectedViewingDays || [],
-    viewingSlots: params.selectedViewingSlots || [],
+    viewingDays: (params.selectedViewingDays as DayOfWeek[]) || [],
+    viewingSlots: (params.selectedViewingSlots as ViewingSlot[]) || [],
   };
 }

@@ -1,10 +1,20 @@
+export type ListingStatus =
+  | "DRAFT"
+  | "PENDING_REVIEW"
+  | "PUBLISHED"
+  | "RENTED"
+  | "EXPIRED"
+  | "REJECTED"
+  | "HIDDEN"
+  | "VIOLATION";
+
+export type ListingSubmissionAction = "SAVE_DRAFT" | "SUBMIT_FOR_REVIEW";
+
 export type ListingCategory =
   | "APARTMENT"
   | "HOUSE"
   | "OFFICE"
   | "COMMERCIAL_SPACE"
-  | "COMMERCIAL"
-  | "STUDIO"
   | "ROOM";
 
 export type ListingSubtype =
@@ -62,6 +72,17 @@ export type PaymentCycle =
 
 export type ListingMediaType = "IMAGE" | "VIDEO";
 
+export type DayOfWeek =
+  | "MONDAY"
+  | "TUESDAY"
+  | "WEDNESDAY"
+  | "THURSDAY"
+  | "FRIDAY"
+  | "SATURDAY"
+  | "SUNDAY";
+
+export type ViewingSlot = "MORNING" | "AFTERNOON" | "EVENING";
+
 export type ChargeType =
   | "ELECTRICITY"
   | "WATER"
@@ -111,14 +132,7 @@ export type ParkingPolicy = "NONE" | "FREE" | "PAID";
 export type OperatingMode = "ALWAYS_OPEN" | "CUSTOM_SCHEDULE";
 
 export type OfficeOperatingHourRequest = {
-  dayOfWeek:
-    | "MONDAY"
-    | "TUESDAY"
-    | "WEDNESDAY"
-    | "THURSDAY"
-    | "FRIDAY"
-    | "SATURDAY"
-    | "SUNDAY";
+  dayOfWeek: DayOfWeek;
   openTime: string; // "HH:mm"
   closeTime: string; // "HH:mm"
 };
@@ -267,6 +281,7 @@ export type ListingMediaRequest = {
 
 export type CreateListingRequest = {
   id?: string | null;
+  submissionAction: ListingSubmissionAction;
   title: string;
   description: string;
   category: ListingCategory;
@@ -286,15 +301,16 @@ export type CreateListingRequest = {
   charges?: ListingChargeRequest[];
   addressSource: ListingAddressSourceRequest;
   media: ListingMediaRequest[];
-  viewingDays?: string[];
-  viewingSlots?: string[];
+  viewingDays?: DayOfWeek[];
+  viewingSlots?: ViewingSlot[];
 };
 
 export type CreateListingResponse = {
   id: string;
-  status: "DRAFT" | "PUBLISHED" | "RENTED" | "ARCHIVED";
+  status: ListingStatus;
   title: string;
-  publishedAt: string;
+  submittedAt: string | null;
+  publishedAt: string | null;
 };
 
 export type MyListingSummaryResponse = {
@@ -302,27 +318,32 @@ export type MyListingSummaryResponse = {
   title: string;
   category: ListingCategory;
   subtype: ListingSubtype;
-  status: "DRAFT" | "PUBLISHED" | "RENTED" | "ARCHIVED";
+  status: ListingStatus;
   availableFrom: string;
   areaM2: number;
   priceAmount: number;
   currency: string;
   priceUnit: PriceUnit;
   negotiable: boolean;
-  coverImageUrl?: string | null;
-  coverStorageObjectId?: string | null;
+  coverImageUrl: string | null;
+  coverStorageObjectId: string | null;
   mediaCount: number;
-  fullAddress: string;
-  publishedAt?: string | null;
-  createdAt?: string | null;
-  updatedAt?: string | null;
+  fullAddress: string | null;
+  statusReason: string | null;
+  submittedAt: string | null;
+  publishedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 };
 
 export type ListingOptionItemResponse = {
   code: string;
   name: string;
-  icon?: string | null;
+  sortOrder: number;
 };
+
+export type ListingOptionItem = ListingOptionItemResponse;
 
 export type ListingMediaResponse = {
   id: string;
@@ -330,7 +351,7 @@ export type ListingMediaResponse = {
   mediaType: ListingMediaType;
   sortOrder: number;
   cover: boolean;
-  url: string;
+  url: string | null;
   contentType: string;
   sizeBytes: number;
 };
@@ -346,6 +367,13 @@ export type ListingAddressResponse = {
   fullAddress?: string;
 };
 
+export type ListingOwner = {
+  id: string;
+  displayName: string;
+  phone: string | null;
+  avatarUrl: string | null;
+};
+
 export type ListingDetailResponse = {
   id: string;
   ownerId: string;
@@ -354,7 +382,7 @@ export type ListingDetailResponse = {
   category: ListingCategory;
   subtype: ListingSubtype;
   rentalMode: RentalMode;
-  status: "DRAFT" | "PUBLISHED" | "RENTED" | "ARCHIVED";
+  status: ListingStatus;
   availableFrom: string;
   areaM2: number;
   pricing: ListingPricingRequest;
@@ -370,27 +398,26 @@ export type ListingDetailResponse = {
   address?: ListingAddressResponse | null;
   owner?: ListingOwner | null;
   media: ListingMediaResponse[];
-  imageUrls?: string[];
-  viewingDays?: string[];
-  viewingSlots?: string[];
+  viewingDays?: DayOfWeek[];
+  viewingSlots?: ViewingSlot[];
   active: boolean;
-  publishedAt?: string | null;
-  createdAt?: string | null;
-  updatedAt?: string | null;
+  statusReason: string | null;
+  submittedAt: string | null;
+  publishedAt: string | null;
+  expiresAt: string | null;
+  statusChangedAt: string | null;
+  statusChangedBy: string | null;
+  version: number;
+  createdAt: string | null;
+  updatedAt: string | null;
   createdBy?: string | null;
   updatedBy?: string | null;
 };
 
-export type ListingOptionItem = {
-  code: string;
-  name: string;
-  sortOrder: number;
-};
-
 export type ListingOptionsResponse = {
-  category: Exclude<ListingCategory, "COMMERCIAL" | "STUDIO">;
-  amenities: ListingOptionItem[];
-  furnishings: ListingOptionItem[];
+  category: ListingCategory;
+  amenities: ListingOptionItemResponse[];
+  furnishings: ListingOptionItemResponse[];
 };
 
 export type CreateListingMediaUploadRequest = {
@@ -417,13 +444,6 @@ export type CompleteListingMediaUploadResponse = {
   publicUrl: string;
   contentType: string;
   sizeBytes: number;
-};
-
-export type ListingOwner = {
-  id: string;
-  displayName: string;
-  phone?: string;
-  avatarUrl?: string;
 };
 
 export type ListingResponse = CreateListingResponse & {

@@ -9,7 +9,8 @@ import provinceService from "@/services/province.service";
 import listingService from "@/services/listing.service";
 import storageService from "@/services/storage.service";
 import type { Province, Ward } from "@/types/province.type";
-import type { ListingOptionsResponse } from "@/types/listing.type";
+import type { ListingOptionsResponse, ListingSubmissionAction } from "@/types/listing.type";
+import { getApiErrorMessage } from "@/utils/apiError";
 import { buildCreateListingPayload } from "./utils/buildListingPayload";
 
 import BasicInfoSection from "./components/BasicInfoSection";
@@ -321,7 +322,7 @@ function CreatePropertyListingContent() {
         let cat: PropertyCategoryKey = "apartment";
         if (res.category === "HOUSE") cat = "house";
         else if (res.category === "OFFICE") cat = "office";
-        else if (res.category === "COMMERCIAL_SPACE" || res.category === "COMMERCIAL") cat = "commercial";
+        else if (res.category === "COMMERCIAL_SPACE") cat = "commercial";
         else if (res.category === "ROOM") cat = "room";
 
         const subtypeMap: Record<string, string> = {
@@ -358,7 +359,7 @@ function CreatePropertyListingContent() {
           .filter((m) => m.mediaType === "IMAGE")
           .map((m) => ({
             name: m.id || "image",
-            dataUrl: m.url,
+            dataUrl: m.url || "/area/hcm-1.jpg",
             storageObjectId: m.storageObjectId,
           }));
 
@@ -366,7 +367,7 @@ function CreatePropertyListingContent() {
           .filter((m) => m.mediaType === "VIDEO")
           .map((m) => ({
             name: m.id || "video",
-            url: m.url,
+            url: m.url || undefined,
             storageObjectId: m.storageObjectId,
           }));
 
@@ -870,19 +871,22 @@ function CreatePropertyListingContent() {
   }
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<ListingSubmissionAction | null>(null);
 
-  async function handleSubmitListing() {
+  async function handleSaveListing(action: ListingSubmissionAction) {
     const isValid = validateAllFields();
     if (!isValid) return;
 
     try {
       setIsSubmitting(true);
-      toast.loading(
-        editId
-          ? "Đang lưu cập nhật tin đăng..."
-          : "Đang xử lý tải hình ảnh và đăng tin...",
-        { id: "submit-listing" }
-      );
+      setSubmittingAction(action);
+      const loadingText =
+        action === "SAVE_DRAFT"
+          ? "Đang lưu tin nháp..."
+          : editId
+          ? "Đang cập nhật và gửi duyệt..."
+          : "Đang xử lý tải hình ảnh và gửi duyệt...";
+      toast.loading(loadingText, { id: "submit-listing" });
 
       // 1. Upload media files if new
       const uploadedMediaList: { storageObjectId: string; mediaType: "IMAGE" | "VIDEO" }[] = [];
@@ -924,6 +928,7 @@ function CreatePropertyListingContent() {
       // 2. Build payload (upsert with id if editing)
       const payload = buildCreateListingPayload({
         id: editId || null,
+        submissionAction: action,
         basicInfo,
         apartmentDetails,
         houseDetails,
@@ -949,21 +954,22 @@ function CreatePropertyListingContent() {
       // 3. Call backend upsert API
       await listingService.upsert(payload);
 
-      toast.success(
-        editId ? "Cập nhật tin đăng thành công!" : "Đăng tin cho thuê thành công!",
-        { id: "submit-listing" }
-      );
+      const successMessage =
+        action === "SAVE_DRAFT"
+          ? "Đã lưu tin nháp"
+          : "Tin đã được gửi chờ duyệt";
+      toast.success(successMessage, { id: "submit-listing" });
       router.push("/dashboard/properties");
     } catch (error: unknown) {
       console.error("Submit listing error:", error);
-      const err = error as { response?: { data?: { message?: string } }; message?: string };
-      const serverMessage =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Thao tác thất bại. Vui lòng kiểm tra lại kết nối và thử lại.";
+      const serverMessage = getApiErrorMessage(
+        error,
+        "Thao tác thất bại. Vui lòng kiểm tra lại kết nối và thử lại."
+      );
       toast.error(serverMessage, { id: "submit-listing" });
     } finally {
       setIsSubmitting(false);
+      setSubmittingAction(null);
     }
   }
 
@@ -1155,10 +1161,11 @@ function CreatePropertyListingContent() {
         <FormActions
           onCancel={() => router.back()}
           onValidateForm={handleTestValidation}
-          onSubmit={handleSubmitListing}
+          onSaveDraft={() => handleSaveListing("SAVE_DRAFT")}
+          onSubmitForReview={() => handleSaveListing("SUBMIT_FOR_REVIEW")}
           isSubmitting={isSubmitting}
-          submitLabel={editId ? "Cập nhật tin đăng" : "Đăng tin"}
-          loadingLabel={editId ? "Đang cập nhật..." : "Đang đăng tin..."}
+          submittingAction={submittingAction}
+          isEditing={Boolean(editId)}
         />
       </form>
 

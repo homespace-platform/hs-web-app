@@ -22,6 +22,7 @@ import {
 import listingService from "@/services/listing.service";
 import AddressMapPreview from "@/components/address/AddressMapPreview";
 import type { ListingDetailResponse } from "@/types/listing.type";
+import { getListingStatusConfig } from "@/config/listing-status.config";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("vi-VN").format(amount);
@@ -230,19 +231,20 @@ function PropertyDetailPageContent() {
               {CATEGORY_NAMES[data.category] || data.category}
             </span>
             <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                data.status === "PUBLISHED"
-                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                  : "bg-muted text-muted-foreground border border-border"
-              }`}
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold border ${getListingStatusConfig(data.status).badgeClassName}`}
             >
-              {data.status === "PUBLISHED" ? "Đang hiển thị" : data.status}
+              <span className={`h-1.5 w-1.5 rounded-full ${getListingStatusConfig(data.status).dotClassName}`} />
+              {getListingStatusConfig(data.status).label}
             </span>
-            {data.publishedAt && (
+            {data.publishedAt ? (
               <span className="text-xs text-muted-foreground">
                 Đăng ngày: {new Date(data.publishedAt).toLocaleDateString("vi-VN")}
               </span>
-            )}
+            ) : data.submittedAt ? (
+              <span className="text-xs text-muted-foreground">
+                Gửi duyệt: {new Date(data.submittedAt).toLocaleDateString("vi-VN")}
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -326,7 +328,7 @@ function PropertyDetailPageContent() {
                   }`}
                 >
                   <Image
-                    src={img.url}
+                    src={img.url || "/area/hcm-1.jpg"}
                     alt={`Ảnh ${idx + 1}`}
                     fill
                     className="object-cover"
@@ -347,7 +349,7 @@ function PropertyDetailPageContent() {
                 {videos.map((vid, idx) => (
                   <video
                     key={vid.id || idx}
-                    src={vid.url}
+                    src={vid.url || undefined}
                     controls
                     className="w-full rounded-xl border border-border bg-black max-h-64 object-contain"
                   />

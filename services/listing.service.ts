@@ -9,18 +9,20 @@ import type {
   ListingDetailResponse,
   ListingOptionsResponse,
   ListingResponse,
+  ListingStatus,
   MyListingSummaryResponse,
 } from "@/types/listing.type";
 
-type ListingPageResponse = ApiResponse<ListingResponse[]> & {
-  page: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
-  hasMore: boolean;
-};
+export interface MyListingsQueryParams {
+  page?: number;
+  status?: ListingStatus;
+  keyword?: string;
+}
 
 const listingService = {
+  /**
+   * Lấy danh mục tùy chọn (tiện ích, nội thất) công khai
+   */
   async getPublicOptions(category: ListingCategory): Promise<ListingOptionsResponse> {
     const response = await axios.get<ApiResponse<ListingOptionsResponse>>(
       `${process.env.NEXT_PUBLIC_GATEWAY_BASE_URL}/api/v1/public/listing-catalog`,
@@ -29,16 +31,27 @@ const listingService = {
     return response.data.result;
   },
 
-  async getMyListings(page = 1): Promise<PageResponse<MyListingSummaryResponse>> {
+  /**
+   * Lấy danh sách tin đăng của tài khoản hiện tại (phân trang 10 items/trang)
+   */
+  async getMyListings(params: MyListingsQueryParams = {}): Promise<PageResponse<MyListingSummaryResponse>> {
+    const { page = 1, status, keyword } = params;
     const response = await axiosClient.get<PageResponse<MyListingSummaryResponse>>(
       "/api/v1/listings/me",
       {
-        params: { page },
+        params: {
+          page,
+          ...(status ? { status } : {}),
+          ...(keyword && keyword.trim() ? { keyword: keyword.trim() } : {}),
+        },
       },
     );
     return response.data;
   },
 
+  /**
+   * Lấy chi tiết bài đăng theo ID
+   */
   async getById(listingId: string): Promise<ListingDetailResponse> {
     const response = await axiosClient.get<ApiResponse<ListingDetailResponse>>(
       `/api/v1/listings/${listingId}`,
@@ -46,17 +59,9 @@ const listingService = {
     return response.data.result;
   },
 
-  async getPublished(): Promise<ListingResponse[]> {
-    const response = await axios.get<ListingPageResponse>(
-      `${process.env.NEXT_PUBLIC_GATEWAY_BASE_URL}/api/v1/listings`,
-      {
-        params: { page: 0, size: 100 },
-        headers: keycloak.token ? { Authorization: `Bearer ${keycloak.token}` } : undefined,
-      },
-    );
-    return response.data.result ?? [];
-  },
-
+  /**
+   * Tạo mới hoặc Cập nhật tin đăng (Upsert)
+   */
   async upsert(request: CreateListingRequest): Promise<CreateListingResponse> {
     const response = await axiosClient.post<ApiResponse<CreateListingResponse>>(
       "/api/v1/listings/upsert",
@@ -65,15 +70,38 @@ const listingService = {
     return response.data.result;
   },
 
-  async create(request: CreateListingRequest): Promise<CreateListingResponse> {
-    return this.upsert(request);
-  },
-
-  async publish(listingId: string): Promise<ListingResponse> {
-    const response = await axiosClient.post<ApiResponse<ListingResponse>>(
-      `/api/v1/listings/${listingId}/publish`,
+  /**
+   * Ẩn bài đăng của chính chủ
+   */
+  async hide(listingId: string): Promise<ListingDetailResponse> {
+    const response = await axiosClient.patch<ApiResponse<ListingDetailResponse>>(
+      `/api/v1/listings/${listingId}/hide`,
     );
     return response.data.result;
+  },
+
+  /**
+   * Đánh dấu bài đăng đã cho thuê
+   */
+  async markRented(listingId: string): Promise<ListingDetailResponse> {
+    const response = await axiosClient.patch<ApiResponse<ListingDetailResponse>>(
+      `/api/v1/listings/${listingId}/mark-rented`,
+    );
+    return response.data.result;
+  },
+
+  /**
+   * Lấy danh sách tin đã publish (public)
+   */
+  async getPublished(): Promise<ListingResponse[]> {
+    const response = await axios.get<PageResponse<ListingResponse>>(
+      `${process.env.NEXT_PUBLIC_GATEWAY_BASE_URL}/api/v1/listings`,
+      {
+        params: { page: 1, size: 100 },
+        headers: keycloak.token ? { Authorization: `Bearer ${keycloak.token}` } : undefined,
+      },
+    );
+    return response.data.result ?? [];
   },
 };
 

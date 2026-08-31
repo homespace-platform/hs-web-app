@@ -161,7 +161,7 @@ export default function ListingDetailModal({
                           }`}
                         >
                           <Image
-                            src={img.url}
+                            src={img.url || "/area/hcm-1.jpg"}
                             alt=""
                             fill
                             className="object-cover"

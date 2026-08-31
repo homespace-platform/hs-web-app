@@ -4,7 +4,10 @@ export type ApiResponse<T> = {
   result: T;
 };
 
-export type PageResponse<T> = ApiResponse<T[]> & {
+export type PageResponse<T> = {
+  code: number;
+  message?: string;
+  result: T[];
   page: number;
   size: number;
   totalElements: number;

@@ -1,6 +1,5 @@
 import type { RentPropertyItem } from "@/types/rent.type";
 import type { ListingDetailResponse, ListingMediaResponse, ListingResponse } from "@/types/listing.type";
-import { getListingDisplayImages } from "@/lib/listing-images";
 
 const API_PLACEHOLDER_IMAGE = "/area/hcm-1.jpg";
 
@@ -41,12 +40,12 @@ export function toRentProperty(listing: ListingDetailResponse | ListingResponse)
     room: "Nhà trọ",
   }[propertyCategory];
 
-  const mediaImages = detail?.media
+  const mediaImages: string[] = detail?.media
     ? detail.media
-        .filter((m: ListingMediaResponse) => m.mediaType === "IMAGE" && m.url)
-        .map((m: ListingMediaResponse) => m.url)
+        .filter((m: ListingMediaResponse) => m.mediaType === "IMAGE" && Boolean(m.url))
+        .map((m: ListingMediaResponse) => m.url as string)
     : [];
-  const imageUrls = mediaImages.length > 0 ? mediaImages : getListingDisplayImages(listing, API_PLACEHOLDER_IMAGE);
+  const imageUrls: string[] = mediaImages.length > 0 ? mediaImages : [API_PLACEHOLDER_IMAGE];
 
   const rawPrice =
     detail?.pricing?.amount != null

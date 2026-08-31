@@ -8,7 +8,7 @@ import RentCollageCard from "@/components/rent/RentCollageCard";
 import RentFilterSidebar, {
   FilterState,
 } from "@/components/rent/RentFilterSidebar";
-import { RentPropertyItem } from "@/data/mock-rent-data";
+import { RentPropertyItem } from "@/types/rent.type";
 import provinceService from "@/services/province.service";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";

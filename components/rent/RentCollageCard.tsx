@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { RentPropertyItem } from "@/data/mock-rent-data";
+import { RentPropertyItem } from "@/types/rent.type";
 import {
   Heart,
   MapPin,

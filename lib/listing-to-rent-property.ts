@@ -1,4 +1,4 @@
-import type { RentPropertyItem } from "@/data/mock-rent-data";
+import type { RentPropertyItem } from "@/types/rent.type";
 import type { ListingDetailResponse, ListingMediaResponse, ListingResponse } from "@/types/listing.type";
 import { getListingDisplayImages } from "@/lib/listing-images";
 

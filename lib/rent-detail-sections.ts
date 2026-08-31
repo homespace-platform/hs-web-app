@@ -1,4 +1,4 @@
-import type { RentPropertyItem } from "@/data/mock-rent-data";
+import type { RentPropertyItem } from "@/types/rent.type";
 
 export type RentDetailItem = { label: string; value: string };
 export type RentDetailSection = { title: string; items: RentDetailItem[] };

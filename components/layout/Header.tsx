@@ -345,9 +345,9 @@ export default function Header() {
                   {isDashboard ? (
                     <Link
                       href="/dashboard/properties/upsert"
-                      className="h-10 px-4 rounded-full border border-border bg-card text-foreground hover:bg-muted text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
+                      className="h-10 px-4 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-semibold flex items-center gap-2 shadow-xs transition-all cursor-pointer"
                     >
-                      <Plus className="w-4 h-4 text-muted-foreground" />
+                      <Plus className="w-4 h-4 text-primary-foreground" />
                       <span>Đăng tin</span>
                     </Link>
                   ) : (
@@ -587,9 +587,9 @@ export default function Header() {
           {isDashboard ? (
             <Link
               href="/dashboard/properties/upsert"
-              className="h-9 px-3.5 rounded-full border border-border bg-card/95 backdrop-blur-md shadow-md text-foreground hover:bg-muted text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+              className="h-9 px-3.5 rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+              <Plus className="w-3.5 h-3.5 text-primary-foreground" />
               <span>Đăng tin</span>
             </Link>
           ) : (

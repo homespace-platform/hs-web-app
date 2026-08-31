@@ -98,23 +98,13 @@ export default function MyPropertiesPage() {
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-200">
       {/* Page Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-            Tin đăng của tôi
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Quản lý {totalElements} tin cho thuê, theo dõi trạng thái và cập nhật thông tin bài đăng.
-          </p>
-        </div>
-
-        <Link
-          href="/dashboard/properties/upsert"
-          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          Đăng tin mới
-        </Link>
+      <div className="space-y-1">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+          Tin đăng của tôi
+        </h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          Quản lý {totalElements} tin cho thuê, theo dõi trạng thái và cập nhật thông tin bài đăng.
+        </p>
       </div>
 
       {/* Loading state */}

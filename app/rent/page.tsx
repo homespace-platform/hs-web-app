@@ -13,6 +13,7 @@ import provinceService from "@/services/province.service";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
 import { District } from "@/types/province.type";
+import type { ListingCategory, ListingSubtype } from "@/types/listing.type";
 import {
   Home,
   ChevronLeft,
@@ -36,6 +37,8 @@ const ITEMS_PER_PAGE = 10;
 
 export default function RentPage() {
   const [properties, setProperties] = useState<RentPropertyItem[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -53,17 +56,26 @@ export default function RentPage() {
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const districtDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Search input state (chỉ tìm khi bấm submit hoặc enter để tránh quá tải CSDL)
+  // Search input state (chỉ gửi API khi bấm Tìm kiếm hoặc Enter để tránh quá tải CSDL)
   const [searchInput, setSearchInput] = useState("");
 
-  // Filter State
+  // Active Filter State (CHỈ cập nhật khi bấm "Áp dụng bộ lọc" hoặc submit search/district)
   const [filter, setFilter] = useState<FilterState>({
     category: "all",
+    subtype: "all",
     minPrice: 0,
     maxPrice: 100,
     areaRange: "all",
     district: "all",
     beds: "all",
+    furnishingStatus: "all",
+    direction: "all",
+    officeGrade: "all",
+    positionType: "all",
+    restroomType: "all",
+    hasMezzanine: false,
+    hasRooftop: false,
+    hasGarage: false,
     tab: "all",
     hasVideoOnly: false,
     sortBy: "newest",
@@ -71,24 +83,142 @@ export default function RentPage() {
     searchQuery: "",
   });
 
+  // Call Public API whenever active filter, page, or provinceCode changes
   useEffect(() => {
     let cancelled = false;
-    listingService.getPublished()
-      .then((listings) => {
-        if (!cancelled) {
-          setProperties(listings.map((listing) => toRentProperty(listing)));
+
+    const runFetch = async () => {
+      setIsLoading(true);
+      setApiError("");
+      try {
+        // Map category
+        let apiCategory: ListingCategory | undefined = undefined;
+        if (filter.category === "apartment") {
+          apiCategory = "APARTMENT";
+        } else if (filter.category === "house") {
+          apiCategory = "HOUSE";
+        } else if (filter.category === "office") {
+          apiCategory = "OFFICE";
+        } else if (filter.category === "commercial") {
+          apiCategory = "COMMERCIAL_SPACE";
+        } else if (filter.category === "room") {
+          apiCategory = "ROOM";
+        } else if (filter.category === "studio") {
+          apiCategory = "APARTMENT";
         }
-      })
-      .catch(() => {
-        if (!cancelled) setApiError("Không thể tải danh sách tin từ API.");
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
+
+        // Map subtype
+        let apiSubtype: ListingSubtype | undefined = undefined;
+        if (filter.subtype && filter.subtype !== "all") {
+          apiSubtype = filter.subtype as ListingSubtype;
+        } else if (filter.category === "studio") {
+          apiSubtype = "APARTMENT_STUDIO";
+        }
+
+        // Map price (in millions -> VND)
+        const priceMin = filter.minPrice > 0 ? filter.minPrice * 1_000_000 : undefined;
+        const priceMax = filter.maxPrice < 100 ? filter.maxPrice * 1_000_000 : undefined;
+
+        // Map area range
+        let areaMin: number | undefined = undefined;
+        let areaMax: number | undefined = undefined;
+        if (filter.areaRange === "under_30") {
+          areaMax = 30;
+        } else if (filter.areaRange === "30_50") {
+          areaMin = 30;
+          areaMax = 50;
+        } else if (filter.areaRange === "50_80") {
+          areaMin = 50;
+          areaMax = 80;
+        } else if (filter.areaRange === "80_100") {
+          areaMin = 80;
+          areaMax = 100;
+        } else if (filter.areaRange === "100_150") {
+          areaMin = 100;
+          areaMax = 150;
+        } else if (filter.areaRange === "150_200") {
+          areaMin = 150;
+          areaMax = 200;
+        } else if (filter.areaRange === "200_250") {
+          areaMin = 200;
+          areaMax = 250;
+        } else if (filter.areaRange === "over_250") {
+          areaMin = 250;
+        }
+
+        // Map bedrooms
+        let bedrooms: number | undefined = undefined;
+        if (filter.beds !== "all") {
+          bedrooms = parseInt(filter.beds, 10);
+        }
+
+        // Map provinceCode
+        let pCodeStr: string | undefined = undefined;
+        if (selectedProvinceCode) {
+          pCodeStr = String(selectedProvinceCode).padStart(2, "0");
+        }
+
+        // Keyword: combines search input and district if specified
+        const terms: string[] = [];
+        if (filter.searchQuery.trim()) {
+          terms.push(filter.searchQuery.trim());
+        }
+        if (filter.district && filter.district !== "all") {
+          terms.push(filter.district);
+        }
+        const keyword = terms.length > 0 ? terms.join(" ") : undefined;
+
+        const data = await listingService.getPublicListings({
+          page: currentPage,
+          size: ITEMS_PER_PAGE,
+          category: apiCategory,
+          subtype: apiSubtype,
+          priceMin,
+          priceMax,
+          areaMin,
+          areaMax,
+          bedrooms,
+          hasVideo: filter.hasVideoOnly ? true : undefined,
+          furnishingStatus: filter.furnishingStatus !== "all" ? (filter.furnishingStatus as any) : undefined,
+          direction: filter.direction !== "all" ? filter.direction : undefined,
+          officeGrade: filter.officeGrade !== "all" ? filter.officeGrade : undefined,
+          positionType: filter.positionType !== "all" ? (filter.positionType as any) : undefined,
+          restroomType: filter.restroomType !== "all" ? (filter.restroomType as any) : undefined,
+          hasMezzanine: filter.hasMezzanine ? true : undefined,
+          hasRooftop: filter.hasRooftop ? true : undefined,
+          hasGarage: filter.hasGarage ? true : undefined,
+          provinceCode: pCodeStr,
+          keyword,
+          sort: filter.sortBy,
+        });
+
+        if (!cancelled) {
+          const items = (data.result ?? []).map((item) => toRentProperty(item));
+          setProperties(items);
+          setTotalItems(data.totalElements ?? items.length);
+          setTotalPages(data.totalPages ?? 1);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Error fetching public listings:", err);
+          setApiError("Không thể tải danh sách tin từ API.");
+          setProperties([]);
+          setTotalItems(0);
+          setTotalPages(1);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    runFetch();
+
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [filter, currentPage, selectedProvinceCode]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,11 +320,20 @@ export default function RentPage() {
     setSearchInput("");
     setFilter({
       category: "all",
+      subtype: "all",
       minPrice: 0,
       maxPrice: 100,
       areaRange: "all",
       district: "all",
       beds: "all",
+      furnishingStatus: "all",
+      direction: "all",
+      officeGrade: "all",
+      positionType: "all",
+      restroomType: "all",
+      hasMezzanine: false,
+      hasRooftop: false,
+      hasGarage: false,
       tab: "all",
       hasVideoOnly: false,
       sortBy: "newest",
@@ -204,120 +343,8 @@ export default function RentPage() {
     setCurrentPage(1);
   };
 
-  // Filter & Sort Logic
-  const filteredProperties = useMemo(() => {
-    let list = [...properties];
-
-    // 1. Province
-    list = list.filter((property) => belongsToProvince(property, selectedProvinceCode, selectedProvinceName));
-
-    // 2. Category (Exact match for 7 categories)
-    if (filter.category !== "all") {
-      list = list.filter((p) => {
-        if (filter.category === "apartment") return p.category === "apartment";
-        if (filter.category === "house") return p.category === "house";
-        if (filter.category === "office") return p.category === "office" || p.category === "commercial";
-        if (filter.category === "commercial") return p.category === "commercial";
-        if (filter.category === "studio") return p.category === "studio" || p.category === "room";
-        if (filter.category === "room") return p.category === "room";
-        return p.category === filter.category;
-      });
-    }
-
-    // 3. Price Range (in millions)
-    if (filter.minPrice > 0) {
-      list = list.filter((p) => p.priceMillion >= filter.minPrice);
-    }
-    if (filter.maxPrice < 100) {
-      list = list.filter((p) => p.priceMillion <= filter.maxPrice);
-    }
-
-    // 4. District
-    if (filter.district !== "all") {
-      const targetDistrict = filter.district
-        .replace("Quận ", "")
-        .replace("Huyện ", "")
-        .replace("Thành phố ", "")
-        .trim()
-        .toLowerCase();
-
-      list = list.filter((p) => {
-        const pDist = p.district.toLowerCase();
-        const pLoc = p.location.toLowerCase();
-        return (
-          pDist.includes(targetDistrict) ||
-          pLoc.includes(targetDistrict) ||
-          p.district.includes(filter.district)
-        );
-      });
-    }
-
-    // 5. Area Range
-    if (filter.areaRange !== "all") {
-      if (filter.areaRange === "under_30") {
-        list = list.filter((p) => p.areaM2 < 30);
-      } else if (filter.areaRange === "30_50") {
-        list = list.filter((p) => p.areaM2 >= 30 && p.areaM2 <= 50);
-      } else if (filter.areaRange === "50_80") {
-        list = list.filter((p) => p.areaM2 > 50 && p.areaM2 <= 80);
-      } else if (filter.areaRange === "80_100") {
-        list = list.filter((p) => p.areaM2 > 80 && p.areaM2 <= 100);
-      } else if (filter.areaRange === "100_150") {
-        list = list.filter((p) => p.areaM2 > 100 && p.areaM2 <= 150);
-      } else if (filter.areaRange === "150_200") {
-        list = list.filter((p) => p.areaM2 > 150 && p.areaM2 <= 200);
-      } else if (filter.areaRange === "200_250") {
-        list = list.filter((p) => p.areaM2 > 200 && p.areaM2 <= 250);
-      } else if (filter.areaRange === "over_250") {
-        list = list.filter((p) => p.areaM2 > 250);
-      }
-    }
-
-    // 6. Beds
-    if (filter.beds !== "all") {
-      const bedsNum = parseInt(filter.beds, 10);
-      if (bedsNum === 3) {
-        list = list.filter((p) => p.beds >= 3);
-      } else {
-        list = list.filter((p) => p.beds === bedsNum);
-      }
-    }
-
-    // 7. Video Only
-    if (filter.hasVideoOnly) {
-      list = list.filter((p) => p.hasVideo);
-    }
-
-    // 8. Search Query
-    if (filter.searchQuery.trim()) {
-      const q = filter.searchQuery.toLowerCase().trim();
-      list = list.filter(
-        (p) =>
-          p.title.toLowerCase().includes(q) ||
-          p.location.toLowerCase().includes(q) ||
-          p.district.toLowerCase().includes(q) ||
-          (p.ward && p.ward.toLowerCase().includes(q))
-      );
-    }
-
-    // 9. Sorting
-    if (filter.sortBy === "price_asc") {
-      list.sort((a, b) => a.priceMillion - b.priceMillion);
-    } else if (filter.sortBy === "price_desc") {
-      list.sort((a, b) => b.priceMillion - a.priceMillion);
-    } else if (filter.sortBy === "area_desc") {
-      list.sort((a, b) => b.areaM2 - a.areaM2);
-    }
-
-    return list;
-  }, [properties, filter, selectedProvinceCode, selectedProvinceName]);
-
-  // Pagination calculation
-  const totalItems = filteredProperties.length;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
-  const currentItems = filteredProperties.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + properties.length, totalItems);
 
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages) return;
@@ -392,7 +419,7 @@ export default function RentPage() {
                   setCurrentPage(1);
                 }}
                 onReset={handleReset}
-                totalResultsCount={filteredProperties.length}
+                totalResultsCount={totalItems}
               />
             </div>
 
@@ -547,12 +574,13 @@ export default function RentPage() {
                       <Switch
                         id="video-toggle"
                         checked={filter.hasVideoOnly}
-                        onCheckedChange={(checked) =>
-                          setFilter({
-                            ...filter,
+                        onCheckedChange={(checked) => {
+                          setFilter((prev) => ({
+                            ...prev,
                             hasVideoOnly: checked,
-                          })
-                        }
+                          }));
+                          setCurrentPage(1);
+                        }}
                       />
                       <label
                         htmlFor="video-toggle"
@@ -565,12 +593,13 @@ export default function RentPage() {
                     {/* Sort Dropdown */}
                     <select
                       value={filter.sortBy}
-                      onChange={(e) =>
-                        setFilter({
-                          ...filter,
+                      onChange={(e) => {
+                        setFilter((prev) => ({
+                          ...prev,
                           sortBy: e.target.value as FilterState["sortBy"],
-                        })
-                      }
+                        }));
+                        setCurrentPage(1);
+                      }}
                       className="h-9 px-3 rounded-2xl border border-border bg-background text-xs font-semibold text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all"
                     >
                       <option value="newest">Tin mới nhất</option>
@@ -584,7 +613,7 @@ export default function RentPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          setFilter({ ...filter, viewMode: "collage" })
+                          setFilter((prev) => ({ ...prev, viewMode: "collage" }))
                         }
                         title="Xem dạng thẻ chi tiết (Collage)"
                         className={`p-1.5 rounded-xl transition-all cursor-pointer ${
@@ -598,7 +627,7 @@ export default function RentPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          setFilter({ ...filter, viewMode: "grid" })
+                          setFilter((prev) => ({ ...prev, viewMode: "grid" }))
                         }
                         title="Xem dạng lưới (Grid)"
                         className={`p-1.5 rounded-xl transition-all cursor-pointer ${
@@ -616,14 +645,15 @@ export default function RentPage() {
 
               {/* Feed: Empty State or Listings Cards */}
               {isLoading ? (
-                <div className="bg-card rounded-3xl border border-border p-12 text-center text-muted-foreground shadow-sm">
-                  Đang tải tin đăng từ API...
+                <div className="bg-card rounded-3xl border border-border p-12 text-center text-muted-foreground shadow-sm flex flex-col items-center justify-center gap-3">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span>Đang tải tin đăng từ API...</span>
                 </div>
               ) : apiError ? (
                 <div className="bg-card rounded-3xl border border-border p-12 text-center text-destructive shadow-sm">
                   {apiError}
                 </div>
-              ) : currentItems.length === 0 ? (
+              ) : properties.length === 0 ? (
                 <div className="bg-card rounded-3xl border border-border p-12 text-center text-muted-foreground flex flex-col items-center justify-center gap-3.5 shadow-sm">
                   <div className="w-16 h-16 rounded-3xl bg-muted flex items-center justify-center text-muted-foreground/50">
                     <Building className="w-8 h-8" />
@@ -632,7 +662,7 @@ export default function RentPage() {
                     Không tìm thấy nhà cho thuê phù hợp
                   </h3>
                   <p className="text-xs sm:text-sm max-w-md text-muted-foreground leading-relaxed">
-                    Hãy thử điều chỉnh lại mức giá, diện tích, quận huyện hoặc nhấn Đặt lại để xem tất cả {properties.length} tin cho thuê đang có sẵn.
+                    Hãy thử điều chỉnh lại mức giá, diện tích, quận huyện hoặc nhấn Đặt lại để xem tất cả tin cho thuê đang có sẵn.
                   </p>
                   <Button
                     type="button"
@@ -643,9 +673,9 @@ export default function RentPage() {
                   </Button>
                 </div>
               ) : filter.viewMode === "collage" ? (
-                /* Collage View (10 items / page) */
+                /* Collage View */
                 <div className="space-y-4 sm:space-y-5">
-                  {currentItems.map((prop) => (
+                  {properties.map((prop) => (
                     <RentCollageCard
                       key={prop.id}
                       property={prop}
@@ -654,9 +684,9 @@ export default function RentPage() {
                   ))}
                 </div>
               ) : (
-                /* Grid View (10 items / page) */
+                /* Grid View */
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  {currentItems.map((prop) => (
+                  {properties.map((prop) => (
                     <RentCollageCard
                       key={prop.id}
                       property={prop}
@@ -666,11 +696,19 @@ export default function RentPage() {
                 </div>
               )}
 
-              {/* 4. Pagination Bar (Load 10 products per page) */}
+              {/* 4. Pagination Bar */}
               {totalPages > 1 && (
                 <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-border/80 pt-6">
                   <p className="text-xs text-muted-foreground font-medium order-2 sm:order-1">
-                    Hiển thị <span className="font-bold text-foreground">{startIndex + 1} - {endIndex}</span> trong tổng số <span className="font-bold text-foreground">{totalItems}</span> tin đăng cho thuê
+                    Hiển thị{" "}
+                    <span className="font-bold text-foreground">
+                      {startIndex + 1} - {endIndex}
+                    </span>{" "}
+                    trong tổng số{" "}
+                    <span className="font-bold text-foreground">
+                      {totalItems}
+                    </span>{" "}
+                    tin đăng cho thuê
                   </p>
 
                   <div className="flex items-center gap-2 order-1 sm:order-2">
@@ -722,7 +760,7 @@ export default function RentPage() {
         </div>
       </main>
 
-      {/* 4. Mobile Filter Modal / Drawer */}
+      {/* Mobile Filter Modal / Drawer */}
       {isMobileFilterOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
           {/* Backdrop */}
@@ -755,7 +793,7 @@ export default function RentPage() {
                   setIsMobileFilterOpen(false);
                 }}
                 onReset={handleReset}
-                totalResultsCount={filteredProperties.length}
+                totalResultsCount={totalItems}
               />
             </div>
           </div>
@@ -765,23 +803,4 @@ export default function RentPage() {
       <Footer />
     </div>
   );
-}
-
-function belongsToProvince(
-  property: RentPropertyItem,
-  selectedProvinceCode: number | string,
-  selectedProvinceName: string,
-) {
-  if (property.provinceCode) return String(property.provinceCode) === String(selectedProvinceCode);
-
-  return normalizeProvinceName(property.city) === normalizeProvinceName(selectedProvinceName);
-}
-
-function normalizeProvinceName(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/^(thanh pho|tinh|tp)\.?\s*/i, "")
-    .trim();
 }

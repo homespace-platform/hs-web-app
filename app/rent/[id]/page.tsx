@@ -163,12 +163,17 @@ export default function RentDetailPage() {
   ];
   const detailSections = getRentDetailSections(property);
   const showBedroomMetric = ["apartment", "house", "villa"].includes(property.category);
-  const amenities = Array.isArray(property.details?.amenities)
-    ? property.details.amenities.filter((item): item is string => typeof item === "string")
-    : [];
-  const roomFeatures = Array.isArray(property.details?.roomFeatures)
-    ? property.details.roomFeatures.filter((item): item is string => typeof item === "string")
-    : [];
+  const amenities = [
+    ...(Array.isArray(property.details?.amenities) ? property.details.amenities : []),
+    ...(Array.isArray(property.details?.customAmenities) ? property.details.customAmenities : []),
+  ].filter((item): item is string => typeof item === "string");
+  const roomFeatures = (
+    Array.isArray(property.details?.furnishings)
+      ? property.details.furnishings
+      : Array.isArray(property.details?.roomFeatures)
+      ? property.details.roomFeatures
+      : []
+  ).filter((item): item is string => typeof item === "string");
   const viewingDays = Array.isArray(property.details?.viewingDays)
     ? property.details.viewingDays.filter((item): item is string => typeof item === "string")
     : [];
@@ -267,8 +272,27 @@ export default function RentDetailPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl border border-border bg-card">
                   <DetailMetric icon={BedDouble} label="Giá thuê" value={`${formatPrice(property.priceMillion)}/th`} />
                   <DetailMetric icon={Bath} label="Diện tích" value={`${property.areaM2} m²`} />
-                  {showBedroomMetric && <DetailMetric icon={BedDouble} label="Phòng ngủ" value={`${property.beds} PN`} />}
-                  <DetailMetric icon={Bath} label="Phòng tắm" value={`${property.baths} WC`} />
+                  {showBedroomMetric ? (
+                    <DetailMetric icon={BedDouble} label="Phòng ngủ" value={`${property.beds} PN`} />
+                  ) : property.category === "office" && property.details?.expectedSeats != null ? (
+                    <DetailMetric icon={Building2} label="Chỗ ngồi" value={`${property.details.expectedSeats} chỗ`} />
+                  ) : property.category === "commercial" && property.details?.frontageWidthM != null ? (
+                    <DetailMetric icon={Building2} label="Mặt tiền" value={`${property.details.frontageWidthM} m`} />
+                  ) : property.category === "room" && property.details?.maxOccupants != null ? (
+                    <DetailMetric icon={Building2} label="Tối đa" value={`${property.details.maxOccupants} người`} />
+                  ) : (
+                    <DetailMetric icon={Building2} label="Loại hình" value={property.categoryLabel} />
+                  )}
+                  <DetailMetric
+                    icon={Bath}
+                    label="Phòng tắm / WC"
+                    value={`${
+                      property.baths ||
+                      (property.details?.bathroomCount as number) ||
+                      (property.details?.restroomCount as number) ||
+                      (property.details?.restroomType === "PRIVATE" ? "Khép kín" : property.details?.restroomType === "SHARED" ? "Chung" : 1)
+                    } WC`}
+                  />
                 </div>
               </section>
 

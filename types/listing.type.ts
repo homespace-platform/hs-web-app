@@ -465,3 +465,51 @@ export type ListingResponse = CreateListingResponse & {
   createdAt?: string;
   updatedAt?: string;
 };
+
+export type PublicListingSummaryResponse = {
+  id: string;
+  title: string;
+  category: ListingCategory;
+  subtype: ListingSubtype;
+  areaM2: number;
+  priceAmount: number;
+  currency: string;
+  priceUnit: PriceUnit;
+  negotiable: boolean;
+  coverImageUrl: string | null;
+  hasVideo: boolean;
+  fullAddress: string | null;
+  provinceCode: string | null;
+  provinceName: string | null;
+  wardCode: string | null;
+  wardName: string | null;
+  bedroomCount: number | null;
+  publishedAt: string | null;
+  availableFrom: string | null;
+};
+
+export interface PublicListingQueryParams {
+  page?: number;
+  size?: number;
+  category?: ListingCategory;
+  subtype?: ListingSubtype;
+  keyword?: string;
+  provinceCode?: string;
+  wardCode?: string;
+  priceMin?: number;
+  priceMax?: number;
+  areaMin?: number;
+  areaMax?: number;
+  bedrooms?: number;
+  hasVideo?: boolean;
+  furnishingStatus?: FurnishingStatus;
+  direction?: string;
+  officeGrade?: string;
+  positionType?: PositionType;
+  restroomType?: RestroomType;
+  hasMezzanine?: boolean;
+  hasRooftop?: boolean;
+  hasGarage?: boolean;
+  sort?: "newest" | "price_asc" | "price_desc" | "area_asc" | "area_desc";
+}
+

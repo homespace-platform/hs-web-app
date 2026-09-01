@@ -11,6 +11,8 @@ import type {
   ListingResponse,
   ListingStatus,
   MyListingSummaryResponse,
+  PublicListingQueryParams,
+  PublicListingSummaryResponse,
 } from "@/types/listing.type";
 
 export interface MyListingsQueryParams {
@@ -94,17 +96,24 @@ const listingService = {
   },
 
   /**
+   * Lấy danh sách tin công khai cho client (Public API) có phân trang, bộ lọc và sắp xếp
+   */
+  async getPublicListings(
+    params: PublicListingQueryParams = {},
+  ): Promise<PageResponse<PublicListingSummaryResponse>> {
+    const response = await axios.get<PageResponse<PublicListingSummaryResponse>>(
+      `${process.env.NEXT_PUBLIC_GATEWAY_BASE_URL}/api/v1/public/listings`,
+      { params },
+    );
+    return response.data;
+  },
+
+  /**
    * Lấy danh sách tin đã publish (public)
    */
-  async getPublished(): Promise<ListingResponse[]> {
-    const response = await axios.get<PageResponse<ListingResponse>>(
-      `${process.env.NEXT_PUBLIC_GATEWAY_BASE_URL}/api/v1/listings`,
-      {
-        params: { page: 1, size: 100 },
-        headers: keycloak.token ? { Authorization: `Bearer ${keycloak.token}` } : undefined,
-      },
-    );
-    return response.data.result ?? [];
+  async getPublished(): Promise<PublicListingSummaryResponse[]> {
+    const data = await this.getPublicListings({ page: 1, size: 50 });
+    return data.result ?? [];
   },
 };
 

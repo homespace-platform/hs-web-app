@@ -9,7 +9,6 @@ import {
   Heart,
   Video,
   Camera,
-  ShieldCheck,
   MessageCircle,
 } from "lucide-react";
 import type { RentPropertyItem } from "@/types/rent.type";
@@ -31,6 +30,25 @@ export default function RentCollageCard({
     e.stopPropagation();
     setIsFavorite(!isFavorite);
   };
+
+  const heartButtonElement = (
+    <button
+      type="button"
+      onClick={handleFavoriteClick}
+      title={isFavorite ? "Bỏ lưu tin" : "Lưu tin này"}
+      className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-md backdrop-blur-md active:scale-90 ${
+        isFavorite
+          ? "bg-white text-rose-500 shadow-rose-500/20"
+          : "bg-black/40 hover:bg-black/60 text-white hover:text-rose-400"
+      }`}
+    >
+      <Heart
+        className={`w-4 h-4 transition-transform ${
+          isFavorite ? "fill-rose-500 text-rose-500 scale-110" : ""
+        }`}
+      />
+    </button>
+  );
 
   const rawPrice =
     (property.details?.rawPrice as number) ?? property.priceMillion * 1_000_000;
@@ -95,16 +113,9 @@ export default function RentCollageCard({
                 </div>
               </div>
 
-              {property.isVerified && (
-                <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
-                  <div
-                    className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-md backdrop-blur-md"
-                    title="Tin đăng đã xác thực thông tin"
-                  >
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                </div>
-              )}
+              <div className="absolute top-2.5 right-2.5 z-20">
+                {heartButtonElement}
+              </div>
             </div>
           ) : property.images.length === 2 ? (
             <div className="grid grid-cols-2 gap-1.5 sm:gap-2 h-56 sm:h-64 rounded-2xl overflow-hidden relative mb-4 bg-muted">
@@ -133,13 +144,9 @@ export default function RentCollageCard({
                   <span>2</span>
                 </div>
               </div>
-              {property.isVerified && (
-                <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
-                  <div className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-md backdrop-blur-md">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                </div>
-              )}
+              <div className="absolute top-2.5 right-2.5 z-20">
+                {heartButtonElement}
+              </div>
             </div>
           ) : property.images.length === 1 ? (
             <div className="relative h-56 sm:h-64 rounded-2xl overflow-hidden mb-4 bg-muted">
@@ -157,13 +164,9 @@ export default function RentCollageCard({
                 <Camera className="w-3.5 h-3.5" />
                 <span>1</span>
               </div>
-              {property.isVerified && (
-                <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
-                  <div className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-md backdrop-blur-md">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                </div>
-              )}
+              <div className="absolute top-2.5 right-2.5 z-20">
+                {heartButtonElement}
+              </div>
             </div>
           ) : (
             <div className="relative h-56 sm:h-64 rounded-2xl overflow-hidden mb-4 bg-muted flex flex-col items-center justify-center text-muted-foreground border border-dashed border-border">
@@ -171,6 +174,9 @@ export default function RentCollageCard({
               <span className="text-xs">Chưa có hình ảnh</span>
               <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/60 text-white text-xs font-semibold backdrop-blur-md">
                 {property.categoryLabel}
+              </div>
+              <div className="absolute top-2.5 right-2.5 z-20">
+                {heartButtonElement}
               </div>
             </div>
           )}
@@ -243,24 +249,6 @@ export default function RentCollageCard({
               >
                 <MessageCircle className="w-4 h-4" />
               </button>
-
-              {/* Nút Lưu tin (Trái tim) */}
-              <button
-                type="button"
-                onClick={handleFavoriteClick}
-                title={isFavorite ? "Bỏ lưu tin" : "Lưu tin này"}
-                className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs ${
-                  isFavorite
-                    ? "bg-rose-50 border-rose-200 text-rose-500 dark:bg-rose-950/40 dark:border-rose-900"
-                    : "bg-card border-border hover:bg-muted text-muted-foreground hover:text-rose-500"
-                }`}
-              >
-                <Heart
-                  className={`w-4 h-4 transition-transform active:scale-75 ${
-                    isFavorite ? "fill-rose-500" : ""
-                  }`}
-                />
-              </button>
             </div>
           </div>
         </Link>
@@ -295,16 +283,13 @@ export default function RentCollageCard({
             {property.categoryLabel}
           </div>
 
-          {/* Top-right badges */}
-          <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
-            {property.isVerified && (
-              <div
-                className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-md backdrop-blur-md"
-                title="Tin đăng đã xác thực thông tin"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-              </div>
-            )}
+          {/* Top-right heart button */}
+          <div className="absolute top-2.5 right-2.5 z-20">
+            {heartButtonElement}
+          </div>
+
+          {/* Bottom-right badges (Video, Photo count) */}
+          <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 z-10">
             {property.hasVideo && (
               <div className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-bold flex items-center gap-1 shadow-sm">
                 <Video className="w-3 h-3" />
@@ -385,24 +370,6 @@ export default function RentCollageCard({
                 className="w-7 h-7 rounded-full border border-border bg-card hover:bg-muted text-muted-foreground hover:text-primary flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
-              </button>
-
-              {/* Nút Lưu tin */}
-              <button
-                type="button"
-                onClick={handleFavoriteClick}
-                title={isFavorite ? "Bỏ lưu tin" : "Lưu tin này"}
-                className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs ${
-                  isFavorite
-                    ? "bg-rose-50 border-rose-200 text-rose-500 dark:bg-rose-950/40 dark:border-rose-900"
-                    : "bg-card border-border hover:bg-muted text-muted-foreground hover:text-rose-500"
-                }`}
-              >
-                <Heart
-                  className={`w-3.5 h-3.5 transition-transform active:scale-75 ${
-                    isFavorite ? "fill-rose-500" : ""
-                  }`}
-                />
               </button>
             </div>
           </div>

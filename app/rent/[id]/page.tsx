@@ -152,9 +152,6 @@ export default function RentDetailPage() {
   const highlights = [
     { icon: Building2, label: property.categoryLabel },
     { icon: Camera, label: `${property.photosCount} ảnh thực tế` },
-    property.isVerified
-      ? { icon: BadgeCheck, label: "Tin đăng đã xác thực" }
-      : { icon: ShieldCheck, label: "Thông tin đang được cập nhật" },
     property.hasVideo
       ? { icon: Video, label: "Có video tham quan" }
       : { icon: ImageIcon, label: "Xem thư viện hình ảnh" },
@@ -208,26 +205,19 @@ export default function RentDetailPage() {
             title={property.title}
             mediaItems={property.mediaItems || property.images.map((img) => ({ type: "image", url: img }))}
             categoryLabel={property.categoryLabel}
-            isVerified={property.isVerified}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
             <div className="lg:col-span-2 space-y-12">
               <section>
-                <div className="flex flex-wrap items-center gap-2 mb-3">
-                  {property.isVerified && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-verified/10 px-2.5 py-1 text-[11px] font-bold text-verified">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      Tin đăng xác thực
-                    </span>
-                  )}
-                  {property.hasVideo && (
+                {property.hasVideo && (
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
                     <span className="inline-flex items-center gap-1 rounded-full bg-accent-ai/10 px-2.5 py-1 text-[11px] font-bold text-accent-ai">
                       <Video className="w-3.5 h-3.5" />
                       Có video tham quan
                     </span>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight mb-4">
                   {property.title}

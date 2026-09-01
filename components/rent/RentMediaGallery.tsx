@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Play,
-  ShieldCheck,
   Video,
   X,
 } from "lucide-react";
@@ -17,14 +16,12 @@ interface RentMediaGalleryProps {
   title: string;
   mediaItems: RentMediaItem[];
   categoryLabel?: string;
-  isVerified?: boolean;
 }
 
 export default function RentMediaGallery({
   title,
   mediaItems,
   categoryLabel,
-  isVerified,
 }: RentMediaGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
@@ -135,12 +132,6 @@ export default function RentMediaGallery({
           {categoryLabel && (
             <div className="absolute top-3 left-3 px-3 py-1.5 rounded-xl bg-black/60 text-white text-xs font-semibold backdrop-blur-md pointer-events-none">
               {categoryLabel}
-            </div>
-          )}
-          {isVerified && (
-            <div className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-blue-500/90 text-white px-2.5 py-1 text-xs font-semibold shadow-md backdrop-blur-md pointer-events-none">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Xác thực</span>
             </div>
           )}
         </div>

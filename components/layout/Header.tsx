@@ -10,6 +10,7 @@ import UserDropdown from "./UserDropdown";
 import NotificationDropdown from "@/components/notification/NotificationDropdown";
 import UserAvatar from "@/components/common/UserAvatar";
 import provinceService from "@/services/province.service";
+import favoriteService from "@/services/favorite.service";
 import { Province } from "@/types/province.type";
 import {
   Menu,
@@ -75,17 +76,25 @@ export default function Header() {
       return;
     }
 
-    try {
-      const saved = localStorage.getItem("homespace_saved_favorites");
-      if (saved) {
-        const ids = JSON.parse(saved);
-        if (Array.isArray(ids)) {
-          setFavoriteCount(ids.length);
+    // Fetch real favorite count from backend API
+    favoriteService
+      .getFavoriteListingIds()
+      .then((ids) => {
+        setFavoriteCount(ids.length);
+      })
+      .catch(() => {
+        try {
+          const saved = localStorage.getItem("homespace_saved_favorites");
+          if (saved) {
+            const ids = JSON.parse(saved);
+            if (Array.isArray(ids)) {
+              setFavoriteCount(ids.length);
+            }
+          }
+        } catch {
+          // ignore
         }
-      }
-    } catch {
-      // ignore
-    }
+      });
 
     const handleFavUpdate = (e: Event) => {
       const customEvent = e as CustomEvent;

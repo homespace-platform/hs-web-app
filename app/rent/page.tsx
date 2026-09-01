@@ -14,6 +14,8 @@ import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
 import { District } from "@/types/province.type";
 import type { ListingCategory, ListingSubtype } from "@/types/listing.type";
+import { useAuth } from "@/features/auth/useAuth";
+import favoriteService from "@/services/favorite.service";
 import {
   Home,
   ChevronLeft,
@@ -44,6 +46,19 @@ export default function RentPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const listContainerRef = useRef<HTMLDivElement>(null);
+
+  const { authenticated } = useAuth();
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (authenticated) {
+      favoriteService.getFavoriteListingIds().then((ids) => {
+        setFavoriteIds(new Set(ids));
+      }).catch(() => {});
+    } else {
+      setFavoriteIds(new Set());
+    }
+  }, [authenticated]);
 
   // Dynamic Province & Districts synced with Header
   const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | string>(79);
@@ -689,17 +704,35 @@ export default function RentPage() {
                       key={prop.id}
                       property={prop}
                       viewMode="collage"
+                      initialFavorited={favoriteIds.has(prop.id)}
+                      onFavoriteChange={(id, isFav) => {
+                        setFavoriteIds((prev) => {
+                          const next = new Set(prev);
+                          if (isFav) next.add(id);
+                          else next.delete(id);
+                          return next;
+                        });
+                      }}
                     />
                   ))}
                 </div>
               ) : (
                 /* Grid View */
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-stretch">
                   {properties.map((prop) => (
                     <RentCollageCard
                       key={prop.id}
                       property={prop}
                       viewMode="grid"
+                      initialFavorited={favoriteIds.has(prop.id)}
+                      onFavoriteChange={(id, isFav) => {
+                        setFavoriteIds((prev) => {
+                          const next = new Set(prev);
+                          if (isFav) next.add(id);
+                          else next.delete(id);
+                          return next;
+                        });
+                      }}
                     />
                   ))}
                 </div>

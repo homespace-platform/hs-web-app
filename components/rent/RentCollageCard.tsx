@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -13,22 +13,73 @@ import {
 } from "lucide-react";
 import type { RentPropertyItem } from "@/types/rent.type";
 import { formatVietnamesePrice } from "@/lib/format-currency";
+import { useAuth } from "@/features/auth/useAuth";
+import favoriteService from "@/services/favorite.service";
+import { toast } from "sonner";
 
 interface RentCollageCardProps {
   property: RentPropertyItem;
   viewMode?: "collage" | "grid";
+  initialFavorited?: boolean;
+  onFavoriteChange?: (listingId: string, isFavorited: boolean) => void;
 }
 
 export default function RentCollageCard({
   property,
   viewMode = "collage",
+  initialFavorited = false,
+  onFavoriteChange,
 }: RentCollageCardProps) {
-  const [isFavorite, setIsFavorite] = useState(false);
+  const { authenticated, login } = useAuth();
+  const [isFavorite, setIsFavorite] = useState(initialFavorited);
+  const [isToggling, setIsToggling] = useState(false);
 
-  const handleFavoriteClick = (e: React.MouseEvent) => {
+  useEffect(() => {
+    setIsFavorite(initialFavorited);
+  }, [initialFavorited]);
+
+  const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsFavorite(!isFavorite);
+    if (e.nativeEvent) {
+      e.nativeEvent.stopImmediatePropagation?.();
+    }
+
+    if (!authenticated) {
+      toast.error("Vui lòng đăng nhập để lưu tin yêu thích!");
+      login();
+      return;
+    }
+
+    if (isToggling) return;
+
+    const prevStatus = isFavorite;
+    const nextStatus = !isFavorite;
+    setIsFavorite(nextStatus);
+    setIsToggling(true);
+
+    try {
+      const result = await favoriteService.toggleFavorite(property.id);
+      setIsFavorite(result);
+      if (result) {
+        toast.success("Đã lưu vào danh sách yêu thích!");
+      } else {
+        toast.success("Đã bỏ lưu tin đăng!");
+      }
+      onFavoriteChange?.(property.id, result);
+
+      // Đồng bộ badge số lượng trên Header
+      favoriteService.getFavoriteListingIds().then((ids) => {
+        window.dispatchEvent(
+          new CustomEvent("favoritesUpdated", { detail: { ids } })
+        );
+      }).catch(() => {});
+    } catch {
+      setIsFavorite(prevStatus);
+      toast.error("Không thể cập nhật yêu thích. Vui lòng thử lại!");
+    } finally {
+      setIsToggling(false);
+    }
   };
 
   const heartButtonElement = (
@@ -57,7 +108,12 @@ export default function RentCollageCard({
   // 1. Collage View (Clean, Non-duplicated, Category-Exclusive Specs)
   if (viewMode === "collage") {
     return (
-      <div className="bg-card rounded-2xl sm:rounded-3xl border border-border overflow-hidden shadow-2xs hover:shadow-xl hover:border-primary/40 transition-all duration-300 group">
+      <div className="bg-card rounded-2xl sm:rounded-3xl border border-border overflow-hidden shadow-2xs hover:shadow-xl hover:border-primary/40 transition-all duration-300 group relative">
+        {/* Nút Tim đặt ở ngoài thẻ Link để tránh kích hoạt điều hướng trang */}
+        <div className="absolute top-[26px] right-[26px] sm:top-[30px] sm:right-[30px] z-30 pointer-events-auto">
+          {heartButtonElement}
+        </div>
+
         <Link href={`/rent/${property.id}`} className="block p-4 sm:p-5">
           {/* Image Gallery: adapts to 3+, 2, 1, or 0 images (NEVER duplicates images) */}
           {property.images.length >= 3 ? (
@@ -112,10 +168,6 @@ export default function RentCollageCard({
                   </div>
                 </div>
               </div>
-
-              <div className="absolute top-2.5 right-2.5 z-20">
-                {heartButtonElement}
-              </div>
             </div>
           ) : property.images.length === 2 ? (
             <div className="grid grid-cols-2 gap-1.5 sm:gap-2 h-56 sm:h-64 rounded-2xl overflow-hidden relative mb-4 bg-muted">
@@ -144,9 +196,6 @@ export default function RentCollageCard({
                   <span>2</span>
                 </div>
               </div>
-              <div className="absolute top-2.5 right-2.5 z-20">
-                {heartButtonElement}
-              </div>
             </div>
           ) : property.images.length === 1 ? (
             <div className="relative h-56 sm:h-64 rounded-2xl overflow-hidden mb-4 bg-muted">
@@ -164,9 +213,6 @@ export default function RentCollageCard({
                 <Camera className="w-3.5 h-3.5" />
                 <span>1</span>
               </div>
-              <div className="absolute top-2.5 right-2.5 z-20">
-                {heartButtonElement}
-              </div>
             </div>
           ) : (
             <div className="relative h-56 sm:h-64 rounded-2xl overflow-hidden mb-4 bg-muted flex flex-col items-center justify-center text-muted-foreground border border-dashed border-border">
@@ -174,9 +220,6 @@ export default function RentCollageCard({
               <span className="text-xs">Chưa có hình ảnh</span>
               <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/60 text-white text-xs font-semibold backdrop-blur-md">
                 {property.categoryLabel}
-              </div>
-              <div className="absolute top-2.5 right-2.5 z-20">
-                {heartButtonElement}
               </div>
             </div>
           )}
@@ -187,8 +230,8 @@ export default function RentCollageCard({
           </h3>
 
           {/* Price & Specs Row (Price on Left, Specs on Right) */}
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <span className="font-heading font-bold text-base sm:text-lg text-rose-600 dark:text-rose-500">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-2">
+            <span className="font-heading font-bold text-base sm:text-lg text-rose-600 dark:text-rose-500 shrink-0">
               {formattedPrice}
             </span>
 
@@ -197,9 +240,9 @@ export default function RentCollageCard({
           </div>
 
           {/* Location */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3.5">
-            <MapPin className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
-            <span className="truncate">{property.location}</span>
+          <div className="flex items-start gap-1.5 text-xs text-muted-foreground mb-3.5">
+            <MapPin className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0 mt-0.5" />
+            <span className="leading-relaxed break-words">{property.location}</span>
           </div>
 
           {/* Landlord Footer & Actions */}
@@ -258,10 +301,15 @@ export default function RentCollageCard({
 
   // 2. Compact Grid View (Standard Single-Image Card)
   return (
-    <div className="bg-card rounded-2xl sm:rounded-3xl border border-border overflow-hidden shadow-2xs hover:shadow-xl hover:border-primary/40 transition-all duration-300 group flex flex-col">
-      <Link href={`/rent/${property.id}`} className="flex flex-col flex-1">
+    <div className="bg-card rounded-2xl sm:rounded-3xl border border-border overflow-hidden shadow-2xs hover:shadow-xl hover:border-primary/40 transition-all duration-300 group flex flex-col relative h-full">
+      {/* Nút Tim đặt ở ngoài thẻ Link để tránh kích hoạt điều hướng trang */}
+      <div className="absolute top-2.5 right-2.5 z-30 pointer-events-auto">
+        {heartButtonElement}
+      </div>
+
+      <Link href={`/rent/${property.id}`} className="flex flex-col flex-1 h-full">
         {/* Single Main Image */}
-        <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-muted">
+        <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-muted shrink-0">
           {property.images[0] ? (
             <Image
               src={property.images[0]}
@@ -283,11 +331,6 @@ export default function RentCollageCard({
             {property.categoryLabel}
           </div>
 
-          {/* Top-right heart button */}
-          <div className="absolute top-2.5 right-2.5 z-20">
-            {heartButtonElement}
-          </div>
-
           {/* Bottom-right badges (Video, Photo count) */}
           <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 z-10">
             {property.hasVideo && (
@@ -305,15 +348,15 @@ export default function RentCollageCard({
 
         {/* Content Body */}
         <div className="p-4 sm:p-5 flex flex-col flex-1 justify-between gap-3">
-          <div>
-            {/* Title */}
-            <h3 className="font-heading font-bold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug mb-2">
+          <div className="flex flex-col flex-1">
+            {/* Title: Cố định min-height 2 dòng để tiêu đề 1 dòng không bị lệch */}
+            <h3 className="font-heading font-bold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug mb-2 min-h-[2.5rem] sm:min-h-[2.75rem]">
               {property.title}
             </h3>
 
             {/* Price & Specs Row */}
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <span className="font-heading font-bold text-base text-rose-600 dark:text-rose-500">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-2 min-h-[1.75rem]">
+              <span className="font-heading font-bold text-base text-rose-600 dark:text-rose-500 shrink-0">
                 {formattedPrice}
               </span>
 
@@ -321,15 +364,15 @@ export default function RentCollageCard({
               {renderCardSpecs(property)}
             </div>
 
-            {/* Location */}
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <MapPin className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
-              <span className="truncate">{property.location}</span>
+            {/* Location: Cố định min-height 2 dòng cho địa chỉ */}
+            <div className="flex items-start gap-1.5 text-xs text-muted-foreground min-h-[2.25rem]">
+              <MapPin className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0 mt-0.5" />
+              <span className="leading-relaxed break-words line-clamp-2">{property.location}</span>
             </div>
           </div>
 
-          {/* Landlord Footer & Actions */}
-          <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
+          {/* Landlord Footer & Actions: Ghim chân thẻ cố định đều nhau */}
+          <div className="pt-3 border-t border-border flex items-center justify-between gap-2 mt-auto">
             {/* Landlord info */}
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground font-bold text-[11px] flex items-center justify-center shrink-0 shadow-2xs overflow-hidden relative">
@@ -395,7 +438,7 @@ function renderCardSpecs(property: RentPropertyItem) {
         : "WC riêng";
 
     return (
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium truncate">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground font-medium">
         <span>{property.areaM2} m²</span>
         <span>·</span>
         <span>{restroomText}</span>
@@ -424,7 +467,7 @@ function renderCardSpecs(property: RentPropertyItem) {
   // 2. Văn phòng
   if (cat === "office") {
     return (
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium truncate">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground font-medium">
         <span>{property.areaM2} m²</span>
         {d.expectedSeats != null && (
           <>
@@ -456,7 +499,7 @@ function renderCardSpecs(property: RentPropertyItem) {
         : null;
 
     return (
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium truncate">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground font-medium">
         <span>{property.areaM2} m²</span>
         {d.frontageWidthM != null && (
           <>
@@ -488,7 +531,7 @@ function renderCardSpecs(property: RentPropertyItem) {
     cat === "apartment" && property.beds === 0 ? "Studio" : `${property.beds} PN`;
 
   return (
-    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium truncate">
+    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground font-medium">
       <span>{property.areaM2} m²</span>
       <span>·</span>
       <span>{bedText}</span>

@@ -175,9 +175,9 @@ export default function RentDetailView({
               {property.title}
             </h1>
 
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-              <MapPin className="w-4 h-4 text-primary shrink-0" />
-              <span>{property.location}</span>
+            <div className="flex items-start gap-2 text-sm text-muted-foreground mb-6">
+              <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <span className="leading-relaxed break-words">{property.location}</span>
             </div>
 
             {/* Quick Metrics Bar */}

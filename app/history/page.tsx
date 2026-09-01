@@ -4,8 +4,8 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import PropertyCard from "@/components/property/PropertyCard";
-import { PropertyItem } from "@/data/home-data";
+import RentCollageCard from "@/components/rent/RentCollageCard";
+import type { RentPropertyItem } from "@/types/rent.type";
 import { toast } from "sonner";
 import {
   Clock,
@@ -33,7 +33,7 @@ const HISTORY_CATEGORIES = [
 ];
 
 export default function HistoryPage() {
-  const [historyList, setHistoryList] = useState<PropertyItem[]>([]);
+  const [historyList, setHistoryList] = useState<RentPropertyItem[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"recent" | "price_asc" | "price_desc" | "area_desc">("recent");
@@ -282,7 +282,7 @@ export default function HistoryPage() {
                   : "Thử thay đổi bộ lọc thể loại hoặc tìm kiếm với từ khóa khác."}
               </p>
               <Link
-                href="/#featured-listings"
+                href="/rent"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-primary-foreground font-bold text-sm shadow-md shadow-primary/25 hover:bg-primary/90 transition-all hover:scale-105 active:scale-95"
               >
                 <Sparkles className="w-4 h-4" />
@@ -292,9 +292,10 @@ export default function HistoryPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {currentItems.map((property) => (
-                <PropertyCard
+                <RentCollageCard
                   key={property.id}
                   property={property}
+                  viewMode="grid"
                 />
               ))}
             </div>

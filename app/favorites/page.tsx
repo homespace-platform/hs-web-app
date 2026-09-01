@@ -4,9 +4,9 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import PropertyCard from "@/components/property/PropertyCard";
+import RentCollageCard from "@/components/rent/RentCollageCard";
 import { useAuth } from "@/features/auth/useAuth";
-import { PropertyItem } from "@/data/home-data";
+import type { RentPropertyItem } from "@/types/rent.type";
 import { toast } from "sonner";
 import {
   Heart,
@@ -37,7 +37,7 @@ const FAVORITE_CATEGORIES = [
 
 export default function FavoritesPage() {
   const { initialized, authenticated, login } = useAuth();
-  const [favorites, setFavorites] = useState<PropertyItem[]>([]);
+  const [favorites, setFavorites] = useState<RentPropertyItem[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "price_asc" | "price_desc" | "area_desc">("newest");
@@ -331,7 +331,7 @@ export default function FavoritesPage() {
                   : "Thử thay đổi bộ lọc thể loại hoặc tìm kiếm với từ khóa khác."}
               </p>
               <Link
-                href="/#featured-listings"
+                href="/rent"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-primary-foreground font-bold text-sm shadow-md shadow-primary/25 hover:bg-primary/90 transition-all hover:scale-105 active:scale-95"
               >
                 <Sparkles className="w-4 h-4" />
@@ -341,11 +341,10 @@ export default function FavoritesPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {currentItems.map((property) => (
-                <PropertyCard
+                <RentCollageCard
                   key={property.id}
                   property={property}
-                  initialFavorited={true}
-                  onRemoveFavorite={handleRemoveFavorite}
+                  viewMode="grid"
                 />
               ))}
             </div>

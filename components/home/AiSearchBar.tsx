@@ -11,9 +11,17 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { QUICK_SEARCH_SUGGESTIONS } from "@/data/home-data";
 import provinceService from "@/services/province.service";
 import { District } from "@/types/province.type";
+
+const QUICK_SEARCH_SUGGESTIONS = [
+  "Căn hộ studio Quận 1",
+  "Gần ĐH Bách Khoa",
+  "Smart-home Quận 7",
+  "Chung cư dưới 10 triệu",
+  "Vinhomes Central Park",
+  "Masteri Thảo Điền",
+];
 
 interface AiSearchBarProps {
   onSearch?: (query: { keyword: string; location: string; type: string }) => void;

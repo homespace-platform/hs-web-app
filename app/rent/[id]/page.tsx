@@ -20,6 +20,7 @@ import {
   MapPin,
   MessageCircle,
   Phone,
+  ShieldCheck,
   Video,
   Loader2,
 } from "lucide-react";

@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import RentCollageCard from "@/components/rent/RentCollageCard";
 import RentDetailView from "@/components/rent/RentDetailView";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import type { RentPropertyItem } from "@/types/rent.type";
@@ -16,7 +15,6 @@ export default function RentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [property, setProperty] = useState<RentPropertyItem | null>(null);
   const [loading, setLoading] = useState(true);
-  const [similarProperties, setSimilarProperties] = useState<RentPropertyItem[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -36,22 +34,6 @@ export default function RentDetailPage() {
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
-      });
-
-    // Load similar published properties from API
-    listingService
-      .getPublished()
-      .then((published) => {
-        if (!cancelled && Array.isArray(published)) {
-          const others = published
-            .filter((item) => item.id !== id)
-            .slice(0, 4)
-            .map((l) => toRentProperty(l));
-          setSimilarProperties(others);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setSimilarProperties([]);
       });
 
     return () => {
@@ -106,26 +88,6 @@ export default function RentDetailPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           {/* Reusable Core Detail View */}
           <RentDetailView property={property} />
-
-          {/* Similar properties section */}
-          {similarProperties.length > 0 && (
-            <section className="space-y-6 pt-12 border-t border-border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="font-heading text-xl font-bold">Gợi ý bất động sản tương tự</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Khám phá các lựa chọn cùng khu vực</p>
-                </div>
-                <Link href="/rent" className="text-sm font-semibold text-primary hover:underline">
-                  Xem tất cả
-                </Link>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-                {similarProperties.map((item) => (
-                  <RentCollageCard key={item.id} property={item} viewMode="grid" />
-                ))}
-              </div>
-            </section>
-          )}
         </div>
       </main>
 

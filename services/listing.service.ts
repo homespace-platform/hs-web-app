@@ -132,14 +132,6 @@ const listingService = {
     );
     return response.data;
   },
-
-  /**
-   * Lấy danh sách tin đã publish (public)
-   */
-  async getPublished(): Promise<PublicListingSummaryResponse[]> {
-    const data = await this.getPublicListings({ page: 1, size: 50 });
-    return data.result ?? [];
-  },
 };
 
 export default listingService;

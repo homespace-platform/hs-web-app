@@ -5,7 +5,6 @@ import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import PropertyCard from "@/components/property/PropertyCard";
-import { MOCK_HISTORY_PROPERTIES } from "@/data/mock-history-data";
 import { PropertyItem } from "@/data/home-data";
 import { toast } from "sonner";
 import {
@@ -34,9 +33,7 @@ const HISTORY_CATEGORIES = [
 ];
 
 export default function HistoryPage() {
-  const [historyList, setHistoryList] = useState<PropertyItem[]>(
-    MOCK_HISTORY_PROPERTIES.slice(0, MAX_HISTORY_LIMIT)
-  );
+  const [historyList, setHistoryList] = useState<PropertyItem[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"recent" | "price_asc" | "price_desc" | "area_desc">("recent");

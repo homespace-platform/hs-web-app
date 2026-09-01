@@ -6,7 +6,6 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import PropertyCard from "@/components/property/PropertyCard";
 import { useAuth } from "@/features/auth/useAuth";
-import { MOCK_FAVORITE_PROPERTIES } from "@/data/mock-favorites-data";
 import { PropertyItem } from "@/data/home-data";
 import { toast } from "sonner";
 import {
@@ -38,9 +37,7 @@ const FAVORITE_CATEGORIES = [
 
 export default function FavoritesPage() {
   const { initialized, authenticated, login } = useAuth();
-  const [favorites, setFavorites] = useState<PropertyItem[]>(
-    MOCK_FAVORITE_PROPERTIES
-  );
+  const [favorites, setFavorites] = useState<PropertyItem[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "price_asc" | "price_desc" | "area_desc">("newest");

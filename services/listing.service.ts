@@ -52,9 +52,33 @@ const listingService = {
   },
 
   /**
+   * Lấy chi tiết bài đăng của chính mình theo ID (dành cho chủ tin trong Dashboard, hỗ trợ mọi trạng thái: Đang hiển thị, Đã ẩn, Chờ duyệt, v.v.)
+   */
+  async getMyListingById(listingId: string): Promise<ListingDetailResponse> {
+    const response = await axiosClient.get<ApiResponse<ListingDetailResponse>>(
+      `/api/v1/listings/${listingId}`,
+    );
+    return response.data.result;
+  },
+
+  /**
    * Lấy chi tiết bài đăng theo ID (hỗ trợ cả khách chưa đăng nhập và người dùng đã đăng nhập)
    */
   async getById(listingId: string): Promise<ListingDetailResponse> {
+    // Nếu user đã đăng nhập, thử lấy qua auth endpoint trước (để chủ tin xem được tin của mình ngay cả khi Đã ẩn / Chờ duyệt)
+    if (keycloak.authenticated) {
+      try {
+        const authRes = await axiosClient.get<ApiResponse<ListingDetailResponse>>(
+          `/api/v1/listings/${listingId}`,
+        );
+        if (authRes.data?.result) {
+          return authRes.data.result;
+        }
+      } catch {
+        // Nếu không phải chủ tin hoặc lỗi auth, tiếp tục fallback sang public endpoint bên dưới
+      }
+    }
+
     const baseUrl = process.env.NEXT_PUBLIC_GATEWAY_BASE_URL || "";
     const response = await axios.get<ApiResponse<ListingDetailResponse>>(
       `${baseUrl}/api/v1/public/listings/${listingId}`,

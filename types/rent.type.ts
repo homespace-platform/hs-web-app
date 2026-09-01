@@ -7,6 +7,7 @@ export interface RentMediaItem {
 
 export interface RentPropertyItem {
   id: string;
+  ownerId?: string;
   title: string;
   description?: string;
   floor?: string;
@@ -39,10 +40,13 @@ export interface RentPropertyItem {
   viewsCount?: number;
   details?: Record<string, unknown>;
   landlord: {
+    id?: string;
     name: string;
     avatar?: string;
     role: string;
     listingsCount: number;
     phone?: string;
+    joinedYears?: number;
+    activityStatus?: string;
   };
 }

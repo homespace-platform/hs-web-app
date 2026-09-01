@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -13,12 +13,20 @@ import {
   ImageIcon,
   MapPin,
   MessageCircle,
+  MessageSquare,
   Phone,
   ShieldCheck,
   Video,
   Eye,
   Clock,
+  Calendar,
+  Home,
+  User,
+  Edit,
+  Layers,
 } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/features/auth/useAuth";
 import type { RentPropertyItem } from "@/types/rent.type";
 import RentMediaGallery from "@/components/rent/RentMediaGallery";
 import UserAvatar from "@/components/common/UserAvatar";
@@ -108,6 +116,39 @@ export default function RentDetailView({
   const wardLabel = formatLocationLabel(wardName);
   const provinceHref = `/rent?provinceCode=${encodeURIComponent(provinceCode)}&provinceName=${encodeURIComponent(provinceName)}`;
   const wardHref = `${provinceHref}&ward=${encodeURIComponent(wardName)}`;
+
+  const { profile, authenticated } = useAuth();
+  const currentUserId = profile?.id;
+  const isOwner =
+    authenticated &&
+    Boolean(
+      currentUserId &&
+        (currentUserId === property.ownerId || currentUserId === property.landlord?.id)
+    );
+
+  const [phoneRevealed, setPhoneRevealed] = useState(false);
+  const [quickMessage, setQuickMessage] = useState("");
+
+  const rawPhone = property.landlord.phone || "0999999999";
+  const cleanPhone = rawPhone.replace(/\s+/g, "");
+  const maskedPhone =
+    cleanPhone.length > 6
+      ? `${cleanPhone.slice(0, cleanPhone.length - 3)}***`
+      : `${cleanPhone}***`;
+
+  const QUICK_SUGGESTIONS = [
+    "Nhà này còn không?",
+    "Thời hạn thuê tối thiểu?",
+    "Giá thuê có thương lượng được không?",
+    "Khi nào có thể xem nhà?",
+  ];
+
+  const handleSendQuickMessage = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!quickMessage.trim()) return;
+    toast.success(`Đã gửi tin nhắn đến ${property.landlord.name}: "${quickMessage.trim()}"`);
+    setQuickMessage("");
+  };
 
   const highlights = [
     { icon: Building2, label: property.categoryLabel },
@@ -323,59 +364,206 @@ export default function RentDetailView({
         </div>
 
         {/* Right Column: Landlord Card & Action Sidebar */}
-        <aside className="space-y-6">
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-xs space-y-6 sticky top-28">
-            <div className="flex items-center gap-3">
-              <div className="relative shrink-0">
-                <UserAvatar
-                  src={property.landlord.avatar}
-                  name={property.landlord.name}
-                  sizeClassName="w-12 h-12 text-base"
-                />
-                {/* Active online green dot đồng bộ với Header */}
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-verified border-2 border-card rounded-full" />
+        <aside className="space-y-4">
+          {isOwner || !showLandlordContact ? (
+            /* Khi là bài đăng của bản thân: Bỏ card liên hệ (ảnh 2), hiện thông tin chính chủ & nút quản lý */
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-xs space-y-4 sticky top-28">
+              <div className="flex items-center gap-3">
+                <div className="shrink-0">
+                  <UserAvatar
+                    src={property.landlord.avatar}
+                    name={property.landlord.name}
+                    sizeClassName="w-12 h-12 text-base font-bold"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-heading font-bold text-foreground truncate">
+                    {property.landlord.name}
+                  </p>
+                  <p className="text-xs font-semibold text-primary">Chính chủ (Bài đăng của bạn)</p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="font-heading font-semibold text-foreground truncate">{property.landlord.name}</p>
-                <p className="text-xs text-muted-foreground">{property.landlord.role}</p>
+
+              <div className="rounded-xl bg-card border border-border p-3.5 text-xs text-muted-foreground space-y-1">
+                <p className="font-bold text-foreground">Bạn đang xem bài đăng của chính mình</p>
+                <p className="text-[11px] leading-relaxed">
+                  Các nút liên hệ, đặt lịch xem nhà sẽ tự động ẩn với bạn và chỉ hiển thị đối với khách tìm thuê.
+                </p>
               </div>
-            </div>
 
-            {/* Optional Custom Sidebar Actions (e.g. in dashboard) */}
-            {sidebarActions}
+              {sidebarActions}
 
-            {/* Standard Tenant Contact Actions */}
-            {showLandlordContact && (
-              <div className="space-y-3">
-                <a
-                  href={`tel:${property.landlord.phone || "19001234"}`}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all cursor-pointer"
-                >
-                  <Phone className="w-4 h-4" />
-                  <span>Gọi điện: {property.landlord.phone || "1900 1234"}</span>
-                </a>
-
+              <div className="pt-2 space-y-2">
                 <Link
-                  href="/chat"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 py-3.5 text-xs font-bold text-primary hover:bg-primary/10 transition-all"
+                  href={`/dashboard/properties/new?id=${property.id}`}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all active:scale-[0.98]"
                 >
-                  <MessageCircle className="h-4 w-4 text-primary" />
-                  <span>Nhắn tin trực tiếp</span>
+                  <Edit className="w-4 h-4" />
+                  <span>Chỉnh sửa bài đăng</span>
+                </Link>
+                <Link
+                  href="/dashboard/properties"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-xs font-bold text-foreground hover:bg-muted transition-all active:scale-[0.98]"
+                >
+                  <Layers className="w-4 h-4" />
+                  <span>Quản lý tin đăng</span>
                 </Link>
               </div>
-            )}
-
-            <div className="pt-4 border-t border-border space-y-3 text-xs leading-5 text-muted-foreground">
-              <p className="flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 mt-0.5 text-primary shrink-0" />
-                Thông tin chủ nhà và điều khoản thuê cần được xác nhận trước khi đặt cọc.
-              </p>
-              <p className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 mt-0.5 text-primary shrink-0" />
-                Ưu tiên trao đổi trực tiếp qua kênh liên hệ chính thức của HomeSpace.
-              </p>
             </div>
-          </div>
+          ) : (
+            /* Khi là bài đăng của người khác: Hiển thị 2 card theo đúng Ảnh 3 nâng cấp từ Ảnh 1 */
+            <div className="space-y-4 sticky top-24">
+              {/* Card 1: Bạn quan tâm đến căn này? */}
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-3">
+                <h3 className="font-heading font-bold text-sm text-foreground">
+                  Bạn quan tâm đến căn này?
+                </h3>
+
+                <button
+                  type="button"
+                  onClick={() => toast.info("Tính năng Yêu cầu thuê nhà đang được kết nối!")}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3 px-4 text-xs sm:text-sm font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all cursor-pointer active:scale-[0.98]"
+                >
+                  <Home className="w-4 h-4" />
+                  <span>Yêu cầu thuê nhà</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => toast.info("Tính năng Đặt lịch xem nhà đang được kết nối!")}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-primary bg-card py-2.5 px-4 text-xs sm:text-sm font-bold text-primary hover:bg-primary/5 transition-all cursor-pointer active:scale-[0.98]"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>Đặt lịch xem nhà</span>
+                </button>
+
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  <a
+                    href={`tel:${cleanPhone}`}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 px-3 text-xs font-semibold text-primary hover:bg-muted/60 transition-all cursor-pointer"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-primary" />
+                    <span>Gọi điện</span>
+                  </a>
+                  <Link
+                    href="/chat"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 px-3 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all cursor-pointer"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>Chat</span>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Card 2: Thẻ thông tin chủ nhà & Liên hệ nhanh */}
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-4">
+                {/* Profile Header */}
+                <div className="flex items-center gap-3">
+                  <div className="shrink-0">
+                    <UserAvatar
+                      src={property.landlord.avatar}
+                      name={property.landlord.name}
+                      sizeClassName="w-14 h-14 text-lg font-bold shadow-xs"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-heading font-bold text-base text-foreground truncate">
+                      {property.landlord.name}
+                    </h4>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <User className="w-3 h-3 text-muted-foreground" />
+                      <span>{property.landlord.role || "Cá nhân"}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Green Reveal Phone Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!phoneRevealed) {
+                      setPhoneRevealed(true);
+                    } else {
+                      window.location.href = `tel:${cleanPhone}`;
+                    }
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#00ba51] hover:bg-[#00a848] py-3 px-4 text-xs sm:text-sm font-bold text-white shadow-xs transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  <Phone className="w-4 h-4" />
+                  <span>
+                    {phoneRevealed
+                      ? `Gọi ngay: ${rawPhone}`
+                      : `Hiện số điện thoại ${maskedPhone}`}
+                  </span>
+                </button>
+
+                {/* Quick Chat Input Box */}
+                <form onSubmit={handleSendQuickMessage} className="space-y-2">
+                  <div className="relative flex items-center rounded-xl border border-border bg-muted/30 px-3 py-1.5 focus-within:border-primary focus-within:bg-card focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                    <MessageSquare className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <input
+                      type="text"
+                      value={quickMessage}
+                      onChange={(e) => setQuickMessage(e.target.value)}
+                      placeholder="Nhắn hỏi thông tin"
+                      className="w-full bg-transparent px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!quickMessage.trim()}
+                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                        quickMessage.trim()
+                          ? "bg-primary text-primary-foreground shadow-2xs cursor-pointer hover:bg-primary/90"
+                          : "bg-muted text-muted-foreground/60 cursor-not-allowed"
+                      }`}
+                    >
+                      Gửi
+                    </button>
+                  </div>
+
+                  {/* Suggestion Chips */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+                    {QUICK_SUGGESTIONS.map((sug, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setQuickMessage(sug)}
+                        className="px-2.5 py-1 rounded-full border border-border bg-muted/20 hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all whitespace-nowrap cursor-pointer shrink-0"
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const random =
+                          QUICK_SUGGESTIONS[
+                            Math.floor(Math.random() * QUICK_SUGGESTIONS.length)
+                          ];
+                        setQuickMessage(random);
+                      }}
+                      className="p-1 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+                      title="Gợi ý khác"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </form>
+
+                {/* Trust & Safety notes */}
+                <div className="pt-3 border-t border-border space-y-2 text-[11px] leading-relaxed text-muted-foreground">
+                  <p className="flex items-start gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 mt-0.5 text-primary shrink-0" />
+                    <span>Thông tin chủ nhà và điều khoản thuê cần được xác nhận trước khi đặt cọc.</span>
+                  </p>
+                  <p className="flex items-start gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 text-primary shrink-0" />
+                    <span>Ưu tiên trao đổi trực tiếp qua kênh liên hệ chính thức của HomeSpace.</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </aside>
       </div>
     </div>

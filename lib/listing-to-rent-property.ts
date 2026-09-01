@@ -50,6 +50,7 @@ export function toRentProperty(
 
     return {
       id: pub.id,
+      ownerId: pub.ownerId || undefined,
       title: pub.title,
       description: undefined,
       location: pub.fullAddress || [pub.wardName, pub.provinceName].filter(Boolean).join(", "),
@@ -96,10 +97,12 @@ export function toRentProperty(
       },
       mediaItems: imageUrls.map((img) => ({ type: "image" as const, url: img })),
       landlord: {
+        id: pub.ownerId || undefined,
         name: pub.ownerName || "Chủ nhà",
         role: "Chính chủ",
         listingsCount: pub.ownerListingCount ?? 1,
         avatar: pub.ownerAvatarUrl || undefined,
+        phone: (pub as any).ownerPhone || (pub as any).phone || undefined,
       },
     };
   }
@@ -236,11 +239,13 @@ export function toRentProperty(
     photosCount: imageUrls.length,
     viewCount: (listing as any).viewCount ?? (listing as any).viewsCount ?? 0,
     viewsCount: (listing as any).viewCount ?? (listing as any).viewsCount ?? 0,
+    ownerId: (listing as any).ownerId,
     details,
     landlord: {
+      id: (listing as any).ownerId || listing.owner?.id,
       name: listing.owner?.displayName ?? "Chủ nhà",
       role: "Chính chủ",
-      listingsCount: 1,
+      listingsCount: (listing as any).ownerListingCount ?? 1,
       phone: listing.owner?.phone || undefined,
       avatar: listing.owner?.avatarUrl || undefined,
     },

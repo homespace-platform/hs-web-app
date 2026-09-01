@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import RentCollageCard from "@/components/rent/RentCollageCard";
+import RentMediaGallery from "@/components/rent/RentMediaGallery";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -203,81 +204,12 @@ export default function RentDetailPage() {
             </span>
           </nav>
 
-          <section className="mb-12">
-            {galleryImages.length >= 3 ? (
-              <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-2 h-[360px] sm:h-[440px] md:h-[500px] rounded-xl overflow-hidden bg-muted">
-                <div className="md:col-span-2 md:row-span-2 relative group overflow-hidden">
-                  <Image
-                    src={galleryImages[0]}
-                    alt={property.title}
-                    fill
-                    priority
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    unoptimized
-                  />
-                </div>
-                {galleryImages.slice(1, 5).map((image, index) => (
-                  <div key={`${image}-${index}`} className="hidden md:block relative group overflow-hidden">
-                    <Image
-                      src={image}
-                      alt={`${property.title} - ảnh ${index + 2}`}
-                      fill
-                      sizes="25vw"
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
-                      unoptimized
-                    />
-                    {index === 3 && galleryImages.length > 5 && (
-                      <div className="absolute inset-0 bg-slate-950/40 flex items-center justify-center">
-                        <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-primary shadow-sm">
-                          <Camera className="w-4 h-4" />
-                          Xem tất cả {property.photosCount} ảnh
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : galleryImages.length === 2 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 h-[360px] sm:h-[440px] md:h-[500px] rounded-xl overflow-hidden bg-muted">
-                <div className="relative group overflow-hidden">
-                  <Image
-                    src={galleryImages[0]}
-                    alt={property.title}
-                    fill
-                    priority
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    unoptimized
-                  />
-                </div>
-                <div className="relative group overflow-hidden">
-                  <Image
-                    src={galleryImages[1]}
-                    alt={`${property.title} - ảnh 2`}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    unoptimized
-                  />
-                </div>
-              </div>
-            ) : galleryImages.length === 1 ? (
-              <div className="relative h-[360px] sm:h-[440px] md:h-[500px] rounded-xl overflow-hidden bg-muted">
-                <Image
-                  src={galleryImages[0]}
-                  alt={property.title}
-                  fill
-                  priority
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  unoptimized
-                />
-              </div>
-            ) : (
-              <div className="relative h-[300px] rounded-xl overflow-hidden bg-muted flex flex-col items-center justify-center text-muted-foreground border border-dashed border-border">
-                <Camera className="w-10 h-10 opacity-40 mb-2" />
-                <span className="text-sm">Chưa có hình ảnh đăng tải</span>
-              </div>
-            )}
-          </section>
+          <RentMediaGallery
+            title={property.title}
+            mediaItems={property.mediaItems || property.images.map((img) => ({ type: "image", url: img }))}
+            categoryLabel={property.categoryLabel}
+            isVerified={property.isVerified}
+          />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
             <div className="lg:col-span-2 space-y-12">

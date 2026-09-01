@@ -485,11 +485,10 @@ export default function RentPage() {
                       onClick={() =>
                         setIsDistrictDropdownOpen(!isDistrictDropdownOpen)
                       }
-                      className={`h-9 px-3.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 transition-all duration-200 cursor-pointer shadow-2xs ${
-                        filter.district !== "all"
+                      className={`h-9 px-3.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 transition-all duration-200 cursor-pointer shadow-2xs ${filter.district !== "all"
                           ? "bg-primary/10 border-primary text-primary font-bold ring-1 ring-primary/20"
                           : "border-border bg-background hover:bg-muted text-foreground"
-                      }`}
+                        }`}
                     >
                       <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
                       <span className="truncate max-w-[200px]">
@@ -498,9 +497,8 @@ export default function RentPage() {
                           : filter.district}
                       </span>
                       <ChevronDown
-                        className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${
-                          isDistrictDropdownOpen ? "rotate-180" : ""
-                        }`}
+                        className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isDistrictDropdownOpen ? "rotate-180" : ""
+                          }`}
                       />
                     </button>
 
@@ -529,11 +527,10 @@ export default function RentPage() {
                               setDistrictSearch("");
                               setCurrentPage(1);
                             }}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                              filter.district === "all"
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${filter.district === "all"
                                 ? "bg-primary/10 text-primary font-bold"
                                 : "text-foreground hover:bg-muted"
-                            }`}
+                              }`}
                           >
                             <span>Tất cả Quận/Huyện</span>
                             {filter.district === "all" && (
@@ -559,11 +556,10 @@ export default function RentPage() {
                                     setDistrictSearch("");
                                     setCurrentPage(1);
                                   }}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                                    isSelected
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${isSelected
                                       ? "bg-primary/10 text-primary font-bold"
                                       : "text-foreground hover:bg-muted"
-                                  }`}
+                                    }`}
                                 >
                                   <span className="truncate">{d.name}</span>
                                   {isSelected && (
@@ -631,11 +627,10 @@ export default function RentPage() {
                           setFilter((prev) => ({ ...prev, viewMode: "collage" }))
                         }
                         title="Xem dạng thẻ chi tiết (Collage)"
-                        className={`p-1.5 rounded-xl transition-all cursor-pointer ${
-                          filter.viewMode === "collage"
+                        className={`p-1.5 rounded-xl transition-all cursor-pointer ${filter.viewMode === "collage"
                             ? "bg-card text-foreground shadow-2xs font-bold"
                             : "text-muted-foreground hover:text-foreground"
-                        }`}
+                          }`}
                       >
                         <LayoutList className="w-4 h-4" />
                       </button>
@@ -645,11 +640,10 @@ export default function RentPage() {
                           setFilter((prev) => ({ ...prev, viewMode: "grid" }))
                         }
                         title="Xem dạng lưới (Grid)"
-                        className={`p-1.5 rounded-xl transition-all cursor-pointer ${
-                          filter.viewMode === "grid"
+                        className={`p-1.5 rounded-xl transition-all cursor-pointer ${filter.viewMode === "grid"
                             ? "bg-card text-foreground shadow-2xs font-bold"
                             : "text-muted-foreground hover:text-foreground"
-                        }`}
+                          }`}
                       >
                         <Grid className="w-4 h-4" />
                       </button>
@@ -662,7 +656,7 @@ export default function RentPage() {
               {isLoading ? (
                 <div className="bg-card rounded-3xl border border-border p-12 text-center text-muted-foreground shadow-sm flex flex-col items-center justify-center gap-3">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                  <span>Đang tải tin đăng từ API...</span>
+                  <span>Đang tải tin đăng...</span>
                 </div>
               ) : apiError ? (
                 <div className="bg-card rounded-3xl border border-border p-12 text-center text-destructive shadow-sm">
@@ -745,11 +739,10 @@ export default function RentPage() {
                             key={page}
                             type="button"
                             onClick={() => handlePageChange(page)}
-                            className={`w-10 h-10 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-                              currentPage === page
+                            className={`w-10 h-10 rounded-2xl text-xs font-bold transition-all cursor-pointer ${currentPage === page
                                 ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105"
                                 : "border border-border bg-card text-foreground hover:bg-muted"
-                            }`}
+                              }`}
                           >
                             {page}
                           </button>

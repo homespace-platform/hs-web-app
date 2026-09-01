@@ -1,4 +1,5 @@
-import type { RentPropertyItem } from "@/types/rent.type";
+import type { RentMediaItem, RentPropertyItem } from "@/types/rent.type";
+import { getSafeVideoStreamUrl } from "@/lib/video-stream-url";
 import type {
   ListingDetailResponse,
   ListingMediaResponse,
@@ -91,6 +92,7 @@ export function toRentProperty(
         ownerListingCount: pub.ownerListingCount,
         rawPrice,
       },
+      mediaItems: imageUrls.map((img) => ({ type: "image" as const, url: img })),
       landlord: {
         name: pub.ownerName || "Chủ nhà",
         role: "Chính chủ",
@@ -155,6 +157,27 @@ export function toRentProperty(
     : [];
   const imageUrls: string[] = mediaImages;
 
+  const mediaVideos = detail?.media
+    ? detail.media
+        .filter((m: ListingMediaResponse) => m.mediaType === "VIDEO" && Boolean(m.url))
+        .map((m: ListingMediaResponse) => ({
+          id: m.id,
+          url: m.url as string,
+          streamUrl: getSafeVideoStreamUrl(m.url as string),
+        }))
+    : [];
+
+  // Video luôn được đặt ở CUỐI CÙNG theo yêu cầu người dùng
+  const mediaItems: RentMediaItem[] = [
+    ...imageUrls.map((img) => ({ type: "image" as const, url: img })),
+    ...mediaVideos.map((vid) => ({
+      id: vid.id,
+      type: "video" as const,
+      url: vid.url,
+      streamUrl: vid.streamUrl,
+    })),
+  ];
+
   const rawPrice =
     detail?.pricing?.amount != null
       ? Number(detail.pricing.amount)
@@ -178,6 +201,7 @@ export function toRentProperty(
 
   const hasVideo =
     (summary?.videoUrls?.length ?? 0) > 0 ||
+    mediaVideos.length > 0 ||
     Boolean(detail?.media?.some((m: ListingMediaResponse) => m.mediaType === "VIDEO"));
 
   return {
@@ -196,6 +220,8 @@ export function toRentProperty(
     baths: rawBaths,
     areaM2: Number(listing.areaM2 ?? 0),
     images: imageUrls,
+    videos: mediaVideos,
+    mediaItems,
     isVerified: listing.status === "PUBLISHED",
     hasVideo,
     category: propertyCategory,

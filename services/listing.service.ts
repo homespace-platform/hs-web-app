@@ -52,6 +52,16 @@ const listingService = {
   },
 
   /**
+   * Lấy số lượng tin đăng theo từng trạng thái (cho tab filter)
+   */
+  async getMyListingCounts(): Promise<Record<string, number>> {
+    const response = await axiosClient.get<ApiResponse<Record<string, number>>>(
+      "/api/v1/listings/me/counts",
+    );
+    return response.data.result;
+  },
+
+  /**
    * Lấy chi tiết bài đăng của chính mình theo ID (dành cho chủ tin trong Dashboard, hỗ trợ mọi trạng thái: Đang hiển thị, Đã ẩn, Chờ duyệt, v.v.)
    */
   async getMyListingById(listingId: string): Promise<ListingDetailResponse> {

@@ -73,6 +73,21 @@ const listingService = {
   },
 
   /**
+   * Ghi nhận lượt xem bài đăng (có cơ chế chống spam backend)
+   */
+  async recordView(listingId: string): Promise<{ viewCount: number; counted: boolean }> {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_GATEWAY_BASE_URL || "";
+      const response = await axios.post<ApiResponse<{ viewCount: number; counted: boolean }>>(
+        `${baseUrl}/api/v1/public/listings/${listingId}/view`,
+      );
+      return response.data?.result ?? { viewCount: 0, counted: false };
+    } catch {
+      return { viewCount: 0, counted: false };
+    }
+  },
+
+  /**
    * Tạo mới hoặc Cập nhật tin đăng (Upsert)
    */
   async upsert(request: CreateListingRequest): Promise<CreateListingResponse> {

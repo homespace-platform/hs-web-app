@@ -29,6 +29,14 @@ export default function RentDetailPage() {
             setProperty(null);
           } else {
             setProperty(toRentProperty(listing));
+            // Ghi nhận lượt xem hợp lệ (Backend có cơ chế chống spam Redis TTL)
+            listingService.recordView(id).then((viewRes) => {
+              if (viewRes.counted && !cancelled) {
+                setProperty((prev) =>
+                  prev ? { ...prev, viewCount: viewRes.viewCount, viewsCount: viewRes.viewCount } : null,
+                );
+              }
+            });
           }
         }
       })

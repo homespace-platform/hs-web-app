@@ -16,9 +16,12 @@ import {
   Phone,
   ShieldCheck,
   Video,
+  Eye,
+  Clock,
 } from "lucide-react";
 import type { RentPropertyItem } from "@/types/rent.type";
 import RentMediaGallery from "@/components/rent/RentMediaGallery";
+import UserAvatar from "@/components/common/UserAvatar";
 import { getRentDetailSections } from "@/lib/rent-detail-sections";
 
 const formatPrice = (priceMillion: number) =>
@@ -175,9 +178,21 @@ export default function RentDetailView({
               {property.title}
             </h1>
 
-            <div className="flex items-start gap-2 text-sm text-muted-foreground mb-6">
-              <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-              <span className="leading-relaxed break-words">{property.location}</span>
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-muted-foreground mb-6">
+              <div className="flex items-start gap-2 min-w-0">
+                <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <span className="leading-relaxed break-words">{property.location}</span>
+              </div>
+              <div className="flex items-center gap-3 shrink-0 text-xs">
+                <span className="flex items-center gap-1 font-medium text-muted-foreground">
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground/70" />
+                  {property.timeAgo}
+                </span>
+                <span className="flex items-center gap-1 font-semibold text-foreground/80">
+                  <Eye className="w-3.5 h-3.5 text-primary" />
+                  {property.viewCount ?? property.viewsCount ?? 0} lượt xem
+                </span>
+              </div>
             </div>
 
             {/* Quick Metrics Bar */}
@@ -311,23 +326,17 @@ export default function RentDetailView({
         <aside className="space-y-6">
           <div className="rounded-2xl border border-border bg-card p-6 shadow-xs space-y-6 sticky top-28">
             <div className="flex items-center gap-3">
-              <div className="relative h-12 w-12 rounded-full overflow-hidden bg-muted border border-border shrink-0">
-                {property.landlord.avatar ? (
-                  <Image
-                    src={property.landlord.avatar}
-                    alt={property.landlord.name}
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center font-bold text-primary bg-primary/10">
-                    {property.landlord.name[0] || "C"}
-                  </div>
-                )}
+              <div className="relative shrink-0">
+                <UserAvatar
+                  src={property.landlord.avatar}
+                  name={property.landlord.name}
+                  sizeClassName="w-12 h-12 text-base"
+                />
+                {/* Active online green dot đồng bộ với Header */}
+                <span className="absolute bottom-0 right-0 w-3 h-3 bg-verified border-2 border-card rounded-full" />
               </div>
               <div className="min-w-0">
-                <p className="font-heading font-semibold truncate">{property.landlord.name}</p>
+                <p className="font-heading font-semibold text-foreground truncate">{property.landlord.name}</p>
                 <p className="text-xs text-muted-foreground">{property.landlord.role}</p>
               </div>
             </div>

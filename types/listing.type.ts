@@ -336,6 +336,7 @@ export type MyListingSummaryResponse = {
   expiresAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  viewCount?: number;
 };
 
 export type ListingOptionItemResponse = {
@@ -413,6 +414,7 @@ export type ListingDetailResponse = {
   updatedAt: string | null;
   createdBy?: string | null;
   updatedBy?: string | null;
+  viewCount?: number;
 };
 
 export type ListingOptionsResponse = {
@@ -505,6 +507,7 @@ export type PublicListingSummaryResponse = {
   ownerListingCount: number | null;
   publishedAt: string | null;
   availableFrom: string | null;
+  viewCount?: number;
 };
 
 export interface PublicListingQueryParams {

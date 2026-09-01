@@ -35,6 +35,7 @@ export interface RentPropertyItem {
   categoryLabel: string;
   timeAgo: string;
   photosCount: number;
+  viewCount?: number;
   viewsCount?: number;
   details?: Record<string, unknown>;
   landlord: {

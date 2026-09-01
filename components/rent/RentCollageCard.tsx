@@ -10,11 +10,13 @@ import {
   Video,
   Camera,
   MessageCircle,
+  Eye,
 } from "lucide-react";
 import type { RentPropertyItem } from "@/types/rent.type";
 import { formatVietnamesePrice } from "@/lib/format-currency";
 import { useAuth } from "@/features/auth/useAuth";
 import favoriteService from "@/services/favorite.service";
+import UserAvatar from "@/components/common/UserAvatar";
 import { toast } from "sonner";
 
 interface RentCollageCardProps {
@@ -249,19 +251,11 @@ export default function RentCollageCard({
           <div className="pt-3 border-t border-border flex items-center justify-between gap-3">
             {/* Landlord info */}
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs overflow-hidden relative">
-                {property.landlord.avatar ? (
-                  <Image
-                    src={property.landlord.avatar}
-                    alt={property.landlord.name}
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  property.landlord.name.charAt(0).toUpperCase()
-                )}
-              </div>
+              <UserAvatar
+                src={property.landlord.avatar}
+                name={property.landlord.name}
+                sizeClassName="w-7 h-7 text-xs"
+              />
               <div className="text-xs min-w-0">
                 <p className="font-semibold text-foreground truncate">
                   {property.landlord.name}
@@ -277,8 +271,17 @@ export default function RentCollageCard({
               </div>
             </div>
 
-            {/* Action buttons (Chat, Favorite Heart) */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Action buttons (Lượt xem, Chat) */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              {/* Lượt xem bài đăng (đặt bên trái nút chat) */}
+              <div
+                className="flex items-center gap-1 text-xs text-muted-foreground font-medium select-none"
+                title={`${property.viewCount ?? property.viewsCount ?? 0} lượt xem`}
+              >
+                <Eye className="w-3.5 h-3.5 text-muted-foreground/70" />
+                <span>{property.viewCount ?? property.viewsCount ?? 0}</span>
+              </div>
+
               {/* Nút Chat */}
               <button
                 type="button"
@@ -375,19 +378,11 @@ export default function RentCollageCard({
           <div className="pt-3 border-t border-border flex items-center justify-between gap-2 mt-auto">
             {/* Landlord info */}
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground font-bold text-[11px] flex items-center justify-center shrink-0 shadow-2xs overflow-hidden relative">
-                {property.landlord.avatar ? (
-                  <Image
-                    src={property.landlord.avatar}
-                    alt={property.landlord.name}
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  property.landlord.name.charAt(0).toUpperCase()
-                )}
-              </div>
+              <UserAvatar
+                src={property.landlord.avatar}
+                name={property.landlord.name}
+                sizeClassName="w-6 h-6 text-[11px]"
+              />
               <div className="text-xs min-w-0">
                 <p className="font-semibold text-foreground truncate max-w-[100px] sm:max-w-[120px]">
                   {property.landlord.name}
@@ -399,8 +394,17 @@ export default function RentCollageCard({
               </div>
             </div>
 
-            {/* Action buttons (Chat, Favorite Heart) */}
-            <div className="flex items-center gap-1.5 shrink-0">
+            {/* Action buttons (Lượt xem, Chat) */}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Lượt xem bài đăng (đặt bên trái nút chat) */}
+              <div
+                className="flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground font-medium select-none"
+                title={`${property.viewCount ?? property.viewsCount ?? 0} lượt xem`}
+              >
+                <Eye className="w-3.5 h-3.5 text-muted-foreground/70" />
+                <span>{property.viewCount ?? property.viewsCount ?? 0}</span>
+              </div>
+
               {/* Nút Chat nhanh */}
               <button
                 type="button"

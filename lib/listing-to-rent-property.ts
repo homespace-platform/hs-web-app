@@ -70,6 +70,8 @@ export function toRentProperty(
       categoryLabel: categoryLabelMap[propertyCategory] ?? "Nhà cho thuê",
       timeAgo: pub.publishedAt ? formatTimeAgo(pub.publishedAt) : "Mới đăng",
       photosCount: imageUrls.length,
+      viewCount: pub.viewCount ?? (pub as any).viewsCount ?? 0,
+      viewsCount: pub.viewCount ?? (pub as any).viewsCount ?? 0,
       details: {
         subtype: pub.subtype,
         currency: pub.currency,
@@ -232,6 +234,8 @@ export function toRentProperty(
       ? formatTimeAgo((listing as any).createdAt)
       : "Vừa xong",
     photosCount: imageUrls.length,
+    viewCount: (listing as any).viewCount ?? (listing as any).viewsCount ?? 0,
+    viewsCount: (listing as any).viewCount ?? (listing as any).viewsCount ?? 0,
     details,
     landlord: {
       name: listing.owner?.displayName ?? "Chủ nhà",

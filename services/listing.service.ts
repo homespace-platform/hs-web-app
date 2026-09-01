@@ -52,11 +52,12 @@ const listingService = {
   },
 
   /**
-   * Lấy chi tiết bài đăng theo ID
+   * Lấy chi tiết bài đăng theo ID (hỗ trợ cả khách chưa đăng nhập và người dùng đã đăng nhập)
    */
   async getById(listingId: string): Promise<ListingDetailResponse> {
-    const response = await axiosClient.get<ApiResponse<ListingDetailResponse>>(
-      `/api/v1/listings/${listingId}`,
+    const baseUrl = process.env.NEXT_PUBLIC_GATEWAY_BASE_URL || "";
+    const response = await axios.get<ApiResponse<ListingDetailResponse>>(
+      `${baseUrl}/api/v1/public/listings/${listingId}`,
     );
     return response.data.result;
   },

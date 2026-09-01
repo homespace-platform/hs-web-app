@@ -15,6 +15,9 @@ import {
   Building,
   Bath,
   Warehouse,
+  UtensilsCrossed,
+  KeyRound,
+  FileText,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
@@ -27,11 +30,16 @@ export interface FilterState {
   areaRange: string;
   district: string;
   beds: string;
+  baths: string;
   furnishingStatus: string;
   direction: string;
+  balconyDirection: string;
   officeGrade: string;
   positionType: string;
   restroomType: string;
+  kitchenType: string;
+  accessType: string;
+  legalStatus: string;
   hasMezzanine: boolean;
   hasRooftop: boolean;
   hasGarage: boolean;
@@ -123,6 +131,13 @@ const BEDS_ITEMS = [
   { id: "3", label: "3+ PN" },
 ];
 
+const BATHS_ITEMS = [
+  { id: "all", label: "Tất cả" },
+  { id: "1", label: "1 WC" },
+  { id: "2", label: "2 WC" },
+  { id: "3", label: "3+ WC" },
+];
+
 const FURNISHING_ITEMS = [
   { id: "all", label: "Tất cả" },
   { id: "UNFURNISHED", label: "Bàn giao thô" },
@@ -163,6 +178,26 @@ const RESTROOM_TYPE_ITEMS = [
   { id: "SHARED", label: "Dùng chung" },
 ];
 
+const KITCHEN_ITEMS = [
+  { id: "all", label: "Tất cả" },
+  { id: "PRIVATE", label: "Bếp riêng" },
+  { id: "SHARED", label: "Bếp chung" },
+  { id: "NONE", label: "Không nấu ăn" },
+];
+
+const ACCESS_ITEMS = [
+  { id: "all", label: "Tất cả" },
+  { id: "PRIVATE", label: "Lối đi riêng" },
+  { id: "SHARED", label: "Đi chung" },
+];
+
+const LEGAL_ITEMS = [
+  { id: "all", label: "Tất cả" },
+  { id: "PINK_BOOK", label: "Sổ hồng / Sổ đỏ" },
+  { id: "CONTRACT", label: "Hợp đồng mua bán" },
+  { id: "PENDING", label: "Đang chờ cấp sổ" },
+];
+
 const PRICE_PRESETS = [0, 5, 10, 20, 40, 70, 100];
 
 export default function RentFilterSidebar({
@@ -198,11 +233,16 @@ export default function RentFilterSidebar({
         category: catId,
         subtype: nextSubtype,
         beds: nextBeds,
+        baths: "all",
         furnishingStatus: "all",
         direction: "all",
+        balconyDirection: "all",
         officeGrade: "all",
         positionType: "all",
         restroomType: "all",
+        kitchenType: "all",
+        accessType: "all",
+        legalStatus: "all",
         hasMezzanine: false,
         hasRooftop: false,
         hasGarage: false,
@@ -223,6 +263,12 @@ export default function RentFilterSidebar({
     draft.category === "house" ||
     draft.category === "studio";
 
+  const showBathroomFilter =
+    draft.category === "all" ||
+    draft.category === "apartment" ||
+    draft.category === "house" ||
+    draft.category === "office";
+
   const showFurnishingFilter =
     draft.category === "apartment" ||
     draft.category === "house" ||
@@ -231,6 +277,9 @@ export default function RentFilterSidebar({
 
   const showDirectionFilter =
     draft.category === "apartment" || draft.category === "studio";
+
+  const showLegalFilter =
+    draft.category === "apartment" || draft.category === "house";
 
   const showHouseFeatures = draft.category === "house";
   const showOfficeFeatures = draft.category === "office";
@@ -244,11 +293,16 @@ export default function RentFilterSidebar({
   if (draft.minPrice > 0 || draft.maxPrice < 100) activeFilterCount++;
   if (draft.areaRange !== "all") activeFilterCount++;
   if (draft.beds !== "all") activeFilterCount++;
+  if (draft.baths !== "all") activeFilterCount++;
   if (draft.furnishingStatus && draft.furnishingStatus !== "all") activeFilterCount++;
   if (draft.direction && draft.direction !== "all") activeFilterCount++;
+  if (draft.balconyDirection && draft.balconyDirection !== "all") activeFilterCount++;
   if (draft.officeGrade && draft.officeGrade !== "all") activeFilterCount++;
   if (draft.positionType && draft.positionType !== "all") activeFilterCount++;
   if (draft.restroomType && draft.restroomType !== "all") activeFilterCount++;
+  if (draft.kitchenType && draft.kitchenType !== "all") activeFilterCount++;
+  if (draft.accessType && draft.accessType !== "all") activeFilterCount++;
+  if (draft.legalStatus && draft.legalStatus !== "all") activeFilterCount++;
   if (draft.hasMezzanine) activeFilterCount++;
   if (draft.hasRooftop) activeFilterCount++;
   if (draft.hasGarage) activeFilterCount++;
@@ -503,6 +557,40 @@ export default function RentFilterSidebar({
           </div>
         )}
 
+        {/* 4.1. Số phòng vệ sinh (Căn hộ / Nhà ở / Văn phòng) */}
+        {showBathroomFilter && (
+          <div>
+            <div className="flex items-center gap-2 mb-3.5">
+              <Bath className="w-4 h-4 text-primary" />
+              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                Số phòng tắm / WC
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
+              {BATHS_ITEMS.map((item) => {
+                const isSelected = draft.baths === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() =>
+                      setDraft((prev) => ({ ...prev, baths: item.id }))
+                    }
+                    className={`py-2 rounded-2xl border text-center text-xs font-bold transition-all duration-200 cursor-pointer select-none ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground font-bold shadow-md shadow-primary/25 scale-[1.03] border-primary"
+                        : "bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground border-border/70"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* 5. Tình trạng nội thất (Căn hộ / Nhà ở / Phòng trọ) */}
         {showFurnishingFilter && (
           <div>
@@ -537,33 +625,100 @@ export default function RentFilterSidebar({
           </div>
         )}
 
-        {/* 6. Hướng cửa chính (Căn hộ) */}
+        {/* 6. Hướng cửa chính & Hướng ban công (Căn hộ) */}
         {showDirectionFilter && (
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center gap-2 mb-3.5">
+                <Compass className="w-4 h-4 text-primary" />
+                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Hướng cửa chính
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5">
+                {DIRECTION_ITEMS.map((item) => {
+                  const isSelected = draft.direction === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() =>
+                        setDraft((prev) => ({ ...prev, direction: item.id }))
+                      }
+                      className={`py-1.5 px-1 rounded-xl border text-center text-xs font-semibold transition-all duration-200 cursor-pointer select-none ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground font-bold shadow-xs border-primary"
+                          : "bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground border-border/70"
+                      }`}
+                    >
+                      <span className="text-[10px] truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-3.5">
+                <Compass className="w-4 h-4 text-primary" />
+                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Hướng ban công
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5">
+                {DIRECTION_ITEMS.map((item) => {
+                  const isSelected = draft.balconyDirection === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() =>
+                        setDraft((prev) => ({ ...prev, balconyDirection: item.id }))
+                      }
+                      className={`py-1.5 px-1 rounded-xl border text-center text-xs font-semibold transition-all duration-200 cursor-pointer select-none ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground font-bold shadow-xs border-primary"
+                          : "bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground border-border/70"
+                      }`}
+                    >
+                      <span className="text-[10px] truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 7. Giấy tờ pháp lý (Căn hộ / Nhà ở) */}
+        {showLegalFilter && (
           <div>
             <div className="flex items-center gap-2 mb-3.5">
-              <Compass className="w-4 h-4 text-primary" />
+              <FileText className="w-4 h-4 text-primary" />
               <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                Hướng cửa chính
+                Giấy tờ pháp lý
               </h3>
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5">
-              {DIRECTION_ITEMS.map((item) => {
-                const isSelected = draft.direction === item.id;
+            <div className="grid grid-cols-2 gap-2">
+              {LEGAL_ITEMS.map((item) => {
+                const isSelected = draft.legalStatus === item.id;
                 return (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() =>
-                      setDraft((prev) => ({ ...prev, direction: item.id }))
+                      setDraft((prev) => ({ ...prev, legalStatus: item.id }))
                     }
-                    className={`py-1.5 px-1 rounded-xl border text-center text-xs font-semibold transition-all duration-200 cursor-pointer select-none ${
+                    className={`py-2 px-2 rounded-2xl border text-center text-xs font-semibold transition-all duration-200 cursor-pointer select-none ${
                       isSelected
                         ? "bg-primary text-primary-foreground font-bold shadow-xs border-primary"
                         : "bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground border-border/70"
                     }`}
                   >
-                    <span className="text-[10px] truncate">{item.label}</span>
+                    <span className="text-[11px] truncate">{item.label}</span>
                   </button>
                 );
               })}
@@ -571,9 +726,9 @@ export default function RentFilterSidebar({
           </div>
         )}
 
-        {/* 7. Tiện ích nhà nguyên căn (Sân thượng, Garage) */}
+        {/* 8. Tiện ích nhà nguyên căn (Sân thượng, Garage, Lối đi) */}
         {showHouseFeatures && (
-          <div className="space-y-2.5">
+          <div className="space-y-3.5">
             <div className="flex items-center gap-2">
               <Warehouse className="w-4 h-4 text-primary" />
               <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
@@ -610,10 +765,41 @@ export default function RentFilterSidebar({
                 Có garage để xe
               </button>
             </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <KeyRound className="w-3.5 h-3.5 text-primary" />
+                <h4 className="text-[11px] font-bold text-foreground uppercase tracking-wider">
+                  Lối đi
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5">
+                {ACCESS_ITEMS.map((item) => {
+                  const isSelected = draft.accessType === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() =>
+                        setDraft((prev) => ({ ...prev, accessType: item.id }))
+                      }
+                      className={`py-1.5 px-1 rounded-xl border text-center text-xs font-semibold transition-all duration-200 cursor-pointer select-none ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground font-bold shadow-xs border-primary"
+                          : "bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground border-border/70"
+                      }`}
+                    >
+                      <span className="text-[10px] truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 
-        {/* 8. Hạng văn phòng (Văn phòng) */}
+        {/* 9. Hạng văn phòng (Văn phòng) */}
         {showOfficeFeatures && (
           <div>
             <div className="flex items-center gap-2 mb-3.5">
@@ -647,7 +833,7 @@ export default function RentFilterSidebar({
           </div>
         )}
 
-        {/* 9. Vị trí mặt bằng & Gác lửng (Mặt bằng kinh doanh) */}
+        {/* 10. Vị trí mặt bằng & Gác lửng (Mặt bằng kinh doanh) */}
         {showCommercialFeatures && (
           <div className="space-y-3.5">
             <div>
@@ -699,9 +885,9 @@ export default function RentFilterSidebar({
           </div>
         )}
 
-        {/* 10. Nhà vệ sinh & Gác lửng (Phòng trọ) */}
+        {/* 11. Nhà vệ sinh, Khu bếp, Lối đi (Phòng trọ) */}
         {showRoomFeatures && (
-          <div className="space-y-3.5">
+          <div className="space-y-4">
             <div>
               <div className="flex items-center gap-2 mb-3.5">
                 <Bath className="w-4 h-4 text-primary" />
@@ -719,6 +905,37 @@ export default function RentFilterSidebar({
                       type="button"
                       onClick={() =>
                         setDraft((prev) => ({ ...prev, restroomType: item.id }))
+                      }
+                      className={`py-2 px-2 rounded-2xl border text-center text-xs font-semibold transition-all duration-200 cursor-pointer select-none ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground font-bold shadow-xs border-primary"
+                          : "bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground border-border/70"
+                      }`}
+                    >
+                      <span className="text-[11px] truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-3.5">
+                <UtensilsCrossed className="w-4 h-4 text-primary" />
+                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Khu vực bếp
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {KITCHEN_ITEMS.map((item) => {
+                  const isSelected = draft.kitchenType === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() =>
+                        setDraft((prev) => ({ ...prev, kitchenType: item.id }))
                       }
                       className={`py-2 px-2 rounded-2xl border text-center text-xs font-semibold transition-all duration-200 cursor-pointer select-none ${
                         isSelected

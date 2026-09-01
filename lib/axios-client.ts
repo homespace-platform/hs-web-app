@@ -34,16 +34,18 @@ const processQueue = (error: unknown, token: string | null = null) => {
 
 axiosClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    try {
-      await keycloak.updateToken(30);
-    } catch (error) {
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("hs:auth-session-expired"));
+    if (keycloak.authenticated) {
+      try {
+        await keycloak.updateToken(30);
+      } catch (error) {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("hs:auth-session-expired"));
+        }
+        return Promise.reject(error);
       }
-      return Promise.reject(error);
-    }
-    if (keycloak.token) {
-      config.headers.Authorization = `Bearer ${keycloak.token}`;
+      if (keycloak.token) {
+        config.headers.Authorization = `Bearer ${keycloak.token}`;
+      }
     }
     return config;
   },
@@ -59,7 +61,7 @@ axiosClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (error.response.status === 401 && !originalRequest._retry) {
+    if (error.response.status === 401 && !originalRequest._retry && keycloak.authenticated) {
       if (isRefreshing) {
         return new Promise<string | null>((resolve, reject) => {
           failedQueue.push({ resolve, reject });

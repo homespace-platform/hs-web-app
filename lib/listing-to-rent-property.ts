@@ -6,12 +6,10 @@ import type {
   PublicListingSummaryResponse,
 } from "@/types/listing.type";
 
-const API_PLACEHOLDER_IMAGE = "/area/hcm-1.jpg";
-
 function isPublicListing(
   listing: ListingDetailResponse | ListingResponse | PublicListingSummaryResponse,
 ): listing is PublicListingSummaryResponse {
-  return !("ownerId" in listing);
+  return "priceUnit" in listing && "fullAddress" in listing;
 }
 
 export function toRentProperty(
@@ -36,8 +34,18 @@ export function toRentProperty(
       room: "Nhà trọ / Căn hộ dịch vụ",
     };
 
-    const imageUrls = pub.coverImageUrl ? [pub.coverImageUrl] : [API_PLACEHOLDER_IMAGE];
+    const imageUrls: string[] =
+      Array.isArray(pub.imageUrls) && pub.imageUrls.length > 0
+        ? pub.imageUrls
+        : pub.coverImageUrl
+        ? [pub.coverImageUrl]
+        : [];
     const rawPrice = Number(pub.priceAmount ?? 0);
+    const rawBeds =
+      propertyCategory === "room" || propertyCategory === "office" || propertyCategory === "commercial"
+        ? 0
+        : pub.bedroomCount ?? 0;
+    const rawBaths = pub.bathroomCount ?? 0;
 
     return {
       id: pub.id,
@@ -51,8 +59,8 @@ export function toRentProperty(
       wardCode: pub.wardCode || undefined,
       city: pub.provinceName || "",
       priceMillion: rawPrice / 1_000_000,
-      beds: pub.bedroomCount ?? 0,
-      baths: 0,
+      beds: rawBeds,
+      baths: rawBaths,
       areaM2: Number(pub.areaM2 ?? 0),
       images: imageUrls,
       isVerified: true,
@@ -67,11 +75,27 @@ export function toRentProperty(
         priceUnit: pub.priceUnit,
         negotiable: pub.negotiable,
         availableFrom: pub.availableFrom,
+        floorNumber: pub.floorNumber,
+        totalFloors: pub.totalFloors,
+        restroomType: pub.restroomType,
+        hasMezzanine: pub.hasMezzanine,
+        hasBalcony: pub.hasBalcony,
+        hasWindow: pub.hasWindow,
+        hasRooftop: pub.hasRooftop,
+        hasGarage: pub.hasGarage,
+        expectedSeats: pub.expectedSeats,
+        officeGrade: pub.officeGrade,
+        frontageWidthM: pub.frontageWidthM,
+        positionType: pub.positionType,
+        furnishingStatus: pub.furnishingStatus,
+        ownerListingCount: pub.ownerListingCount,
+        rawPrice,
       },
       landlord: {
-        name: "Chính chủ",
-        role: "Chủ nhà",
-        listingsCount: 1,
+        name: pub.ownerName || "Chủ nhà",
+        role: "Chính chủ",
+        listingsCount: pub.ownerListingCount ?? 1,
+        avatar: pub.ownerAvatarUrl || undefined,
       },
     };
   }
@@ -129,7 +153,7 @@ export function toRentProperty(
         .filter((m: ListingMediaResponse) => m.mediaType === "IMAGE" && Boolean(m.url))
         .map((m: ListingMediaResponse) => m.url as string)
     : [];
-  const imageUrls: string[] = mediaImages.length > 0 ? mediaImages : [API_PLACEHOLDER_IMAGE];
+  const imageUrls: string[] = mediaImages;
 
   const rawPrice =
     detail?.pricing?.amount != null
@@ -176,7 +200,11 @@ export function toRentProperty(
     hasVideo,
     category: propertyCategory,
     categoryLabel,
-    timeAgo: "Từ API",
+    timeAgo: (listing as any).publishedAt
+      ? formatTimeAgo((listing as any).publishedAt)
+      : (listing as any).createdAt
+      ? formatTimeAgo((listing as any).createdAt)
+      : "Vừa xong",
     photosCount: imageUrls.length,
     details,
     landlord: {
@@ -189,15 +217,22 @@ export function toRentProperty(
   };
 }
 
-function formatTimeAgo(isoString: string): string {
+export function formatTimeAgo(isoString: string): string {
   try {
     const diffMs = Date.now() - new Date(isoString).getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    if (diffHours < 1) return "Vừa xong";
+    if (diffMs < 0) return "Vừa xong";
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    if (diffMinutes < 1) return "Vừa xong";
+    if (diffMinutes < 60) return `${diffMinutes} phút trước`;
+    const diffHours = Math.floor(diffMinutes / 60);
     if (diffHours < 24) return `${diffHours} giờ trước`;
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays === 1) return "Hôm qua";
-    if (diffDays < 30) return `${diffDays} ngày trước`;
+    if (diffDays < 7) return `${diffDays} ngày trước`;
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks < 4) return `${diffWeeks} tuần trước`;
+    const diffMonths = Math.floor(diffDays / 30);
+    if (diffMonths < 12) return `${diffMonths} tháng trước`;
     return new Date(isoString).toLocaleDateString("vi-VN");
   } catch {
     return "Mới đăng";

@@ -3,22 +3,17 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { RentPropertyItem } from "@/types/rent.type";
 import {
-  Heart,
   MapPin,
-  Camera,
-  Video,
-  ShieldCheck,
-  Sparkles,
-  Bed,
-  Bath,
-  Maximize,
-  Phone,
-  MessageCircle,
   Clock,
-  Eye,
+  Heart,
+  Video,
+  Camera,
+  ShieldCheck,
+  MessageCircle,
 } from "lucide-react";
+import type { RentPropertyItem } from "@/types/rent.type";
+import { formatVietnamesePrice } from "@/lib/format-currency";
 
 interface RentCollageCardProps {
   property: RentPropertyItem;
@@ -37,70 +32,148 @@ export default function RentCollageCard({
     setIsFavorite(!isFavorite);
   };
 
-  const views =
-    property.viewsCount ?? getMockViews(property.id);
-  const formattedViews = views.toLocaleString("vi-VN");
+  const rawPrice =
+    (property.details?.rawPrice as number) ?? property.priceMillion * 1_000_000;
+  const formattedPrice = formatVietnamesePrice(rawPrice, "tháng");
 
-  // 1. Collage View (Clean, Non-duplicated, Price Focused)
+  // 1. Collage View (Clean, Non-duplicated, Category-Exclusive Specs)
   if (viewMode === "collage") {
     return (
       <div className="bg-card rounded-2xl sm:rounded-3xl border border-border overflow-hidden shadow-2xs hover:shadow-xl hover:border-primary/40 transition-all duration-300 group">
         <Link href={`/rent/${property.id}`} className="block p-4 sm:p-5">
-          {/* Multi-Image Gallery Collage */}
-          <div className="grid grid-cols-12 gap-1.5 sm:gap-2 h-56 sm:h-64 rounded-2xl overflow-hidden relative mb-4 bg-muted">
-            {/* Main Big Photo (7 cols) */}
-            <div className="col-span-7 relative h-full overflow-hidden">
+          {/* Image Gallery: adapts to 3+, 2, 1, or 0 images (NEVER duplicates images) */}
+          {property.images.length >= 3 ? (
+            <div className="grid grid-cols-12 gap-1.5 sm:gap-2 h-56 sm:h-64 rounded-2xl overflow-hidden relative mb-4 bg-muted">
+              {/* Main Big Photo (7 cols) */}
+              <div className="col-span-7 relative h-full overflow-hidden">
+                <Image
+                  src={property.images[0]}
+                  alt={property.title}
+                  fill
+                  sizes="(max-width: 768px) 60vw, 40vw"
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  unoptimized
+                />
+                <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/60 text-white text-xs font-semibold backdrop-blur-md">
+                  {property.categoryLabel}
+                </div>
+              </div>
+
+              {/* Sub Photos (5 cols) */}
+              <div className="col-span-5 grid grid-rows-2 gap-1.5 sm:gap-2 h-full">
+                <div className="relative w-full h-full overflow-hidden">
+                  <Image
+                    src={property.images[1]}
+                    alt={`${property.title} - ảnh 2`}
+                    fill
+                    sizes="(max-width: 768px) 40vw, 25vw"
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    unoptimized
+                  />
+                </div>
+                <div className="relative w-full h-full overflow-hidden">
+                  <Image
+                    src={property.images[2]}
+                    alt={`${property.title} - ảnh 3`}
+                    fill
+                    sizes="(max-width: 768px) 40vw, 25vw"
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    unoptimized
+                  />
+
+                  {property.hasVideo && (
+                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-rose-600/90 text-white text-[10px] font-bold flex items-center gap-1 shadow-sm">
+                      <Video className="w-3 h-3" />
+                      <span>Video</span>
+                    </div>
+                  )}
+
+                  <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-black/70 text-white text-[11px] font-semibold flex items-center gap-1 backdrop-blur-xs">
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>{property.photosCount}</span>
+                  </div>
+                </div>
+              </div>
+
+              {property.isVerified && (
+                <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+                  <div
+                    className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-md backdrop-blur-md"
+                    title="Tin đăng đã xác thực thông tin"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : property.images.length === 2 ? (
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-2 h-56 sm:h-64 rounded-2xl overflow-hidden relative mb-4 bg-muted">
+              <div className="relative w-full h-full overflow-hidden">
+                <Image
+                  src={property.images[0]}
+                  alt={property.title}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  unoptimized
+                />
+                <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/60 text-white text-xs font-semibold backdrop-blur-md">
+                  {property.categoryLabel}
+                </div>
+              </div>
+              <div className="relative w-full h-full overflow-hidden">
+                <Image
+                  src={property.images[1]}
+                  alt={`${property.title} - ảnh 2`}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  unoptimized
+                />
+                <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-black/70 text-white text-[11px] font-semibold flex items-center gap-1 backdrop-blur-xs">
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>2</span>
+                </div>
+              </div>
+              {property.isVerified && (
+                <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+                  <div className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-md backdrop-blur-md">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : property.images.length === 1 ? (
+            <div className="relative h-56 sm:h-64 rounded-2xl overflow-hidden mb-4 bg-muted">
               <Image
                 src={property.images[0]}
                 alt={property.title}
                 fill
-                sizes="(max-width: 768px) 60vw, 40vw"
                 className="object-cover group-hover:scale-105 transition-transform duration-500"
                 unoptimized
               />
-              {/* Category Badge overlay */}
+              <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/60 text-white text-xs font-semibold backdrop-blur-md">
+                {property.categoryLabel}
+              </div>
+              <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-black/70 text-white text-[11px] font-semibold flex items-center gap-1 backdrop-blur-xs">
+                <Camera className="w-3.5 h-3.5" />
+                <span>1</span>
+              </div>
+              {property.isVerified && (
+                <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+                  <div className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-md backdrop-blur-md">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="relative h-56 sm:h-64 rounded-2xl overflow-hidden mb-4 bg-muted flex flex-col items-center justify-center text-muted-foreground border border-dashed border-border">
+              <Camera className="w-8 h-8 opacity-40 mb-1" />
+              <span className="text-xs">Chưa có hình ảnh</span>
               <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/60 text-white text-xs font-semibold backdrop-blur-md">
                 {property.categoryLabel}
               </div>
             </div>
-
-            {/* Sub Photo 1 & 2 (5 cols) */}
-            <div className="col-span-5 grid grid-rows-2 gap-1.5 sm:gap-2 h-full">
-              <div className="relative w-full h-full overflow-hidden">
-                <Image
-                  src={property.images[1] || property.images[0]}
-                  alt={`${property.title} - ảnh 2`}
-                  fill
-                  sizes="(max-width: 768px) 40vw, 25vw"
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                  unoptimized
-                />
-              </div>
-
-              {/* Sub Photo 2 with total count badge */}
-              <div className="relative w-full h-full overflow-hidden">
-                <Image
-                  src={property.images[2] || property.images[0]}
-                  alt={`${property.title} - ảnh 3`}
-                  fill
-                  sizes="(max-width: 768px) 40vw, 25vw"
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                  unoptimized
-                />
-                {/* Total Photos Badge */}
-                <div className="absolute bottom-2.5 right-2.5 px-2 py-1 rounded-md bg-black/70 text-white text-[11px] font-semibold backdrop-blur-md flex items-center gap-1">
-                  <Camera className="w-3 h-3" />
-                  <span>{property.photosCount}</span>
-                </div>
-                {property.hasVideo && (
-                  <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-bold backdrop-blur-md flex items-center gap-1">
-                    <Video className="w-3 h-3" />
-                    <span>Video</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Title */}
           <h3 className="font-heading font-bold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug mb-2">
@@ -110,25 +183,11 @@ export default function RentCollageCard({
           {/* Price & Specs Row (Price on Left, Specs on Right) */}
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
             <span className="font-heading font-bold text-base sm:text-lg text-rose-600 dark:text-rose-500">
-              {property.priceMillion >= 1
-                ? `${property.priceMillion} triệu/tháng`
-                : `${property.priceMillion * 1000}k/tháng`}
+              {formattedPrice}
             </span>
 
-            {/* Quick Specs on the right */}
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-              <span>{property.areaM2} m²</span>
-              <span>·</span>
-              <span>{property.beds} PN</span>
-              <span>·</span>
-              <span>{property.baths} WC</span>
-              {property.floor && (
-                <>
-                  <span>·</span>
-                  <span>{property.floor}</span>
-                </>
-              )}
-            </div>
+            {/* Category-Exclusive Quick Specs */}
+            {renderCardSpecs(property)}
           </div>
 
           {/* Location */}
@@ -141,8 +200,18 @@ export default function RentCollageCard({
           <div className="pt-3 border-t border-border flex items-center justify-between gap-3">
             {/* Landlord info */}
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
-                {property.landlord.name.charAt(0).toUpperCase()}
+              <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs overflow-hidden relative">
+                {property.landlord.avatar ? (
+                  <Image
+                    src={property.landlord.avatar}
+                    alt={property.landlord.name}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  property.landlord.name.charAt(0).toUpperCase()
+                )}
               </div>
               <div className="text-xs min-w-0">
                 <p className="font-semibold text-foreground truncate">
@@ -159,17 +228,8 @@ export default function RentCollageCard({
               </div>
             </div>
 
-            {/* Action buttons (View count, Chat, Favorite Heart) */}
+            {/* Action buttons (Chat, Favorite Heart) */}
             <div className="flex items-center gap-2 shrink-0">
-              {/* Lượt xem bài viết */}
-              <div
-                className="flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground font-medium pr-1 select-none"
-                title="Lượt xem bài đăng"
-              >
-                <Eye className="w-3.5 h-3.5 text-muted-foreground/70" />
-                <span>{formattedViews}</span>
-              </div>
-
               {/* Nút Chat */}
               <button
                 type="button"
@@ -184,20 +244,20 @@ export default function RentCollageCard({
                 <MessageCircle className="w-4 h-4" />
               </button>
 
-              {/* Nút Tym (Yêu thích) */}
+              {/* Nút Lưu tin (Trái tim) */}
               <button
                 type="button"
                 onClick={handleFavoriteClick}
-                title={isFavorite ? "Bỏ lưu tin" : "Lưu tin"}
-                className={`w-8 h-8 rounded-full border border-border flex items-center justify-center transition-all cursor-pointer shadow-2xs ${
+                title={isFavorite ? "Bỏ lưu tin" : "Lưu tin này"}
+                className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs ${
                   isFavorite
-                    ? "bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-950/60 dark:border-rose-900"
-                    : "bg-card hover:bg-muted text-muted-foreground hover:text-rose-500"
+                    ? "bg-rose-50 border-rose-200 text-rose-500 dark:bg-rose-950/40 dark:border-rose-900"
+                    : "bg-card border-border hover:bg-muted text-muted-foreground hover:text-rose-500"
                 }`}
               >
                 <Heart
-                  className={`w-4 h-4 transition-transform ${
-                    isFavorite ? "fill-rose-500 stroke-rose-500 scale-110" : ""
+                  className={`w-4 h-4 transition-transform active:scale-75 ${
+                    isFavorite ? "fill-rose-500" : ""
                   }`}
                 />
               </button>
@@ -208,34 +268,50 @@ export default function RentCollageCard({
     );
   }
 
-  // 2. Standard Grid Card View (Đồng bộ hoàn toàn với Collage View)
+  // 2. Compact Grid View (Standard Single-Image Card)
   return (
-    <div className="bg-card rounded-2xl sm:rounded-3xl border border-border overflow-hidden shadow-2xs hover:shadow-xl hover:border-primary/40 transition-all duration-300 flex flex-col h-full group">
-      <Link href={`/rent/${property.id}`} className="flex flex-col h-full">
-        {/* Image Thumbnail */}
-        <div className="relative w-full aspect-16/10 overflow-hidden bg-muted">
-          <Image
-            src={property.images[0]}
-            alt={property.title}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
-            unoptimized
-          />
+    <div className="bg-card rounded-2xl sm:rounded-3xl border border-border overflow-hidden shadow-2xs hover:shadow-xl hover:border-primary/40 transition-all duration-300 group flex flex-col">
+      <Link href={`/rent/${property.id}`} className="flex flex-col flex-1">
+        {/* Single Main Image */}
+        <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-muted">
+          {property.images[0] ? (
+            <Image
+              src={property.images[0]}
+              alt={property.title}
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
+              unoptimized
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground border border-dashed border-border">
+              <Camera className="w-8 h-8 opacity-40 mb-1" />
+              <span className="text-xs">Chưa có hình ảnh</span>
+            </div>
+          )}
+
           {/* Category Badge overlay */}
           <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/60 text-white text-xs font-semibold backdrop-blur-md">
             {property.categoryLabel}
           </div>
 
-          {/* Badges on right: Video / Photo Count */}
-          <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 z-10">
+          {/* Top-right badges */}
+          <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
+            {property.isVerified && (
+              <div
+                className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-md backdrop-blur-md"
+                title="Tin đăng đã xác thực thông tin"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+              </div>
+            )}
             {property.hasVideo && (
-              <div className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-bold backdrop-blur-md flex items-center gap-1">
+              <div className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-bold flex items-center gap-1 shadow-sm">
                 <Video className="w-3 h-3" />
                 <span>Video</span>
               </div>
             )}
-            <div className="px-2 py-0.5 rounded-md bg-black/70 text-white text-[11px] font-semibold backdrop-blur-md flex items-center gap-1">
+            <div className="px-2 py-0.5 rounded-md bg-black/60 text-white text-[11px] font-semibold flex items-center gap-1 backdrop-blur-xs">
               <Camera className="w-3 h-3" />
               <span>{property.photosCount}</span>
             </div>
@@ -250,28 +326,14 @@ export default function RentCollageCard({
               {property.title}
             </h3>
 
-            {/* Price & Specs Row (Price on Left, Specs on Right) */}
+            {/* Price & Specs Row */}
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <span className="font-heading font-bold text-base text-rose-600 dark:text-rose-500">
-                {property.priceMillion >= 1
-                  ? `${property.priceMillion} triệu/tháng`
-                  : `${property.priceMillion * 1000}k/tháng`}
+                {formattedPrice}
               </span>
 
-              {/* Quick Specs on the right */}
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-                <span>{property.areaM2} m²</span>
-                <span>·</span>
-                <span>{property.beds} PN</span>
-                <span>·</span>
-                <span>{property.baths} WC</span>
-                {property.floor && (
-                  <>
-                    <span>·</span>
-                    <span>{property.floor}</span>
-                  </>
-                )}
-              </div>
+              {/* Category-Exclusive Quick Specs */}
+              {renderCardSpecs(property)}
             </div>
 
             {/* Location */}
@@ -281,12 +343,22 @@ export default function RentCollageCard({
             </div>
           </div>
 
-          {/* Landlord Footer & Actions (Chat, Tym, Views) */}
+          {/* Landlord Footer & Actions */}
           <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
             {/* Landlord info */}
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground font-bold text-[11px] flex items-center justify-center shrink-0 shadow-2xs">
-                {property.landlord.name.charAt(0).toUpperCase()}
+              <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground font-bold text-[11px] flex items-center justify-center shrink-0 shadow-2xs overflow-hidden relative">
+                {property.landlord.avatar ? (
+                  <Image
+                    src={property.landlord.avatar}
+                    alt={property.landlord.name}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  property.landlord.name.charAt(0).toUpperCase()
+                )}
               </div>
               <div className="text-xs min-w-0">
                 <p className="font-semibold text-foreground truncate max-w-[100px] sm:max-w-[120px]">
@@ -299,17 +371,8 @@ export default function RentCollageCard({
               </div>
             </div>
 
-            {/* Action buttons (View count, Chat, Favorite Heart) */}
+            {/* Action buttons (Chat, Favorite Heart) */}
             <div className="flex items-center gap-1.5 shrink-0">
-              {/* Lượt xem bài viết */}
-              <div
-                className="flex items-center gap-1 text-[11px] text-muted-foreground font-medium pr-0.5 select-none"
-                title="Lượt xem bài đăng"
-              >
-                <Eye className="w-3.5 h-3.5 text-muted-foreground/70" />
-                <span>{formattedViews}</span>
-              </div>
-
               {/* Nút Chat nhanh */}
               <button
                 type="button"
@@ -319,25 +382,25 @@ export default function RentCollageCard({
                   window.location.href = "/chat";
                 }}
                 title="Nhắn tin cho chủ nhà"
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-border bg-card hover:bg-muted text-muted-foreground hover:text-primary flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
+                className="w-7 h-7 rounded-full border border-border bg-card hover:bg-muted text-muted-foreground hover:text-primary flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
               >
-                <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <MessageCircle className="w-3.5 h-3.5" />
               </button>
 
-              {/* Nút Tym (Yêu thích) */}
+              {/* Nút Lưu tin */}
               <button
                 type="button"
                 onClick={handleFavoriteClick}
-                title={isFavorite ? "Bỏ lưu tin" : "Lưu tin"}
-                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-border flex items-center justify-center transition-all cursor-pointer shadow-2xs ${
+                title={isFavorite ? "Bỏ lưu tin" : "Lưu tin này"}
+                className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs ${
                   isFavorite
-                    ? "bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-950/60 dark:border-rose-900"
-                    : "bg-card hover:bg-muted text-muted-foreground hover:text-rose-500"
+                    ? "bg-rose-50 border-rose-200 text-rose-500 dark:bg-rose-950/40 dark:border-rose-900"
+                    : "bg-card border-border hover:bg-muted text-muted-foreground hover:text-rose-500"
                 }`}
               >
                 <Heart
-                  className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform ${
-                    isFavorite ? "fill-rose-500 stroke-rose-500 scale-110" : ""
+                  className={`w-3.5 h-3.5 transition-transform active:scale-75 ${
+                    isFavorite ? "fill-rose-500" : ""
                   }`}
                 />
               </button>
@@ -349,8 +412,133 @@ export default function RentCollageCard({
   );
 }
 
-function getMockViews(id: string) {
-  let hash = 0;
-  for (const character of id) hash = (hash * 31 + character.charCodeAt(0)) % 10_000;
-  return 120 + Math.abs(hash);
+function renderCardSpecs(property: RentPropertyItem) {
+  const cat = property.category;
+  const d = property.details ?? {};
+
+  // 1. Phòng trọ / CHDV: KHÔNG CÓ PHÒNG NGỦ
+  if (cat === "room") {
+    const restroomText =
+      d.restroomType === "PRIVATE"
+        ? "WC khép kín"
+        : d.restroomType === "SHARED"
+        ? "WC chung"
+        : property.baths > 0
+        ? `${property.baths} WC`
+        : "WC riêng";
+
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium truncate">
+        <span>{property.areaM2} m²</span>
+        <span>·</span>
+        <span>{restroomText}</span>
+        {Boolean(d.hasMezzanine) && (
+          <>
+            <span>·</span>
+            <span>Gác lửng</span>
+          </>
+        )}
+        {Boolean(d.hasBalcony) && (
+          <>
+            <span>·</span>
+            <span>Ban công</span>
+          </>
+        )}
+        {Boolean(d.hasWindow) && !d.hasBalcony && (
+          <>
+            <span>·</span>
+            <span>Cửa sổ</span>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // 2. Văn phòng
+  if (cat === "office") {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium truncate">
+        <span>{property.areaM2} m²</span>
+        {d.expectedSeats != null && (
+          <>
+            <span>·</span>
+            <span>{String(d.expectedSeats)} chỗ</span>
+          </>
+        )}
+        {Boolean(d.officeGrade) && (
+          <>
+            <span>·</span>
+            <span>Hạng {String(d.officeGrade).replace("GRADE_", "")}</span>
+          </>
+        )}
+        <span>·</span>
+        <span>{property.baths || 1} WC</span>
+      </div>
+    );
+  }
+
+  // 3. Mặt bằng kinh doanh
+  if (cat === "commercial") {
+    const positionLabel =
+      d.positionType === "GROUND_FLOOR"
+        ? "Trệt"
+        : d.positionType === "SHOPPING_MALL"
+        ? "TTTM"
+        : d.positionType === "UPPER_FLOOR"
+        ? "Lầu"
+        : null;
+
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium truncate">
+        <span>{property.areaM2} m²</span>
+        {d.frontageWidthM != null && (
+          <>
+            <span>·</span>
+            <span>MT {String(d.frontageWidthM)}m</span>
+          </>
+        )}
+        {Boolean(positionLabel) && (
+          <>
+            <span>·</span>
+            <span>{positionLabel}</span>
+          </>
+        )}
+        <span>·</span>
+        <span>{property.baths || 1} WC</span>
+      </div>
+    );
+  }
+
+  // 4. Căn hộ & Nhà ở
+  const floorText =
+    cat === "house" && d.totalFloors
+      ? `${d.totalFloors} tầng`
+      : cat === "apartment" && d.floorNumber
+      ? `Tầng ${d.floorNumber}`
+      : property.floor || null;
+
+  const bedText =
+    cat === "apartment" && property.beds === 0 ? "Studio" : `${property.beds} PN`;
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium truncate">
+      <span>{property.areaM2} m²</span>
+      <span>·</span>
+      <span>{bedText}</span>
+      <span>·</span>
+      <span>{property.baths} WC</span>
+      {floorText && (
+        <>
+          <span>·</span>
+          <span>{floorText}</span>
+        </>
+      )}
+      {cat === "house" && Boolean(d.hasRooftop) && (
+        <>
+          <span>·</span>
+          <span>Sân thượng</span>
+        </>
+      )}
+    </div>
+  );
 }

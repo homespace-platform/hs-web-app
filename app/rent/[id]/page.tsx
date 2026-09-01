@@ -10,7 +10,6 @@ import RentCollageCard from "@/components/rent/RentCollageCard";
 import RentMediaGallery from "@/components/rent/RentMediaGallery";
 import {
   ArrowLeft,
-  BadgeCheck,
   Bath,
   BedDouble,
   Building2,
@@ -21,7 +20,6 @@ import {
   MapPin,
   MessageCircle,
   Phone,
-  ShieldCheck,
   Video,
   Loader2,
 } from "lucide-react";

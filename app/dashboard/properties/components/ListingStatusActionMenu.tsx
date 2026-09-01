@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import listingService from "@/services/listing.service";
+import favoriteService from "@/services/favorite.service";
 import {
   getListingOwnerActions,
   getListingStatusConfig,
@@ -117,6 +118,16 @@ export default function ListingStatusActionMenu({
       );
       closeModal();
       onChanged?.(updated);
+
+      // Đồng bộ badge số lượng tin yêu thích trên Header
+      favoriteService
+        .getFavoriteListingIds()
+        .then((ids) => {
+          window.dispatchEvent(
+            new CustomEvent("favoritesUpdated", { detail: { ids } })
+          );
+        })
+        .catch(() => {});
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, "Không thể đổi trạng thái tin đăng. Vui lòng thử lại."));
     } finally {

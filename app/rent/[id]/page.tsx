@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import RentDetailView from "@/components/rent/RentDetailView";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Building } from "lucide-react";
 import type { RentPropertyItem } from "@/types/rent.type";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
@@ -20,12 +20,16 @@ export default function RentDetailPage() {
     if (!id) return;
     let cancelled = false;
 
-    // Load listing detail from API (supports both public and owner views)
+    // Load listing detail from API (chỉ cho phép xem tin công khai đang hiển thị)
     listingService
       .getById(id)
       .then((listing) => {
         if (!cancelled && listing) {
-          setProperty(toRentProperty(listing));
+          if (listing.status !== "PUBLISHED") {
+            setProperty(null);
+          } else {
+            setProperty(toRentProperty(listing));
+          }
         }
       })
       .catch((err) => {
@@ -60,19 +64,28 @@ export default function RentDetailPage() {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col">
         <Header />
-        <main className="flex-1 pt-24 pb-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4">
-            <h1 className="font-heading text-2xl font-bold">Không tìm thấy tin cho thuê</h1>
-            <p className="text-sm text-muted-foreground">
-              Bài đăng có thể đã hết hạn hoặc không tồn tại.
-            </p>
-            <Link
-              href="/rent"
-              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-sm transition-all"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Quay lại danh sách
-            </Link>
+        <main className="flex-1 flex items-center justify-center px-4 py-20">
+          <div className="max-w-md w-full text-center space-y-5 rounded-3xl border border-border bg-card p-8 sm:p-10 shadow-sm animate-in fade-in zoom-in-95 duration-300">
+            <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center text-muted-foreground/60 shadow-inner">
+              <Building className="w-8 h-8" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground">
+                Không tìm thấy bài đăng
+              </h1>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Bài đăng có thể đã bị ẩn, hết hạn hoặc không còn hiển thị công khai.
+              </p>
+            </div>
+            <div className="pt-2">
+              <Link
+                href="/rent"
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-xs sm:text-sm font-bold text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Quay lại danh sách</span>
+              </Link>
+            </div>
           </div>
         </main>
         <Footer />

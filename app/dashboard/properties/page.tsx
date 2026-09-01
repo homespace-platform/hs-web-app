@@ -154,7 +154,7 @@ export default function MyPropertiesPage() {
   }
 
   function handleOpenDetail(id: string) {
-    router.push(`/dashboard/properties/view?id=${id}`);
+    router.push(`/rent/${id}`);
   }
 
   function handleEditListing(id: string) {

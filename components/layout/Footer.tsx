@@ -21,11 +21,10 @@ export default function Footer() {
                 <Image
                   src="/logo/homespace-vertical-logo-removebg-crop-removebg.png"
                   alt="HomeSpace Logo"
-                  width={140}
-                  height={140}
+                  width={80}
+                  height={80}
                   unoptimized
-                  style={{ width: "auto" }}
-                  className="h-16 sm:h-20 w-auto object-contain brightness-0 invert"
+                  className="h-16 w-16 sm:h-20 sm:w-20 object-contain brightness-0 invert"
                 />
               </div>
             </Link>

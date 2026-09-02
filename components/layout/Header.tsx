@@ -11,6 +11,8 @@ import NotificationDropdown from "@/components/notification/NotificationDropdown
 import UserAvatar from "@/components/common/UserAvatar";
 import provinceService from "@/services/province.service";
 import { Province } from "@/types/province.type";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchFavoriteIds } from "@/features/favorite/favoriteSlice";
 import {
   Menu,
   X,
@@ -38,7 +40,8 @@ export default function Header() {
     avatarUrl,
   } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [favoriteCount, setFavoriteCount] = useState(0);
+  const dispatch = useAppDispatch();
+  const favoriteCount = useAppSelector((state) => state.favorite.count);
 
   // Province States
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -68,36 +71,12 @@ export default function Header() {
     };
   }, [isProvinceOpen]);
 
-  // Sync favorites count (chỉ khi đã đăng nhập)
+  // Sync favorites count via Redux (chỉ khi đã đăng nhập)
   useEffect(() => {
-    if (!authenticated) {
-      setFavoriteCount(0);
-      return;
+    if (authenticated) {
+      dispatch(fetchFavoriteIds());
     }
-
-    try {
-      const saved = localStorage.getItem("homespace_saved_favorites");
-      if (saved) {
-        const ids = JSON.parse(saved);
-        if (Array.isArray(ids)) {
-          setFavoriteCount(ids.length);
-        }
-      }
-    } catch {
-      // ignore
-    }
-
-    const handleFavUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail?.ids) {
-        setFavoriteCount(customEvent.detail.ids.length);
-      }
-    };
-    window.addEventListener("favoritesUpdated", handleFavUpdate);
-    return () => {
-      window.removeEventListener("favoritesUpdated", handleFavUpdate);
-    };
-  }, [authenticated]);
+  }, [authenticated, dispatch]);
 
   // Fetch Provinces & Initialize from LocalStorage
   useEffect(() => {
@@ -224,9 +203,10 @@ export default function Header() {
               <Image
                 src="/logo/homespace-horizontal-logo-crop-removebg.png"
                 alt="HomeSpace Logo"
-                width={180}
-                height={46}
+                width={866}
+                height={288}
                 priority
+                style={{ width: "auto" }}
                 className="h-10 sm:h-11 w-auto object-contain transition-transform duration-200 group-hover:scale-105"
               />
             </Link>

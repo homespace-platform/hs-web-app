@@ -336,6 +336,7 @@ export type MyListingSummaryResponse = {
   expiresAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  viewCount?: number;
 };
 
 export type ListingOptionItemResponse = {
@@ -413,6 +414,7 @@ export type ListingDetailResponse = {
   updatedAt: string | null;
   createdBy?: string | null;
   updatedBy?: string | null;
+  viewCount?: number;
 };
 
 export type ListingOptionsResponse = {
@@ -465,3 +467,76 @@ export type ListingResponse = CreateListingResponse & {
   createdAt?: string;
   updatedAt?: string;
 };
+
+export type PublicListingSummaryResponse = {
+  id: string;
+  title: string;
+  category: ListingCategory;
+  subtype: ListingSubtype;
+  areaM2: number;
+  priceAmount: number;
+  currency: string;
+  priceUnit: PriceUnit;
+  negotiable: boolean;
+  coverImageUrl: string | null;
+  imageUrls: string[];
+  hasVideo: boolean;
+  fullAddress: string | null;
+  provinceCode: string | null;
+  provinceName: string | null;
+  wardCode: string | null;
+  wardName: string | null;
+  bedroomCount: number | null;
+  bathroomCount: number | null;
+  floorNumber: number | null;
+  totalFloors: number | null;
+  restroomType: "PRIVATE" | "SHARED" | null;
+  hasMezzanine: boolean | null;
+  hasBalcony: boolean | null;
+  hasWindow: boolean | null;
+  hasRooftop: boolean | null;
+  hasGarage: boolean | null;
+  expectedSeats: number | null;
+  officeGrade: string | null;
+  frontageWidthM: number | null;
+  positionType: string | null;
+  furnishingStatus: FurnishingStatus | null;
+  ownerId: string | null;
+  ownerName: string | null;
+  ownerAvatarUrl: string | null;
+  ownerListingCount: number | null;
+  publishedAt: string | null;
+  availableFrom: string | null;
+  viewCount?: number;
+};
+
+export interface PublicListingQueryParams {
+  page?: number;
+  size?: number;
+  category?: ListingCategory;
+  subtype?: ListingSubtype;
+  keyword?: string;
+  provinceCode?: string;
+  wardCode?: string;
+  priceMin?: number;
+  priceMax?: number;
+  areaMin?: number;
+  areaMax?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  hasVideo?: boolean;
+  furnishingStatus?: FurnishingStatus;
+  direction?: string;
+  balconyDirection?: string;
+  officeGrade?: string;
+  positionType?: PositionType;
+  restroomType?: RestroomType;
+  kitchenType?: string;
+  accessType?: string;
+  legalStatus?: string;
+  hasMezzanine?: boolean;
+  hasRooftop?: boolean;
+  hasGarage?: boolean;
+  sort?: "newest" | "price_asc" | "price_desc" | "area_asc" | "area_desc";
+}
+

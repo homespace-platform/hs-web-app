@@ -53,8 +53,8 @@ export default function ChatEmptyState({
             <Image
               src="/logo/homespace-vertical-logo-removebg-crop-removebg.png"
               alt="HomeSpace"
-              width={96}
-              height={96}
+              width={80}
+              height={80}
               className="w-full h-full object-contain"
               unoptimized
             />

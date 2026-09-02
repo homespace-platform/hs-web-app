@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import listingService from "@/services/listing.service";
+import { useAppDispatch } from "@/store/hooks";
+import { fetchFavoriteIds } from "@/features/favorite/favoriteSlice";
 import {
   getListingOwnerActions,
   getListingStatusConfig,
@@ -51,6 +53,7 @@ export default function ListingStatusActionMenu({
   onChanged,
   size = "sm",
 }: ListingStatusActionMenuProps) {
+  const dispatch = useAppDispatch();
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<ListingOwnerAction | null>(null);
   const [note, setNote] = useState("");
@@ -117,6 +120,9 @@ export default function ListingStatusActionMenu({
       );
       closeModal();
       onChanged?.(updated);
+
+      // Đồng bộ badge số lượng tin yêu thích trên Header & Dropdown qua Redux
+      dispatch(fetchFavoriteIds({ force: true }));
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, "Không thể đổi trạng thái tin đăng. Vui lòng thử lại."));
     } finally {

@@ -20,6 +20,13 @@ import {
   Calendar,
   Layers,
   AlertCircle,
+  CheckCircle2,
+  Clock,
+  FileText,
+  EyeOff,
+  XCircle,
+  CalendarX,
+  ExternalLink,
 } from "lucide-react";
 import listingService from "@/services/listing.service";
 import type { ListingCategory, ListingStatus, MyListingSummaryResponse } from "@/types/listing.type";
@@ -43,17 +50,24 @@ const CATEGORY_LABELS: Record<ListingCategory, string> = {
   ROOM: "Nhà trọ / Phòng",
 };
 
-const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
-  { value: "ALL", label: "Tất cả trạng thái" },
-  { value: "DRAFT", label: "Tin nháp" },
-  { value: "PENDING_REVIEW", label: "Chờ duyệt" },
-  { value: "PUBLISHED", label: "Đang hiển thị" },
-  { value: "RENTED", label: "Đã cho thuê" },
-  { value: "RENTED_EXTERNALLY", label: "Cho thuê ngoài hệ thống" },
-  { value: "EXPIRED", label: "Hết hạn" },
-  { value: "REJECTED", label: "Bị từ chối" },
-  { value: "HIDDEN", label: "Đã ẩn" },
-  { value: "VIOLATION", label: "Vi phạm" },
+interface StatusTabItem {
+  value: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  colorClass: string;
+}
+
+const STATUS_TABS: StatusTabItem[] = [
+  { value: "ALL", label: "Tất cả", icon: Layers, colorClass: "text-muted-foreground" },
+  { value: "PUBLISHED", label: "Đang hiển thị", icon: CheckCircle2, colorClass: "text-emerald-500" },
+  { value: "RENTED", label: "Đã cho thuê", icon: Home, colorClass: "text-blue-500" },
+  { value: "PENDING_REVIEW", label: "Chờ duyệt", icon: Clock, colorClass: "text-amber-500" },
+  { value: "DRAFT", label: "Tin nháp", icon: FileText, colorClass: "text-slate-400" },
+  { value: "HIDDEN", label: "Đã ẩn", icon: EyeOff, colorClass: "text-zinc-400" },
+  { value: "EXPIRED", label: "Hết hạn", icon: CalendarX, colorClass: "text-orange-500" },
+  { value: "REJECTED", label: "Bị từ chối", icon: XCircle, colorClass: "text-rose-500" },
+  { value: "RENTED_EXTERNALLY", label: "Cho thuê ngoài", icon: ExternalLink, colorClass: "text-indigo-500" },
+  { value: "VIOLATION", label: "Vi phạm", icon: AlertTriangle, colorClass: "text-red-500" },
 ];
 
 function formatCurrency(amount: number): string {
@@ -92,10 +106,29 @@ export default function MyPropertiesPage() {
   const [keywordInput, setKeywordInput] = useState("");
   const [debouncedKeyword, setDebouncedKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
   const [reloadKey, setReloadKey] = useState(0);
+
+  // Fetch status counts on load & reload
+  useEffect(() => {
+    let cancelled = false;
+    listingService
+      .getMyListingCounts()
+      .then((counts) => {
+        if (!cancelled && counts) {
+          setStatusCounts(counts);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not load listing status counts:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   // Debounce search input by 400ms
   useEffect(() => {
@@ -181,57 +214,104 @@ export default function MyPropertiesPage() {
   return (
     <div className="space-y-6 pb-28 animate-in fade-in-50 duration-200">
       {/* Page Header */}
-      <div className="space-y-1">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-          Tin đăng của tôi
-        </h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">
-          Quản lý {totalElements} tin cho thuê, theo dõi trạng thái kiểm duyệt và cập nhật bài đăng.
-        </p>
-      </div>
-
-      {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-card p-3 rounded-2xl border border-border shadow-2xs">
-        {/* Search Input */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            value={keywordInput}
-            onChange={(e) => setKeywordInput(e.target.value)}
-            placeholder="Tìm kiếm theo tiêu đề bài đăng..."
-            className="w-full h-10 rounded-xl bg-muted/40 pl-9 pr-4 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 border border-transparent focus:border-primary"
-          />
-          {keywordInput && (
-            <button
-              onClick={() => {
-                setKeywordInput("");
-                if (debouncedKeyword !== "") {
-                  setDebouncedKeyword("");
-                  setPage(1);
-                  setLoading(true);
-                }
-              }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
-            >
-              ✕
-            </button>
-          )}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+            Quản lý tin đăng
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Quản lý {totalElements} tin cho thuê, theo dõi trạng thái kiểm duyệt và cập nhật bài đăng.
+          </p>
         </div>
 
-        {/* Status Dropdown */}
-        <div className="sm:w-56">
-          <select
-            value={statusFilter}
-            onChange={(e) => handleFilterStatusChange(e.target.value)}
-            className="w-full h-10 rounded-xl bg-muted/40 px-3 text-xs font-medium text-foreground border border-transparent focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+        {/* Header Action: Làm mới */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => {
+              setLoading(true);
+              setReloadKey((k) => k + 1);
+            }}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-border transition-all active:scale-95 disabled:opacity-50 shadow-2xs"
+            title="Làm mới danh sách tin đăng"
           >
-            {STATUS_FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-primary" : ""}`} />
+            <span>Làm mới</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Segmented Status Tabs & Search Toolbar */}
+      <div className="bg-card rounded-2xl border border-border shadow-2xs overflow-hidden">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-3 sm:px-4 pt-2.5 pb-0 border-b border-border">
+          {/* Scrollable Status Tabs */}
+          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar scroll-smooth -mb-px">
+            {STATUS_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = statusFilter === tab.value;
+              const count =
+                tab.value === "ALL"
+                  ? statusCounts["ALL"] ?? totalElements
+                  : statusCounts[tab.value] ?? 0;
+
+              return (
+                <button
+                  key={tab.value}
+                  onClick={() => handleFilterStatusChange(tab.value)}
+                  className={`group relative flex items-center gap-2 py-3 px-3.5 text-xs font-medium whitespace-nowrap transition-all border-b-2 ${
+                    isActive
+                      ? "border-primary text-primary font-bold"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-border/80"
+                  }`}
+                >
+                  <Icon
+                    className={`h-4 w-4 shrink-0 transition-colors ${
+                      isActive ? "text-primary" : tab.colorClass
+                    }`}
+                  />
+                  <span>{tab.label}</span>
+                  <span
+                    className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold transition-colors ${
+                      isActive
+                        ? "bg-primary/15 text-primary font-bold"
+                        : "bg-muted text-muted-foreground group-hover:bg-muted/80 group-hover:text-foreground"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search Box on Desktop Right / Mobile Bottom */}
+          <div className="pb-3 lg:pb-0 lg:mb-2.5 shrink-0">
+            <div className="relative w-full lg:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                value={keywordInput}
+                onChange={(e) => setKeywordInput(e.target.value)}
+                placeholder="Tìm kiếm tin đăng..."
+                className="w-full h-9 rounded-xl bg-muted/40 pl-9 pr-8 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 border border-border/80 focus:border-primary transition-all"
+              />
+              {keywordInput && (
+                <button
+                  onClick={() => {
+                    setKeywordInput("");
+                    if (debouncedKeyword !== "") {
+                      setDebouncedKeyword("");
+                      setPage(1);
+                      setLoading(true);
+                    }
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-1"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

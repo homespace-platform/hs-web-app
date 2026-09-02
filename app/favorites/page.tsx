@@ -4,10 +4,17 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import PropertyCard from "@/components/property/PropertyCard";
+import RentCollageCard from "@/components/rent/RentCollageCard";
 import { useAuth } from "@/features/auth/useAuth";
-import { MOCK_FAVORITE_PROPERTIES } from "@/data/mock-favorites-data";
-import { PropertyItem } from "@/data/home-data";
+import type { RentPropertyItem } from "@/types/rent.type";
+import { toRentProperty } from "@/lib/listing-to-rent-property";
+import favoriteService from "@/services/favorite.service";
+import { useAppDispatch } from "@/store/hooks";
+import {
+  favoriteRemoved,
+  favoritesCleared,
+  setFavoriteIds,
+} from "@/features/favorite/favoriteSlice";
 import { toast } from "sonner";
 import {
   Heart,
@@ -37,15 +44,39 @@ const FAVORITE_CATEGORIES = [
 ];
 
 export default function FavoritesPage() {
-  const { initialized, authenticated, login } = useAuth();
-  const [favorites, setFavorites] = useState<PropertyItem[]>(
-    MOCK_FAVORITE_PROPERTIES
-  );
+  const { authenticated, initialized, login } = useAuth();
+  const dispatch = useAppDispatch();
+  const [favorites, setFavorites] = useState<RentPropertyItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "price_asc" | "price_desc" | "area_desc">("newest");
   const [currentPage, setCurrentPage] = useState(1);
   const listingsSectionRef = useRef<HTMLDivElement>(null);
+
+  // Fetch real favorites from backend
+  const fetchFavorites = async () => {
+    if (!authenticated) return;
+    setIsLoading(true);
+    try {
+      const res = await favoriteService.getMyFavorites(1, 50);
+      const items = (res.result || []).map((pub) => toRentProperty(pub));
+      setFavorites(items);
+      dispatch(setFavoriteIds(items.map((i) => i.id)));
+    } catch {
+      toast.error("Không thể tải danh sách tin yêu thích.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (initialized && authenticated) {
+      fetchFavorites();
+    } else if (initialized && !authenticated) {
+      setFavorites([]);
+    }
+  }, [initialized, authenticated]);
 
   // Filter & Sort Logic
   const filteredAndSortedFavorites = useMemo(() => {
@@ -104,19 +135,23 @@ export default function FavoritesPage() {
   // Remove a single favorite item
   const handleRemoveFavorite = (id: string) => {
     setFavorites((prev) => prev.filter((item) => item.id !== id));
+    dispatch(favoriteRemoved(id));
   };
 
   // Clear all favorites
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
+    if (favorites.length === 0) return;
     if (window.confirm("Bạn có chắc chắn muốn xóa tất cả tin đăng yêu thích?")) {
+      const current = [...favorites];
       setFavorites([]);
+      dispatch(favoritesCleared());
       try {
-        localStorage.removeItem("homespace_saved_favorites");
+        await Promise.all(current.map((item) => favoriteService.removeFavorite(item.id)));
+        toast.success("Đã xóa tất cả tin yêu thích.");
       } catch {
-        toast.error("Không thể cập nhật dữ liệu yêu thích trên trình duyệt.");
-        return;
+        toast.error("Có lỗi xảy ra khi xóa danh sách yêu thích.");
+        fetchFavorites();
       }
-      toast.success("Đã xóa tất cả tin yêu thích.");
     }
   };
 
@@ -318,7 +353,12 @@ export default function FavoritesPage() {
           )}
 
           {/* 3. Properties Grid or Empty State */}
-          {totalItems === 0 ? (
+          {isLoading ? (
+            <div className="py-20 text-center flex flex-col items-center justify-center bg-card rounded-3xl border border-border p-8 shadow-2xs">
+              <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+              <p className="text-sm text-muted-foreground">Đang tải danh sách yêu thích...</p>
+            </div>
+          ) : totalItems === 0 ? (
             <div className="py-16 sm:py-24 text-center flex flex-col items-center justify-center bg-card rounded-3xl border border-border p-8 shadow-2xs">
               <div className="w-20 h-20 rounded-full bg-rose-50 dark:bg-rose-950/50 border border-rose-100 dark:border-rose-900/50 flex items-center justify-center text-rose-500 mb-5 shadow-xs animate-in zoom-in-90 duration-300">
                 <Heart className="w-10 h-10 stroke-[1.5]" />
@@ -334,7 +374,7 @@ export default function FavoritesPage() {
                   : "Thử thay đổi bộ lọc thể loại hoặc tìm kiếm với từ khóa khác."}
               </p>
               <Link
-                href="/#featured-listings"
+                href="/rent"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-primary-foreground font-bold text-sm shadow-md shadow-primary/25 hover:bg-primary/90 transition-all hover:scale-105 active:scale-95"
               >
                 <Sparkles className="w-4 h-4" />
@@ -342,13 +382,18 @@ export default function FavoritesPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 items-stretch">
               {currentItems.map((property) => (
-                <PropertyCard
+                <RentCollageCard
                   key={property.id}
                   property={property}
+                  viewMode="grid"
                   initialFavorited={true}
-                  onRemoveFavorite={handleRemoveFavorite}
+                  onFavoriteChange={(id, isFav) => {
+                    if (!isFav) {
+                      setFavorites((prev) => prev.filter((p) => p.id !== id));
+                    }
+                  }}
                 />
               ))}
             </div>

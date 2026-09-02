@@ -2,18 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FEATURED_PROPERTIES, PROPERTY_CATEGORIES } from "@/data/home-data";
-import PropertyCard from "./PropertyCard";
 import { ArrowRight } from "lucide-react";
+
+const PROPERTY_CATEGORIES = [
+  { id: "all", label: "Tất cả" },
+  { id: "apartment", label: "Căn hộ/Chung cư" },
+  { id: "house", label: "Nhà ở" },
+  { id: "office", label: "Văn phòng" },
+  { id: "commercial", label: "Mặt bằng kinh doanh" },
+  { id: "studio", label: "Studio" },
+  { id: "room", label: "Phòng trọ" },
+];
 
 export default function FeaturedProperties() {
   const [activeCategory, setActiveCategory] = useState("all");
-
-  const filteredProperties = FEATURED_PROPERTIES.filter((prop) => {
-    if (activeCategory === "all") return true;
-    if (activeCategory === "verified") return prop.isVerified;
-    return prop.category === activeCategory;
-  });
 
   return (
     <section id="featured-listings" className="py-12 md:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
@@ -30,7 +32,7 @@ export default function FeaturedProperties() {
         </div>
 
         <Link
-          href="#all-listings"
+          href="/rent"
           className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:text-primary/80 transition-colors group self-start md:self-auto"
         >
           <span>Xem tất cả tin đăng</span>
@@ -58,16 +60,8 @@ export default function FeaturedProperties() {
         })}
       </div>
 
-      {/* Properties Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {filteredProperties.map((property) => (
-          <PropertyCard
-            key={property.id}
-            property={property}
-            detailHref={`/rent/${property.id}`}
-          />
-        ))}
-      </div>
+      {/* Properties Grid - Empty container without mock data */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" />
     </section>
   );
 }

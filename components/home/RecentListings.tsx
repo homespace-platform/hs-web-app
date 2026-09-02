@@ -2,17 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { RECENT_PROPERTIES, PROPERTY_CATEGORIES } from "@/data/home-data";
-import PropertyCard from "./PropertyCard";
-import { ArrowRight, Clock } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+
+const PROPERTY_CATEGORIES = [
+  { id: "all", label: "Tất cả" },
+  { id: "apartment", label: "Căn hộ/Chung cư" },
+  { id: "house", label: "Nhà ở" },
+  { id: "office", label: "Văn phòng" },
+  { id: "commercial", label: "Mặt bằng kinh doanh" },
+  { id: "studio", label: "Studio" },
+  { id: "room", label: "Phòng trọ" },
+];
 
 export default function RecentListings() {
   const [activeCategory, setActiveCategory] = useState("all");
-
-  const filteredProperties = RECENT_PROPERTIES.filter((prop) => {
-    if (activeCategory === "all") return true;
-    return prop.category === activeCategory;
-  });
 
   return (
     <section
@@ -31,7 +34,7 @@ export default function RecentListings() {
         </div>
 
         <Link
-          href="#all-recent-listings"
+          href="/rent"
           className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:text-primary/80 transition-colors group self-start md:self-auto"
         >
           <span>Xem tất cả tin mới đăng</span>
@@ -59,16 +62,8 @@ export default function RecentListings() {
         })}
       </div>
 
-      {/* Properties Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {filteredProperties.map((property) => (
-          <PropertyCard
-            key={property.id}
-            property={property}
-            detailHref={`/rent/${property.id}`}
-          />
-        ))}
-      </div>
+      {/* Properties Grid - Empty container without mock data */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" />
     </section>
   );
 }

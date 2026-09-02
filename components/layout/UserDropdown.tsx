@@ -17,9 +17,12 @@ import {
   Settings,
 } from "lucide-react";
 import UserAvatar from "@/components/common/UserAvatar";
+import { useAppSelector } from "@/store/hooks";
 
 export default function UserDropdown() {
   const { username, avatarUrl, logout } = useAuth();
+  const favoriteCount = useAppSelector((state) => state.favorite.count);
+  const historyCount = useAppSelector((state) => state.history.count);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -179,7 +182,7 @@ export default function UserDropdown() {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold">
-                  24
+                  {favoriteCount}
                 </span>
                 <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
               </div>
@@ -197,7 +200,7 @@ export default function UserDropdown() {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
-                  40
+                  {historyCount}
                 </span>
                 <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
               </div>

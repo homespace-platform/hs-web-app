@@ -11,6 +11,8 @@ import type {
   ListingResponse,
   ListingStatus,
   MyListingSummaryResponse,
+  PublicListingQueryParams,
+  PublicListingSummaryResponse,
 } from "@/types/listing.type";
 
 export interface MyListingsQueryParams {
@@ -50,13 +52,49 @@ const listingService = {
   },
 
   /**
-   * Lấy chi tiết bài đăng theo ID
+   * Lấy số lượng tin đăng theo từng trạng thái (cho tab filter)
    */
-  async getById(listingId: string): Promise<ListingDetailResponse> {
+  async getMyListingCounts(): Promise<Record<string, number>> {
+    const response = await axiosClient.get<ApiResponse<Record<string, number>>>(
+      "/api/v1/listings/me/counts",
+    );
+    return response.data.result;
+  },
+
+  /**
+   * Lấy chi tiết bài đăng của chính mình theo ID (dành cho chủ tin trong Dashboard, hỗ trợ mọi trạng thái: Đang hiển thị, Đã ẩn, Chờ duyệt, v.v.)
+   */
+  async getMyListingById(listingId: string): Promise<ListingDetailResponse> {
     const response = await axiosClient.get<ApiResponse<ListingDetailResponse>>(
       `/api/v1/listings/${listingId}`,
     );
     return response.data.result;
+  },
+
+  /**
+   * Lấy chi tiết bài đăng công khai theo ID (chỉ hiển thị tin ở trạng thái Đang hiển thị - PUBLISHED)
+   */
+  async getById(listingId: string): Promise<ListingDetailResponse> {
+    const baseUrl = process.env.NEXT_PUBLIC_GATEWAY_BASE_URL || "";
+    const response = await axios.get<ApiResponse<ListingDetailResponse>>(
+      `${baseUrl}/api/v1/public/listings/${listingId}`,
+    );
+    return response.data.result;
+  },
+
+  /**
+   * Ghi nhận lượt xem bài đăng (có cơ chế chống spam backend)
+   */
+  async recordView(listingId: string): Promise<{ viewCount: number; counted: boolean }> {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_GATEWAY_BASE_URL || "";
+      const response = await axios.post<ApiResponse<{ viewCount: number; counted: boolean }>>(
+        `${baseUrl}/api/v1/public/listings/${listingId}/view`,
+      );
+      return response.data?.result ?? { viewCount: 0, counted: false };
+    } catch {
+      return { viewCount: 0, counted: false };
+    }
   },
 
   /**
@@ -94,17 +132,16 @@ const listingService = {
   },
 
   /**
-   * Lấy danh sách tin đã publish (public)
+   * Lấy danh sách tin công khai cho client (Public API) có phân trang, bộ lọc và sắp xếp
    */
-  async getPublished(): Promise<ListingResponse[]> {
-    const response = await axios.get<PageResponse<ListingResponse>>(
-      `${process.env.NEXT_PUBLIC_GATEWAY_BASE_URL}/api/v1/listings`,
-      {
-        params: { page: 1, size: 100 },
-        headers: keycloak.token ? { Authorization: `Bearer ${keycloak.token}` } : undefined,
-      },
+  async getPublicListings(
+    params: PublicListingQueryParams = {},
+  ): Promise<PageResponse<PublicListingSummaryResponse>> {
+    const response = await axios.get<PageResponse<PublicListingSummaryResponse>>(
+      `${process.env.NEXT_PUBLIC_GATEWAY_BASE_URL}/api/v1/public/listings`,
+      { params },
     );
-    return response.data.result ?? [];
+    return response.data;
   },
 };
 

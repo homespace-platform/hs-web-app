@@ -314,7 +314,8 @@ function CreatePropertyListingContent() {
     let active = true;
 
     listingService
-      .getById(editId)
+      .getMyListingById(editId)
+      .catch(() => listingService.getById(editId))
       .then((res) => {
         if (!active) return;
 
@@ -636,6 +637,7 @@ function CreatePropertyListingContent() {
         }
       })
       .catch((err) => {
+        if (!active) return;
         console.error("Failed to load listing for edit:", err);
         toast.error("Không tìm thấy tin đăng hoặc bạn không có quyền chỉnh sửa.");
       })

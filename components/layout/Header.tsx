@@ -233,9 +233,10 @@ export default function Header() {
               <Image
                 src="/logo/homespace-horizontal-logo-crop-removebg.png"
                 alt="HomeSpace Logo"
-                width={180}
-                height={46}
+                width={866}
+                height={288}
                 priority
+                style={{ width: "auto" }}
                 className="h-10 sm:h-11 w-auto object-contain transition-transform duration-200 group-hover:scale-105"
               />
             </Link>

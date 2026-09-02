@@ -26,15 +26,14 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] dark:bg-[#090D16] p-4 select-none">
         <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in-95 duration-500 max-w-xs text-center">
           {/* Vertical Logo */}
-          <div className="relative w-40 h-32 flex items-center justify-center">
+          <div className="relative w-32 h-32 flex items-center justify-center">
             <Image
               src="/logo/homespace-vertical-logo-removebg-crop-removebg.png"
               alt="HomeSpace Logo"
-              width={160}
-              height={130}
+              width={112}
+              height={112}
               priority
-              style={{ width: "auto", height: "auto" }}
-              className="object-contain drop-shadow-md animate-pulse"
+              className="w-28 h-28 object-contain drop-shadow-md animate-pulse"
             />
           </div>
 

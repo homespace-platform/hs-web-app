@@ -49,6 +49,7 @@ export default function RootLayout({
     <html
       lang="vi"
       suppressHydrationWarning
+      data-scroll-behavior="smooth"
       className={`${montserrat.variable} ${inter.variable} h-full antialiased scroll-smooth`}
     >
       <body className="min-h-full flex flex-col font-sans bg-background text-foreground">

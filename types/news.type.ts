@@ -25,4 +25,40 @@ export interface NewsArticle {
     avatar: string;
     role: string;
   };
+  contentBlocks?: NewsContentBlock[];
+  media?: Array<{ storageObjectId: string; role: "THUMBNAIL" | "CONTENT"; altText: string | null; url: string | null }>;
 }
+
+export type NewsContentBlock = {
+  type: "PARAGRAPH" | "HEADING" | "QUOTE" | "IMAGE";
+  text: string | null;
+  storageObjectId: string | null;
+  altText: string | null;
+};
+
+export type PublicNewsSummary = {
+  id: string;
+  title: string;
+  slug: string;
+  summary: string;
+  category: Uppercase<NewsArticle["category"]>;
+  status: "PUBLISHED";
+  featured: boolean;
+  tags: string[];
+  thumbnailUrl: string | null;
+  authorName: string;
+  publishedAt: string | null;
+  createdAt: string | null;
+};
+
+export type PublicNewsResponse = PublicNewsSummary & {
+  contentBlocks: NewsContentBlock[];
+  media: Array<{
+    storageObjectId: string;
+    role: "THUMBNAIL" | "CONTENT";
+    altText: string | null;
+    url: string | null;
+  }>;
+  authorId: string;
+  updatedAt: string | null;
+};

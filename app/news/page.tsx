@@ -1,20 +1,18 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import NewsCard from "@/components/news/NewsCard";
-import { MOCK_NEWS_ARTICLES } from "@/data/mock-news-data";
-import { NewsArticle } from "@/types/news.type";
+import { NewsArticle, type PublicNewsSummary } from "@/types/news.type";
+import newsService from "@/services/news.service";
 import {
   Newspaper,
   Search,
   ChevronLeft,
   ChevronRight,
   Home,
-  Flame,
-  TrendingUp,
   ArrowRight,
 } from "lucide-react";
 
@@ -30,11 +28,20 @@ const NEWS_CATEGORIES = [
 ];
 
 export default function NewsPage() {
-  const [articles] = useState<NewsArticle[]>(MOCK_NEWS_ARTICLES);
+  const [articles, setArticles] = useState<NewsArticle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const latestSectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    newsService.list({ page: 1, size: 50 })
+      .then((response) => setArticles(response.result.map(toArticle)))
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, []);
 
   // Featured Articles (Tin nổi bật)
   const featuredArticles = useMemo(
@@ -179,6 +186,9 @@ export default function NewsPage() {
             </div>
           </div>
 
+          {loading && <p className="py-12 text-center text-sm text-muted-foreground">Đang tải tin tức...</p>}
+          {error && <p className="py-12 text-center text-sm text-destructive">Không thể tải tin tức. Vui lòng thử lại sau.</p>}
+
           {/* Section 1: Tin nổi bật (Theo ảnh mẫu) */}
           {!searchQuery && activeCategory === "all" && featuredArticles.length > 0 && (
             <section className="mb-14">
@@ -303,4 +313,23 @@ export default function NewsPage() {
       <Footer />
     </div>
   );
+}
+
+function toArticle(item: PublicNewsSummary): NewsArticle {
+  const category = item.category.toLowerCase() as NewsArticle["category"];
+  return {
+    id: item.id,
+    slug: item.slug,
+    title: item.title,
+    summary: item.summary,
+    coverImage: item.thumbnailUrl || "/logo/homespace-logo-removebg.png",
+    category,
+    categoryLabel: NEWS_CATEGORIES.find((entry) => entry.id === category)?.label || category,
+    tags: item.tags || [],
+    isFeatured: item.featured,
+    publishedAt: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString("vi-VN") : "",
+    views: 0,
+    readTimeMinutes: 1,
+    author: { name: item.authorName || "HomeSpace", avatar: "/logo/homespace-logo-removebg.png", role: "HomeSpace" },
+  };
 }

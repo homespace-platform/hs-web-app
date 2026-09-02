@@ -1,12 +1,13 @@
 "use client";
 
-import React, { use, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import NewsCard from "@/components/news/NewsCard";
-import { MOCK_NEWS_ARTICLES } from "@/data/mock-news-data";
+import newsService from "@/services/news.service";
+import type { NewsArticle, PublicNewsResponse, PublicNewsSummary } from "@/types/news.type";
 import { toast } from "sonner";
 import {
   Calendar,
@@ -15,7 +16,6 @@ import {
   Home,
   ArrowLeft,
   Share2,
-  Bookmark,
   Check,
 } from "lucide-react";
 
@@ -26,14 +26,18 @@ interface NewsDetailProps {
 export default function NewsDetailPage({ params }: NewsDetailProps) {
   const resolvedParams = use(params);
   const [copied, setCopied] = useState(false);
+  const [article, setArticle] = useState<NewsArticle | null>(null);
+  const [relatedArticles, setRelatedArticles] = useState<NewsArticle[]>([]);
 
-  const article =
-    MOCK_NEWS_ARTICLES.find((a) => a.slug === resolvedParams.slug) ||
-    MOCK_NEWS_ARTICLES[0];
-
-  const relatedArticles = MOCK_NEWS_ARTICLES.filter(
-    (a) => a.id !== article.id
-  ).slice(0, 3);
+  useEffect(() => {
+    newsService.getBySlug(resolvedParams.slug).then((response) => {
+      setArticle(toArticle(response));
+      return newsService.list({ size: 4, category: response.category });
+    }).then((response) => {
+      if (!response) return;
+      setRelatedArticles(response.result.filter((item) => item.slug !== resolvedParams.slug).slice(0, 3).map(toArticle));
+    }).catch(() => setArticle(null));
+  }, [resolvedParams.slug]);
 
   const handleShare = async () => {
     if (typeof window !== "undefined") {
@@ -47,6 +51,8 @@ export default function NewsDetailPage({ params }: NewsDetailProps) {
       }
     }
   };
+
+  if (!article) return <div className="min-h-screen bg-background"><Header /><main className="mx-auto max-w-4xl px-4 pt-32 text-center text-muted-foreground">Đang tải bài viết hoặc bài viết không tồn tại.</main></div>;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -168,21 +174,13 @@ export default function NewsDetailPage({ params }: NewsDetailProps) {
 
           {/* Body Content */}
           <div className="prose dark:prose-invert max-w-none text-muted-foreground text-sm sm:text-base leading-relaxed space-y-5">
-            <p>
-              Thị trường nhà cho thuê tại Việt Nam đang bước vào giai đoạn phát triển mới với tính minh bạch và tiêu chuẩn hóa cao hơn bao giờ hết. Người thuê nhà hiện đại không chỉ quan tâm đến vị trí hay giá cả đơn thuần, mà còn đặc biệt chú trọng đến sự an toàn pháp lý, tính tiện nghi của không gian sống và sự tiện lợi trong các thủ tục hợp đồng.
-            </p>
-            <h2 className="font-heading font-bold text-lg sm:text-xl text-foreground pt-4">
-              1. Chuyển dịch mạnh mẽ sang giao dịch trực tiếp chủ nhà
-            </h2>
-            <p>
-              Việc loại bỏ các khâu trung gian môi giới không cần thiết giúp người thuê tiết kiệm từ 50% đến 100% một tháng tiền thuê nhà. Đồng thời, chủ nhà cũng chủ động hơn trong việc lựa chọn đối tác thuê phù hợp, tạo dựng mối quan hệ tin cậy lâu dài.
-            </p>
-            <h2 className="font-heading font-bold text-lg sm:text-xl text-foreground pt-4">
-              2. Ứng dụng hợp đồng số và bảo mật tiền cọc
-            </h2>
-            <p>
-              Các nền tảng công nghệ như HomeSpace đang tiên phong trong việc cung cấp quy trình ký số điện tử định danh và cơ chế lưu trữ tiền cọc an toàn. Điều này giúp loại bỏ triệt để các rủi ro lừa đảo cọc hay tranh chấp không đáng có khi bàn giao và thanh lý hợp đồng.
-            </p>
+            {article.contentBlocks?.map((block, index) => block.type === "IMAGE" ? (
+              <img key={index} src={block.storageObjectId ? article.media?.find((media) => media.storageObjectId === block.storageObjectId)?.url || "" : ""} alt={block.altText || "Ảnh trong bài viết"} className="w-full rounded-2xl object-contain" />
+            ) : block.type === "HEADING" ? (
+              <h2 key={index} className="font-heading font-bold text-lg sm:text-xl text-foreground pt-4">{block.text}</h2>
+            ) : block.type === "QUOTE" ? (
+              <blockquote key={index} className="border-l-4 border-primary pl-4 italic">{block.text}</blockquote>
+            ) : <p key={index}>{block.text}</p>)}
           </div>
 
           {/* Tags */}
@@ -215,4 +213,18 @@ export default function NewsDetailPage({ params }: NewsDetailProps) {
       <Footer />
     </div>
   );
+}
+
+function toArticle(item: PublicNewsResponse | PublicNewsSummary): NewsArticle {
+  const category = item.category.toLowerCase() as NewsArticle["category"];
+  return {
+    id: item.id, slug: item.slug, title: item.title, summary: item.summary,
+    coverImage: item.thumbnailUrl || "/logo/homespace-logo-removebg.png", category,
+    categoryLabel: category, tags: item.tags || [], isFeatured: item.featured,
+    publishedAt: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString("vi-VN") : "",
+    views: 0, readTimeMinutes: 1,
+    author: { name: item.authorName || "HomeSpace", avatar: "/logo/homespace-logo-removebg.png", role: "HomeSpace" },
+    contentBlocks: "contentBlocks" in item ? item.contentBlocks : [],
+    media: "media" in item ? item.media : [],
+  };
 }

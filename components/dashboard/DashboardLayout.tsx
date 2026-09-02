@@ -36,7 +36,11 @@ const BREADCRUMB_MAP: Record<string, BreadcrumbItem> = {
   },
   "/dashboard/viewing-schedules": {
     parent: { title: "Quản lý", path: "/dashboard/properties" },
-    title: "Lịch xem nhà",
+    title: "Lịch tiếp khách",
+  },
+  "/dashboard/viewing-schedules/my-bookings": {
+    parent: { title: "Quản lý", path: "/dashboard/properties" },
+    title: "Lịch tôi đi xem",
   },
   "/dashboard/deposit": {
     parent: { title: "Tài chính", path: "/dashboard/deposit" },

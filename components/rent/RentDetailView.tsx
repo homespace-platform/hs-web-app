@@ -31,6 +31,8 @@ import type { RentPropertyItem } from "@/types/rent.type";
 import MediaGallery from "@/components/common/MediaGallery";
 import UserAvatar from "@/components/common/UserAvatar";
 import { getRentDetailSections } from "@/lib/rent-detail-sections";
+import BookingAppointmentModal from "@/components/appointment/BookingAppointmentModal";
+import appointmentService from "@/services/appointment.service";
 
 const formatPrice = (priceMillion: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -117,7 +119,7 @@ export default function RentDetailView({
   const provinceHref = `/rent?provinceCode=${encodeURIComponent(provinceCode)}&provinceName=${encodeURIComponent(provinceName)}`;
   const wardHref = `${provinceHref}&ward=${encodeURIComponent(wardName)}`;
 
-  const { profile, authenticated } = useAuth();
+  const { profile, authenticated, login } = useAuth();
   const currentUserId = profile?.id;
   const isOwner =
     authenticated &&
@@ -128,6 +130,16 @@ export default function RentDetailView({
 
   const [phoneRevealed, setPhoneRevealed] = useState(false);
   const [quickMessage, setQuickMessage] = useState("");
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [hasActiveBooking, setHasActiveBooking] = useState(false);
+
+  React.useEffect(() => {
+    if (authenticated && property?.id) {
+      appointmentService.getMyBookingByListing(property.id).then((b) => {
+        setHasActiveBooking(Boolean(b && ["PENDING", "CONFIRMED"].includes(b.status)));
+      }).catch(() => {});
+    }
+  }, [authenticated, property?.id]);
 
   const rawPhone = property.landlord.phone || "0999999999";
   const cleanPhone = rawPhone.replace(/\s+/g, "");
@@ -430,11 +442,35 @@ export default function RentDetailView({
 
                 <button
                   type="button"
-                  onClick={() => toast.info("Tính năng Đặt lịch xem nhà đang được kết nối!")}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-primary bg-card py-2.5 px-4 text-xs sm:text-sm font-bold text-primary hover:bg-primary/5 transition-all cursor-pointer active:scale-[0.98]"
+                  onClick={() => {
+                    if (isOwner) {
+                      toast.info("Bạn là chủ bài đăng này, không thể tự đặt lịch xem nhà.");
+                      return;
+                    }
+                    if (!authenticated) {
+                      toast.error("Vui lòng đăng nhập để đặt lịch xem nhà");
+                      login();
+                      return;
+                    }
+                    setIsBookingModalOpen(true);
+                  }}
+                  className={`w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 px-4 text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-[0.98] ${
+                    hasActiveBooking
+                      ? "bg-emerald-500/10 border-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 shadow-2xs"
+                      : "border-2 border-primary bg-card text-primary hover:bg-primary/5"
+                  }`}
                 >
-                  <Calendar className="w-4 h-4" />
-                  <span>Đặt lịch xem nhà</span>
+                  {hasActiveBooking ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>Lịch xem nhà của bạn</span>
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="w-4 h-4" />
+                      <span>Đặt lịch xem nhà</span>
+                    </>
+                  )}
                 </button>
 
                 <div className="grid grid-cols-2 gap-2.5 pt-1">
@@ -566,6 +602,25 @@ export default function RentDetailView({
           )}
         </aside>
       </div>
+
+      {/* Modal Đặt lịch xem nhà */}
+      <BookingAppointmentModal
+        isOpen={isBookingModalOpen}
+        onClose={() => {
+          setIsBookingModalOpen(false);
+          if (authenticated && property?.id) {
+            appointmentService.getMyBookingByListing(property.id).then((b) => {
+              setHasActiveBooking(Boolean(b && ["PENDING", "CONFIRMED"].includes(b.status)));
+            }).catch(() => {});
+          }
+        }}
+        listingId={property.id}
+        listingTitle={property.title}
+        listingAddress={property.location}
+        listingPrice={property.priceMillion * 1_000_000}
+        listingThumbnail={property.images?.[0] || null}
+        ownerId={property.ownerId || property.landlord?.id}
+      />
     </div>
   );
 }

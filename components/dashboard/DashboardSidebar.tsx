@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -16,6 +16,7 @@ import {
   CreditCard,
   PanelLeftClose,
   PanelLeftOpen,
+  ChevronDown,
 } from "lucide-react";
 
 interface DashboardSidebarProps {
@@ -23,10 +24,16 @@ interface DashboardSidebarProps {
   onToggleCollapse: () => void;
 }
 
-interface NavItem {
+interface SubNavItem {
   title: string;
   path: string;
+}
+
+interface NavItem {
+  title: string;
+  path?: string;
   icon: React.ElementType;
+  children?: SubNavItem[];
 }
 
 interface NavGroup {
@@ -65,8 +72,17 @@ const NAV_GROUPS: NavGroup[] = [
       },
       {
         title: "Lịch xem nhà",
-        path: "/dashboard/viewing-schedules",
         icon: Calendar,
+        children: [
+          {
+            title: "Lịch tiếp khách",
+            path: "/dashboard/viewing-schedules",
+          },
+          {
+            title: "Lịch đi xem",
+            path: "/dashboard/viewing-schedules/my-bookings",
+          },
+        ],
       },
       {
         title: "Yêu cầu thuê",
@@ -108,10 +124,47 @@ export default function DashboardSidebar({
 }: DashboardSidebarProps) {
   const pathname = usePathname();
 
+  // State mở các submenu
+  const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const group of NAV_GROUPS) {
+      for (const item of group.items) {
+        if (item.children) {
+          const hasActiveChild = item.children.some(
+            (c) => pathname === c.path || pathname.startsWith(c.path + "/")
+          );
+          initial[item.title] = hasActiveChild;
+        }
+      }
+    }
+    return initial;
+  });
+
+  // Tự động mở submenu khi đổi route tương ứng
+  useEffect(() => {
+    for (const group of NAV_GROUPS) {
+      for (const item of group.items) {
+        if (item.children) {
+          const hasActiveChild = item.children.some(
+            (c) => pathname === c.path || pathname.startsWith(c.path + "/")
+          );
+          if (hasActiveChild) {
+            setOpenSubmenus((prev) => ({ ...prev, [item.title]: true }));
+          }
+        }
+      }
+    }
+  }, [pathname]);
+
+  const toggleSubmenu = (title: string) => {
+    setOpenSubmenus((prev) => ({ ...prev, [title]: !prev[title] }));
+  };
+
   return (
     <aside
-      className={`fixed top-20 left-0 z-40 h-[calc(100vh-5rem)] bg-card border-r border-border flex flex-col transition-all duration-300 select-none ${collapsed ? "w-20" : "w-64"
-        }`}
+      className={`fixed top-20 left-0 z-40 h-[calc(100vh-5rem)] bg-card border-r border-border flex flex-col transition-all duration-300 select-none ${
+        collapsed ? "w-20" : "w-64"
+      }`}
     >
       {/* 1. Sidebar Header with Collapse Toggle */}
       <div className="h-12 px-4 border-b border-border/60 flex items-center justify-between shrink-0">
@@ -123,8 +176,9 @@ export default function DashboardSidebar({
         <button
           type="button"
           onClick={onToggleCollapse}
-          className={`p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center justify-center ${collapsed ? "mx-auto" : ""
-            }`}
+          className={`p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center justify-center ${
+            collapsed ? "mx-auto" : ""
+          }`}
           title={collapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
         >
           {collapsed ? (
@@ -152,25 +206,118 @@ export default function DashboardSidebar({
             <div className="space-y-1">
               {group.items.map((item) => {
                 const Icon = item.icon;
-                const isActive = pathname === item.path;
 
+                // Trường hợp có Submenu (Ví dụ: Lịch xem nhà)
+                if (item.children) {
+                  const isAnyChildActive = item.children.some(
+                    (c) => pathname === c.path || pathname.startsWith(c.path + "/")
+                  );
+                  const isOpen = !!openSubmenus[item.title];
+
+                  if (collapsed) {
+                    // Khi thu gọn sidebar
+                    return (
+                      <Link
+                        key={item.title}
+                        href={item.children[0].path}
+                        className={`flex items-center justify-center p-2.5 rounded-xl transition-all duration-150 ${
+                          isAnyChildActive
+                            ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
+                        }`}
+                        title={`${item.title} (${item.children.map((c) => c.title).join(" / ")})`}
+                      >
+                        <Icon
+                          className={`w-4 h-4 shrink-0 ${
+                            isAnyChildActive ? "text-primary" : "text-muted-foreground"
+                          }`}
+                        />
+                      </Link>
+                    );
+                  }
+
+                  return (
+                    <div key={item.title} className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleSubmenu(item.title)}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
+                          isAnyChildActive
+                            ? "text-primary font-bold bg-primary/5"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon
+                            className={`w-4 h-4 shrink-0 ${
+                              isAnyChildActive ? "text-primary" : "text-muted-foreground"
+                            }`}
+                          />
+                          <span className="truncate">{item.title}</span>
+                        </div>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${
+                            isOpen ? "rotate-180 text-primary" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {/* Sub-items list */}
+                      {isOpen && (
+                        <div className="pl-9 pr-1 space-y-1 pt-0.5 animate-in slide-in-from-top-1 duration-150">
+                          {item.children.map((sub) => {
+                            const isSubActive =
+                              pathname === sub.path ||
+                              (pathname.startsWith(sub.path + "/") &&
+                                !item.children?.some(
+                                  (other) =>
+                                    other.path !== sub.path &&
+                                    (pathname === other.path || pathname.startsWith(other.path + "/"))
+                                ));
+                            return (
+                              <Link
+                                key={sub.path}
+                                href={sub.path}
+                                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all duration-150 ${
+                                  isSubActive
+                                    ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60 font-medium"
+                                }`}
+                              >
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    isSubActive ? "bg-primary" : "bg-muted-foreground/50"
+                                  }`}
+                                />
+                                <span className="truncate">{sub.title}</span>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                // Trường hợp Menu đơn thông thường
+                const isActive = pathname === item.path;
                 return (
                   <Link
                     key={item.title}
-                    href={item.path}
-                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${isActive
-                      ? "bg-primary/10 text-primary font-bold shadow-2xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
-                      } ${collapsed ? "justify-center px-0" : ""}`}
+                    href={item.path!}
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
+                      isActive
+                        ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
+                    } ${collapsed ? "justify-center px-0" : ""}`}
                     title={collapsed ? item.title : undefined}
                   >
                     <Icon
-                      className={`w-4 h-4 shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"
-                        }`}
+                      className={`w-4 h-4 shrink-0 ${
+                        isActive ? "text-primary" : "text-muted-foreground"
+                      }`}
                     />
-                    {!collapsed && (
-                      <span className="truncate">{item.title}</span>
-                    )}
+                    {!collapsed && <span className="truncate">{item.title}</span>}
                   </Link>
                 );
               })}

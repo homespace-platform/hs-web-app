@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Heart,
   Clock,
+  Calendar,
   MessageCircle,
   Settings,
 } from "lucide-react";
@@ -204,6 +205,31 @@ export default function UserDropdown() {
                 </span>
                 <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
               </div>
+            </Link>
+
+            {/* Lịch xem nhà: Tiếp khách & Đi xem */}
+            <Link
+              href="/dashboard/viewing-schedules"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <Calendar className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                <span className="text-xs font-semibold">Lịch tiếp khách (Chủ nhà)</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+            </Link>
+
+            <Link
+              href="/dashboard/viewing-schedules/my-bookings"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <Calendar className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                <span className="text-xs font-semibold">Lịch tôi đi xem (Khách thuê)</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
             </Link>
 
             {/* Divider */}

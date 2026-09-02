@@ -6,6 +6,7 @@ import {
   Camera,
   ChevronLeft,
   ChevronRight,
+  LoaderCircle,
   Play,
   Video,
   X,
@@ -19,6 +20,15 @@ export interface MediaGalleryItem {
   alt?: string;
 }
 
+export interface MediaLightboxPrimaryAction {
+  label: string;
+  loadingLabel?: string;
+  loading?: boolean;
+  onAction: (item: MediaGalleryItem, index: number) => void | Promise<void>;
+  isVisible?: (item: MediaGalleryItem, index: number) => boolean;
+  isDisabled?: (item: MediaGalleryItem, index: number) => boolean;
+}
+
 export interface MediaLightboxModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,6 +36,7 @@ export interface MediaLightboxModalProps {
   initialIndex?: number;
   title?: string;
   alwaysShowThumbnails?: boolean;
+  primaryAction?: MediaLightboxPrimaryAction;
 }
 
 /**
@@ -39,6 +50,7 @@ export function MediaLightboxModal({
   initialIndex = 0,
   title = "Chi tiết hình ảnh",
   alwaysShowThumbnails = false,
+  primaryAction,
 }: MediaLightboxModalProps) {
   const [selectedIndex, setSelectedIndex] = useState<number>(initialIndex);
   const total = mediaItems.length;
@@ -85,6 +97,9 @@ export function MediaLightboxModal({
 
   const currentItem = mediaItems[selectedIndex] || mediaItems[0];
   const isVideo = currentItem.type === "video";
+  const showPrimaryAction =
+    primaryAction &&
+    (primaryAction.isVisible?.(currentItem, selectedIndex) ?? true);
 
   return (
     <div
@@ -170,6 +185,29 @@ export function MediaLightboxModal({
           </button>
         )}
       </div>
+
+      {showPrimaryAction && (
+        <div className="flex justify-center px-4 pb-3">
+          <button
+            type="button"
+            onClick={() => primaryAction.onAction(currentItem, selectedIndex)}
+            disabled={
+              primaryAction.loading ||
+              (primaryAction.isDisabled?.(currentItem, selectedIndex) ?? false)
+            }
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {primaryAction.loading ? (
+              <>
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+                <span>{primaryAction.loadingLabel ?? "Đang xử lý..."}</span>
+              </>
+            ) : (
+              <span>{primaryAction.label}</span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* 3. Bottom Thumbnail Strip */}
       {(alwaysShowThumbnails || total > 1) && (

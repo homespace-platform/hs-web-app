@@ -103,6 +103,7 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
     const [avatarMediaItems, setAvatarMediaItems] = useState<MediaGalleryItem[]>([]);
     const [avatarInitialIndex, setAvatarInitialIndex] = useState(0);
     const [loadingAvatars, setLoadingAvatars] = useState(false);
+    const [restoringAvatar, setRestoringAvatar] = useState(false);
 
     const fullName = useMemo(() => {
         const name = [form.firstName, form.lastName].filter(Boolean).join(' ').trim();
@@ -158,6 +159,22 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
             setLoadingAvatars(false);
         }
     }, [buildFallbackAvatarItem, fullName, loadingAvatars, profile.avatarStorageId, profile.id]);
+
+    const handleReuseAvatar = useCallback(async (item: MediaGalleryItem) => {
+        if (!item.id || item.id === profile.avatarStorageId || restoringAvatar) return;
+
+        setRestoringAvatar(true);
+        try {
+            await userService.updateAvatar({ storageId: item.id });
+            await dispatch(fetchCurrentUser({ userId: userId ?? profile.id, force: true })).unwrap();
+            toast.success('Đã đặt lại ảnh đại diện thành công!');
+            setAvatarViewerOpen(false);
+        } catch (requestError) {
+            toast.error(errorMessage(requestError, 'Không thể đặt lại ảnh đại diện.'));
+        } finally {
+            setRestoringAvatar(false);
+        }
+    }, [dispatch, profile.avatarStorageId, profile.id, restoringAvatar, userId]);
 
     useEffect(() => {
         return () => {
@@ -251,6 +268,13 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                 initialIndex={avatarInitialIndex}
                 title={`Ảnh đại diện - ${fullName}`}
                 alwaysShowThumbnails={true}
+                primaryAction={{
+                    label: 'Đặt làm ảnh đại diện',
+                    loadingLabel: 'Đang cập nhật...',
+                    loading: restoringAvatar,
+                    onAction: (item) => handleReuseAvatar(item),
+                    isVisible: (item) => Boolean(item.id) && item.id !== profile.avatarStorageId,
+                }}
             />
 
             <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 flex flex-col sm:flex-row items-center gap-4 shadow-2xs">

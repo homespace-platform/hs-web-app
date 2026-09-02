@@ -9,6 +9,7 @@ import { useAppDispatch } from "@/store/hooks";
 import { sessionCleared, sessionInitialized } from "@/features/auth/authSlice";
 import { fetchCurrentUser, userCleared } from "@/features/user/userSlice";
 import { fetchFavoriteIds, favoritesCleared } from "@/features/favorite/favoriteSlice";
+import { fetchHistoryIds, historyCleared } from "@/features/history/historySlice";
 
 export default function AuthInitializer({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
@@ -22,6 +23,7 @@ export default function AuthInitializer({ children }: { children: React.ReactNod
       dispatch(sessionCleared());
       dispatch(userCleared());
       dispatch(favoritesCleared());
+      dispatch(historyCleared());
       router.replace("/");
     };
 
@@ -43,6 +45,7 @@ export default function AuthInitializer({ children }: { children: React.ReactNod
         if (session.authenticated && session.userId) {
           dispatch(fetchCurrentUser({ userId: session.userId }));
           dispatch(fetchFavoriteIds({ userId: session.userId }));
+          dispatch(fetchHistoryIds({ userId: session.userId }));
           const returnUrl = sessionStorage.getItem("hs:return-url");
           sessionStorage.removeItem("hs:return-url");
           if (
@@ -55,6 +58,7 @@ export default function AuthInitializer({ children }: { children: React.ReactNod
         } else {
           dispatch(userCleared());
           dispatch(favoritesCleared());
+          dispatch(historyCleared());
         }
       })
       .catch((error) => {

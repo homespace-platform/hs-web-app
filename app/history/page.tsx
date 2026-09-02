@@ -6,7 +6,13 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import RentCollageCard from "@/components/rent/RentCollageCard";
 import type { RentPropertyItem } from "@/types/rent.type";
+import { toRentProperty } from "@/lib/listing-to-rent-property";
+import { useAuth } from "@/features/auth/useAuth";
+import { useAppDispatch } from "@/store/hooks";
+import historyService from "@/services/history.service";
+import { clearHistoryThunk, setHistoryIds } from "@/features/history/historySlice";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import {
   Clock,
   Search,
@@ -17,6 +23,8 @@ import {
   Sparkles,
   ArrowUpDown,
   History,
+  LogIn,
+  Loader2,
 } from "lucide-react";
 
 const ITEMS_PER_PAGE = 8;
@@ -33,12 +41,45 @@ const HISTORY_CATEGORIES = [
 ];
 
 export default function HistoryPage() {
+  const { authenticated, initialized, login } = useAuth();
+  const dispatch = useAppDispatch();
   const [historyList, setHistoryList] = useState<RentPropertyItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"recent" | "price_asc" | "price_desc" | "area_desc">("recent");
   const [currentPage, setCurrentPage] = useState(1);
   const listingsSectionRef = useRef<HTMLDivElement>(null);
+
+  // Fetch view history from backend API
+  const fetchHistory = async () => {
+    if (!authenticated) {
+      setHistoryList([]);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const res = await historyService.getMyHistory(1, MAX_HISTORY_LIMIT);
+      const items = (res.result || []).map((pub) => toRentProperty(pub));
+      setHistoryList(items);
+      dispatch(setHistoryIds(items.map((i) => i.id)));
+    } catch (error) {
+      console.error("Failed to load view history:", error);
+      toast.error("Không thể tải lịch sử xem tin.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (initialized && authenticated) {
+      fetchHistory();
+    } else if (initialized && !authenticated) {
+      setHistoryList([]);
+      setIsLoading(false);
+    }
+  }, [initialized, authenticated]);
 
   // Filter & Sort Logic
   const filteredAndSortedList = useMemo(() => {
@@ -95,18 +136,58 @@ export default function HistoryPage() {
   };
 
   // Clear all viewing history
-  const handleClearAllHistory = () => {
+  const handleClearAllHistory = async () => {
+    if (historyList.length === 0) return;
     if (window.confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử xem tin?")) {
+      const current = [...historyList];
       setHistoryList([]);
       try {
-        localStorage.removeItem("homespace_viewed_history");
+        await dispatch(clearHistoryThunk()).unwrap();
+        toast.success("Đã xóa toàn bộ lịch sử xem tin.");
       } catch {
-        toast.error("Không thể cập nhật lịch sử trên trình duyệt.");
-        return;
+        toast.error("Có lỗi xảy ra khi xóa lịch sử.");
+        setHistoryList(current);
       }
-      toast.success("Đã xóa lịch sử xem tin.");
     }
   };
+
+  if (!initialized) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <span className="text-xs text-muted-foreground">Đang tải...</span>
+      </div>
+    );
+  }
+
+  if (initialized && !authenticated) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background text-foreground">
+        <Header />
+        <main className="flex-1 pt-32 pb-16 flex items-center justify-center">
+          <div className="max-w-md w-full mx-auto px-4 text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
+              <History className="w-8 h-8" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold font-heading">Đăng nhập để xem lịch sử</h2>
+              <p className="text-sm text-muted-foreground">
+                Lịch sử xem tin đăng chỉ dành cho tài khoản đã đăng nhập.
+              </p>
+            </div>
+            <Button
+              onClick={() => login()}
+              className="rounded-full h-10 px-6 cursor-pointer"
+            >
+              <LogIn className="w-4 h-4 mr-2" />
+              Đăng nhập
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -266,7 +347,12 @@ export default function HistoryPage() {
           )}
 
           {/* 3. Properties Grid or Empty State */}
-          {totalItems === 0 ? (
+          {isLoading ? (
+            <div className="py-24 text-center flex flex-col items-center justify-center gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Đang tải lịch sử xem tin...</p>
+            </div>
+          ) : totalItems === 0 ? (
             <div className="py-16 sm:py-24 text-center flex flex-col items-center justify-center bg-card rounded-3xl border border-border p-8 shadow-2xs">
               <div className="w-20 h-20 rounded-full bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900/50 flex items-center justify-center text-primary mb-5 shadow-xs animate-in zoom-in-90 duration-300">
                 <History className="w-10 h-10 stroke-[1.5]" />

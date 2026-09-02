@@ -10,9 +10,14 @@ import { ArrowLeft, Loader2, Building } from "lucide-react";
 import type { RentPropertyItem } from "@/types/rent.type";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
+import { useAuth } from "@/features/auth/useAuth";
+import { useAppDispatch } from "@/store/hooks";
+import { recordHistoryItem } from "@/features/history/historySlice";
 
 export default function RentDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { authenticated } = useAuth();
+  const dispatch = useAppDispatch();
   const [property, setProperty] = useState<RentPropertyItem | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -37,6 +42,10 @@ export default function RentDetailPage() {
                 );
               }
             });
+            // Ghi nhận lịch sử xem tin cho user đã đăng nhập
+            if (authenticated) {
+              dispatch(recordHistoryItem(id));
+            }
           }
         }
       })

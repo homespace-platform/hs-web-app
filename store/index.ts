@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "@/features/auth/authSlice";
 import userReducer from "@/features/user/userSlice";
 import favoriteReducer from "@/features/favorite/favoriteSlice";
+import historyReducer from "@/features/history/historySlice";
 
 export const makeStore = () =>
   configureStore({
@@ -9,6 +10,7 @@ export const makeStore = () =>
       auth: authReducer,
       user: userReducer,
       favorite: favoriteReducer,
+      history: historyReducer,
     },
   });
 

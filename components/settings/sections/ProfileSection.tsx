@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { userProfileSchema, type UserProfileForm } from '@/validation/user.schema';
 import AddressEditor from '@/components/settings/AddressEditor';
 import UserAvatar from '@/components/common/UserAvatar';
+import { MediaLightboxModal, type MediaGalleryItem } from '@/components/common/MediaGallery';
 
 type ProfileForm = UserProfileForm;
 
@@ -98,11 +99,28 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
         fileName: string;
     } | null>(null);
     const avatarInputRef = useRef<HTMLInputElement>(null);
+    const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
 
     const fullName = useMemo(() => {
         const name = [form.firstName, form.lastName].filter(Boolean).join(' ').trim();
         return name || form.username || 'Người dùng';
     }, [form.firstName, form.lastName, form.username]);
+
+    const avatarMediaItems = useMemo<MediaGalleryItem[]>(() => {
+        const initial = (fullName.charAt(0) || 'U').toUpperCase();
+        const defaultSvgAvatar = `data:image/svg+xml;utf8,${encodeURIComponent(
+            `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="#2563EB"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="160" font-weight="bold" fill="#FFFFFF">${initial}</text></svg>`
+        )}`;
+
+        return [
+            {
+                id: 'user-avatar-current',
+                type: 'image',
+                url: profile?.avatarUrl || defaultSvgAvatar,
+                alt: `Ảnh đại diện - ${fullName}`,
+            },
+        ];
+    }, [profile?.avatarUrl, fullName]);
 
     useEffect(() => {
         return () => {
@@ -188,8 +206,17 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                     onConfirm={handleCroppedAvatar}
                 />
             )}
+            {/* Fullscreen Avatar Lightbox Viewer */}
+            <MediaLightboxModal
+                isOpen={avatarViewerOpen}
+                onClose={() => setAvatarViewerOpen(false)}
+                mediaItems={avatarMediaItems}
+                title={`Ảnh đại diện - ${fullName}`}
+                alwaysShowThumbnails={true}
+            />
+
             <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 flex flex-col sm:flex-row items-center gap-4 shadow-2xs">
-                <div className="relative">
+                <div className="relative group">
                     <input
                         ref={avatarInputRef}
                         type="file"
@@ -197,14 +224,23 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                         className="hidden"
                         onChange={handleAvatarSelected}
                     />
-                    <UserAvatar
-                        src={profile?.avatarUrl}
-                        name={fullName}
-                        sizeClassName="h-16 w-16 sm:h-18 sm:w-18 text-2xl"
-                    />
+                    <div
+                        onClick={() => setAvatarViewerOpen(true)}
+                        className="cursor-pointer rounded-full transition-transform duration-200 group-hover:scale-105 active:scale-95"
+                        title="Nhấn để phóng to ảnh đại diện"
+                    >
+                        <UserAvatar
+                            src={profile?.avatarUrl}
+                            name={fullName}
+                            sizeClassName="h-16 w-16 sm:h-18 sm:w-18 text-2xl"
+                        />
+                    </div>
                     <button
                         type="button"
-                        onClick={() => avatarInputRef.current?.click()}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            avatarInputRef.current?.click();
+                        }}
                         disabled={uploadingAvatar}
                         className="absolute bottom-0 right-0 p-1.5 rounded-full bg-card border border-border text-foreground hover:text-primary shadow-xs transition-colors cursor-pointer"
                         title="Thay đổi ảnh đại diện"

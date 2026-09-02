@@ -28,7 +28,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/useAuth";
 import type { RentPropertyItem } from "@/types/rent.type";
-import RentMediaGallery from "@/components/rent/RentMediaGallery";
+import MediaGallery from "@/components/common/MediaGallery";
 import UserAvatar from "@/components/common/UserAvatar";
 import { getRentDetailSections } from "@/lib/rent-detail-sections";
 
@@ -191,7 +191,7 @@ export default function RentDetailView({
       {alertBanner}
 
       {/* Media Gallery (Adaptive non-blank grid + Lightbox + S3 Private Video) */}
-      <RentMediaGallery
+      <MediaGallery
         title={property.title}
         mediaItems={
           property.mediaItems && property.mediaItems.length > 0

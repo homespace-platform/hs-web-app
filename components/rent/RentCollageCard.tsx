@@ -15,7 +15,8 @@ import {
 import type { RentPropertyItem } from "@/types/rent.type";
 import { formatVietnamesePrice } from "@/lib/format-currency";
 import { useAuth } from "@/features/auth/useAuth";
-import favoriteService from "@/services/favorite.service";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { toggleFavoriteItem } from "@/features/favorite/favoriteSlice";
 import UserAvatar from "@/components/common/UserAvatar";
 import { toast } from "sonner";
 
@@ -33,12 +34,15 @@ export default function RentCollageCard({
   onFavoriteChange,
 }: RentCollageCardProps) {
   const { authenticated, login } = useAuth();
-  const [isFavorite, setIsFavorite] = useState(initialFavorited);
+  const dispatch = useAppDispatch();
+  const isFavoritedInStore = useAppSelector((state) =>
+    state.favorite.ids.includes(property.id)
+  );
+  const hasLoaded = useAppSelector(
+    (state) => state.favorite.status === "succeeded"
+  );
+  const isFavorite = hasLoaded ? isFavoritedInStore : initialFavorited;
   const [isToggling, setIsToggling] = useState(false);
-
-  useEffect(() => {
-    setIsFavorite(initialFavorited);
-  }, [initialFavorited]);
 
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -54,30 +58,17 @@ export default function RentCollageCard({
     }
 
     if (isToggling) return;
-
-    const prevStatus = isFavorite;
-    const nextStatus = !isFavorite;
-    setIsFavorite(nextStatus);
     setIsToggling(true);
 
     try {
-      const result = await favoriteService.toggleFavorite(property.id);
-      setIsFavorite(result);
-      if (result) {
+      const result = await dispatch(toggleFavoriteItem(property.id)).unwrap();
+      if (result.isFavorite) {
         toast.success("Đã lưu vào danh sách yêu thích!");
       } else {
         toast.success("Đã bỏ lưu tin đăng!");
       }
-      onFavoriteChange?.(property.id, result);
-
-      // Đồng bộ badge số lượng trên Header
-      favoriteService.getFavoriteListingIds().then((ids) => {
-        window.dispatchEvent(
-          new CustomEvent("favoritesUpdated", { detail: { ids } })
-        );
-      }).catch(() => {});
+      onFavoriteChange?.(property.id, result.isFavorite);
     } catch {
-      setIsFavorite(prevStatus);
       toast.error("Không thể cập nhật yêu thích. Vui lòng thử lại!");
     } finally {
       setIsToggling(false);

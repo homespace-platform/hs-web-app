@@ -9,6 +9,12 @@ import { useAuth } from "@/features/auth/useAuth";
 import type { RentPropertyItem } from "@/types/rent.type";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
 import favoriteService from "@/services/favorite.service";
+import { useAppDispatch } from "@/store/hooks";
+import {
+  favoriteRemoved,
+  favoritesCleared,
+  setFavoriteIds,
+} from "@/features/favorite/favoriteSlice";
 import { toast } from "sonner";
 import {
   Heart,
@@ -38,9 +44,10 @@ const FAVORITE_CATEGORIES = [
 ];
 
 export default function FavoritesPage() {
-  const { initialized, authenticated, login } = useAuth();
+  const { authenticated, initialized, login } = useAuth();
+  const dispatch = useAppDispatch();
   const [favorites, setFavorites] = useState<RentPropertyItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "price_asc" | "price_desc" | "area_desc">("newest");
@@ -55,6 +62,7 @@ export default function FavoritesPage() {
       const res = await favoriteService.getMyFavorites(1, 50);
       const items = (res.result || []).map((pub) => toRentProperty(pub));
       setFavorites(items);
+      dispatch(setFavoriteIds(items.map((i) => i.id)));
     } catch {
       toast.error("Không thể tải danh sách tin yêu thích.");
     } finally {
@@ -127,6 +135,7 @@ export default function FavoritesPage() {
   // Remove a single favorite item
   const handleRemoveFavorite = (id: string) => {
     setFavorites((prev) => prev.filter((item) => item.id !== id));
+    dispatch(favoriteRemoved(id));
   };
 
   // Clear all favorites
@@ -135,6 +144,7 @@ export default function FavoritesPage() {
     if (window.confirm("Bạn có chắc chắn muốn xóa tất cả tin đăng yêu thích?")) {
       const current = [...favorites];
       setFavorites([]);
+      dispatch(favoritesCleared());
       try {
         await Promise.all(current.map((item) => favoriteService.removeFavorite(item.id)));
         toast.success("Đã xóa tất cả tin yêu thích.");

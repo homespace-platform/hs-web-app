@@ -10,8 +10,9 @@ import UserDropdown from "./UserDropdown";
 import NotificationDropdown from "@/components/notification/NotificationDropdown";
 import UserAvatar from "@/components/common/UserAvatar";
 import provinceService from "@/services/province.service";
-import favoriteService from "@/services/favorite.service";
 import { Province } from "@/types/province.type";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchFavoriteIds } from "@/features/favorite/favoriteSlice";
 import {
   Menu,
   X,
@@ -39,7 +40,8 @@ export default function Header() {
     avatarUrl,
   } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [favoriteCount, setFavoriteCount] = useState(0);
+  const dispatch = useAppDispatch();
+  const favoriteCount = useAppSelector((state) => state.favorite.count);
 
   // Province States
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -69,44 +71,12 @@ export default function Header() {
     };
   }, [isProvinceOpen]);
 
-  // Sync favorites count (chỉ khi đã đăng nhập)
+  // Sync favorites count via Redux (chỉ khi đã đăng nhập)
   useEffect(() => {
-    if (!authenticated) {
-      setFavoriteCount(0);
-      return;
+    if (authenticated) {
+      dispatch(fetchFavoriteIds());
     }
-
-    // Fetch real favorite count from backend API
-    favoriteService
-      .getFavoriteListingIds()
-      .then((ids) => {
-        setFavoriteCount(ids.length);
-      })
-      .catch(() => {
-        try {
-          const saved = localStorage.getItem("homespace_saved_favorites");
-          if (saved) {
-            const ids = JSON.parse(saved);
-            if (Array.isArray(ids)) {
-              setFavoriteCount(ids.length);
-            }
-          }
-        } catch {
-          // ignore
-        }
-      });
-
-    const handleFavUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail?.ids) {
-        setFavoriteCount(customEvent.detail.ids.length);
-      }
-    };
-    window.addEventListener("favoritesUpdated", handleFavUpdate);
-    return () => {
-      window.removeEventListener("favoritesUpdated", handleFavUpdate);
-    };
-  }, [authenticated]);
+  }, [authenticated, dispatch]);
 
   // Fetch Provinces & Initialize from LocalStorage
   useEffect(() => {

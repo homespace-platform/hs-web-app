@@ -15,7 +15,7 @@ import { toRentProperty } from "@/lib/listing-to-rent-property";
 import { District } from "@/types/province.type";
 import type { ListingCategory, ListingSubtype } from "@/types/listing.type";
 import { useAuth } from "@/features/auth/useAuth";
-import favoriteService from "@/services/favorite.service";
+import { useAppSelector } from "@/store/hooks";
 import {
   Home,
   ChevronLeft,
@@ -48,17 +48,8 @@ export default function RentPage() {
   const listContainerRef = useRef<HTMLDivElement>(null);
 
   const { authenticated } = useAuth();
-  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (authenticated) {
-      favoriteService.getFavoriteListingIds().then((ids) => {
-        setFavoriteIds(new Set(ids));
-      }).catch(() => {});
-    } else {
-      setFavoriteIds(new Set());
-    }
-  }, [authenticated]);
+  const favoriteIdsList = useAppSelector((state) => state.favorite.ids);
+  const favoriteIds = useMemo(() => new Set(favoriteIdsList), [favoriteIdsList]);
 
   // Dynamic Province & Districts synced with Header
   const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | string>(79);
@@ -705,14 +696,6 @@ export default function RentPage() {
                       property={prop}
                       viewMode="collage"
                       initialFavorited={favoriteIds.has(prop.id)}
-                      onFavoriteChange={(id, isFav) => {
-                        setFavoriteIds((prev) => {
-                          const next = new Set(prev);
-                          if (isFav) next.add(id);
-                          else next.delete(id);
-                          return next;
-                        });
-                      }}
                     />
                   ))}
                 </div>
@@ -725,14 +708,6 @@ export default function RentPage() {
                       property={prop}
                       viewMode="grid"
                       initialFavorited={favoriteIds.has(prop.id)}
-                      onFavoriteChange={(id, isFav) => {
-                        setFavoriteIds((prev) => {
-                          const next = new Set(prev);
-                          if (isFav) next.add(id);
-                          else next.delete(id);
-                          return next;
-                        });
-                      }}
                     />
                   ))}
                 </div>

@@ -7,6 +7,8 @@ export type StoragePurpose =
 
 export type StorageVisibility = "PUBLIC" | "PRIVATE";
 
+export type StorageStatus = "PENDING" | "READY" | "REJECTED" | "DELETED";
+
 export type CreateStorageUploadRequest = {
   fileName: string;
   contentType: string;
@@ -22,5 +24,27 @@ export type CreateStorageUploadResponse = {
   uploadUrl: string;
   method: "PUT";
   objectKey: string;
+  expiresAt: string;
+};
+
+export type StorageObjectResponse = {
+  id: string;
+  originalName: string;
+  contentType: string;
+  sizeBytes: number;
+  checksum: string | null;
+  extension: string | null;
+  ownerId: string;
+  referenceType: string;
+  referenceId: string;
+  purpose: StoragePurpose;
+  visibility: StorageVisibility;
+  status: StorageStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StorageUrlResponse = {
+  url: string;
   expiresAt: string;
 };

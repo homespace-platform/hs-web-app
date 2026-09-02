@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
@@ -100,27 +100,64 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
     } | null>(null);
     const avatarInputRef = useRef<HTMLInputElement>(null);
     const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
+    const [avatarMediaItems, setAvatarMediaItems] = useState<MediaGalleryItem[]>([]);
+    const [avatarInitialIndex, setAvatarInitialIndex] = useState(0);
+    const [loadingAvatars, setLoadingAvatars] = useState(false);
 
     const fullName = useMemo(() => {
         const name = [form.firstName, form.lastName].filter(Boolean).join(' ').trim();
         return name || form.username || 'Người dùng';
     }, [form.firstName, form.lastName, form.username]);
 
-    const avatarMediaItems = useMemo<MediaGalleryItem[]>(() => {
+    const buildFallbackAvatarItem = useCallback((): MediaGalleryItem => {
         const initial = (fullName.charAt(0) || 'U').toUpperCase();
         const defaultSvgAvatar = `data:image/svg+xml;utf8,${encodeURIComponent(
             `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="#2563EB"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="160" font-weight="bold" fill="#FFFFFF">${initial}</text></svg>`
         )}`;
 
-        return [
-            {
-                id: 'user-avatar-current',
-                type: 'image',
-                url: profile?.avatarUrl || defaultSvgAvatar,
-                alt: `Ảnh đại diện - ${fullName}`,
-            },
-        ];
-    }, [profile?.avatarUrl, fullName]);
+        return {
+            id: profile.avatarStorageId ?? 'user-avatar-current',
+            type: 'image',
+            url: profile.avatarUrl || defaultSvgAvatar,
+            alt: `Ảnh đại diện - ${fullName}`,
+        };
+    }, [fullName, profile.avatarStorageId, profile.avatarUrl]);
+
+    const openAvatarGallery = useCallback(async () => {
+        if (loadingAvatars) return;
+
+        setLoadingAvatars(true);
+        try {
+            const objects = await storageService.listUserAvatars(profile.id);
+            if (objects.length === 0) {
+                setAvatarMediaItems([buildFallbackAvatarItem()]);
+                setAvatarInitialIndex(0);
+                setAvatarViewerOpen(true);
+                return;
+            }
+
+            const items = await Promise.all(
+                objects.map(async (object) => ({
+                    id: object.id,
+                    type: 'image' as const,
+                    url: await storageService.getViewUrl(object.id),
+                    alt:
+                        object.id === profile.avatarStorageId
+                            ? `Ảnh đại diện hiện tại - ${fullName}`
+                            : `Ảnh đại diện - ${fullName}`,
+                })),
+            );
+
+            const currentIndex = objects.findIndex((object) => object.id === profile.avatarStorageId);
+            setAvatarMediaItems(items);
+            setAvatarInitialIndex(currentIndex >= 0 ? currentIndex : 0);
+            setAvatarViewerOpen(true);
+        } catch (requestError) {
+            toast.error(errorMessage(requestError, 'Không thể tải lịch sử ảnh đại diện.'));
+        } finally {
+            setLoadingAvatars(false);
+        }
+    }, [buildFallbackAvatarItem, fullName, loadingAvatars, profile.avatarStorageId, profile.id]);
 
     useEffect(() => {
         return () => {
@@ -211,6 +248,7 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                 isOpen={avatarViewerOpen}
                 onClose={() => setAvatarViewerOpen(false)}
                 mediaItems={avatarMediaItems}
+                initialIndex={avatarInitialIndex}
                 title={`Ảnh đại diện - ${fullName}`}
                 alwaysShowThumbnails={true}
             />
@@ -225,15 +263,20 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                         onChange={handleAvatarSelected}
                     />
                     <div
-                        onClick={() => setAvatarViewerOpen(true)}
+                        onClick={openAvatarGallery}
                         className="cursor-pointer rounded-full transition-transform duration-200 group-hover:scale-105 active:scale-95"
-                        title="Nhấn để phóng to ảnh đại diện"
+                        title="Nhấn để xem ảnh đại diện"
                     >
                         <UserAvatar
                             src={profile?.avatarUrl}
                             name={fullName}
                             sizeClassName="h-16 w-16 sm:h-18 sm:w-18 text-2xl"
                         />
+                        {loadingAvatars && (
+                            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+                                <LoaderCircle className="h-5 w-5 animate-spin text-white" />
+                            </div>
+                        )}
                     </div>
                     <button
                         type="button"

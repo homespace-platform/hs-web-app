@@ -18,6 +18,13 @@ const newsService = {
     );
     return response.data.result;
   },
+
+  async recordView(slug: string) {
+    const response = await axios.post<ApiResponse<{ views: number }>>(
+      `${baseUrl}/api/v1/public/news/${encodeURIComponent(slug)}/view`,
+    );
+    return response.data.result ?? { views: 0 };
+  },
 };
 
 export default newsService;

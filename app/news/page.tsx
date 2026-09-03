@@ -328,7 +328,7 @@ function toArticle(item: PublicNewsSummary): NewsArticle {
     tags: item.tags || [],
     isFeatured: item.featured,
     publishedAt: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString("vi-VN") : "",
-    views: 0,
+    views: item.views ?? 0,
     readTimeMinutes: 1,
     author: { name: item.authorName || "HomeSpace", avatar: "/logo/homespace-logo-removebg.png", role: "HomeSpace" },
   };

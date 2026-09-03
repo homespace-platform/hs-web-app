@@ -6,6 +6,7 @@ import StoreProvider from "@/store/StoreProvider";
 import AuthInitializer from "@/features/auth/AuthInitializer";
 import OnboardingInitializer from "@/features/onboarding/OnboardingInitializer";
 import { Toaster } from "@/components/ui/sonner";
+import { ChatDemoProvider } from "@/components/chat/ChatDemoProvider";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -17,8 +18,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     >
       <StoreProvider>
         <AuthInitializer>
-          <AuthGuard>{children}</AuthGuard>
-          <OnboardingInitializer />
+          <ChatDemoProvider>
+            <AuthGuard>{children}</AuthGuard>
+            <OnboardingInitializer />
+          </ChatDemoProvider>
         </AuthInitializer>
       </StoreProvider>
       <Toaster position="top-right" richColors closeButton />

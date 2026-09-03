@@ -32,6 +32,7 @@ interface ChatWindowProps {
   onSendMessage: (conversationId: string, text: string) => void;
   onToggleHideConversation: (conversationId: string) => void;
   onTogglePinConversation: (conversationId: string) => void;
+  currentUserId?: string;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
 }
@@ -42,6 +43,7 @@ export default function ChatWindow({
   onSendMessage,
   onToggleHideConversation,
   onTogglePinConversation,
+  currentUserId,
   isSidebarCollapsed,
   onToggleSidebar,
 }: ChatWindowProps) {
@@ -56,8 +58,9 @@ export default function ChatWindow({
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [conversation.messages]);
+    const frameId = window.requestAnimationFrame(scrollToBottom);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [conversation.id, conversation.messages.length]);
 
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -249,7 +252,9 @@ export default function ChatWindow({
       {/* 2. Messages Feed */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
         {conversation.messages.map((msg, index) => {
-          const isMe = msg.sender === "me";
+          const isMe = currentUserId
+            ? msg.senderId === currentUserId
+            : msg.sender === "me";
           const showDateDivider =
             index === 0 ||
             msg.dateGroup !== conversation.messages[index - 1].dateGroup;
@@ -315,7 +320,7 @@ export default function ChatWindow({
                           </p>
                         </div>
                         <Link
-                          href="/rent"
+                          href={`/rent/${encodeURIComponent(msg.listingCard.id)}`}
                           className="px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-semibold shrink-0 transition-colors flex items-center gap-1"
                         >
                           <span>Xem</span>

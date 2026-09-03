@@ -14,7 +14,6 @@ import {
   Heart,
   Clock,
   Calendar,
-  MessageCircle,
   Settings,
 } from "lucide-react";
 import UserAvatar from "@/components/common/UserAvatar";
@@ -61,11 +60,10 @@ export default function UserDropdown() {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`h-10 flex items-center gap-2 pl-1 pr-3.5 rounded-full border transition-all cursor-pointer ${
-          isOpen
+        className={`h-10 flex items-center gap-2 pl-1 pr-3.5 rounded-full border transition-all cursor-pointer ${isOpen
             ? "border-primary/50 bg-muted shadow-sm"
             : "border-border bg-card text-foreground hover:border-primary/30 hover:bg-muted"
-        }`}
+          }`}
       >
         {/* Avatar with status indicator */}
         <div className="relative">
@@ -153,24 +151,6 @@ export default function UserDropdown() {
               Tiện ích
             </div>
 
-            {/* Tin nhắn & Trò chuyện */}
-            <Link
-              href="/chat"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
-            >
-              <div className="flex items-center gap-3">
-                <MessageCircle className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="text-xs font-semibold">Tin nhắn & Trò chuyện</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
-                  3
-                </span>
-                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-              </div>
-            </Link>
-
             {/* Tin đã lưu */}
             <Link
               href="/favorites"
@@ -182,9 +162,11 @@ export default function UserDropdown() {
                 <span className="text-xs font-semibold">Tin đã lưu</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold">
-                  {favoriteCount}
-                </span>
+                {favoriteCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold">
+                    {favoriteCount}
+                  </span>
+                )}
                 <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
               </div>
             </Link>
@@ -200,36 +182,13 @@ export default function UserDropdown() {
                 <span className="text-xs font-semibold">Lịch sử xem tin</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
-                  {historyCount}
-                </span>
+                {historyCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                    {historyCount}
+                  </span>
+                )}
                 <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
               </div>
-            </Link>
-
-            {/* Lịch xem nhà: Tiếp khách & Đi xem */}
-            <Link
-              href="/dashboard/viewing-schedules"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
-            >
-              <div className="flex items-center gap-3">
-                <Calendar className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="text-xs font-semibold">Lịch tiếp khách (Chủ nhà)</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-            </Link>
-
-            <Link
-              href="/dashboard/viewing-schedules/my-bookings"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
-            >
-              <div className="flex items-center gap-3">
-                <Calendar className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="text-xs font-semibold">Lịch tôi đi xem (Khách thuê)</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
             </Link>
 
             {/* Divider */}

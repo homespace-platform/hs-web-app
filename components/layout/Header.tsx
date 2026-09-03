@@ -13,6 +13,7 @@ import provinceService from "@/services/province.service";
 import { Province } from "@/types/province.type";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchFavoriteIds } from "@/features/favorite/favoriteSlice";
+import { fetchHistoryIds } from "@/features/history/historySlice";
 import {
   Menu,
   X,
@@ -42,6 +43,7 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dispatch = useAppDispatch();
   const favoriteCount = useAppSelector((state) => state.favorite.count);
+  const historyCount = useAppSelector((state) => state.history.count);
 
   // Province States
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -71,10 +73,11 @@ export default function Header() {
     };
   }, [isProvinceOpen]);
 
-  // Sync favorites count via Redux (chỉ khi đã đăng nhập)
+  // Sync favorites & history count via Redux (chỉ khi đã đăng nhập)
   useEffect(() => {
     if (authenticated) {
       dispatch(fetchFavoriteIds());
+      dispatch(fetchHistoryIds());
     }
   }, [authenticated, dispatch]);
 
@@ -425,7 +428,7 @@ export default function Header() {
           </div>
 
           <nav className="flex flex-col space-y-1">
-            {/* Thông báo (Navigate tới /notifications) */}
+            {/* Thông báo (Navigate tới /notifications - bỏ badge vì chưa có dữ liệu thật) */}
             <Link
               href="/notifications"
               onClick={() => setMobileMenuOpen(false)}
@@ -434,9 +437,6 @@ export default function Header() {
               <div className="flex items-center gap-3">
                 <span>Thông báo</span>
               </div>
-              <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold shadow-2xs">
-                5
-              </span>
             </Link>
 
             {authenticated && (
@@ -465,9 +465,11 @@ export default function Header() {
               <div className="flex items-center gap-3">
                 <span>Lịch sử xem tin</span>
               </div>
-              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
-                40
-              </span>
+              {historyCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                  {historyCount}
+                </span>
+              )}
             </Link>
 
             {/* Nhà Cho Thuê */}

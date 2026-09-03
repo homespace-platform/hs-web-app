@@ -186,11 +186,6 @@ export default function NotificationDropdown({
         aria-expanded={isOpen}
       >
         <Bell className="w-4 h-4" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center leading-none shadow-xs">
-            {unreadCount}
-          </span>
-        )}
       </button>
 
       {/* 2. Notification Dropdown Panel */}

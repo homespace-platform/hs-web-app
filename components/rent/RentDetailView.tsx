@@ -24,6 +24,8 @@ import {
   User,
   Edit,
   Layers,
+  Zap,
+  Handshake,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/useAuth";
@@ -33,6 +35,9 @@ import UserAvatar from "@/components/common/UserAvatar";
 import { getRentDetailSections } from "@/lib/rent-detail-sections";
 import BookingAppointmentModal from "@/components/appointment/BookingAppointmentModal";
 import appointmentService from "@/services/appointment.service";
+import RentalRequestModal from "@/components/rental-request/RentalRequestModal";
+import rentalRequestService from "@/services/rental-request.service";
+import type { RentalRequestResponse } from "@/types/rental-request.type";
 
 const formatPrice = (priceMillion: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -132,21 +137,44 @@ export default function RentDetailView({
   const [quickMessage, setQuickMessage] = useState("");
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [hasActiveBooking, setHasActiveBooking] = useState(false);
+  const [isRentalModalOpen, setIsRentalModalOpen] = useState(false);
+  const [activeRentalRequest, setActiveRentalRequest] = useState<RentalRequestResponse | null>(null);
 
   React.useEffect(() => {
     if (authenticated && property?.id) {
       appointmentService.getMyBookingByListing(property.id).then((b) => {
         setHasActiveBooking(Boolean(b && ["PENDING", "CONFIRMED"].includes(b.status)));
       }).catch(() => {});
+
+      rentalRequestService.getMyRequestByListing(property.id).then((r) => {
+        setActiveRentalRequest(r);
+      }).catch(() => {});
     }
   }, [authenticated, property?.id]);
 
   const rawPhone = property.landlord.phone || "0999999999";
   const cleanPhone = rawPhone.replace(/\s+/g, "");
-  const maskedPhone =
-    cleanPhone.length > 6
-      ? `${cleanPhone.slice(0, cleanPhone.length - 3)}***`
-      : `${cleanPhone}***`;
+
+  // Che vài ký tự số điện thoại bằng dấu sao (vd: 0999 *** 999)
+  const formatPhoneMasked = (phone: string) => {
+    const c = phone.replace(/\s+/g, "");
+    if (c.length === 10) {
+      return `${c.slice(0, 4)} *** ${c.slice(7)}`;
+    }
+    if (c.length > 6) {
+      return `${c.slice(0, 4)} *** ${c.slice(-2)}`;
+    }
+    return `${c}***`;
+  };
+
+  // Hiển thị số điện thoại đầy đủ cách khoảng dễ đọc (vd: 0999 999 999)
+  const formatPhoneFull = (phone: string) => {
+    const c = phone.replace(/\s+/g, "");
+    if (c.length === 10) {
+      return `${c.slice(0, 4)} ${c.slice(4, 7)} ${c.slice(7)}`;
+    }
+    return c;
+  };
 
   const QUICK_SUGGESTIONS = [
     "Nhà này còn không?",
@@ -431,55 +459,121 @@ export default function RentDetailView({
                   Bạn quan tâm đến căn này?
                 </h3>
 
-                <button
-                  type="button"
-                  onClick={() => toast.info("Tính năng Yêu cầu thuê nhà đang được kết nối!")}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3 px-4 text-xs sm:text-sm font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all cursor-pointer active:scale-[0.98]"
-                >
-                  <Home className="w-4 h-4" />
-                  <span>Yêu cầu thuê nhà</span>
-                </button>
+                {/* 1. Nút Yêu cầu thuê nhà (Hành động chính - Nổi bật nhất) */}
+                {activeRentalRequest?.status === "PENDING" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      toast.info("Yêu cầu thuê nhà của bạn đang chờ chủ nhà xác nhận.");
+                    }}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 py-3.5 px-4 text-sm font-bold text-amber-700 dark:text-amber-300 shadow-xs hover:bg-amber-500/20 transition-all cursor-pointer active:scale-[0.98]"
+                    title="Yêu cầu thuê nhà đang chờ duyệt"
+                  >
+                    <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
+                    <span>Đã gửi yêu cầu thuê (Chờ duyệt)</span>
+                  </button>
+                ) : activeRentalRequest?.status === "ACCEPTED" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      toast.success("Yêu cầu thuê đã được duyệt và bất động sản đang được giữ chỗ trong 24 giờ!");
+                    }}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 py-3.5 px-4 text-sm font-bold text-emerald-700 dark:text-emerald-300 shadow-xs hover:bg-emerald-500/20 transition-all cursor-pointer active:scale-[0.98]"
+                    title="Yêu cầu thuê đã được chấp thuận"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Yêu cầu được duyệt (Đang giữ chỗ)</span>
+                  </button>
+                ) : property.status === "RESERVED" ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-muted py-3.5 px-4 text-sm font-bold text-muted-foreground border border-border/50 cursor-not-allowed opacity-80"
+                    title="Bất động sản này đang được giữ chỗ trong 24 giờ cho một khách thuê khác"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Đang giữ chỗ (Tạm khóa)</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isOwner) {
+                        toast.info("Bạn là chủ bài đăng này, không thể tự gửi yêu cầu thuê.");
+                        return;
+                      }
+                      if (!authenticated) {
+                        toast.error("Vui lòng đăng nhập để gửi yêu cầu thuê nhà");
+                        login();
+                        return;
+                      }
+                      setIsRentalModalOpen(true);
+                    }}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3.5 px-4 text-sm font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all cursor-pointer active:scale-[0.98]"
+                    title="Gửi yêu cầu thuê nhà trực tiếp tới chủ nhà"
+                  >
+                    <Home className="w-4 h-4" />
+                    <span>Yêu cầu thuê nhà</span>
+                  </button>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isOwner) {
-                      toast.info("Bạn là chủ bài đăng này, không thể tự đặt lịch xem nhà.");
-                      return;
-                    }
-                    if (!authenticated) {
-                      toast.error("Vui lòng đăng nhập để đặt lịch xem nhà");
-                      login();
-                      return;
-                    }
-                    setIsBookingModalOpen(true);
-                  }}
-                  className={`w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 px-4 text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-[0.98] ${
-                    hasActiveBooking
-                      ? "bg-emerald-500/10 border-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 shadow-2xs"
-                      : "border-2 border-primary bg-card text-primary hover:bg-primary/5"
-                  }`}
-                >
-                  {hasActiveBooking ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                      <span>Lịch xem nhà của bạn</span>
-                    </>
-                  ) : (
-                    <>
-                      <Calendar className="w-4 h-4" />
-                      <span>Đặt lịch xem nhà</span>
-                    </>
-                  )}
-                </button>
+                {/* 2. Hàng 2 nút phụ: Đặt lịch xem & Thương lượng hợp đồng */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isOwner) {
+                        toast.info("Bạn là chủ bài đăng này, không thể tự đặt lịch xem nhà.");
+                        return;
+                      }
+                      if (!authenticated) {
+                        toast.error("Vui lòng đăng nhập để đặt lịch xem nhà");
+                        login();
+                        return;
+                      }
+                      setIsBookingModalOpen(true);
+                    }}
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-[0.98] ${
+                      hasActiveBooking
+                        ? "bg-emerald-500/10 border border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
+                        : "border border-border bg-card hover:bg-muted text-foreground hover:border-primary/40"
+                    }`}
+                    title="Đặt lịch hẹn gặp trực tiếp chủ nhà tại bất động sản"
+                  >
+                    {hasActiveBooking ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span className="truncate">Lịch xem của bạn</span>
+                      </>
+                    ) : (
+                      <>
+                        <Calendar className="w-4 h-4 text-primary shrink-0" />
+                        <span className="truncate">Đặt lịch xem</span>
+                      </>
+                    )}
+                  </button>
 
-                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => toast.info("Tính năng Thương lượng đang được kết nối!")}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground py-2.5 px-3 text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-[0.98] hover:border-primary/40"
+                    title="Đề xuất giá thuê, tiền cọc hoặc các điều khoản mong muốn"
+                  >
+                    <Handshake className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span className="truncate">Thương lượng</span>
+                  </button>
+                </div>
+
+                {/* 3. Hàng 2 nút liên hệ: Gọi điện & Chat */}
+                <div className="grid grid-cols-2 gap-2.5 pt-0.5">
                   <a
                     href={`tel:${cleanPhone}`}
+                    onClick={() => setPhoneRevealed(true)}
                     className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 px-3 text-xs font-semibold text-primary hover:bg-muted/60 transition-all cursor-pointer"
+                    title={`Gọi điện đến ${cleanPhone}`}
                   >
                     <Phone className="w-3.5 h-3.5 text-primary" />
-                    <span>Gọi điện</span>
+                    <span>{phoneRevealed ? formatPhoneFull(rawPhone) : "Gọi điện"}</span>
                   </a>
                   <Link
                     href="/chat"
@@ -513,25 +607,25 @@ export default function RentDetailView({
                   </div>
                 </div>
 
-                {/* Green Reveal Phone Button */}
-                <button
-                  type="button"
+                {/* Green Reveal Phone Button - click mở liên kết tel: và hiện số đầy đủ */}
+                <a
+                  href={`tel:${cleanPhone}`}
                   onClick={() => {
                     if (!phoneRevealed) {
                       setPhoneRevealed(true);
-                    } else {
-                      window.location.href = `tel:${cleanPhone}`;
+                      toast.success(`Số điện thoại: ${formatPhoneFull(rawPhone)} (Đang kết nối cuộc gọi...)`);
                     }
                   }}
                   className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#00ba51] hover:bg-[#00a848] py-3 px-4 text-xs sm:text-sm font-bold text-white shadow-xs transition-all active:scale-[0.98] cursor-pointer"
+                  title={`Gọi điện đến ${cleanPhone}`}
                 >
-                  <Phone className="w-4 h-4" />
-                  <span>
+                  <Phone className="w-4 h-4 shrink-0" />
+                  <span className="truncate">
                     {phoneRevealed
-                      ? `Gọi ngay: ${rawPhone}`
-                      : `Hiện số điện thoại ${maskedPhone}`}
+                      ? `Gọi ngay: ${formatPhoneFull(rawPhone)}`
+                      : `Gọi ngay: ${formatPhoneMasked(rawPhone)}`}
                   </span>
-                </button>
+                </a>
 
                 {/* Quick Chat Input Box */}
                 <form onSubmit={handleSendQuickMessage} className="space-y-2">
@@ -620,6 +714,31 @@ export default function RentDetailView({
         listingPrice={property.priceMillion * 1_000_000}
         listingThumbnail={property.images?.[0] || null}
         ownerId={property.ownerId || property.landlord?.id}
+      />
+
+      {/* Modal Gửi yêu cầu thuê nhà */}
+      <RentalRequestModal
+        isOpen={isRentalModalOpen}
+        onClose={() => {
+          setIsRentalModalOpen(false);
+          if (authenticated && property?.id) {
+            rentalRequestService.getMyRequestByListing(property.id).then((r) => {
+              setActiveRentalRequest(r);
+            }).catch(() => {});
+          }
+        }}
+        listingId={property.id}
+        listingTitle={property.title}
+        listingAddress={property.location}
+        listingPrice={property.priceMillion * 1_000_000}
+        depositType={property.depositType || (property.details?.depositType as any) || (property.details?.pricing as any)?.depositType}
+        listingDepositAmount={property.depositAmount ?? (property.details?.depositAmount as any) ?? (property.details?.pricing as any)?.depositAmount}
+        depositMonths={property.depositMonths ?? (property.details?.depositMonths as any) ?? (property.details?.pricing as any)?.depositMonths}
+        listingThumbnail={property.images?.[0] || null}
+        minimumLeaseMonths={Number(property.details?.minimumLeaseMonths) || 6}
+        onSuccess={(req) => {
+          setActiveRentalRequest(req);
+        }}
       />
     </div>
   );

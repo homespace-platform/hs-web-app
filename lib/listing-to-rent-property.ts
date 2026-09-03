@@ -61,6 +61,9 @@ export function toRentProperty(
       wardCode: pub.wardCode || undefined,
       city: pub.provinceName || "",
       priceMillion: rawPrice / 1_000_000,
+      depositType: (pub as any).depositType,
+      depositAmount: (pub as any).depositAmount != null ? Number((pub as any).depositAmount) : null,
+      depositMonths: (pub as any).depositMonths != null ? Number((pub as any).depositMonths) : null,
       beds: rawBeds,
       baths: rawBaths,
       areaM2: Number(pub.areaM2 ?? 0),
@@ -128,7 +131,22 @@ export function toRentProperty(
     viewingSlots: detail?.viewingSlots ?? [],
     availableFrom: detail?.availableFrom,
     rentalMode: detail?.rentalMode,
-    depositAmount: detail?.pricing?.depositAmount ?? summary?.depositAmount,
+    depositType: detail?.pricing?.depositType ?? (summary as any)?.depositType ?? (listing as any).depositType,
+    depositAmount: detail?.pricing?.depositAmount != null
+      ? Number(detail.pricing.depositAmount)
+      : (summary as any)?.depositAmount != null
+      ? Number((summary as any).depositAmount)
+      : (listing as any).depositAmount != null
+      ? Number((listing as any).depositAmount)
+      : null,
+    depositMonths: detail?.pricing?.depositMonths != null
+      ? Number(detail.pricing.depositMonths)
+      : (summary as any)?.depositMonths != null
+      ? Number((summary as any).depositMonths)
+      : (listing as any).depositMonths != null
+      ? Number((listing as any).depositMonths)
+      : null,
+    minimumLeaseMonths: detail?.pricing?.minimumLeaseMonths ?? (summary as any)?.minimumLeaseMonths ?? 6,
   };
 
   const address = listing.address;
@@ -221,6 +239,21 @@ export function toRentProperty(
     wardCode: address?.wardCode,
     city: provinceName,
     priceMillion: rawPrice / 1_000_000,
+    depositType: detail?.pricing?.depositType ?? (summary as any)?.depositType ?? (listing as any).depositType,
+    depositAmount: detail?.pricing?.depositAmount != null
+      ? Number(detail.pricing.depositAmount)
+      : (summary as any)?.depositAmount != null
+      ? Number((summary as any).depositAmount)
+      : (listing as any).depositAmount != null
+      ? Number((listing as any).depositAmount)
+      : null,
+    depositMonths: detail?.pricing?.depositMonths != null
+      ? Number(detail.pricing.depositMonths)
+      : (summary as any)?.depositMonths != null
+      ? Number((summary as any).depositMonths)
+      : (listing as any).depositMonths != null
+      ? Number((listing as any).depositMonths)
+      : null,
     beds: rawBeds,
     baths: rawBaths,
     areaM2: Number(listing.areaM2 ?? 0),

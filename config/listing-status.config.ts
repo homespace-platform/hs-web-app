@@ -33,6 +33,14 @@ export const LISTING_STATUS_CONFIG: Record<ListingStatus, ListingStatusConfigIte
     dotClassName: "bg-emerald-500",
     description: "Tin đăng đã được duyệt và hiển thị công khai trên hệ thống",
   },
+  RESERVED: {
+    status: "RESERVED",
+    label: "Đang giữ chỗ",
+    badgeClassName:
+      "bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800",
+    dotClassName: "bg-amber-500 animate-pulse",
+    description: "Tin đăng đang được giữ chỗ trong 24 giờ cho khách thuê",
+  },
   RENTED: {
     status: "RENTED",
     label: "Đã cho thuê qua HomeSpace",

@@ -27,6 +27,7 @@ import {
   XCircle,
   CalendarX,
   ExternalLink,
+  ShieldCheck,
 } from "lucide-react";
 import listingService from "@/services/listing.service";
 import type { ListingCategory, ListingStatus, MyListingSummaryResponse } from "@/types/listing.type";
@@ -60,6 +61,7 @@ interface StatusTabItem {
 const STATUS_TABS: StatusTabItem[] = [
   { value: "ALL", label: "Tất cả", icon: Layers, colorClass: "text-muted-foreground" },
   { value: "PUBLISHED", label: "Đang hiển thị", icon: CheckCircle2, colorClass: "text-emerald-500" },
+  { value: "RESERVED", label: "Đang giữ chỗ", icon: ShieldCheck, colorClass: "text-amber-600" },
   { value: "RENTED", label: "Đã cho thuê", icon: Home, colorClass: "text-blue-500" },
   { value: "PENDING_REVIEW", label: "Chờ duyệt", icon: Clock, colorClass: "text-amber-500" },
   { value: "DRAFT", label: "Tin nháp", icon: FileText, colorClass: "text-slate-400" },

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   X,
   Calendar as CalendarIcon,
@@ -9,13 +10,10 @@ import {
   User,
   Phone,
   Users,
-  MessageSquare,
   AlertCircle,
   CheckCircle2,
-  Lock,
   ChevronRight,
   RefreshCw,
-  Trash2,
   Sun,
   Sunset,
   Moon,
@@ -100,6 +98,7 @@ export default function BookingAppointmentModal({
   listingThumbnail,
   ownerId,
 }: BookingAppointmentModalProps) {
+  const router = useRouter();
   const { authenticated, login, profile } = useAuth();
 
   // State
@@ -228,8 +227,8 @@ export default function BookingAppointmentModal({
         renterNote: renterNote.trim() || undefined,
       });
       toast.success("Gửi yêu cầu đặt lịch thành công! Vui lòng chờ chủ nhà xác nhận.");
-      setExistingAppointment(created);
-      setSelectedSlot(null);
+      onClose();
+      router.push("/dashboard/viewing-schedules/my-bookings");
     } catch (err: any) {
       const msg = err.response?.data?.message || "Không thể đặt lịch. Vui lòng thử lại.";
       toast.error(msg);
@@ -257,9 +256,8 @@ export default function BookingAppointmentModal({
         rescheduleReason: rescheduleReason.trim() || undefined,
       });
       toast.success("Đã gửi yêu cầu đổi lịch đến chủ nhà!");
-      setExistingAppointment(updated);
-      setIsRescheduleMode(false);
-      setSelectedSlot(null);
+      onClose();
+      router.push("/dashboard/viewing-schedules/my-bookings");
     } catch (err: any) {
       const msg = err.response?.data?.message || "Không thể đổi lịch. Vui lòng thử lại.";
       toast.error(msg);
@@ -369,11 +367,10 @@ export default function BookingAppointmentModal({
                       Lịch hẹn hiện tại của bạn
                     </span>
                     <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                        existingAppointment.status === "CONFIRMED"
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${existingAppointment.status === "CONFIRMED"
                           ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                           : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                      }`}
+                        }`}
                     >
                       {existingAppointment.status === "CONFIRMED" ? (
                         <>
@@ -468,6 +465,21 @@ export default function BookingAppointmentModal({
                   </button>
                 </div>
 
+                {/* Nút Xem tất cả lịch hẹn của tôi */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      router.push("/dashboard/viewing-schedules/my-bookings");
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <span>Xem tất cả lịch hẹn của bạn</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
                 {/* Hộp xác nhận hủy lịch */}
                 {showCancelConfirm && (
                   <div className="p-4 rounded-2xl border border-destructive/30 bg-destructive/5 space-y-3 animate-in fade-in-50 duration-150">
@@ -507,287 +519,287 @@ export default function BookingAppointmentModal({
           {(!existingAppointment ||
             !["PENDING", "CONFIRMED"].includes(existingAppointment.status) ||
             isRescheduleMode) && (
-            <form
-              onSubmit={isRescheduleMode ? handleRescheduleSubmit : handleBookAppointment}
-              className="space-y-6"
-            >
-              {/* Thông báo nếu đang ở chế độ đổi lịch */}
-              {isRescheduleMode && (
-                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                    <RefreshCw className="w-4 h-4" />
-                    <span>Đang chọn lại thời gian mới để gửi chủ nhà xét duyệt</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsRescheduleMode(false);
-                      setSelectedSlot(null);
-                    }}
-                    className="text-xs font-bold text-muted-foreground hover:text-foreground underline"
-                  >
-                    Hủy đổi
-                  </button>
-                </div>
-              )}
-
-              {/* BƯỚC 1: CHỌN NGÀY XEM NHÀ - DÙNG THƯ VIỆN LỊCH CHUYÊN DỤNG */}
-              <div className="space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                  <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                    <CalendarIcon className="w-3.5 h-3.5 text-primary" />
-                    <span>1. Chọn ngày xem nhà</span>
-                    <span className="text-destructive">*</span>
-                  </label>
-                  <span className="text-[11px] text-muted-foreground">
-                    Chủ nhà tiếp khách vào:{" "}
-                    <strong className="text-foreground">
-                      {availability?.allowedViewingDays?.length
-                        ? availability.allowedViewingDays
-                            .map((d) => DAY_OF_WEEK_LABELS[d] || d)
-                            .join(", ")
-                        : "Tất cả các ngày"}
-                    </strong>
-                  </span>
-                </div>
-
-                {/* Calendar Thư viện React-Day-Picker */}
-                <div className="rounded-2xl border border-border bg-card p-2 sm:p-3 shadow-2xs">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(date) => {
-                      if (date) {
-                        setSelectedDate(date);
+              <form
+                onSubmit={isRescheduleMode ? handleRescheduleSubmit : handleBookAppointment}
+                className="space-y-6"
+              >
+                {/* Thông báo nếu đang ở chế độ đổi lịch */}
+                {isRescheduleMode && (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Đang chọn lại thời gian mới để gửi chủ nhà xét duyệt</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsRescheduleMode(false);
                         setSelectedSlot(null);
-                      }
-                    }}
-                    disabled={[
-                      { before: startOfDay(new Date()) },
-                      (date) => {
-                        if (
-                          !availability?.allowedViewingDays ||
-                          availability.allowedViewingDays.length === 0
-                        ) {
-                          return false;
-                        }
-                        const dayEnum = DAY_NUM_TO_ENUM[getDay(date)];
-                        return !availability.allowedViewingDays.includes(dayEnum);
-                      },
-                    ]}
-                  />
-
-                  {/* Thanh thông báo ngày đang chọn */}
-                  <div className="mt-2 pt-2.5 border-t border-border flex items-center justify-between px-2 text-xs">
-                    <span className="text-muted-foreground">Ngày đã chọn:</span>
-                    <span className="font-bold text-primary flex items-center gap-1.5">
-                      <CalendarDays className="w-4 h-4" />
-                      {format(selectedDate, "EEEE, dd/MM/yyyy", { locale: vi })}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* BƯỚC 2: CHỌN KHUNG GIỜ */}
-              <div className="space-y-3 pt-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-primary" />
-                    <span>2. Chọn khung giờ (1 tiếng / lượt)</span>
-                    <span className="text-destructive">*</span>
-                  </label>
-                  {selectedSlot && (
-                    <span className="text-xs font-bold text-primary">
-                      Đã chọn: {selectedSlot.startTime.slice(0, 5)} – {selectedSlot.endTime.slice(0, 5)}
-                    </span>
-                  )}
-                </div>
-
-                {loading ? (
-                  <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-                    <RefreshCw className="w-4 h-4 animate-spin text-primary" />
-                    <span>Đang tải khung giờ khả dụng cho ngày {format(selectedDate, "dd/MM/yyyy")}...</span>
-                  </div>
-                ) : !availability?.isDayAvailable ? (
-                  <div className="p-6 rounded-2xl bg-muted/40 border border-border text-center text-xs text-muted-foreground">
-                    Chủ nhà không tiếp khách vào ngày này. Vui lòng chọn một ngày khác trên lịch.
-                  </div>
-                ) : availability.slots.length === 0 ? (
-                  <div className="p-6 rounded-2xl bg-muted/40 border border-border text-center text-xs text-muted-foreground">
-                    Không có khung giờ nào khả dụng cho ngày này.
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Ca Sáng */}
-                    {groupedSlots.morning.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
-                          <Sun className="w-3.5 h-3.5 text-amber-500" />
-                          <span>Buổi sáng (08:00 – 12:00)</span>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {groupedSlots.morning.map((slot) => renderSlotButton(slot))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Ca Chiều */}
-                    {groupedSlots.afternoon.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
-                          <Sunset className="w-3.5 h-3.5 text-orange-500" />
-                          <span>Buổi chiều (13:00 – 17:00)</span>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {groupedSlots.afternoon.map((slot) => renderSlotButton(slot))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Ca Tối */}
-                    {groupedSlots.evening.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
-                          <Moon className="w-3.5 h-3.5 text-indigo-500" />
-                          <span>Buổi tối (17:00 – 21:00)</span>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {groupedSlots.evening.map((slot) => renderSlotButton(slot))}
-                        </div>
-                      </div>
-                    )}
+                      }}
+                      className="text-xs font-bold text-muted-foreground hover:text-foreground underline"
+                    >
+                      Hủy đổi
+                    </button>
                   </div>
                 )}
-              </div>
 
-              {/* BƯỚC 3: THÔNG TIN KHÁCH HÀNG LIÊN HỆ */}
-              <div className="space-y-4 pt-2 border-t border-border">
-                <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-primary" />
-                  <span>3. Thông tin người đi xem</span>
-                </label>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground">
-                      Họ và tên <span className="text-destructive">*</span>
+                {/* BƯỚC 1: CHỌN NGÀY XEM NHÀ - DÙNG THƯ VIỆN LỊCH CHUYÊN DỤNG */}
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                      <CalendarIcon className="w-3.5 h-3.5 text-primary" />
+                      <span>1. Chọn ngày xem nhà</span>
+                      <span className="text-destructive">*</span>
                     </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        required
-                        value={renterName}
-                        onChange={(e) => setRenterName(e.target.value)}
-                        placeholder="Nhập họ và tên của bạn..."
-                        className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-border bg-card text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      />
-                      <User className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-                    </div>
+                    <span className="text-[11px] text-muted-foreground">
+                      Chủ nhà tiếp khách vào:{" "}
+                      <strong className="text-foreground">
+                        {availability?.allowedViewingDays?.length
+                          ? availability.allowedViewingDays
+                            .map((d) => DAY_OF_WEEK_LABELS[d] || d)
+                            .join(", ")
+                          : "Tất cả các ngày"}
+                      </strong>
+                    </span>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground">
-                      Số điện thoại <span className="text-destructive">*</span>
+                  {/* Calendar Thư viện React-Day-Picker */}
+                  <div className="rounded-2xl border border-border bg-card p-2 sm:p-3 shadow-2xs">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          setSelectedDate(date);
+                          setSelectedSlot(null);
+                        }
+                      }}
+                      disabled={[
+                        { before: startOfDay(new Date()) },
+                        (date) => {
+                          if (
+                            !availability?.allowedViewingDays ||
+                            availability.allowedViewingDays.length === 0
+                          ) {
+                            return false;
+                          }
+                          const dayEnum = DAY_NUM_TO_ENUM[getDay(date)];
+                          return !availability.allowedViewingDays.includes(dayEnum);
+                        },
+                      ]}
+                    />
+
+                    {/* Thanh thông báo ngày đang chọn */}
+                    <div className="mt-2 pt-2.5 border-t border-border flex items-center justify-between px-2 text-xs">
+                      <span className="text-muted-foreground">Ngày đã chọn:</span>
+                      <span className="font-bold text-primary flex items-center gap-1.5">
+                        <CalendarDays className="w-4 h-4" />
+                        {format(selectedDate, "EEEE, dd/MM/yyyy", { locale: vi })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* BƯỚC 2: CHỌN KHUNG GIỜ */}
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-primary" />
+                      <span>2. Chọn khung giờ (1 tiếng / lượt)</span>
+                      <span className="text-destructive">*</span>
                     </label>
-                    <div className="relative">
-                      <input
-                        type="tel"
-                        required
-                        value={renterPhone}
-                        onChange={(e) => setRenterPhone(e.target.value)}
-                        placeholder="Số điện thoại nhận xác nhận..."
-                        className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-border bg-card text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      />
-                      <Phone className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                    {selectedSlot && (
+                      <span className="text-xs font-bold text-primary">
+                        Đã chọn: {selectedSlot.startTime.slice(0, 5)} – {selectedSlot.endTime.slice(0, 5)}
+                      </span>
+                    )}
+                  </div>
+
+                  {loading ? (
+                    <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin text-primary" />
+                      <span>Đang tải khung giờ khả dụng cho ngày {format(selectedDate, "dd/MM/yyyy")}...</span>
                     </div>
-                  </div>
-                </div>
-
-                {/* Số lượng người tham quan */}
-                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-muted/30 border border-border">
-                  <div className="flex items-center gap-2.5">
-                    <Users className="w-4 h-4 text-primary" />
-                    <div>
-                      <p className="text-xs font-bold text-foreground">Số người cùng tham quan</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Bao gồm cả bạn và người thân / bạn bè
-                      </p>
+                  ) : !availability?.isDayAvailable ? (
+                    <div className="p-6 rounded-2xl bg-muted/40 border border-border text-center text-xs text-muted-foreground">
+                      Chủ nhà không tiếp khách vào ngày này. Vui lòng chọn một ngày khác trên lịch.
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setVisitorCount((c) => Math.max(1, c - 1))}
-                      className="w-8 h-8 rounded-lg border border-border bg-card flex items-center justify-center font-bold text-sm hover:bg-muted cursor-pointer"
-                    >
-                      –
-                    </button>
-                    <span className="w-6 text-center text-sm font-bold text-foreground">
-                      {visitorCount}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setVisitorCount((c) => Math.min(10, c + 1))}
-                      className="w-8 h-8 rounded-lg border border-border bg-card flex items-center justify-center font-bold text-sm hover:bg-muted cursor-pointer"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                {/* Ghi chú hoặc lý do đổi lịch */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground flex items-center justify-between">
-                    <span>
-                      {isRescheduleMode ? "Lý do xin đổi lịch hẹn" : "Ghi chú gửi chủ nhà"}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground font-normal">
-                      Tối đa 500 ký tự
-                    </span>
-                  </label>
-                  <textarea
-                    rows={3}
-                    maxLength={500}
-                    value={isRescheduleMode ? rescheduleReason : renterNote}
-                    onChange={(e) =>
-                      isRescheduleMode
-                        ? setRescheduleReason(e.target.value)
-                        : setRenterNote(e.target.value)
-                    }
-                    placeholder={
-                      isRescheduleMode
-                        ? "Ví dụ: Em có việc đột xuất vào giờ cũ, muốn xin dời sang khung giờ này..."
-                        : "Ví dụ: Tôi muốn hỏi thêm về chỗ để ô tô, khoảng cách ra bến xe..."
-                    }
-                    className="w-full p-3 rounded-xl border border-border bg-card text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
-                  />
-                </div>
-              </div>
-
-              {/* Action Submit Button */}
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={submitting || !selectedSlot}
-                  className="w-full py-3.5 px-6 rounded-2xl bg-primary text-primary-foreground text-xs sm:text-sm font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.99]"
-                >
-                  {submitting ? (
-                    <span>Đang gửi yêu cầu...</span>
-                  ) : isRescheduleMode ? (
-                    <>
-                      <RefreshCw className="w-4 h-4" />
-                      <span>Gửi yêu cầu đổi lịch hẹn</span>
-                    </>
+                  ) : availability.slots.length === 0 ? (
+                    <div className="p-6 rounded-2xl bg-muted/40 border border-border text-center text-xs text-muted-foreground">
+                      Không có khung giờ nào khả dụng cho ngày này.
+                    </div>
                   ) : (
-                    <>
-                      <CalendarIcon className="w-4 h-4" />
-                      <span>Xác nhận đặt lịch xem nhà</span>
-                    </>
+                    <div className="space-y-4">
+                      {/* Ca Sáng */}
+                      {groupedSlots.morning.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+                            <Sun className="w-3.5 h-3.5 text-amber-500" />
+                            <span>Buổi sáng (08:00 – 12:00)</span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {groupedSlots.morning.map((slot) => renderSlotButton(slot))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Ca Chiều */}
+                      {groupedSlots.afternoon.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+                            <Sunset className="w-3.5 h-3.5 text-orange-500" />
+                            <span>Buổi chiều (13:00 – 17:00)</span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {groupedSlots.afternoon.map((slot) => renderSlotButton(slot))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Ca Tối */}
+                      {groupedSlots.evening.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+                            <Moon className="w-3.5 h-3.5 text-indigo-500" />
+                            <span>Buổi tối (17:00 – 21:00)</span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {groupedSlots.evening.map((slot) => renderSlotButton(slot))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
-                </button>
-              </div>
-            </form>
-          )}
+                </div>
+
+                {/* BƯỚC 3: THÔNG TIN KHÁCH HÀNG LIÊN HỆ */}
+                <div className="space-y-4 pt-2 border-t border-border">
+                  <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-primary" />
+                    <span>3. Thông tin người đi xem</span>
+                  </label>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-foreground">
+                        Họ và tên <span className="text-destructive">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          required
+                          value={renterName}
+                          onChange={(e) => setRenterName(e.target.value)}
+                          placeholder="Nhập họ và tên của bạn..."
+                          className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-border bg-card text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        />
+                        <User className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-foreground">
+                        Số điện thoại <span className="text-destructive">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="tel"
+                          required
+                          value={renterPhone}
+                          onChange={(e) => setRenterPhone(e.target.value)}
+                          placeholder="Số điện thoại nhận xác nhận..."
+                          className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-border bg-card text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        />
+                        <Phone className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Số lượng người tham quan */}
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-muted/30 border border-border">
+                    <div className="flex items-center gap-2.5">
+                      <Users className="w-4 h-4 text-primary" />
+                      <div>
+                        <p className="text-xs font-bold text-foreground">Số người cùng tham quan</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Bao gồm cả bạn và người thân / bạn bè
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setVisitorCount((c) => Math.max(1, c - 1))}
+                        className="w-8 h-8 rounded-lg border border-border bg-card flex items-center justify-center font-bold text-sm hover:bg-muted cursor-pointer"
+                      >
+                        –
+                      </button>
+                      <span className="w-6 text-center text-sm font-bold text-foreground">
+                        {visitorCount}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setVisitorCount((c) => Math.min(10, c + 1))}
+                        className="w-8 h-8 rounded-lg border border-border bg-card flex items-center justify-center font-bold text-sm hover:bg-muted cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Ghi chú hoặc lý do đổi lịch */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                      <span>
+                        {isRescheduleMode ? "Lý do xin đổi lịch hẹn" : "Ghi chú gửi chủ nhà"}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground font-normal">
+                        Tối đa 500 ký tự
+                      </span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      maxLength={500}
+                      value={isRescheduleMode ? rescheduleReason : renterNote}
+                      onChange={(e) =>
+                        isRescheduleMode
+                          ? setRescheduleReason(e.target.value)
+                          : setRenterNote(e.target.value)
+                      }
+                      placeholder={
+                        isRescheduleMode
+                          ? "Ví dụ: Em có việc đột xuất vào giờ cũ, muốn xin dời sang khung giờ này..."
+                          : "Ví dụ: Tôi muốn hỏi thêm về chỗ để ô tô, khoảng cách ra bến xe..."
+                      }
+                      className="w-full p-3 rounded-xl border border-border bg-card text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Action Submit Button */}
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={submitting || !selectedSlot}
+                    className="w-full py-3.5 px-6 rounded-2xl bg-primary text-primary-foreground text-xs sm:text-sm font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.99]"
+                  >
+                    {submitting ? (
+                      <span>Đang gửi yêu cầu...</span>
+                    ) : isRescheduleMode ? (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        <span>Gửi yêu cầu đổi lịch hẹn</span>
+                      </>
+                    ) : (
+                      <>
+                        <CalendarIcon className="w-4 h-4" />
+                        <span>Xác nhận đặt lịch xem nhà</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
         </div>
       </div>
     </div>
@@ -826,21 +838,19 @@ export default function BookingAppointmentModal({
         type="button"
         disabled={disabled}
         onClick={() => setSelectedSlot(slot)}
-        className={`p-2.5 rounded-xl border text-left flex flex-col items-start transition-all cursor-pointer ${
-          isSelected
+        className={`p-2.5 rounded-xl border text-left flex flex-col items-start transition-all cursor-pointer ${isSelected
             ? "border-primary bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20 scale-[1.02]"
             : disabled
-            ? "bg-muted/40 border-border/80 opacity-50 cursor-not-allowed"
-            : "bg-card border-border text-foreground hover:border-primary/50 hover:bg-muted/30"
-        }`}
+              ? "bg-muted/40 border-border/80 opacity-50 cursor-not-allowed"
+              : "bg-card border-border text-foreground hover:border-primary/50 hover:bg-muted/30"
+          }`}
       >
         <span className="text-xs font-bold">
           {slot.startTime.slice(0, 5)} – {slot.endTime.slice(0, 5)}
         </span>
         <span
-          className={`text-[10px] mt-0.5 line-clamp-1 ${
-            isSelected ? "text-primary-foreground/90 font-medium" : badgeClass
-          }`}
+          className={`text-[10px] mt-0.5 line-clamp-1 ${isSelected ? "text-primary-foreground/90 font-medium" : badgeClass
+            }`}
         >
           {statusText}
         </span>

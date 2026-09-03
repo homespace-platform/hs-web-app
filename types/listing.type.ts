@@ -2,6 +2,7 @@ export type ListingStatus =
   | "DRAFT"
   | "PENDING_REVIEW"
   | "PUBLISHED"
+  | "RESERVED"
   | "RENTED"
   | "RENTED_EXTERNALLY"
   | "EXPIRED"

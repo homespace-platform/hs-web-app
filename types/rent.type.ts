@@ -1,3 +1,5 @@
+import type { DepositType } from "./listing.type";
+
 export interface RentMediaItem {
   id?: string;
   type: "image" | "video";
@@ -8,6 +10,7 @@ export interface RentMediaItem {
 export interface RentPropertyItem {
   id: string;
   ownerId?: string;
+  status?: string;
   title: string;
   description?: string;
   floor?: string;
@@ -19,6 +22,9 @@ export interface RentPropertyItem {
   wardCode?: string;
   city: string;
   priceMillion: number;
+  depositType?: DepositType;
+  depositAmount?: number | null;
+  depositMonths?: number | null;
   beds: number;
   baths: number;
   areaM2: number;

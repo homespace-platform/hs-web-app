@@ -86,8 +86,17 @@ const NAV_GROUPS: NavGroup[] = [
       },
       {
         title: "Yêu cầu thuê",
-        path: "/dashboard/rental-requests",
         icon: Send,
+        children: [
+          {
+            title: "Khách gửi đến tôi",
+            path: "/dashboard/rental-requests",
+          },
+          {
+            title: "Tôi đã gửi đi",
+            path: "/dashboard/rental-requests/my-requests",
+          },
+        ],
       },
       {
         title: "Hợp đồng",

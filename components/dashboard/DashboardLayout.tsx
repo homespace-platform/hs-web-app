@@ -27,8 +27,12 @@ const BREADCRUMB_MAP: Record<string, BreadcrumbItem> = {
     title: "Tin đăng",
   },
   "/dashboard/rental-requests": {
-    parent: { title: "Quản lý", path: "/dashboard/properties" },
-    title: "Yêu cầu thuê",
+    parent: { title: "Yêu cầu thuê", path: "/dashboard/rental-requests" },
+    title: "Khách gửi đến tôi",
+  },
+  "/dashboard/rental-requests/my-requests": {
+    parent: { title: "Yêu cầu thuê", path: "/dashboard/rental-requests/my-requests" },
+    title: "Tôi đã gửi đi",
   },
   "/dashboard/contracts": {
     parent: { title: "Quản lý", path: "/dashboard/properties" },

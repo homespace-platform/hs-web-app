@@ -97,8 +97,19 @@ export default function ChatQuickPopup() {
                   onClick={() => openQuickChat({ conversationId: item.id })}
                   className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors hover:bg-muted"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                    {item.userName.charAt(0).toUpperCase()}
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                    {item.userAvatar ? (
+                      <Image
+                        src={item.userAvatar}
+                        alt={item.userName}
+                        width={40}
+                        height={40}
+                        className="h-full w-full object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      item.userName.charAt(0).toUpperCase()
+                    )}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center justify-between gap-2">

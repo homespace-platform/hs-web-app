@@ -474,13 +474,24 @@ export default function ChatSidebar({
                       {/* Avatar */}
                       <div className="relative shrink-0">
                         <div
-                          className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs bg-primary text-primary-foreground shadow-2xs ${
+                          className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center font-bold text-xs bg-primary text-primary-foreground shadow-2xs ${
                             isSelected
                               ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
                               : ""
                           }`}
                         >
-                          {initial}
+                          {conv.userAvatar ? (
+                            <Image
+                              src={conv.userAvatar}
+                              alt={conv.userName}
+                              width={36}
+                              height={36}
+                              className="h-full w-full object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            initial
+                          )}
                         </div>
                         <span
                           className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-card ${

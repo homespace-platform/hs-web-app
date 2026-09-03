@@ -7,6 +7,12 @@ import type {
 } from "@/types/chat-api.type";
 import type { RelatedListing } from "@/types/chat.type";
 
+export type ChatParticipantProfile = {
+  displayName?: string;
+  email?: string;
+  avatarUrl?: string;
+};
+
 const chatService = {
   async listConversations(limit = 30): Promise<ChatApiConversation[]> {
     const response = await axiosClient.get<ApiResponse<ChatApiConversation[]>>(
@@ -19,10 +25,15 @@ const chatService = {
   async createConversation(
     participantId: string,
     listing?: RelatedListing,
+    participantProfile?: ChatParticipantProfile,
   ): Promise<ChatApiConversation> {
     const response = await axiosClient.post<ApiResponse<ChatApiConversation>>(
       "/api/v1/chat/conversations",
-      { participantId, ...(listing ? { listing } : {}) },
+      {
+        participantId,
+        ...(listing ? { listing } : {}),
+        ...(participantProfile ? { participantProfile } : {}),
+      },
     );
     return response.data.result;
   },
@@ -43,10 +54,15 @@ const chatService = {
     conversationId: string,
     content: string,
     listing?: RelatedListing,
+    senderProfile?: ChatParticipantProfile,
   ): Promise<ChatApiMessage> {
     const response = await axiosClient.post<ApiResponse<ChatApiMessage>>(
       `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/messages`,
-      { content, ...(listing ? { listing } : {}) },
+      {
+        content,
+        ...(listing ? { listing } : {}),
+        ...(senderProfile ? { senderProfile } : {}),
+      },
     );
     return response.data.result;
   },

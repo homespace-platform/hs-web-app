@@ -12,6 +12,7 @@ describe("chat API mapper", () => {
         id: "conversation-1",
         participantId: "user-b",
         participantName: "Người cho thuê B",
+        participantAvatar: "https://example.com/avatar.jpg",
         lastMessage: "Còn phòng nhé",
         lastMessageAt: "2026-09-03T10:05:00.000Z",
         lastMessageSenderId: "user-b",
@@ -23,6 +24,7 @@ describe("chat API mapper", () => {
     assert.equal(result.id, "conversation-1");
     assert.equal(result.userId, "user-b");
     assert.equal(result.userName, "Người cho thuê B");
+    assert.equal(result.userAvatar, "https://example.com/avatar.jpg");
     assert.equal(result.lastMessage, "Còn phòng nhé");
     assert.equal(result.lastMessageSender, "them");
     assert.equal(result.unreadCount, 2);

@@ -4,6 +4,7 @@ export type ChatApiConversation = {
   id: string;
   participantId: string;
   participantName?: string;
+  participantAvatar?: string;
   participantEmail?: string;
   listing?: RelatedListing;
   lastMessage?: string;

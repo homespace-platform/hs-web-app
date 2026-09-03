@@ -11,6 +11,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/useAuth";
 import chatService from "@/services/chat.service";
+import type { ChatParticipantProfile } from "@/services/chat.service";
 import type { ChatConversation, RelatedListing } from "@/types/chat.type";
 import {
   DEMO_LANDLORD_ID,
@@ -61,6 +62,19 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   const [activeDemoUserId, setActiveDemoUserId] = useState(DEMO_TENANT_ID);
   const authenticatedUserId = profile?.id;
   const currentUserId = authenticatedUserId ?? activeDemoUserId;
+  const currentParticipantProfile = useMemo<ChatParticipantProfile | undefined>(
+    () =>
+      profile
+        ? {
+            displayName:
+              [profile.lastName, profile.firstName].filter(Boolean).join(" ").trim() ||
+              profile.username,
+            email: profile.email,
+            avatarUrl: profile.avatarUrl ?? undefined,
+          }
+        : undefined,
+    [profile],
+  );
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [popupConversationId, setPopupConversationId] = useState<string | null>(null);
@@ -142,6 +156,26 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       );
 
       if (conversation) {
+        if (input.contact) {
+          void chatService
+            .createConversation(partnerId, input.listing, {
+              displayName: input.contact.name,
+              avatarUrl: input.contact.avatar,
+            })
+            .catch(() => undefined);
+          setConversations((current) =>
+            current.map((item) =>
+              item.id === conversation.id
+                ? {
+                    ...item,
+                    userName: input.contact?.name || item.userName,
+                    userAvatar: input.contact?.avatar || item.userAvatar,
+                    userRole: input.contact?.role || item.userRole,
+                  }
+                : item,
+            ),
+          );
+        }
         setIsPopupOpen(true);
         setPopupView(getPopupView(conversation.id));
         setPopupConversationId(conversation.id);
@@ -154,6 +188,12 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
         const apiConversation = await chatService.createConversation(
           partnerId,
           input.listing,
+          input.contact
+            ? {
+                displayName: input.contact.name,
+                avatarUrl: input.contact.avatar,
+              }
+            : undefined,
         );
         const newConversation: ChatConversation = {
           ...mapApiConversation(apiConversation, currentUserId),
@@ -205,6 +245,7 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
           conversationId,
           trimmed,
           cardToAttach,
+          currentParticipantProfile,
         );
         const mappedMessage = mapApiMessage(message, currentUserId);
         setConversations((current) =>
@@ -225,7 +266,7 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
         toast.error("Không thể gửi tin nhắn");
       }
     },
-    [currentUserId, pendingListing, popupConversationId]
+    [currentParticipantProfile, currentUserId, pendingListing, popupConversationId]
   );
 
   const toggleHideConversation = useCallback((conversationId: string) => {

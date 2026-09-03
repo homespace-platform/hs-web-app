@@ -22,6 +22,7 @@ export function mapApiConversation(
       conversation.participantName ||
       conversation.participantEmail ||
       conversation.participantId,
+    userAvatar: conversation.participantAvatar,
     userRole: "Người dùng HomeSpace",
     isOnline: false,
     lastActive: "",

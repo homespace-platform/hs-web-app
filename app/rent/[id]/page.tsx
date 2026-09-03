@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import RentDetailView from "@/components/rent/RentDetailView";
-import { ArrowLeft, Loader2, Building } from "lucide-react";
+import { ArrowLeft, Loader2, Building, Clock } from "lucide-react";
 import type { RentPropertyItem } from "@/types/rent.type";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
@@ -25,12 +25,12 @@ export default function RentDetailPage() {
     if (!id) return;
     let cancelled = false;
 
-    // Load listing detail from API (chỉ cho phép xem tin công khai đang hiển thị)
+    // Load listing detail from API (cho phép xem tin PUBLISHED hoặc RESERVED)
     listingService
       .getById(id)
       .then((listing) => {
         if (!cancelled && listing) {
-          if (listing.status !== "PUBLISHED") {
+          if (listing.status !== "PUBLISHED" && listing.status !== "RESERVED") {
             setProperty(null);
           } else {
             setProperty(toRentProperty(listing));
@@ -117,7 +117,22 @@ export default function RentDetailPage() {
       <main className="flex-1 pt-24 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           {/* Reusable Core Detail View */}
-          <RentDetailView property={property} />
+          <RentDetailView
+            property={property}
+            alertBanner={
+              property.status === "RESERVED" ? (
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 flex items-center gap-3 text-xs sm:text-sm shadow-xs">
+                  <Clock className="w-5 h-5 text-amber-600 animate-pulse shrink-0" />
+                  <div>
+                    <p className="font-bold text-sm">Tin đăng đang trong thời gian giữ chỗ</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Chủ nhà đã duyệt một yêu cầu thuê và tin đăng đang tạm thời được giữ chỗ trong 24 giờ.
+                    </p>
+                  </div>
+                </div>
+              ) : undefined
+            }
+          />
         </div>
       </main>
 

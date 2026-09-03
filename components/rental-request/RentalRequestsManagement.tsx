@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { format, formatDistanceToNow, isPast } from "date-fns";
 import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
+import ListingPreviewModal from "@/components/listing/ListingPreviewModal";
 import type {
   RentalRequestResponse,
   RentalRequestStatus,
@@ -112,6 +113,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const [cancelTarget, setCancelTarget] = useState<RentalRequestResponse | null>(null);
   const [rejectReason, setRejectReason] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [previewListingId, setPreviewListingId] = useState<string | null>(null);
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -309,7 +311,11 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                 {/* Card Top: Property & Status Badge */}
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-border/60">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-muted border border-border/50">
+                    <div
+                      onClick={() => setPreviewListingId(req.listingId)}
+                      className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-muted border border-border/50 cursor-pointer hover:opacity-85 transition-opacity"
+                      title="Xem chi tiết bài đăng"
+                    >
                       {isValidImageUrl(req.listingThumbnail) ? (
                         <Image
                           src={req.listingThumbnail!}
@@ -325,12 +331,14 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <Link
-                          href={`/rent/${req.listingId}`}
-                          className="font-bold text-sm text-foreground hover:text-primary transition-colors line-clamp-1"
+                        <button
+                          type="button"
+                          onClick={() => setPreviewListingId(req.listingId)}
+                          className="font-bold text-sm text-foreground hover:text-primary transition-colors line-clamp-1 text-left cursor-pointer"
+                          title="Xem chi tiết bài đăng"
                         >
                           {req.listingTitle}
-                        </Link>
+                        </button>
                       </div>
                       {req.listingAddress && (
                         <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
@@ -456,13 +464,14 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                       </button>
                     )}
 
-                    {/* Liên kết xem tin đăng */}
-                    <Link
-                      href={`/rent/${req.listingId}`}
+                    {/* Nút xem tin đăng */}
+                    <button
+                      type="button"
+                      onClick={() => setPreviewListingId(req.listingId)}
                       className="px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                     >
                       Xem bài đăng
-                    </Link>
+                    </button>
                   </div>
                 </div>
 
@@ -688,6 +697,13 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
           </div>
         </div>
       )}
+
+      {/* Modal Xem Trước Bài Đăng */}
+      <ListingPreviewModal
+        listingId={previewListingId}
+        isOpen={Boolean(previewListingId)}
+        onClose={() => setPreviewListingId(null)}
+      />
     </div>
   );
 }

@@ -26,14 +26,14 @@ export interface NewsArticle {
     role: string;
   };
   contentBlocks?: NewsContentBlock[];
-  media?: Array<{ storageObjectId: string; role: "THUMBNAIL" | "CONTENT"; altText: string | null; url: string | null }>;
+  media?: Array<{ storageObjectId: string; role: "THUMBNAIL" | "CONTENT"; url: string | null }>;
 }
 
 export type NewsContentBlock = {
   type: "PARAGRAPH" | "HEADING" | "QUOTE" | "IMAGE";
   text: string | null;
   storageObjectId: string | null;
-  altText: string | null;
+  caption: string | null;
 };
 
 export type PublicNewsSummary = {
@@ -56,7 +56,6 @@ export type PublicNewsResponse = PublicNewsSummary & {
   media: Array<{
     storageObjectId: string;
     role: "THUMBNAIL" | "CONTENT";
-    altText: string | null;
     url: string | null;
   }>;
   authorId: string;

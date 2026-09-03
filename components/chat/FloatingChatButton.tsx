@@ -2,15 +2,13 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
-import { useChatDemo } from "@/components/chat/ChatDemoProvider";
-import ChatQuickPopup from "@/components/chat/ChatQuickPopup";
 
 export default function FloatingChatButton() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isHovered, setIsHovered] = useState(false);
-  const { openChatList } = useChatDemo();
 
   // Nếu đang ở màn hình /chat thì ẩn nút bấm
   if (pathname === "/chat" || pathname.startsWith("/chat/")) {
@@ -33,7 +31,7 @@ export default function FloatingChatButton() {
       {/* Nút Chat tròn nổi bật ở góc dưới bên phải */}
       <button
         type="button"
-        onClick={openChatList}
+        onClick={() => router.push("/chat")}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         className="pointer-events-auto relative w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-primary hover:bg-primary/95 text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer border-2 border-white/80 dark:border-white/20 group p-1"
@@ -59,7 +57,6 @@ export default function FloatingChatButton() {
         )}
       </button>
       </div>
-      <ChatQuickPopup />
     </>
   );
 }

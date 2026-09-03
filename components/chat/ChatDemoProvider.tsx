@@ -14,12 +14,6 @@ import { useAuth } from "@/features/auth/useAuth";
 import chatService from "@/services/chat.service";
 import type { ChatParticipantProfile } from "@/services/chat.service";
 import type { ChatConversation, RelatedListing } from "@/types/chat.type";
-import {
-  DEMO_LANDLORD_ID,
-  DEMO_TENANT_ID,
-  getPopupView,
-} from "@/lib/chat-demo-state";
-import type { ChatPopupView } from "@/lib/chat-demo-state";
 import { mapApiConversation, mapApiMessage } from "@/lib/chat-api-mapper";
 
 type ChatContact = {
@@ -29,29 +23,22 @@ type ChatContact = {
   role?: string;
 };
 
-type OpenQuickChatInput = {
+type OpenConversationInput = {
   conversationId?: string;
   listing?: RelatedListing;
   contact?: ChatContact;
 };
 
 type ChatDemoContextValue = {
-  activeDemoUserId: string;
+  currentUserId?: string;
   conversations: ChatConversation[];
-  isPopupOpen: boolean;
-  popupConversationId: string | null;
-  popupView: ChatPopupView;
-  pendingListing: RelatedListing | null;
-  openQuickChat: (input?: OpenQuickChatInput) => Promise<string | null>;
-  closeQuickChat: () => void;
-  openChatList: () => void;
+  openConversation: (input?: OpenConversationInput) => Promise<string | null>;
   sendMessage: (
     conversationId: string,
     content: string,
     listingCard?: RelatedListing
   ) => Promise<void>;
   loadConversationMessages: (conversationId: string) => Promise<void>;
-  selectDemoUser: (userId: string) => void;
   toggleHideConversation: (conversationId: string) => void;
   togglePinConversation: (conversationId: string) => void;
 };
@@ -60,9 +47,7 @@ const ChatDemoContext = createContext<ChatDemoContextValue | null>(null);
 
 export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   const { authenticated, profile } = useAuth();
-  const [activeDemoUserId, setActiveDemoUserId] = useState(DEMO_TENANT_ID);
-  const authenticatedUserId = profile?.id;
-  const currentUserId = authenticatedUserId ?? activeDemoUserId;
+  const currentUserId = profile?.id;
   const currentParticipantProfile = useMemo<ChatParticipantProfile | undefined>(
     () =>
       profile
@@ -77,14 +62,10 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
     [profile],
   );
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [popupConversationId, setPopupConversationId] = useState<string | null>(null);
-  const [popupView, setPopupView] = useState<ChatPopupView>("list");
-  const [pendingListing, setPendingListing] = useState<RelatedListing | null>(null);
   const loadingConversationIds = useRef(new Set<string>());
 
   useEffect(() => {
-    if (!authenticated || !authenticatedUserId) return;
+    if (!authenticated || !currentUserId) return;
 
     let cancelled = false;
     void chatService
@@ -93,7 +74,7 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
         if (!cancelled) {
           setConversations((current) =>
             items.map((item) => {
-              const mapped = mapApiConversation(item, authenticatedUserId);
+              const mapped = mapApiConversation(item, currentUserId);
               const existing = current.find((conversation) => conversation.id === item.id);
               return existing ? { ...mapped, messages: existing.messages } : mapped;
             }),
@@ -107,15 +88,15 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [authenticated, authenticatedUserId]);
+  }, [authenticated, currentUserId]);
 
   const loadConversationMessages = useCallback(
     async (conversationId: string) => {
-      if (!authenticatedUserId || loadingConversationIds.current.has(conversationId)) return;
+      if (!currentUserId || loadingConversationIds.current.has(conversationId)) return;
       loadingConversationIds.current.add(conversationId);
       try {
         const page = await chatService.listMessages(conversationId);
-        const messages = page.items.map((item) => mapApiMessage(item, authenticatedUserId));
+        const messages = page.items.map((item) => mapApiMessage(item, currentUserId));
         setConversations((current) =>
           current.map((conversation) =>
             conversation.id === conversationId
@@ -137,23 +118,26 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
         loadingConversationIds.current.delete(conversationId);
       }
     },
-    [authenticatedUserId],
+    [currentUserId],
   );
 
-  const openQuickChat = useCallback(
-    async (input: OpenQuickChatInput = {}) => {
+  const openConversation = useCallback(
+    async (input: OpenConversationInput = {}) => {
+      if (!currentUserId) {
+        toast.error("Vui lòng đăng nhập để trò chuyện");
+        return null;
+      }
+
       if (input.conversationId) {
-        setIsPopupOpen(true);
-        setPopupView(getPopupView(input.conversationId));
-        setPopupConversationId(input.conversationId);
-        setPendingListing(input.listing ?? null);
         void loadConversationMessages(input.conversationId);
         return input.conversationId;
       }
 
-      const partnerId =
-        input.contact?.id ||
-        (currentUserId === DEMO_LANDLORD_ID ? DEMO_TENANT_ID : DEMO_LANDLORD_ID);
+      const partnerId = input.contact?.id;
+      if (!partnerId) {
+        toast.error("Không xác định được người nhận");
+        return null;
+      }
       const conversation = conversations.find(
         (item) =>
           item.userId === partnerId &&
@@ -181,10 +165,6 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
             ),
           );
         }
-        setIsPopupOpen(true);
-        setPopupView(getPopupView(conversation.id));
-        setPopupConversationId(conversation.id);
-        setPendingListing(input.listing ?? null);
         void loadConversationMessages(conversation.id);
         return conversation.id;
       }
@@ -210,10 +190,6 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
           newConversation,
           ...current.filter((item) => item.id !== newConversation.id),
         ]);
-        setIsPopupOpen(true);
-        setPopupView(getPopupView(newConversation.id));
-        setPopupConversationId(newConversation.id);
-        setPendingListing(input.listing ?? null);
         return newConversation.id;
       } catch {
         toast.error("Không thể mở cuộc trò chuyện");
@@ -223,33 +199,16 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
     [conversations, currentUserId, loadConversationMessages]
   );
 
-  const closeQuickChat = useCallback(() => {
-    setIsPopupOpen(false);
-    setPopupConversationId(null);
-    setPopupView("list");
-    setPendingListing(null);
-  }, []);
-
-  const openChatList = useCallback(() => {
-    setIsPopupOpen(true);
-    setPopupView("list");
-    setPopupConversationId(null);
-    setPendingListing(null);
-  }, []);
-
   const sendMessage = useCallback(
     async (conversationId: string, content: string, listingCard?: RelatedListing) => {
       const trimmed = content.trim();
-      if (!trimmed) return;
+      if (!trimmed || !currentUserId) return;
 
-      const pendingCard =
-        popupConversationId === conversationId ? pendingListing ?? undefined : undefined;
-      const cardToAttach = listingCard ?? pendingCard;
       try {
         const message = await chatService.sendMessage(
           conversationId,
           trimmed,
-          cardToAttach,
+          listingCard,
           currentParticipantProfile,
         );
         const mappedMessage = mapApiMessage(message, currentUserId);
@@ -266,12 +225,11 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
               : conversation,
           ),
         );
-        if (cardToAttach) setPendingListing(null);
       } catch {
         toast.error("Không thể gửi tin nhắn");
       }
     },
-    [currentParticipantProfile, currentUserId, pendingListing, popupConversationId]
+    [currentParticipantProfile, currentUserId]
   );
 
   const toggleHideConversation = useCallback((conversationId: string) => {
@@ -296,31 +254,18 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ({
-      activeDemoUserId: currentUserId,
+      currentUserId,
       conversations,
-      isPopupOpen,
-      popupConversationId,
-      popupView,
-      pendingListing,
-      openQuickChat,
-      closeQuickChat,
-      openChatList,
+      openConversation,
       sendMessage,
       loadConversationMessages,
-      selectDemoUser: setActiveDemoUserId,
       toggleHideConversation,
       togglePinConversation,
     }),
     [
       currentUserId,
       conversations,
-      isPopupOpen,
-      popupConversationId,
-      popupView,
-      pendingListing,
-      openQuickChat,
-      closeQuickChat,
-      openChatList,
+      openConversation,
       sendMessage,
       loadConversationMessages,
       toggleHideConversation,

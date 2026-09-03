@@ -332,7 +332,6 @@ export default function ChatPage() {
                 onSelectDirectConversation={(id) => {
                   setChatChannel("direct");
                   setActiveDirectConversationId(id);
-                  void loadConversationMessages(id);
                 }}
                 // Search & Filter
                 searchQuery={searchQuery}

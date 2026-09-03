@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { toast } from "sonner";
@@ -80,6 +81,7 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   const [popupConversationId, setPopupConversationId] = useState<string | null>(null);
   const [popupView, setPopupView] = useState<ChatPopupView>("list");
   const [pendingListing, setPendingListing] = useState<RelatedListing | null>(null);
+  const loadingConversationIds = useRef(new Set<string>());
 
   useEffect(() => {
     if (!authenticated || !authenticatedUserId) return;
@@ -109,7 +111,8 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
 
   const loadConversationMessages = useCallback(
     async (conversationId: string) => {
-      if (!authenticatedUserId) return;
+      if (!authenticatedUserId || loadingConversationIds.current.has(conversationId)) return;
+      loadingConversationIds.current.add(conversationId);
       try {
         const page = await chatService.listMessages(conversationId);
         const messages = page.items.map((item) => mapApiMessage(item, authenticatedUserId));
@@ -130,6 +133,8 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
         );
       } catch {
         toast.error("Không thể tải nội dung cuộc trò chuyện");
+      } finally {
+        loadingConversationIds.current.delete(conversationId);
       }
     },
     [authenticatedUserId],

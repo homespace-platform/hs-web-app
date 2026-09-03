@@ -6,20 +6,37 @@ import ChatSidebar from "@/components/chat/ChatSidebar";
 import ChatWindow from "@/components/chat/ChatWindow";
 import AiChatWindow from "@/components/chat/AiChatWindow";
 import ChatEmptyState from "@/components/chat/ChatEmptyState";
+import { MOCK_AI_SESSIONS } from "@/data/mock-chat-data";
 import {
-  MOCK_AI_SESSIONS,
-  MOCK_DIRECT_CONVERSATIONS,
-} from "@/data/mock-chat-data";
-import {
-  ChatConversation,
   ChatFilterTab,
   ChatMessage,
   ChatChannelType,
   AiChatSession,
 } from "@/types/chat.type";
+import { useChatDemo } from "@/components/chat/ChatDemoProvider";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function ChatPage() {
-  const [channel, setChannel] = useState<ChatChannelType>("ai");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const conversationIdFromUrl = searchParams.get("conversationId");
+  const channelFromUrl = searchParams.get("channel");
+  const [channel, setChannel] = useState<ChatChannelType>(
+    conversationIdFromUrl || channelFromUrl === "direct" ? "direct" : "ai"
+  );
+  const activeChannel: ChatChannelType =
+    conversationIdFromUrl
+      ? "direct"
+      : channelFromUrl === "direct" || channelFromUrl === "ai"
+      ? channelFromUrl
+      : channel;
+  const setChatChannel = useCallback(
+    (nextChannel: ChatChannelType) => {
+      setChannel(nextChannel);
+      router.replace(`/chat?channel=${nextChannel}`, { scroll: false });
+    },
+    [router]
+  );
 
   // Sidebar Resizing & Collapse State
   const [sidebarWidth, setSidebarWidth] = useState(320);
@@ -34,13 +51,20 @@ export default function ChatPage() {
     null
   );
 
-  // Direct Conversations State (Mới vào không tự động trỏ hội thoại, hiển thị trang trống bảo mật)
-  const [directConversations, setDirectConversations] = useState<
-    ChatConversation[]
-  >(MOCK_DIRECT_CONVERSATIONS);
-  const [activeDirectConversationId, setActiveDirectConversationId] = useState<
-    string | null
-  >(null);
+  const {
+    activeDemoUserId,
+    conversations: directConversations,
+    sendMessage: sendDirectMessage,
+    selectDemoUser,
+    toggleHideConversation,
+    togglePinConversation,
+    loadConversationMessages,
+  } = useChatDemo();
+  const [activeDirectConversationId, setActiveDirectConversationId] = useState<string | null>(
+    conversationIdFromUrl
+  );
+  const selectedDirectConversationId =
+    conversationIdFromUrl ?? activeDirectConversationId;
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -53,10 +77,16 @@ export default function ChatPage() {
     : null;
 
   // Active Direct Conversation
-  const activeDirectConversation = activeDirectConversationId
-    ? directConversations.find((c) => c.id === activeDirectConversationId) ||
+  const activeDirectConversation = selectedDirectConversationId
+    ? directConversations.find((c) => c.id === selectedDirectConversationId) ||
       null
     : null;
+
+  useEffect(() => {
+    if (selectedDirectConversationId) {
+      void loadConversationMessages(selectedDirectConversationId);
+    }
+  }, [selectedDirectConversationId, loadConversationMessages]);
 
   // Sidebar Drag-to-Resize Logic
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -100,7 +130,7 @@ export default function ChatPage() {
 
   // 1. AI Actions
   const handleNewAiSession = () => {
-    setChannel("ai");
+    setChatChannel("ai");
     const newSessionId = `session-${Date.now()}`;
     const newSession: AiChatSession = {
       id: newSessionId,
@@ -260,91 +290,9 @@ export default function ChatPage() {
   };
 
   const handleSelectAiTopic = (prompt: string) => {
-    setChannel("ai");
+    setChatChannel("ai");
     const targetSessionId = activeAiSessionId || `session-${Date.now()}`;
     handleSendAiMessage(targetSessionId, prompt);
-  };
-
-  // 2. Direct P2P Messaging Actions
-  const handleSendDirectMessage = (conversationId: string, text: string) => {
-    const now = new Date();
-    const timeString = `${now.getHours().toString().padStart(2, "0")}:${now
-      .getMinutes()
-      .toString()
-      .padStart(2, "0")}`;
-
-    const newMsg: ChatMessage = {
-      id: `msg-direct-${Date.now()}`,
-      sender: "me",
-      content: text,
-      timestamp: timeString,
-      dateGroup: "Hôm nay",
-      status: "read",
-    };
-
-    setDirectConversations((prev) =>
-      prev.map((c) => {
-        if (c.id === conversationId) {
-          return {
-            ...c,
-            lastMessage: text,
-            lastMessageTime: timeString,
-            lastMessageSender: "me",
-            messages: [...c.messages, newMsg],
-          };
-        }
-        return c;
-      })
-    );
-
-    setTimeout(() => {
-      const replyMsg: ChatMessage = {
-        id: `msg-rep-${Date.now()}`,
-        sender: "them",
-        content:
-          "Mình đã nhận được tin nhắn của bạn. Mình sẽ phản hồi chi tiết trong giây lát nhé!",
-        timestamp: timeString,
-        dateGroup: "Hôm nay",
-        status: "read",
-      };
-
-      setDirectConversations((prev) =>
-        prev.map((c) => {
-          if (c.id === conversationId) {
-            return {
-              ...c,
-              lastMessage: replyMsg.content,
-              lastMessageTime: timeString,
-              lastMessageSender: "them",
-              messages: [...c.messages, replyMsg],
-            };
-          }
-          return c;
-        })
-      );
-    }, 1000);
-  };
-
-  const handleToggleHideDirectConversation = (conversationId: string) => {
-    setDirectConversations((prev) =>
-      prev.map((c) => {
-        if (c.id === conversationId) {
-          return { ...c, isHidden: !c.isHidden };
-        }
-        return c;
-      })
-    );
-  };
-
-  const handleTogglePinDirectConversation = (conversationId: string) => {
-    setDirectConversations((prev) =>
-      prev.map((c) => {
-        if (c.id === conversationId) {
-          return { ...c, isPinned: !c.isPinned };
-        }
-        return c;
-      })
-    );
   };
 
   return (
@@ -366,13 +314,13 @@ export default function ChatPage() {
           >
             <div style={{ width: `${sidebarWidth}px` }} className="h-full flex flex-col shrink-0">
               <ChatSidebar
-                channel={channel}
-                onChannelChange={setChannel}
+                channel={activeChannel}
+                onChannelChange={setChatChannel}
                 // AI Sessions
                 aiSessions={aiSessions}
                 activeAiSessionId={activeAiSessionId}
                 onSelectAiSession={(id) => {
-                  setChannel("ai");
+                  setChatChannel("ai");
                   setActiveAiSessionId(id);
                 }}
                 onNewAiSession={handleNewAiSession}
@@ -380,10 +328,11 @@ export default function ChatPage() {
                 onTogglePinAiSession={handleTogglePinAiSession}
                 // Direct P2P
                 directConversations={directConversations}
-                activeDirectConversationId={activeDirectConversationId}
+                activeDirectConversationId={selectedDirectConversationId}
                 onSelectDirectConversation={(id) => {
-                  setChannel("direct");
+                  setChatChannel("direct");
                   setActiveDirectConversationId(id);
+                  void loadConversationMessages(id);
                 }}
                 // Search & Filter
                 searchQuery={searchQuery}
@@ -394,6 +343,8 @@ export default function ChatPage() {
                 onToggleShowHidden={() => setShowHidden((prev) => !prev)}
                 onSelectAiTopic={handleSelectAiTopic}
                 onToggleCollapse={toggleSidebar}
+                activeDemoUserId={activeDemoUserId}
+                onDemoUserChange={selectDemoUser}
               />
             </div>
           </div>
@@ -413,7 +364,7 @@ export default function ChatPage() {
 
           {/* Cột Phải: Khung Chat Chi Tiết */}
           <div className="flex-1 h-full flex flex-col overflow-hidden min-w-0">
-            {channel === "ai" ? (
+            {activeChannel === "ai" ? (
               <AiChatWindow
                 session={activeAiSession}
                 onBack={() => setActiveAiSessionId(null)}
@@ -427,9 +378,10 @@ export default function ChatPage() {
               <ChatWindow
                 conversation={activeDirectConversation}
                 onBack={() => setActiveDirectConversationId(null)}
-                onSendMessage={handleSendDirectMessage}
-                onToggleHideConversation={handleToggleHideDirectConversation}
-                onTogglePinConversation={handleTogglePinDirectConversation}
+                onSendMessage={sendDirectMessage}
+                onToggleHideConversation={toggleHideConversation}
+                onTogglePinConversation={togglePinConversation}
+                currentUserId={activeDemoUserId}
                 isSidebarCollapsed={isSidebarCollapsed}
                 onToggleSidebar={toggleSidebar}
               />

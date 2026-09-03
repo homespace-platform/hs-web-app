@@ -1,14 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { MessageCircle, Sparkles, X } from "lucide-react";
+import { Sparkles } from "lucide-react";
+import { useChatDemo } from "@/components/chat/ChatDemoProvider";
+import ChatQuickPopup from "@/components/chat/ChatQuickPopup";
 
 export default function FloatingChatButton() {
   const pathname = usePathname();
   const [isHovered, setIsHovered] = useState(false);
+  const { openChatList } = useChatDemo();
 
   // Nếu đang ở màn hình /chat thì ẩn nút bấm
   if (pathname === "/chat" || pathname.startsWith("/chat/")) {
@@ -18,7 +20,8 @@ export default function FloatingChatButton() {
   const unreadCount = 3;
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 flex items-center gap-3 select-none pointer-events-none">
+    <>
+      <div className="fixed bottom-6 right-6 z-40 flex items-center gap-3 select-none pointer-events-none">
       {/* Tooltip Gợi ý mở rộng khi hover */}
       {isHovered && (
         <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card/95 backdrop-blur-md border border-border shadow-md text-foreground text-xs font-bold pointer-events-none animate-in fade-in-50 duration-150">
@@ -28,8 +31,9 @@ export default function FloatingChatButton() {
       )}
 
       {/* Nút Chat tròn nổi bật ở góc dưới bên phải */}
-      <Link
-        href="/chat"
+      <button
+        type="button"
+        onClick={openChatList}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         className="pointer-events-auto relative w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-primary hover:bg-primary/95 text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer border-2 border-white/80 dark:border-white/20 group p-1"
@@ -53,7 +57,9 @@ export default function FloatingChatButton() {
             {unreadCount}
           </span>
         )}
-      </Link>
-    </div>
+      </button>
+      </div>
+      <ChatQuickPopup />
+    </>
   );
 }

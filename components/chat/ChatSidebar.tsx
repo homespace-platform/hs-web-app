@@ -22,6 +22,7 @@ import {
   AiChatSession,
 } from "@/types/chat.type";
 import { AI_QUICK_TOPICS } from "@/data/mock-chat-data";
+import ChatDemoIdentitySwitcher from "@/components/chat/ChatDemoIdentitySwitcher";
 
 interface ChatSidebarProps {
   channel: ChatChannelType;
@@ -46,6 +47,8 @@ interface ChatSidebarProps {
   onTabChange: (tab: ChatFilterTab) => void;
   showHidden: boolean;
   onToggleShowHidden: () => void;
+  activeDemoUserId: string;
+  onDemoUserChange: (userId: string) => void;
 }
 
 export default function ChatSidebar({
@@ -68,6 +71,8 @@ export default function ChatSidebar({
   onTabChange,
   showHidden,
   onToggleShowHidden,
+  activeDemoUserId,
+  onDemoUserChange,
 }: ChatSidebarProps) {
   const [openSessionMenuId, setOpenSessionMenuId] = useState<string | null>(
     null
@@ -188,6 +193,7 @@ export default function ChatSidebar({
               )}
             </button>
           </div>
+          <ChatDemoIdentitySwitcher value={activeDemoUserId} onChange={onDemoUserChange} />
         </div>
 
         {/* 2. Channel Content View */}
@@ -450,6 +456,10 @@ export default function ChatSidebar({
                 sortedDirectConversations.map((conv) => {
                   const isSelected = activeDirectConversationId === conv.id;
                   const initial = conv.userName.charAt(0).toUpperCase();
+                  const lastMessage = conv.messages[conv.messages.length - 1];
+                  const lastMessageIsMine = lastMessage?.senderId
+                    ? lastMessage.senderId === activeDemoUserId
+                    : conv.lastMessageSender === "me";
 
                   return (
                     <div
@@ -497,7 +507,7 @@ export default function ChatSidebar({
                         </div>
 
                         <p className="text-[11px] text-muted-foreground truncate font-normal">
-                          {conv.lastMessageSender === "me" && "Bạn: "}
+                          {lastMessageIsMine && !conv.lastMessage.startsWith("Bạn:") && "Bạn: "}
                           {conv.lastMessage}
                         </p>
                       </div>

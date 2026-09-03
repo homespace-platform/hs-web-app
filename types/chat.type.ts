@@ -12,6 +12,7 @@ export interface RelatedListing {
 export interface ChatMessage {
   id: string;
   sender: "me" | "them";
+  senderId?: string;
   content: string;
   timestamp: string;
   dateGroup?: string;

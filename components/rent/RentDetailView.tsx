@@ -38,6 +38,8 @@ import appointmentService from "@/services/appointment.service";
 import RentalRequestModal from "@/components/rental-request/RentalRequestModal";
 import rentalRequestService from "@/services/rental-request.service";
 import type { RentalRequestResponse } from "@/types/rental-request.type";
+import { useChatDemo } from "@/components/chat/ChatDemoProvider";
+import type { RelatedListing } from "@/types/chat.type";
 
 const formatPrice = (priceMillion: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -125,6 +127,7 @@ export default function RentDetailView({
   const wardHref = `${provinceHref}&ward=${encodeURIComponent(wardName)}`;
 
   const { profile, authenticated, login } = useAuth();
+  const { openQuickChat, sendMessage } = useChatDemo();
   const currentUserId = profile?.id;
   const isOwner =
     authenticated &&
@@ -183,11 +186,37 @@ export default function RentDetailView({
     "Khi nào có thể xem nhà?",
   ];
 
-  const handleSendQuickMessage = (e?: React.FormEvent) => {
+  const chatListing: RelatedListing = {
+    id: property.id,
+    title: property.title,
+    price: formatPrice(property.priceMillion),
+    location: property.location,
+    image: property.images?.[0] || "",
+    bedrooms: property.beds,
+    area: property.areaM2,
+    verified: property.isVerified,
+  };
+
+  const openPropertyChat = async (message?: string) => {
+    const conversationId = await openQuickChat({
+      listing: chatListing,
+      contact: {
+        id: property.ownerId || property.landlord.id || "landlord-demo",
+        name: property.landlord.name,
+        avatar: property.landlord.avatar,
+        role: property.landlord.role || "Chủ nhà",
+      },
+    });
+    if (message && conversationId) {
+      await sendMessage(conversationId, message, chatListing);
+      setQuickMessage("");
+    }
+  };
+
+  const handleSendQuickMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!quickMessage.trim()) return;
-    toast.success(`Đã gửi tin nhắn đến ${property.landlord.name}: "${quickMessage.trim()}"`);
-    setQuickMessage("");
+    await openPropertyChat(quickMessage);
   };
 
   const highlights = [
@@ -575,13 +604,14 @@ export default function RentDetailView({
                     <Phone className="w-3.5 h-3.5 text-primary" />
                     <span>{phoneRevealed ? formatPhoneFull(rawPhone) : "Gọi điện"}</span>
                   </a>
-                  <Link
-                    href="/chat"
+                  <button
+                    type="button"
+                    onClick={() => void openPropertyChat()}
                     className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 px-3 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all cursor-pointer"
                   >
                     <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
                     <span>Chat</span>
-                  </Link>
+                  </button>
                 </div>
               </div>
 

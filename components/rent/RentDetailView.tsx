@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Bath,
   BedDouble,
@@ -40,6 +41,7 @@ import rentalRequestService from "@/services/rental-request.service";
 import type { RentalRequestResponse } from "@/types/rental-request.type";
 import { useChatDemo } from "@/components/chat/ChatDemoProvider";
 import type { RelatedListing } from "@/types/chat.type";
+import { chatConversationUrl } from "@/lib/chat-demo-state";
 
 const formatPrice = (priceMillion: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -127,7 +129,8 @@ export default function RentDetailView({
   const wardHref = `${provinceHref}&ward=${encodeURIComponent(wardName)}`;
 
   const { profile, authenticated, login } = useAuth();
-  const { openQuickChat, sendMessage } = useChatDemo();
+  const router = useRouter();
+  const { openConversation, sendMessage } = useChatDemo();
   const currentUserId = profile?.id;
   const isOwner =
     authenticated &&
@@ -198,10 +201,10 @@ export default function RentDetailView({
   };
 
   const openPropertyChat = async (message?: string) => {
-    const conversationId = await openQuickChat({
+    const conversationId = await openConversation({
       listing: chatListing,
       contact: {
-        id: property.ownerId || property.landlord.id || "landlord-demo",
+        id: property.ownerId || property.landlord.id,
         name: property.landlord.name,
         avatar: property.landlord.avatar,
         role: property.landlord.role || "Chủ nhà",
@@ -211,6 +214,7 @@ export default function RentDetailView({
       await sendMessage(conversationId, message, chatListing);
       setQuickMessage("");
     }
+    if (conversationId) router.push(chatConversationUrl(conversationId));
   };
 
   const handleSendQuickMessage = async (e?: React.FormEvent) => {

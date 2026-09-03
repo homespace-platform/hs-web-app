@@ -52,10 +52,9 @@ export default function ChatPage() {
   );
 
   const {
-    activeDemoUserId,
+    currentUserId,
     conversations: directConversations,
     sendMessage: sendDirectMessage,
-    selectDemoUser,
     toggleHideConversation,
     togglePinConversation,
     loadConversationMessages,
@@ -342,8 +341,7 @@ export default function ChatPage() {
                 onToggleShowHidden={() => setShowHidden((prev) => !prev)}
                 onSelectAiTopic={handleSelectAiTopic}
                 onToggleCollapse={toggleSidebar}
-                activeDemoUserId={activeDemoUserId}
-                onDemoUserChange={selectDemoUser}
+                currentUserId={currentUserId}
               />
             </div>
           </div>
@@ -380,7 +378,7 @@ export default function ChatPage() {
                 onSendMessage={sendDirectMessage}
                 onToggleHideConversation={toggleHideConversation}
                 onTogglePinConversation={togglePinConversation}
-                currentUserId={activeDemoUserId}
+                currentUserId={currentUserId}
                 isSidebarCollapsed={isSidebarCollapsed}
                 onToggleSidebar={toggleSidebar}
               />

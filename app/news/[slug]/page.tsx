@@ -175,12 +175,15 @@ export default function NewsDetailPage({ params }: NewsDetailProps) {
           {/* Body Content */}
           <div className="prose dark:prose-invert max-w-none text-muted-foreground text-sm sm:text-base leading-relaxed space-y-5">
             {article.contentBlocks?.map((block, index) => block.type === "IMAGE" ? (
-              <img key={index} src={block.storageObjectId ? article.media?.find((media) => media.storageObjectId === block.storageObjectId)?.url || "" : ""} alt={block.altText || "Ảnh trong bài viết"} className="w-full rounded-2xl object-contain" />
+              <figure key={index} className="space-y-2">
+                <img src={block.storageObjectId ? article.media?.find((media) => media.storageObjectId === block.storageObjectId)?.url || "" : ""} alt="Ảnh trong bài viết" className="w-full rounded-2xl object-contain" />
+                {block.caption && <figcaption className="text-center text-xs italic text-muted-foreground">{block.caption}</figcaption>}
+              </figure>
             ) : block.type === "HEADING" ? (
-              <h2 key={index} className="font-heading font-bold text-lg sm:text-xl text-foreground pt-4">{block.text}</h2>
+              <h2 key={index} className="font-heading font-bold text-lg sm:text-xl text-foreground pt-4" dangerouslySetInnerHTML={{ __html: sanitizeNewsInlineMarkup(block.text) }} />
             ) : block.type === "QUOTE" ? (
-              <blockquote key={index} className="border-l-4 border-primary pl-4 italic">{block.text}</blockquote>
-            ) : <p key={index}>{block.text}</p>)}
+              <blockquote key={index} className="border-l-4 border-primary pl-4 italic" dangerouslySetInnerHTML={{ __html: sanitizeNewsInlineMarkup(block.text) }} />
+            ) : <p key={index} dangerouslySetInnerHTML={{ __html: sanitizeNewsInlineMarkup(block.text) }} />)}
           </div>
 
           {/* Tags */}
@@ -213,6 +216,53 @@ export default function NewsDetailPage({ params }: NewsDetailProps) {
       <Footer />
     </div>
   );
+}
+
+const NEWS_INLINE_TAGS = new Map([
+  ["strong", "strong"],
+  ["b", "strong"],
+  ["em", "em"],
+  ["i", "em"],
+  ["u", "u"],
+  ["br", "br"],
+]);
+
+function sanitizeNewsInlineMarkup(value: string | null | undefined) {
+  value = value ?? "";
+  value = value.replace(/&lt;br\s*\/?&gt;/gi, "<br>");
+  const tagPattern = /<\/?[a-z][^>]*>/gi;
+  let result = "";
+  let cursor = 0;
+
+  for (const match of value.matchAll(tagPattern)) {
+    const token = match[0];
+    const index = match.index ?? 0;
+    result += escapeNewsText(value.slice(cursor, index));
+    const tag = token.match(/^<\/?\s*([a-z]+)\b/i)?.[1]?.toLowerCase();
+    const normalized = tag ? NEWS_INLINE_TAGS.get(tag) : undefined;
+    result += normalized
+      ? token.startsWith("</") ? `</${normalized}>` : `<${normalized}>`
+      : escapeNewsHtml(token);
+    cursor = index + token.length;
+  }
+
+  return result + escapeNewsText(value.slice(cursor));
+}
+
+function escapeNewsHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function escapeNewsText(value: string) {
+  return value
+    .replace(/&(?!amp;|lt;|gt;|quot;|#\d+;|#x[\da-f]+;)/gi, "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 function toArticle(item: PublicNewsResponse | PublicNewsSummary): NewsArticle {

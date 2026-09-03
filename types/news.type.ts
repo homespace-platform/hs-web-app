@@ -44,6 +44,7 @@ export type PublicNewsSummary = {
   category: Uppercase<NewsArticle["category"]>;
   status: "PUBLISHED";
   featured: boolean;
+  views: number;
   tags: string[];
   thumbnailUrl: string | null;
   authorName: string;

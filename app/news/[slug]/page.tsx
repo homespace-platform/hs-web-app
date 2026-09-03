@@ -1,12 +1,13 @@
 "use client";
 
-import React, { use, useEffect, useState } from "react";
+import React, { use, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import NewsCard from "@/components/news/NewsCard";
 import newsService from "@/services/news.service";
+import { sanitizeNewsInlineMarkup } from "@/lib/news-content";
 import type { NewsArticle, PublicNewsResponse, PublicNewsSummary } from "@/types/news.type";
 import { toast } from "sonner";
 import {
@@ -28,10 +29,17 @@ export default function NewsDetailPage({ params }: NewsDetailProps) {
   const [copied, setCopied] = useState(false);
   const [article, setArticle] = useState<NewsArticle | null>(null);
   const [relatedArticles, setRelatedArticles] = useState<NewsArticle[]>([]);
+  const recordedViewSlug = useRef<string | null>(null);
 
   useEffect(() => {
     newsService.getBySlug(resolvedParams.slug).then((response) => {
       setArticle(toArticle(response));
+      if (recordedViewSlug.current !== resolvedParams.slug) {
+        recordedViewSlug.current = resolvedParams.slug;
+        void newsService.recordView(resolvedParams.slug).then(({ views }) => {
+          setArticle((current) => current ? { ...current, views } : current);
+        });
+      }
       return newsService.list({ size: 4, category: response.category });
     }).then((response) => {
       if (!response) return;
@@ -218,53 +226,6 @@ export default function NewsDetailPage({ params }: NewsDetailProps) {
   );
 }
 
-const NEWS_INLINE_TAGS = new Map([
-  ["strong", "strong"],
-  ["b", "strong"],
-  ["em", "em"],
-  ["i", "em"],
-  ["u", "u"],
-  ["br", "br"],
-]);
-
-function sanitizeNewsInlineMarkup(value: string | null | undefined) {
-  value = value ?? "";
-  value = value.replace(/&lt;br\s*\/?&gt;/gi, "<br>");
-  const tagPattern = /<\/?[a-z][^>]*>/gi;
-  let result = "";
-  let cursor = 0;
-
-  for (const match of value.matchAll(tagPattern)) {
-    const token = match[0];
-    const index = match.index ?? 0;
-    result += escapeNewsText(value.slice(cursor, index));
-    const tag = token.match(/^<\/?\s*([a-z]+)\b/i)?.[1]?.toLowerCase();
-    const normalized = tag ? NEWS_INLINE_TAGS.get(tag) : undefined;
-    result += normalized
-      ? token.startsWith("</") ? `</${normalized}>` : `<${normalized}>`
-      : escapeNewsHtml(token);
-    cursor = index + token.length;
-  }
-
-  return result + escapeNewsText(value.slice(cursor));
-}
-
-function escapeNewsHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-function escapeNewsText(value: string) {
-  return value
-    .replace(/&(?!amp;|lt;|gt;|quot;|#\d+;|#x[\da-f]+;)/gi, "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
 function toArticle(item: PublicNewsResponse | PublicNewsSummary): NewsArticle {
   const category = item.category.toLowerCase() as NewsArticle["category"];
   return {
@@ -272,7 +233,7 @@ function toArticle(item: PublicNewsResponse | PublicNewsSummary): NewsArticle {
     coverImage: item.thumbnailUrl || "/logo/homespace-logo-removebg.png", category,
     categoryLabel: category, tags: item.tags || [], isFeatured: item.featured,
     publishedAt: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString("vi-VN") : "",
-    views: 0, readTimeMinutes: 1,
+    views: item.views ?? 0, readTimeMinutes: 1,
     author: { name: item.authorName || "HomeSpace", avatar: "/logo/homespace-logo-removebg.png", role: "HomeSpace" },
     contentBlocks: "contentBlocks" in item ? item.contentBlocks : [],
     media: "media" in item ? item.media : [],

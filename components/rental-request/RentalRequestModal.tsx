@@ -281,6 +281,11 @@ export default function RentalRequestModal({
       return;
     }
 
+    if (!occupantCount || occupantCount < 1) {
+      toast.error("Vui lòng nhập số người dọn vào ở (tối thiểu 1 người)");
+      return;
+    }
+
     if (!renterName.trim()) {
       toast.error("Vui lòng nhập họ và tên của bạn");
       return;
@@ -556,25 +561,65 @@ export default function RentalRequestModal({
 
           {/* 4. SỐ NGƯỜI DỌN VÀO Ở */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-primary" />
-              <span>Số người dọn vào ở</span>
-            </label>
-            <div className="grid grid-cols-5 gap-1.5">
-              {[1, 2, 3, 4, 5].map((cnt) => (
-                <button
-                  key={cnt}
-                  type="button"
-                  onClick={() => setOccupantCount(cnt)}
-                  className={`py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                    occupantCount === cnt
-                      ? "border-primary bg-primary text-primary-foreground shadow-xs"
-                      : "border-border bg-background hover:bg-muted text-foreground"
-                  }`}
-                >
-                  {cnt === 5 ? "5+ người" : `${cnt} người`}
-                </button>
-              ))}
+            <div className="flex items-center justify-between text-xs">
+              <label className="font-semibold text-foreground flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-primary" />
+                <span>Số người dọn vào ở</span>
+                <span className="text-rose-500">*</span>
+              </label>
+              <span className="text-[11px] text-muted-foreground">
+                Tối thiểu 1 người
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  step={1}
+                  placeholder="Nhập số người dọn vào ở (tối thiểu 1)"
+                  value={occupantCount || ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "") {
+                      setOccupantCount(0);
+                    } else {
+                      const num = parseInt(val, 10);
+                      setOccupantCount(isNaN(num) ? 0 : Math.max(1, num));
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!occupantCount || occupantCount < 1) {
+                      setOccupantCount(1);
+                    }
+                  }}
+                  className="w-full pl-3 pr-16 py-2 text-xs rounded-xl border border-input bg-background focus:outline-hidden focus:ring-1 focus:ring-primary text-foreground font-semibold"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium pointer-events-none">
+                  người
+                </span>
+              </div>
+
+              {/* Nút điều chỉnh nhanh: -1, +1 */}
+              <button
+                type="button"
+                disabled={occupantCount <= 1}
+                onClick={() => setOccupantCount((prev) => Math.max(1, (prev || 1) - 1))}
+                className="px-3 py-2 rounded-xl border border-border bg-card hover:bg-muted disabled:opacity-40 text-xs font-bold transition-colors cursor-pointer"
+                title="Giảm 1 người"
+              >
+                -1
+              </button>
+              <button
+                type="button"
+                disabled={occupantCount >= 20}
+                onClick={() => setOccupantCount((prev) => Math.min(20, Math.max(1, (prev || 0) + 1)))}
+                className="px-3 py-2 rounded-xl border border-border bg-card hover:bg-muted disabled:opacity-40 text-xs font-bold transition-colors cursor-pointer"
+                title="Tăng 1 người"
+              >
+                +1
+              </button>
             </div>
           </div>
 

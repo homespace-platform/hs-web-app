@@ -11,7 +11,10 @@ import storageService from "@/services/storage.service";
 import type { Province, Ward } from "@/types/province.type";
 import type { ListingOptionsResponse, ListingSubmissionAction } from "@/types/listing.type";
 import { getApiErrorMessage } from "@/utils/apiError";
-import { buildCreateListingPayload } from "./utils/buildListingPayload";
+import {
+  buildCreateListingPayload,
+  furnishingStatusToFormValue,
+} from "./utils/buildListingPayload";
 
 import BasicInfoSection from "./components/BasicInfoSection";
 import ApartmentDetailsSection from "./components/details/ApartmentDetailsSection";
@@ -19,6 +22,7 @@ import HouseDetailsSection from "./components/details/HouseDetailsSection";
 import OfficeDetailsSection from "./components/details/OfficeDetailsSection";
 import CommercialDetailsSection from "./components/details/CommercialDetailsSection";
 import RoomDetailsSection from "./components/details/RoomDetailsSection";
+import FurnishingAssetsSection from "./components/details/FurnishingAssetsSection";
 import AmenitiesSection from "./components/AmenitiesSection";
 import MonthlyExpensesSection from "./components/MonthlyExpensesSection";
 import PricingSection from "./components/PricingSection";
@@ -41,6 +45,7 @@ import type {
   OfficeDetailsData,
   CommercialDetailsData,
   RoomDetailsData,
+  FurnishingAssetRow,
   MonthlyExpensesData,
   PricingData,
   FormErrors,
@@ -158,7 +163,6 @@ function CreatePropertyListingContent() {
     hasBalcony: "PRIVATE",
     hasLoft: false,
     furnishing: "FULL",
-    selectedFurniture: [],
     entranceType: "PRIVATE",
     curfewType: "FREE",
     electricityMeter: "PRIVATE",
@@ -167,6 +171,9 @@ function CreatePropertyListingContent() {
     maxVehicles: "2",
     parkingPolicy: "FREE",
   });
+
+  // Section 2 (dùng chung 5 loại hình): bảng kiểm kê trang thiết bị bàn giao
+  const [furnishingAssets, setFurnishingAssets] = useState<FurnishingAssetRow[]>([]);
 
   // Section 3: Amenities
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
@@ -396,7 +403,7 @@ function CreatePropertyListingContent() {
             kitchens: String(res.apartmentDetail.kitchenCount ?? "1"),
             floor: String(res.apartmentDetail.floorNumber ?? ""),
             totalFloors: String(res.apartmentDetail.buildingTotalFloors ?? ""),
-            furnishing: res.apartmentDetail.furnishingStatus || "FULL",
+            furnishing: furnishingStatusToFormValue(res.apartmentDetail.furnishingStatus),
             doorOrientation: res.apartmentDetail.mainDoorDirection || "",
             balconyOrientation: res.apartmentDetail.balconyDirection || "",
             view: res.apartmentDetail.viewDescription || "",
@@ -423,7 +430,7 @@ function CreatePropertyListingContent() {
             hasGarage: Boolean(res.houseDetail.hasGarage),
             maxOccupants: String(res.houseDetail.maxOccupants ?? "6"),
             maxVehicles: String(res.houseDetail.maxVehicles ?? "4"),
-            furnishing: res.houseDetail.furnishingStatus || "BASIC",
+            furnishing: furnishingStatusToFormValue(res.houseDetail.furnishingStatus),
             legalStatus: res.houseDetail.legalStatus || "PINK_BOOK",
             rentalScope: res.houseDetail.rentalScopeDescription || "",
             rentalFloor: String(res.houseDetail.rentedFloorFrom ?? ""),
@@ -499,8 +506,7 @@ function CreatePropertyListingContent() {
             hasWindow: res.roomDetail.hasWindow ? "YES" : "NO",
             hasBalcony: res.roomDetail.hasBalcony ? "PRIVATE" : "NO",
             hasLoft: Boolean(res.roomDetail.hasMezzanine),
-            furnishing: res.roomDetail.furnishingStatus || "FULL",
-            selectedFurniture: res.furnishings?.map((f) => f.code) || [],
+            furnishing: furnishingStatusToFormValue(res.roomDetail.furnishingStatus),
             entranceType: res.roomDetail.accessType === "SHARED" ? "SHARED" : "PRIVATE",
             curfewType: res.roomDetail.accessHoursType === "CURFEW" ? "CURFEW" : "FREE",
             electricityMeter: res.roomDetail.electricMeterType === "SHARED" ? "SHARED" : "PRIVATE",
@@ -516,10 +522,20 @@ function CreatePropertyListingContent() {
           });
         }
 
-        // 3. Amenities
+        // 3. Amenities & bảng trang thiết bị bàn giao
         if (res.amenities && res.amenities.length > 0) {
           setSelectedAmenities(res.amenities.map((a) => a.code || a.name));
         }
+
+        setFurnishingAssets(
+          (res.furnishings || []).map((f) => ({
+            itemCode: f.itemCode ?? null,
+            assetName: f.assetName || "",
+            quantity: f.quantity ?? 1,
+            handoverCondition: f.handoverCondition || "GOOD",
+            conditionNote: f.conditionNote || "",
+          }))
+        );
 
         // 4. Monthly Expenses
         if (res.charges) {
@@ -685,6 +701,32 @@ function CreatePropertyListingContent() {
     selectedProvince?.name,
   ]);
 
+  // Bàn giao thô được phép bỏ trống bảng thiết bị; mọi mức có nội thất đều phải
+  // kê khai để dùng làm biên bản bàn giao trong hợp đồng.
+  const isFurnishingRequired = useMemo(() => {
+    switch (basicInfo.category) {
+      case "apartment":
+        return apartmentDetails.furnishing !== "RAW";
+      case "house":
+        return houseDetails.furnishing !== "RAW";
+      case "room":
+        return roomDetails.furnishing !== "RAW";
+      case "office":
+        return officeDetails.handoverCondition !== "RAW";
+      case "commercial":
+        return commercialDetails.handoverCondition !== "RAW";
+      default:
+        return false;
+    }
+  }, [
+    basicInfo.category,
+    apartmentDetails.furnishing,
+    houseDetails.furnishing,
+    roomDetails.furnishing,
+    officeDetails.handoverCondition,
+    commercialDetails.handoverCondition,
+  ]);
+
   // Category change handler with confirmation
   function requestCategoryChange(newCategory: PropertyCategoryKey) {
     if (newCategory === basicInfo.category) return;
@@ -709,7 +751,9 @@ function CreatePropertyListingContent() {
       priceUnit: defaultPriceUnit,
     }));
 
+    // Catalog tiện ích và trang thiết bị khác nhau theo loại hình
     setSelectedAmenities([]);
+    setFurnishingAssets([]);
     setErrors({});
     setIsCategoryModalOpen(false);
     setPendingCategory(null);
@@ -806,6 +850,31 @@ function CreatePropertyListingContent() {
         addError("field-room-occupants", "maxOccupants", "Số người ở tối đa phải lớn hơn 0.");
       }
     }
+
+    // 2b. Bảng trang thiết bị bàn giao (dùng chung cho cả 5 loại hình)
+    if (isFurnishingRequired && furnishingAssets.length === 0) {
+      addError(
+        "field-furnishing-assets",
+        "furnishingAssets",
+        "Vui lòng kê khai ít nhất một tài sản / trang thiết bị bàn giao."
+      );
+    }
+    furnishingAssets.forEach((row, index) => {
+      if (!row.assetName.trim()) {
+        addError(
+          "field-furnishing-assets",
+          `furnishingAssets.${index}.assetName`,
+          "Vui lòng nhập tên tài sản."
+        );
+      }
+      if (!row.quantity || Number(row.quantity) < 1) {
+        addError(
+          "field-furnishing-assets",
+          `furnishingAssets.${index}.quantity`,
+          "Số lượng phải từ 1 trở lên."
+        );
+      }
+    });
 
     // 3. Pricing
     if (!pricing.priceMonthly || Number(pricing.priceMonthly) <= 0) {
@@ -937,6 +1006,7 @@ function CreatePropertyListingContent() {
         officeDetails,
         commercialDetails,
         roomDetails,
+        furnishingAssets,
         selectedAmenities,
         monthlyExpenses,
         pricing,
@@ -984,6 +1054,18 @@ function CreatePropertyListingContent() {
 
   // Render Category Details Subcomponent cleanly
   function renderDetailsSection() {
+    const furnishingSlot = (
+      <div id="field-furnishing-assets" className="sm:col-span-2">
+        <FurnishingAssetsSection
+          rows={furnishingAssets}
+          errors={errors}
+          required={isFurnishingRequired}
+          furnishingOptions={listingOptions.furnishings}
+          onChange={setFurnishingAssets}
+        />
+      </div>
+    );
+
     switch (basicInfo.category) {
       case "apartment":
               return (
@@ -994,6 +1076,7 @@ function CreatePropertyListingContent() {
             onChange={(updates) =>
               setApartmentDetails((prev) => ({ ...prev, ...updates }))
             }
+            furnishingSlot={furnishingSlot}
           />
         );
       case "house":
@@ -1005,6 +1088,7 @@ function CreatePropertyListingContent() {
             onChange={(updates) =>
               setHouseDetails((prev) => ({ ...prev, ...updates }))
             }
+            furnishingSlot={furnishingSlot}
           />
         );
       case "office":
@@ -1016,6 +1100,7 @@ function CreatePropertyListingContent() {
             onChange={(updates) =>
               setOfficeDetails((prev) => ({ ...prev, ...updates }))
             }
+            furnishingSlot={furnishingSlot}
           />
         );
       case "commercial":
@@ -1027,6 +1112,7 @@ function CreatePropertyListingContent() {
             onChange={(updates) =>
               setCommercialDetails((prev) => ({ ...prev, ...updates }))
             }
+            furnishingSlot={furnishingSlot}
           />
         );
       case "room":
@@ -1034,10 +1120,10 @@ function CreatePropertyListingContent() {
           <RoomDetailsSection
             data={roomDetails}
             errors={errors}
-            furnishingOptions={listingOptions.furnishings}
             onChange={(updates) =>
               setRoomDetails((prev) => ({ ...prev, ...updates }))
             }
+            furnishingSlot={furnishingSlot}
           />
         );
       default:

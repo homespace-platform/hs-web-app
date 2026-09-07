@@ -54,7 +54,40 @@ export type FurnishingStatus =
   | "UNFURNISHED"
   | "BASIC"
   | "PARTIALLY_FURNISHED"
-  | "FULLY_FURNISHED";
+  | "FULLY_FURNISHED"
+  | "LUXURY";
+
+export type HandoverCondition =
+  | "BRAND_NEW"
+  | "GOOD"
+  | "NORMAL"
+  | "USED_ACCEPTABLE"
+  | "MINOR_DAMAGE";
+
+export type OfficeHandoverStatus = "RAW" | "BASIC" | "FULL";
+
+export type CommercialHandoverStatus = "RAW" | "BASIC" | "FINISHED";
+
+/** Một dòng của bảng trang thiết bị bàn giao gửi lên khi upsert. */
+export type ListingFurnishingRequest = {
+  itemCode?: string | null;
+  assetName: string;
+  quantity: number;
+  handoverCondition: HandoverCondition;
+  conditionNote?: string | null;
+};
+
+/** Một dòng bảng trang thiết bị đọc về, đã đánh STT sẵn cho hợp đồng. */
+export type ListingFurnishingResponse = {
+  index: number;
+  itemCode?: string | null;
+  assetName: string;
+  quantity: number;
+  handoverCondition: HandoverCondition;
+  handoverConditionLabel: string;
+  conditionNote?: string | null;
+  conditionText: string;
+};
 
 export type PriceUnit =
   | "MONTH"
@@ -184,7 +217,7 @@ export type OfficeDetailRequest = {
   buildingName?: string | null;
   officeGrade?: string | null;
   floorNumber: number;
-  handoverStatus: string;
+  handoverStatus: OfficeHandoverStatus;
   expectedSeats?: number | null;
   minimumDivisibleAreaM2?: number | null;
   restroomCount?: number | null;
@@ -207,7 +240,7 @@ export type CommercialDetailRequest = {
   restroomCount?: number | null;
   accessType?: string | null;
   parkingType?: ParkingType | null;
-  handoverStatus: string;
+  handoverStatus: CommercialHandoverStatus;
   hasThreePhasePower?: boolean | null;
   hasStandardFireSafety?: boolean | null;
   operatingHoursDescription?: string | null;
@@ -299,7 +332,7 @@ export type CreateListingRequest = {
   roomDetail?: RoomDetailRequest | null;
   amenityCodes?: string[];
   customAmenities?: string[];
-  furnishingCodes?: string[];
+  furnishings?: ListingFurnishingRequest[];
   charges?: ListingChargeRequest[];
   addressSource: ListingAddressSourceRequest;
   media: ListingMediaRequest[];
@@ -396,7 +429,7 @@ export type ListingDetailResponse = {
   roomDetail?: RoomDetailRequest | null;
   amenities: ListingOptionItemResponse[];
   customAmenities: string[];
-  furnishings: ListingOptionItemResponse[];
+  furnishings: ListingFurnishingResponse[];
   charges: ListingChargeRequest[];
   address?: ListingAddressResponse | null;
   owner?: ListingOwner | null;

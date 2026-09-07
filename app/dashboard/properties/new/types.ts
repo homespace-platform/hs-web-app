@@ -168,7 +168,6 @@ export interface RoomDetailsData {
   hasBalcony?: string;
   hasLoft?: boolean;
   furnishing: string;
-  selectedFurniture: string[];
   entranceType?: string;
   curfewType?: string;
   electricityMeter?: string;
@@ -176,6 +175,15 @@ export interface RoomDetailsData {
   maxOccupants?: number | string;
   maxVehicles?: number | string;
   parkingPolicy?: string;
+}
+
+// Section 2 (chung cho cả 5 loại hình): bảng kiểm kê trang thiết bị bàn giao
+export interface FurnishingAssetRow {
+  itemCode: string | null;
+  assetName: string;
+  quantity: number | string;
+  handoverCondition: string;
+  conditionNote?: string;
 }
 
 // Section 4: Monthly Expenses

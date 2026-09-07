@@ -116,6 +116,7 @@ const FURNISHING_LABELS: Record<FurnishingStatus, string> = {
   BASIC: "Nội thất cơ bản (Đèn, quạt, vệ sinh)",
   PARTIALLY_FURNISHED: "Nội thất một phần",
   FULLY_FURNISHED: "Đầy đủ nội thất cao cấp (Full đồ)",
+  LUXURY: "Nội thất cao cấp",
 };
 
 const PAYMENT_CYCLE_LABELS: Record<string, string> = {
@@ -835,16 +836,31 @@ export default function ListingPreviewModal({
                     Đồ dùng & Nội thất bàn giao:
                   </p>
                   {listing.furnishings && listing.furnishings.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {listing.furnishings.map((item) => (
-                        <span
-                          key={item.code}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted border border-border text-foreground text-xs font-medium"
-                        >
-                          <Check className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                          {item.name}
-                        </span>
-                      ))}
+                    <div className="overflow-x-auto rounded-xl border border-border">
+                      <table className="w-full min-w-105 border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-muted/50 text-left font-semibold text-muted-foreground">
+                            <th className="w-10 px-3 py-2">STT</th>
+                            <th className="px-3 py-2">Tên tài sản / Trang thiết bị</th>
+                            <th className="w-20 px-3 py-2">Số lượng</th>
+                            <th className="px-3 py-2">Hiện trạng bàn giao</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {listing.furnishings.map((item) => (
+                            <tr key={item.index} className="border-t border-border/60">
+                              <td className="px-3 py-2 text-muted-foreground">{item.index}</td>
+                              <td className="px-3 py-2 font-medium text-foreground">
+                                {item.assetName}
+                              </td>
+                              <td className="px-3 py-2 text-foreground">{item.quantity}</td>
+                              <td className="px-3 py-2 text-muted-foreground">
+                                {item.conditionText}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground italic">

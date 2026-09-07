@@ -126,7 +126,9 @@ export function toRentProperty(
     charges: detail?.charges ?? [],
     amenities: (detail?.amenities ?? []).map((a: any) => a.name || a.code),
     customAmenities: detail?.customAmenities ?? [],
-    furnishings: (detail?.furnishings ?? []).map((f: any) => f.name || f.code),
+    furnishings: (detail?.furnishings ?? []).map((f: any) =>
+      f.quantity > 1 ? `${f.assetName} (x${f.quantity})` : f.assetName
+    ),
     viewingDays: detail?.viewingDays ?? [],
     viewingSlots: detail?.viewingSlots ?? [],
     availableFrom: detail?.availableFrom,

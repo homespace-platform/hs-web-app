@@ -1,4 +1,4 @@
-import React from "react";
+import React, { ReactNode } from "react";
 import FormField, { inputClass, selectClass } from "../FormField";
 import FormSectionWrapper from "../FormSectionWrapper";
 import type { CommercialDetailsData, FormErrors } from "../../types";
@@ -8,6 +8,7 @@ interface CommercialDetailsSectionProps {
   subtype: string;
   errors: FormErrors;
   onChange: (updates: Partial<CommercialDetailsData>) => void;
+  furnishingSlot: ReactNode;
 }
 
 export const SPACE_POSITIONS = [
@@ -35,6 +36,7 @@ export default function CommercialDetailsSection({
   subtype,
   errors,
   onChange,
+  furnishingSlot,
 }: CommercialDetailsSectionProps) {
   const isFacadeRequired =
     subtype === "shop" || subtype === "showroom" || subtype === "shophouse";
@@ -148,6 +150,8 @@ export default function CommercialDetailsSection({
             ))}
           </select>
         </FormField>
+
+        {furnishingSlot}
 
         {/* Chỗ để xe */}
         <FormField

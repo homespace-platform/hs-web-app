@@ -15,6 +15,9 @@ import type {
   CommercialDetailRequest,
   RoomDetailRequest,
   FurnishingStatus,
+  HandoverCondition,
+  OfficeHandoverStatus,
+  CommercialHandoverStatus,
   PositionType,
   ParkingType,
   DayOfWeek,
@@ -28,6 +31,7 @@ import type {
   OfficeDetailsData,
   CommercialDetailsData,
   RoomDetailsData,
+  FurnishingAssetRow,
   MonthlyExpensesData,
   PricingData,
 } from "../types";
@@ -41,6 +45,7 @@ export interface BuildPayloadParams {
   officeDetails: OfficeDetailsData;
   commercialDetails: CommercialDetailsData;
   roomDetails: RoomDetailsData;
+  furnishingAssets: FurnishingAssetRow[];
   selectedAmenities: string[];
   monthlyExpenses: MonthlyExpensesData;
   pricing: PricingData;
@@ -173,13 +178,35 @@ function resolvePaymentCycle(cycle: string): PaymentCycle {
 
 function resolveFurnishing(f: string): FurnishingStatus {
   switch (f) {
+    case "LUXURY":
+      return "LUXURY";
     case "FULL":
       return "FULLY_FURNISHED";
+    case "PARTIAL":
+      return "PARTIALLY_FURNISHED";
     case "BASIC":
       return "BASIC";
-    case "EMPTY":
+    case "RAW":
     default:
       return "UNFURNISHED";
+  }
+}
+
+/** Nghịch đảo của resolveFurnishing, dùng khi nạp tin để sửa. */
+export function furnishingStatusToFormValue(status?: FurnishingStatus | null): string {
+  switch (status) {
+    case "LUXURY":
+      return "LUXURY";
+    case "FULLY_FURNISHED":
+      return "FULL";
+    case "PARTIALLY_FURNISHED":
+      return "PARTIAL";
+    case "BASIC":
+      return "BASIC";
+    case "UNFURNISHED":
+      return "RAW";
+    default:
+      return "FULL";
   }
 }
 
@@ -191,6 +218,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
     officeDetails,
     commercialDetails,
     roomDetails,
+    furnishingAssets,
     selectedAmenities,
     monthlyExpenses,
     pricing,
@@ -304,7 +332,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
       buildingName: officeDetails.buildingName?.trim() || null,
       officeGrade: officeDetails.officeGrade || "GRADE_B",
       floorNumber: Number(officeDetails.rentalFloor) || 1,
-      handoverStatus: officeDetails.handoverCondition || "BASIC",
+      handoverStatus: (officeDetails.handoverCondition || "BASIC") as OfficeHandoverStatus,
       expectedSeats: officeDetails.seatsCount ? Number(officeDetails.seatsCount) : null,
       minimumDivisibleAreaM2: officeDetails.isSubdivisible ? Number(officeDetails.rentalAreaM2) : null,
       restroomCount: officeDetails.toiletsCount ? Number(officeDetails.toiletsCount) : null,
@@ -353,7 +381,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
       restroomCount: commercialDetails.toiletsCount ? Number(commercialDetails.toiletsCount) : null,
       accessType: commercialDetails.privateEntrance || "PRIVATE",
       parkingType,
-      handoverStatus: commercialDetails.handoverCondition || "BASIC",
+      handoverStatus: (commercialDetails.handoverCondition || "BASIC") as CommercialHandoverStatus,
       hasThreePhasePower: Boolean(commercialDetails.hasThreePhasePower),
       hasStandardFireSafety: Boolean(commercialDetails.hasFireSafety),
       operatingHoursDescription: commercialDetails.operatingHours?.trim() || null,
@@ -572,7 +600,13 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
     roomDetail,
     amenityCodes: selectedAmenities,
     customAmenities: [],
-    furnishingCodes: category === "ROOM" ? roomDetails.selectedFurniture : [],
+    furnishings: furnishingAssets.map((row) => ({
+      itemCode: row.itemCode || null,
+      assetName: row.assetName.trim(),
+      quantity: Number(row.quantity) || 1,
+      handoverCondition: row.handoverCondition as HandoverCondition,
+      conditionNote: row.conditionNote?.trim() || null,
+    })),
     charges,
     addressSource,
     media,

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { ReactNode } from "react";
 import FormField, { inputClass, selectClass } from "../FormField";
 import FormSectionWrapper from "../FormSectionWrapper";
 import {
@@ -13,6 +13,7 @@ interface ApartmentDetailsSectionProps {
   subtype: string;
   errors: FormErrors;
   onChange: (updates: Partial<ApartmentDetailsData>) => void;
+  furnishingSlot: ReactNode;
 }
 
 export default function ApartmentDetailsSection({
@@ -20,6 +21,7 @@ export default function ApartmentDetailsSection({
   subtype,
   errors,
   onChange,
+  furnishingSlot,
 }: ApartmentDetailsSectionProps) {
   const isStudio = subtype === "studio";
 
@@ -238,6 +240,8 @@ export default function ApartmentDetailsSection({
             ))}
           </select>
         </FormField>
+
+        {furnishingSlot}
 
         {/* Hướng cửa chính */}
         <FormField

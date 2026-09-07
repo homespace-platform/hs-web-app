@@ -1,35 +1,24 @@
-import React from "react";
-import { Check } from "lucide-react";
+import React, { ReactNode } from "react";
 import FormField, { inputClass, selectClass } from "../FormField";
 import FormSectionWrapper from "../FormSectionWrapper";
 import {
   FURNISHING_OPTIONS,
 } from "../../constants";
-import type { ListingOptionItem } from "@/types/listing.type";
 import type { RoomDetailsData, FormErrors } from "../../types";
 
 interface RoomDetailsSectionProps {
   data: RoomDetailsData;
   errors: FormErrors;
   onChange: (updates: Partial<RoomDetailsData>) => void;
-  furnishingOptions: ListingOptionItem[];
+  furnishingSlot: ReactNode;
 }
 
 export default function RoomDetailsSection({
   data,
   errors,
   onChange,
-  furnishingOptions,
+  furnishingSlot,
 }: RoomDetailsSectionProps) {
-  function toggleFurniture(item: string) {
-    const list = data.selectedFurniture || [];
-    const exists = list.includes(item);
-    const updated = exists
-      ? list.filter((f) => f !== item)
-      : [...list, item];
-    onChange({ selectedFurniture: updated });
-  }
-
   return (
     <FormSectionWrapper
       id="section-details"
@@ -191,34 +180,7 @@ export default function RoomDetailsSection({
           </label>
         </div>
 
-        {/* Nội thất có sẵn trong phòng (Tag chips) */}
-        <FormField
-          id="field-selected-furniture"
-          label="Nội thất & trang thiết bị có sẵn trong phòng"
-          error={errors.selectedFurniture}
-          className="sm:col-span-2"
-        >
-          <div className="flex flex-wrap gap-2">
-            {furnishingOptions.map((item) => {
-              const selected = (data.selectedFurniture || []).includes(item.code);
-              return (
-                <button
-                  key={item.code}
-                  type="button"
-                  onClick={() => toggleFurniture(item.code)}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
-                    selected
-                      ? "border-primary bg-primary text-primary-foreground shadow-2xs"
-                      : "border-border bg-muted/30 text-muted-foreground hover:border-primary/40 hover:text-primary"
-                  }`}
-                >
-                  {selected && <Check className="h-3 w-3" />}
-                  {item.name}
-                </button>
-              );
-            })}
-          </div>
-        </FormField>
+        {furnishingSlot}
 
         {/* Số người tối đa / phòng (Bắt buộc) */}
         <FormField

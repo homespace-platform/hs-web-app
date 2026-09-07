@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { ReactNode, useState } from "react";
 import { Clock, Check } from "lucide-react";
 import FormField, { inputClass, selectClass } from "../FormField";
 import FormSectionWrapper from "../FormSectionWrapper";
@@ -9,6 +9,7 @@ interface OfficeDetailsSectionProps {
   subtype: string;
   errors: FormErrors;
   onChange: (updates: Partial<OfficeDetailsData>) => void;
+  furnishingSlot: ReactNode;
 }
 
 export const OFFICE_HANDOVER_OPTIONS = [
@@ -29,6 +30,7 @@ export default function OfficeDetailsSection({
   subtype,
   errors,
   onChange,
+  furnishingSlot,
 }: OfficeDetailsSectionProps) {
   const isTraditionalOffice = subtype === "traditional_office";
 
@@ -122,6 +124,8 @@ export default function OfficeDetailsSection({
             ))}
           </select>
         </FormField>
+
+        {furnishingSlot}
 
         {/* Hạng văn phòng */}
         <FormField

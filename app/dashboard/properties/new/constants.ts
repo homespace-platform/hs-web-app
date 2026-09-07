@@ -171,19 +171,6 @@ export const AMENITIES_BY_CATEGORY: Record<PropertyCategoryKey, string[]> = {
   room: ROOM_AMENITIES,
 };
 
-// Room available furniture list
-export const ROOM_FURNITURE_LIST = [
-  "Giường",
-  "Tủ quần áo",
-  "Bàn làm việc",
-  "Kệ bếp",
-  "Tủ lạnh",
-  "Máy giặt",
-  "Máy lạnh",
-  "Máy nước nóng",
-  "Rèm cửa",
-];
-
 // Section 5: Dynamic price units per category
 export const PRICE_UNITS_BY_CATEGORY: Record<
   PropertyCategoryKey,
@@ -252,8 +239,18 @@ export const ORIENTATIONS = [
 export const FURNISHING_OPTIONS = [
   { value: "RAW", label: "Bàn giao thô / Chưa có nội thất" },
   { value: "BASIC", label: "Nội thất cơ bản" },
+  { value: "PARTIAL", label: "Nội thất một phần" },
   { value: "FULL", label: "Đầy đủ nội thất" },
   { value: "LUXURY", label: "Nội thất cao cấp" },
+];
+
+// Hiện trạng bàn giao của từng tài sản trong biên bản bàn giao
+export const HANDOVER_CONDITIONS = [
+  { value: "BRAND_NEW", label: "Mới 100%" },
+  { value: "GOOD", label: "Còn tốt" },
+  { value: "NORMAL", label: "Bình thường" },
+  { value: "USED_ACCEPTABLE", label: "Cũ, còn dùng được" },
+  { value: "MINOR_DAMAGE", label: "Hư hỏng nhẹ" },
 ];
 
 export const LEGAL_STATUS_OPTIONS = [

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { ReactNode } from "react";
 import FormField, { inputClass, selectClass } from "../FormField";
 import FormSectionWrapper from "../FormSectionWrapper";
 import {
@@ -12,6 +12,7 @@ interface HouseDetailsSectionProps {
   rentalType: string;
   errors: FormErrors;
   onChange: (updates: Partial<HouseDetailsData>) => void;
+  furnishingSlot: ReactNode;
 }
 
 export default function HouseDetailsSection({
@@ -19,6 +20,7 @@ export default function HouseDetailsSection({
   rentalType,
   errors,
   onChange,
+  furnishingSlot,
 }: HouseDetailsSectionProps) {
   const isPartialRental = rentalType === "PARTIAL";
 
@@ -178,6 +180,8 @@ export default function HouseDetailsSection({
             ))}
           </select>
         </FormField>
+
+        {furnishingSlot}
 
         {/* Số phòng ngủ (Bắt buộc) */}
         <FormField

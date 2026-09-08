@@ -100,8 +100,21 @@ const NAV_GROUPS: NavGroup[] = [
       },
       {
         title: "Hợp đồng",
-        path: "/dashboard/contracts",
         icon: FileCheck,
+        children: [
+          {
+            title: "Từ điển mã trường",
+            path: "/dashboard/contracts/fields",
+          },
+          {
+            title: "Mẫu hợp đồng",
+            path: "/dashboard/contracts/templates",
+          },
+          {
+            title: "Hợp đồng",
+            path: "/dashboard/contracts",
+          },
+        ],
       },
     ],
   },

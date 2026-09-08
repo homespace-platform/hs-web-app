@@ -105,6 +105,7 @@ export const TENANT_NAV: DashboardNavGroup[] = [
     groupTitle: "TÀI CHÍNH",
     items: [
       { title: "Nạp tiền", path: "/dashboard/deposit", icon: Wallet },
+      { title: "Rút tiền", path: "/dashboard/withdraw", icon: Banknote },
       { title: "Thanh toán", path: "/dashboard/payments", icon: CreditCard },
     ],
   },

@@ -13,9 +13,17 @@ interface BreadcrumbItem {
 }
 
 const BREADCRUMB_MAP: Record<string, BreadcrumbItem> = {
-  "/dashboard": { title: "Dashboard" },
+  "/dashboard": { title: "Bảng điều khiển" },
+  "/dashboard/landlord": {
+    parent: { title: "Bảng điều khiển", path: "/dashboard/landlord" },
+    title: "Dashboard chủ nhà",
+  },
+  "/dashboard/tenant": {
+    parent: { title: "Bảng điều khiển", path: "/dashboard/tenant" },
+    title: "Dashboard người thuê",
+  },
   "/dashboard/analytics": {
-    parent: { title: "Tổng quan", path: "/dashboard" },
+    parent: { title: "Bảng điều khiển", path: "/dashboard/landlord" },
     title: "Phân tích & Báo cáo",
   },
   "/dashboard/customers": {
@@ -26,13 +34,21 @@ const BREADCRUMB_MAP: Record<string, BreadcrumbItem> = {
     parent: { title: "Quản lý", path: "/dashboard/properties" },
     title: "Tin đăng",
   },
+  "/dashboard/viewing-schedules": {
+    parent: { title: "Quản lý", path: "/dashboard/viewing-schedules" },
+    title: "Lịch xem nhà",
+  },
+  "/dashboard/viewing-schedules/my-bookings": {
+    parent: { title: "Thuê nhà", path: "/dashboard/viewing-schedules/my-bookings" },
+    title: "Lịch đi xem",
+  },
   "/dashboard/rental-requests": {
-    parent: { title: "Yêu cầu thuê", path: "/dashboard/rental-requests" },
-    title: "Khách gửi đến tôi",
+    parent: { title: "Quản lý", path: "/dashboard/rental-requests" },
+    title: "Yêu cầu thuê",
   },
   "/dashboard/rental-requests/my-requests": {
-    parent: { title: "Yêu cầu thuê", path: "/dashboard/rental-requests/my-requests" },
-    title: "Tôi đã gửi đi",
+    parent: { title: "Thuê nhà", path: "/dashboard/rental-requests/my-requests" },
+    title: "Yêu cầu đã gửi",
   },
   "/dashboard/contracts": {
     parent: { title: "Hợp đồng", path: "/dashboard/contracts" },
@@ -79,7 +95,7 @@ export default function DashboardLayout({
           parent: { title: "Mẫu hợp đồng", path: "/dashboard/contracts/templates" },
           title: "Chi tiết mẫu",
         }
-      : { title: "Dashboard" });
+      : { title: "Bảng điều khiển" });
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col transition-colors">

@@ -14,6 +14,7 @@ import { Province } from "@/types/province.type";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchFavoriteIds } from "@/features/favorite/favoriteSlice";
 import { fetchHistoryIds } from "@/features/history/historySlice";
+import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
 import {
   Menu,
   X,
@@ -31,6 +32,7 @@ import {
 export default function Header() {
   const pathname = usePathname();
   const isDashboard = pathname?.startsWith("/dashboard");
+  const { openRolePicker } = useDashboardRole();
 
   const {
     authenticated,
@@ -40,6 +42,10 @@ export default function Header() {
     username,
     avatarUrl,
   } = useAuth();
+
+  const goToDashboard = () => {
+    openRolePicker();
+  };
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dispatch = useAppDispatch();
   const favoriteCount = useAppSelector((state) => state.favorite.count);
@@ -324,7 +330,7 @@ export default function Header() {
                 {/* Thông báo với popup danh sách */}
                 <NotificationDropdown initialCount={5} />
 
-                {/* Quản lý tin / Đăng tin (Chỉ hiển thị trên Desktop) */}
+                {/* Bảng điều khiển / Đăng tin (Chỉ hiển thị trên Desktop) */}
                 <div className="hidden items-center gap-2 sm:flex">
                   {isDashboard ? (
                     <Link
@@ -335,13 +341,14 @@ export default function Header() {
                       <span>Đăng tin</span>
                     </Link>
                   ) : (
-                    <Link
-                      href="/dashboard"
+                    <button
+                      type="button"
+                      onClick={goToDashboard}
                       className="h-10 px-4 rounded-full border border-border bg-card text-foreground hover:bg-muted text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <LayoutGrid className="w-4 h-4 text-muted-foreground" />
-                      <span>Quản lý tin</span>
-                    </Link>
+                      <span>Bảng điều khiển</span>
+                    </button>
                   )}
                 </div>
 
@@ -569,13 +576,14 @@ export default function Header() {
               <span>Đăng tin</span>
             </Link>
           ) : (
-            <Link
-              href="/dashboard"
+            <button
+              type="button"
+              onClick={goToDashboard}
               className="h-9 px-3.5 rounded-full border border-border bg-card/95 backdrop-blur-md shadow-md text-foreground hover:bg-muted text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
             >
               <LayoutGrid className="w-3.5 h-3.5 text-muted-foreground" />
-              <span>Quản lý tin</span>
-            </Link>
+              <span>Bảng điều khiển</span>
+            </button>
           )}
         </div>
       )}

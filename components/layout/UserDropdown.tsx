@@ -18,11 +18,13 @@ import {
 } from "lucide-react";
 import UserAvatar from "@/components/common/UserAvatar";
 import { useAppSelector } from "@/store/hooks";
+import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
 
 export default function UserDropdown() {
   const { username, avatarUrl, logout } = useAuth();
   const favoriteCount = useAppSelector((state) => state.favorite.count);
   const historyCount = useAppSelector((state) => state.history.count);
+  const { openRolePicker } = useDashboardRole();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -128,20 +130,23 @@ export default function UserDropdown() {
             </div>
           </div>
 
-          {/* 2. Nhóm: Tổng quan & Tiện ích */}
+          {/* 2. Nhóm: Bảng điều khiển & Tiện ích */}
           <nav className="space-y-0.5">
-            {/* Tổng quan */}
-            <Link
-              href="/dashboard"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
+            {/* Bảng điều khiển */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                openRolePicker();
+              }}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group cursor-pointer"
             >
               <div className="flex items-center gap-3">
                 <LayoutGrid className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="text-xs font-semibold">Tổng quan</span>
+                <span className="text-xs font-semibold">Bảng điều khiển</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-            </Link>
+            </button>
 
             {/* Divider */}
             <div className="my-1.5 border-t border-border" />

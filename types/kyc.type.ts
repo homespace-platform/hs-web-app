@@ -14,6 +14,7 @@ export type KycStatusResponse = {
   provider: KycProvider;
   sessionId: string | null;
   sessionUrl: string | null;
+  rejectionReason?: string | null;
 };
 
 export type KycSessionResponse = {

@@ -28,6 +28,8 @@ export type UserProfile = {
   onBoarded?: boolean | null;
   active?: boolean | null;
   kycVerified?: boolean | null;
+  /** ADMIN role — KYC not required (optional). */
+  kycOptional?: boolean | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   address?: UserAddress | null;

@@ -16,6 +16,13 @@ const kycService = {
     );
     return response.data.result!;
   },
+
+  async cancelSession(): Promise<KycStatusResponse> {
+    const response = await axiosClient.post<ApiResponse<KycStatusResponse>>(
+      "/api/v1/users/me/kyc/session/cancel"
+    );
+    return response.data.result!;
+  },
 };
 
 export default kycService;

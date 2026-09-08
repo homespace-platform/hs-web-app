@@ -101,7 +101,7 @@ const rentalRequestService = {
   },
 
   /**
-   * Chủ nhà chấp thuận yêu cầu thuê (Kích hoạt giữ chỗ 24h & tự động hủy các yêu cầu khác)
+   * Chủ nhà chấp thuận yêu cầu thuê (Kích hoạt giữ chỗ & tự động hủy các yêu cầu khác)
    */
   async acceptRentalRequest(id: string): Promise<RentalRequestResponse> {
     const response = await axiosClient.put<ApiResponse<RentalRequestResponse>>(

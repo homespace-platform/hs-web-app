@@ -504,7 +504,14 @@ function CreatePropertyListingContent() {
                 ? "NONE"
                 : "PRIVATE",
             hasWindow: res.roomDetail.hasWindow ? "YES" : "NO",
-            hasBalcony: res.roomDetail.hasBalcony ? "PRIVATE" : "NO",
+            hasBalcony: (() => {
+              const t = res.roomDetail.balconyType;
+              if (t === "SHARED" || t === "PRIVATE" || t === "NONE") return t;
+              // Legacy fallback nếu API cũ chỉ trả boolean
+              if ((res.roomDetail as { hasBalcony?: boolean }).hasBalcony === true) return "PRIVATE";
+              if ((res.roomDetail as { hasBalcony?: boolean }).hasBalcony === false) return "NONE";
+              return "NONE";
+            })(),
             hasLoft: Boolean(res.roomDetail.hasMezzanine),
             furnishing: furnishingStatusToFormValue(res.roomDetail.furnishingStatus),
             entranceType: res.roomDetail.accessType === "SHARED" ? "SHARED" : "PRIVATE",

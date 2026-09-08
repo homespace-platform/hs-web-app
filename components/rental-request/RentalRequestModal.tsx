@@ -28,6 +28,7 @@ import rentalRequestService from "@/services/rental-request.service";
 import type { RentalRequestResponse } from "@/types/rental-request.type";
 import type { DepositType } from "@/types/listing.type";
 import { Calendar } from "@/components/ui/calendar";
+import { RENTAL_HOLD_DURATION_LABEL } from "@/config/rental-hold.config";
 
 interface RentalRequestModalProps {
   isOpen: boolean;
@@ -340,7 +341,7 @@ export default function RentalRequestModal({
                 Gửi yêu cầu thuê nhà
               </h2>
               <p className="text-xs text-muted-foreground">
-                Chủ nhà sẽ nhận được thông báo và giữ chỗ trong 24 giờ khi duyệt
+                Chủ nhà sẽ nhận được thông báo và giữ chỗ trong {RENTAL_HOLD_DURATION_LABEL} khi duyệt
               </p>
             </div>
           </div>

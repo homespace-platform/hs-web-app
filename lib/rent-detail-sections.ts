@@ -203,43 +203,79 @@ export function getRentDetailSections(
       detail(
         "Nhà vệ sinh",
         label(details.restroomType, {
-          PRIVATE: "Khép kín trong phòng (Riêng)",
-          SHARED: "Dùng chung ngoài phòng",
+          PRIVATE: "Nhà vệ sinh riêng khép kín trong phòng",
+          SHARED: "Nhà vệ sinh chung ngoài phòng",
         })
       ),
       detail(
-        "Khu bếp",
+        "Khu bếp nấu ăn",
         label(details.kitchenType, {
-          PRIVATE: "Bếp riêng trong phòng",
-          SHARED: "Bếp dùng chung",
-          NONE: "Không nấu ăn",
+          PRIVATE: "Kệ bếp riêng trong phòng",
+          SHARED: "Khu bếp chung",
+          NONE: "Không nấu ăn / Không có bếp",
         })
       ),
-      detail("Cửa sổ thoáng", booleanLabel(details.hasWindow)),
-      detail("Ban công riêng", booleanLabel(details.hasBalcony)),
-      detail("Gác lửng", booleanLabel(details.hasMezzanine)),
-      detail("Nội thất phòng", label(details.furnishingStatus, FURNISHING_LABELS)),
-      detail("Lối đi", label(details.accessType, { PRIVATE: "Lối đi riêng", SHARED: "Chung chủ" })),
       detail(
-        "Giờ giấc",
-        label(details.accessHoursType, { FLEXIBLE: "Tự do 24/7", CURFEW: "Có giờ giới nghiêm" })
+        "Cửa sổ phòng",
+        details.hasWindow === true
+          ? "Có cửa sổ thông thoáng đón gió/sáng"
+          : details.hasWindow === false
+          ? "Không có cửa sổ (Phòng kín máy lạnh)"
+          : ""
+      ),
+      detail(
+        "Ban công",
+        label(details.balconyType ?? (details.hasBalcony === true ? "PRIVATE" : details.hasBalcony === false ? "NONE" : ""), {
+          PRIVATE: "Ban công riêng phơi đồ / ngắm cảnh",
+          SHARED: "Ban công / sân phơi chung",
+          NONE: "Không có ban công",
+        })
+      ),
+      detail(
+        "Gác lửng",
+        details.hasMezzanine === true
+          ? "Có gác lửng cao ráo"
+          : details.hasMezzanine === false
+          ? "Không có gác lửng"
+          : ""
+      ),
+      detail("Nội thất phòng", label(details.furnishingStatus, FURNISHING_LABELS)),
+      detail(
+        "Lối đi",
+        label(details.accessType, {
+          PRIVATE: "Lối đi riêng biệt (Tự do ra vào)",
+          SHARED: "Lối đi chung với chủ nhà",
+        })
+      ),
+      detail(
+        "Giờ giấc sinh hoạt",
+        label(details.accessHoursType, {
+          FLEXIBLE: "Tự do 24/7 (Khóa vân tay / Thẻ từ)",
+          CURFEW: "Có giờ đóng cửa buổi tối",
+        })
       ),
       detail(
         "Đồng hồ điện",
-        label(details.electricMeterType, { PRIVATE: "Công tơ riêng", SHARED: "Tính chung theo đầu người" })
+        label(details.electricMeterType, {
+          PRIVATE: "Đồng hồ điện riêng từng phòng",
+          SHARED: "Dùng chung đồng hồ tổng",
+        })
       ),
       detail(
         "Đồng hồ nước",
-        label(details.waterMeterType, { PRIVATE: "Đồng hồ riêng", SHARED: "Tính chung theo đầu người" })
+        label(details.waterMeterType, {
+          PRIVATE: "Đồng hồ nước riêng từng phòng",
+          SHARED: "Dùng chung / Tính theo đầu người",
+        })
       ),
       detail("Số người ở tối đa", details.maxOccupants, " người"),
       detail("Số xe tối đa", details.maxVehicles, " xe"),
       detail(
         "Chính sách gửi xe",
         label(details.parkingPolicy, {
-          FREE: "Miễn phí gửi xe",
-          PAID: "Có thu phí gửi xe",
-          NONE: "Không nhận giữ xe",
+          FREE: "Miễn phí chỗ để xe trong nhà / hầm xe",
+          PAID: "Có thu phí gửi xe hàng tháng",
+          NONE: "Không có chỗ để xe (Gửi bãi ngoài)",
         })
       ),
     ],

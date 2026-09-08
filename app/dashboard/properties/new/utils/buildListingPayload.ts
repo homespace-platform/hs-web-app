@@ -400,7 +400,12 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
           ? "NONE"
           : "PRIVATE",
       hasWindow: roomDetails.hasWindow === "YES",
-      hasBalcony: roomDetails.hasBalcony === "PRIVATE" || roomDetails.hasBalcony === "SHARED",
+      balconyType:
+        roomDetails.hasBalcony === "SHARED"
+          ? "SHARED"
+          : roomDetails.hasBalcony === "NONE" || roomDetails.hasBalcony === "NO"
+          ? "NONE"
+          : "PRIVATE",
       hasMezzanine: Boolean(roomDetails.hasLoft),
       furnishingStatus: resolveFurnishing(roomDetails.furnishing),
       accessType: roomDetails.entranceType === "SHARED" ? "SHARED" : "PRIVATE",

@@ -736,19 +736,45 @@ export default function ListingPreviewModal({
                       <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
                         <p className="text-muted-foreground">Phòng vệ sinh</p>
                         <p className="font-bold text-foreground mt-0.5">
-                          {listing.roomDetail.restroomType === "PRIVATE" ? "✓ Khép kín (Riêng)" : "Chung bên ngoài"}
+                          {listing.roomDetail.restroomType === "PRIVATE"
+                            ? "Nhà vệ sinh riêng khép kín trong phòng"
+                            : "Nhà vệ sinh chung ngoài phòng"}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
+                        <p className="text-muted-foreground">Khu bếp</p>
+                        <p className="font-bold text-foreground mt-0.5">
+                          {listing.roomDetail.kitchenType === "SHARED"
+                            ? "Khu bếp chung"
+                            : listing.roomDetail.kitchenType === "NONE"
+                            ? "Không nấu ăn / Không có bếp"
+                            : "Kệ bếp riêng trong phòng"}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
+                        <p className="text-muted-foreground">Cửa sổ</p>
+                        <p className="font-bold text-foreground mt-0.5">
+                          {listing.roomDetail.hasWindow
+                            ? "Có cửa sổ thông thoáng đón gió/sáng"
+                            : "Không có cửa sổ (Phòng kín máy lạnh)"}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
+                        <p className="text-muted-foreground">Ban công</p>
+                        <p className="font-bold text-foreground mt-0.5">
+                          {listing.roomDetail.balconyType === "SHARED"
+                            ? "Ban công / sân phơi chung"
+                            : listing.roomDetail.balconyType === "NONE"
+                            ? "Không có ban công"
+                            : listing.roomDetail.balconyType === "PRIVATE"
+                            ? "Ban công riêng phơi đồ / ngắm cảnh"
+                            : "—"}
                         </p>
                       </div>
                       <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
                         <p className="text-muted-foreground">Gác lửng</p>
                         <p className="font-bold text-foreground mt-0.5">
-                          {listing.roomDetail.hasMezzanine ? "✓ Có gác lửng" : "Không có"}
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                        <p className="text-muted-foreground">Ban công / Cửa sổ</p>
-                        <p className="font-bold text-foreground mt-0.5">
-                          {listing.roomDetail.hasBalcony ? "✓ Có ban công" : listing.roomDetail.hasWindow ? "✓ Có cửa sổ" : "Không có"}
+                          {listing.roomDetail.hasMezzanine ? "Có gác lửng cao ráo" : "Không có gác lửng"}
                         </p>
                       </div>
                       {listing.roomDetail.maxOccupants && (

@@ -42,6 +42,7 @@ import type { RentalRequestResponse } from "@/types/rental-request.type";
 import { useChatDemo } from "@/components/chat/ChatDemoProvider";
 import type { RelatedListing } from "@/types/chat.type";
 import { chatConversationUrl } from "@/lib/chat-demo-state";
+import { RENTAL_HOLD_DURATION_LABEL } from "@/config/rental-hold.config";
 
 const formatPrice = (priceMillion: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -514,7 +515,7 @@ export default function RentDetailView({
                   <button
                     type="button"
                     onClick={() => {
-                      toast.success("Yêu cầu thuê đã được duyệt và bất động sản đang được giữ chỗ trong 24 giờ!");
+                      toast.success(`Yêu cầu thuê đã được duyệt và bất động sản đang được giữ chỗ trong ${RENTAL_HOLD_DURATION_LABEL}!`);
                     }}
                     className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 py-3.5 px-4 text-sm font-bold text-emerald-700 dark:text-emerald-300 shadow-xs hover:bg-emerald-500/20 transition-all cursor-pointer active:scale-[0.98]"
                     title="Yêu cầu thuê đã được chấp thuận"
@@ -527,7 +528,7 @@ export default function RentDetailView({
                     type="button"
                     disabled
                     className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-muted py-3.5 px-4 text-sm font-bold text-muted-foreground border border-border/50 cursor-not-allowed opacity-80"
-                    title="Bất động sản này đang được giữ chỗ trong 24 giờ cho một khách thuê khác"
+                    title={`Bất động sản này đang được giữ chỗ trong ${RENTAL_HOLD_DURATION_LABEL} cho một khách thuê khác`}
                   >
                     <ShieldCheck className="w-4 h-4" />
                     <span>Đang giữ chỗ (Tạm khóa)</span>

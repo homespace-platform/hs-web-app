@@ -13,6 +13,7 @@ import { toRentProperty } from "@/lib/listing-to-rent-property";
 import { useAuth } from "@/features/auth/useAuth";
 import { useAppDispatch } from "@/store/hooks";
 import { recordHistoryItem } from "@/features/history/historySlice";
+import { RENTAL_HOLD_DURATION_LABEL } from "@/config/rental-hold.config";
 
 export default function RentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -126,7 +127,7 @@ export default function RentDetailPage() {
                   <div>
                     <p className="font-bold text-sm">Tin đăng đang trong thời gian giữ chỗ</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Chủ nhà đã duyệt một yêu cầu thuê và tin đăng đang tạm thời được giữ chỗ trong 24 giờ.
+                      Chủ nhà đã duyệt một yêu cầu thuê và tin đăng đang tạm thời được giữ chỗ trong {RENTAL_HOLD_DURATION_LABEL}.
                     </p>
                   </div>
                 </div>

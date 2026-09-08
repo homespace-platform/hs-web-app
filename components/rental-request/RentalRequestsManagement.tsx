@@ -35,9 +35,26 @@ import type {
   RentalRequestResponse,
   RentalRequestStatus,
 } from "@/types/rental-request.type";
+import {
+  RENTAL_HOLD_DURATION_LABEL,
+  RENTAL_HOLD_DURATION_SHORT,
+} from "@/config/rental-hold.config";
 
 interface RentalRequestsManagementProps {
   mode: "RECEIVED" | "SENT";
+}
+
+/** Đếm ngược còn lại tới holdExpiresAt — rõ phút/giây thay vì "khoảng 24 giờ" của date-fns. */
+function formatHoldRemaining(expiresAt: string, nowMs: number): string {
+  const ms = new Date(expiresAt).getTime() - nowMs;
+  if (ms <= 0) return "đã hết hạn";
+  const totalSec = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSec / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
+  const seconds = totalSec % 60;
+  if (hours > 0) return `${hours} giờ ${minutes} phút`;
+  if (minutes > 0) return `${minutes} phút ${seconds} giây`;
+  return `${seconds} giây`;
 }
 
 const STATUS_CONFIG: Record<
@@ -50,7 +67,7 @@ const STATUS_CONFIG: Record<
     icon: Clock,
   },
   ACCEPTED: {
-    label: "Đang giữ chỗ 24h",
+    label: `Đang giữ chỗ ${RENTAL_HOLD_DURATION_SHORT}`,
     badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
     icon: CheckCircle2,
   },
@@ -114,6 +131,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const [rejectReason, setRejectReason] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [previewListingId, setPreviewListingId] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -148,6 +166,28 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     fetchRequests();
   }, [fetchRequests]);
 
+  // Tick mỗi giây để countdown giữ chỗ cập nhật (đặc biệt với hold 15 phút)
+  useEffect(() => {
+    const hasActiveHold = requests.some(
+      (r) => r.status === "ACCEPTED" && r.holdExpiresAt && !isPast(new Date(r.holdExpiresAt))
+    );
+    if (!hasActiveHold) return;
+    const id = window.setInterval(() => {
+      const t = Date.now();
+      setNowMs(t);
+      const anyJustExpired = requests.some(
+        (r) =>
+          r.status === "ACCEPTED" &&
+          r.holdExpiresAt &&
+          new Date(r.holdExpiresAt).getTime() <= t
+      );
+      if (anyJustExpired) {
+        void fetchRequests();
+      }
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [requests, fetchRequests]);
+
   // Handle Accept
   const handleConfirmAccept = async () => {
     if (!acceptTarget) return;
@@ -155,7 +195,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     try {
       await rentalRequestService.acceptRentalRequest(acceptTarget.id);
       toast.success(
-        "Chấp thuận thành công! Bài đăng đã chuyển sang trạng thái Giữ chỗ 24h và các yêu cầu song song đã được tự động hủy."
+        `Chấp thuận thành công! Bài đăng đã chuyển sang trạng thái Giữ chỗ ${RENTAL_HOLD_DURATION_SHORT} và các yêu cầu song song đã được tự động hủy.`
       );
       setAcceptTarget(null);
       fetchRequests();
@@ -218,8 +258,8 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground">
             {mode === "RECEIVED"
-              ? "Theo dõi, xét duyệt hồ sơ thuê nhà và quản lý trạng thái giữ chỗ độc quyền 24 giờ cho bài đăng của bạn."
-              : "Theo dõi tiến độ xét duyệt và thời hạn giữ chỗ 24 giờ cho các căn nhà bạn đang gửi yêu cầu thuê."}
+              ? `Theo dõi, xét duyệt hồ sơ thuê nhà và quản lý trạng thái giữ chỗ độc quyền ${RENTAL_HOLD_DURATION_LABEL} cho bài đăng của bạn.`
+              : `Theo dõi tiến độ xét duyệt và thời hạn giữ chỗ ${RENTAL_HOLD_DURATION_LABEL} cho các căn nhà bạn đang gửi yêu cầu thuê.`}
           </p>
         </div>
 
@@ -240,7 +280,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         {[
           { key: "ALL", label: "Tất cả" },
           { key: "PENDING", label: "Chờ duyệt" },
-          { key: "ACCEPTED", label: "Đang giữ chỗ 24h" },
+          { key: "ACCEPTED", label: `Đang giữ chỗ ${RENTAL_HOLD_DURATION_SHORT}` },
           { key: "REJECTED", label: "Bị từ chối" },
           { key: "EXPIRED", label: "Hết hạn" },
         ].map((tab) => (
@@ -448,7 +488,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                           className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Chấp thuận (Giữ chỗ 24h)</span>
+                          <span>Chấp thuận (Giữ chỗ {RENTAL_HOLD_DURATION_SHORT})</span>
                         </button>
                       </>
                     )}
@@ -482,10 +522,8 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                       <Clock className="w-4 h-4 text-emerald-600 animate-pulse shrink-0" />
                       <span>
                         Thời hạn giữ chỗ độc quyền:{" "}
-                        <strong>
-                          còn {formatDistanceToNow(new Date(req.holdExpiresAt!), { locale: vi })}
-                        </strong>{" "}
-                        (hết hạn lúc {format(new Date(req.holdExpiresAt!), "HH:mm, dd/MM/yyyy")})
+                        <strong>còn {formatHoldRemaining(req.holdExpiresAt!, nowMs)}</strong>{" "}
+                        (hết hạn lúc {format(new Date(req.holdExpiresAt!), "HH:mm:ss, dd/MM/yyyy")})
                       </span>
                     </div>
                     <span className="text-[11px] font-bold uppercase tracking-wider bg-emerald-600 text-white px-2 py-0.5 rounded-md">
@@ -545,7 +583,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
               </div>
               <div>
                 <h3 className="font-bold text-base text-foreground">
-                  Xác nhận duyệt yêu cầu & giữ chỗ 24h
+                  Xác nhận duyệt yêu cầu & giữ chỗ {RENTAL_HOLD_DURATION_SHORT}
                 </h3>
                 <p className="text-xs text-muted-foreground">
                   Bạn đang chấp thuận yêu cầu thuê của khách hàng <strong>{acceptTarget.renterName}</strong>.
@@ -560,13 +598,13 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
               </p>
               <ul className="list-disc list-inside space-y-1 text-[11px] text-muted-foreground leading-relaxed">
                 <li>
-                  Bài đăng sẽ chuyển sang trạng thái <strong>&quot;Đang giữ chỗ&quot; (RESERVED)</strong> trong 24 giờ.
+                  Bài đăng sẽ chuyển sang trạng thái <strong>&quot;Đang giữ chỗ&quot; (RESERVED)</strong> trong {RENTAL_HOLD_DURATION_LABEL}.
                 </li>
                 <li>
                   Toàn bộ các yêu cầu thuê khác đang chờ xét duyệt của căn này sẽ <strong>tự động bị hủy</strong>.
                 </li>
                 <li>
-                  Nếu sau 24 giờ người thuê không hoàn tất thủ tục, hệ thống sẽ tự động mở lại bài đăng sang trạng thái Đang hiển thị.
+                  Nếu sau {RENTAL_HOLD_DURATION_LABEL} người thuê không hoàn tất thủ tục, hệ thống sẽ tự động mở lại bài đăng sang trạng thái Đang hiển thị.
                 </li>
               </ul>
             </div>

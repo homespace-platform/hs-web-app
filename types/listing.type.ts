@@ -156,6 +156,8 @@ export type RestroomType = "PRIVATE" | "SHARED";
 
 export type KitchenType = "PRIVATE" | "SHARED" | "NONE";
 
+export type BalconyType = "PRIVATE" | "SHARED" | "NONE";
+
 export type AccessType = "PRIVATE" | "SHARED";
 
 export type AccessHoursType = "FLEXIBLE" | "CURFEW";
@@ -254,7 +256,7 @@ export type RoomDetailRequest = {
   restroomType: RestroomType;
   kitchenType?: KitchenType | null;
   hasWindow?: boolean | null;
-  hasBalcony?: boolean | null;
+  balconyType?: BalconyType | null;
   hasMezzanine?: boolean | null;
   furnishingStatus: FurnishingStatus;
   accessType?: AccessType | null;

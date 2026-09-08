@@ -1,4 +1,5 @@
 import type { ListingStatus } from "@/types/listing.type";
+import { RENTAL_HOLD_DURATION_LABEL } from "@/config/rental-hold.config";
 
 export interface ListingStatusConfigItem {
   status: ListingStatus;
@@ -39,7 +40,7 @@ export const LISTING_STATUS_CONFIG: Record<ListingStatus, ListingStatusConfigIte
     badgeClassName:
       "bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800",
     dotClassName: "bg-amber-500 animate-pulse",
-    description: "Tin đăng đang được giữ chỗ trong 24 giờ cho khách thuê",
+    description: `Tin đăng đang được giữ chỗ trong ${RENTAL_HOLD_DURATION_LABEL} cho khách thuê`,
   },
   RENTED: {
     status: "RENTED",

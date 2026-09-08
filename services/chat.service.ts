@@ -1,6 +1,7 @@
 import axiosClient from "@/lib/axios-client";
 import type { ApiResponse } from "@/types/api.type";
 import type {
+  ChatApiAttachment,
   ChatApiConversation,
   ChatApiMessage,
   ChatApiMessagePage,
@@ -55,6 +56,7 @@ const chatService = {
     content: string,
     listing?: RelatedListing,
     senderProfile?: ChatParticipantProfile,
+    attachments?: ChatApiAttachment[],
   ): Promise<ChatApiMessage> {
     const response = await axiosClient.post<ApiResponse<ChatApiMessage>>(
       `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/messages`,
@@ -62,7 +64,19 @@ const chatService = {
         content,
         ...(listing ? { listing } : {}),
         ...(senderProfile ? { senderProfile } : {}),
+        ...(attachments?.length ? { attachments } : {}),
       },
+    );
+    return response.data.result;
+  },
+
+  async updateParticipantRole(
+    conversationId: string,
+    role: "TENANT" | "LANDLORD",
+  ) {
+    const response = await axiosClient.patch<ApiResponse<ChatApiConversation>>(
+      `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/participant-role`,
+      { role },
     );
     return response.data.result;
   },

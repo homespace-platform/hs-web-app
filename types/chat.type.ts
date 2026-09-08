@@ -21,6 +21,7 @@ export interface ChatMessage {
   attachments?: {
     type: "image" | "file";
     url: string;
+    storageId?: string;
     name?: string;
     size?: string;
   }[];
@@ -41,6 +42,7 @@ export interface ChatConversation {
   isHidden: boolean;
   isPinned?: boolean;
   relatedListing?: RelatedListing;
+  participantRole?: "TENANT" | "LANDLORD";
   messages: ChatMessage[];
 }
 

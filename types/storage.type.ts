@@ -5,7 +5,7 @@ export type StoragePurpose =
   | "CHAT_ATTACHMENT"
   | "GENERAL";
 
-export type StorageVisibility = "PUBLIC" | "PRIVATE";
+export type StorageVisibility = "PUBLIC" | "PRIVATE" | "AUTHENTICATED";
 
 export type StorageStatus = "PENDING" | "READY" | "REJECTED" | "DELETED";
 

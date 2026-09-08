@@ -24,12 +24,56 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { ChatConversation, ChatMessage } from "@/types/chat.type";
+import type { ChatApiAttachment } from "@/types/chat-api.type";
+import storageService from "@/services/storage.service";
 import { toast } from "sonner";
+
+function AttachmentPreview({
+  attachment,
+}: {
+  attachment: NonNullable<ChatMessage["attachments"]>[number];
+}) {
+  const [url, setUrl] = useState(attachment.url);
+
+  useEffect(() => {
+    if (!url && attachment.storageId) {
+      void storageService
+        .getViewUrl(attachment.storageId)
+        .then(setUrl)
+        .catch(() => undefined);
+    }
+  }, [attachment.storageId, url]);
+
+  return (
+    <a
+      href={url || undefined}
+      target="_blank"
+      rel="noreferrer"
+      className="mb-2 flex max-w-sm items-center gap-3 rounded-xl border border-border bg-card p-2.5 text-xs hover:border-primary/40"
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        {attachment.type === "image" ? (
+          <ImageIcon className="h-5 w-5" />
+        ) : (
+          <Paperclip className="h-5 w-5" />
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-semibold">{attachment.name || "Tệp đính kèm"}</span>
+        <span className="text-muted-foreground">{attachment.size || "Mở tệp"}</span>
+      </span>
+    </a>
+  );
+}
 
 interface ChatWindowProps {
   conversation: ChatConversation;
   onBack: () => void;
-  onSendMessage: (conversationId: string, text: string) => void;
+  onSendMessage: (
+    conversationId: string,
+    text: string,
+    attachments?: ChatApiAttachment[],
+  ) => void;
   onToggleHideConversation: (conversationId: string) => void;
   onTogglePinConversation: (conversationId: string) => void;
   currentUserId?: string;
@@ -49,8 +93,11 @@ export default function ChatWindow({
 }: ChatWindowProps) {
   const [inputText, setInputText] = useState("");
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto scroll to bottom when messages change
   const scrollToBottom = () => {
@@ -83,6 +130,26 @@ export default function ChatWindow({
 
   const handleQuickReply = (text: string) => {
     onSendMessage(conversation.id, text);
+  };
+
+  const handleAttachment = async (file: File | undefined) => {
+    if (!file || isUploading || isAi) return;
+    setIsUploading(true);
+    try {
+      const attachment = await storageService.uploadChatAttachment(file, conversation.id);
+      onSendMessage(
+        conversation.id,
+        inputText.trim() || `Đã gửi ${file.name}`,
+        [attachment],
+      );
+      setInputText("");
+    } catch {
+      toast.error("Không thể tải tệp lên");
+    } finally {
+      setIsUploading(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const initial = conversation.userName.charAt(0).toUpperCase();
@@ -146,6 +213,11 @@ export default function ChatWindow({
               <span className="text-sm font-bold text-foreground truncate">
                 {conversation.userName}
               </span>
+              {conversation.participantRole && (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                  {conversation.participantRole === "TENANT" ? "Người hỏi thuê" : "Chủ thuê"}
+                </span>
+              )}
               {isAi ? (
                 <span className="px-2 py-0.2 rounded-full bg-primary/10 text-primary text-[10px] font-bold border border-primary/20 flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-primary animate-pulse" />
@@ -294,7 +366,10 @@ export default function ChatWindow({
                     </div>
                   )}
 
-                  <div className="flex flex-col">
+            <div className="flex flex-col">
+                    {msg.attachments?.map((attachment) => (
+                      <AttachmentPreview key={attachment.storageId || attachment.name} attachment={attachment} />
+                    ))}
                     {/* Inline Listing Card Attachment inside message */}
                     {msg.listingCard && (
                       <div className="mb-2 w-full max-w-sm rounded-2xl overflow-hidden border border-border bg-card shadow-xs hover:border-primary/40 transition-all p-2.5 flex items-center gap-3 group/card">
@@ -431,6 +506,19 @@ export default function ChatWindow({
 
             {/* Action Buttons */}
             <div className="flex items-center gap-1 text-muted-foreground shrink-0">
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => void handleAttachment(event.target.files?.[0])}
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={(event) => void handleAttachment(event.target.files?.[0])}
+              />
               <button
                 type="button"
                 onClick={() => setInputText((prev) => prev + " 😊")}
@@ -441,7 +529,8 @@ export default function ChatWindow({
               </button>
               <button
                 type="button"
-                onClick={() => toast.info("Tính năng gửi hình ảnh đang được phát triển.")}
+                onClick={() => imageInputRef.current?.click()}
+                disabled={isUploading}
                 className="p-1.5 rounded-lg hover:text-foreground hover:bg-muted transition-colors"
                 title="Gửi hình ảnh"
               >
@@ -449,7 +538,8 @@ export default function ChatWindow({
               </button>
               <button
                 type="button"
-                onClick={() => toast.info("Tính năng đính kèm tệp đang được phát triển.")}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
                 className="p-1.5 rounded-lg hover:text-foreground hover:bg-muted transition-colors"
                 title="Đính kèm tệp"
               >
@@ -459,7 +549,7 @@ export default function ChatWindow({
               {/* Send Button */}
               <button
                 type="submit"
-                disabled={!inputText.trim()}
+                disabled={!inputText.trim() || isUploading}
                 className={`p-2 rounded-xl font-semibold transition-all flex items-center justify-center ${
                   inputText.trim()
                     ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30 hover:scale-105 active:scale-95"

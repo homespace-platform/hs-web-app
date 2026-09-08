@@ -23,7 +23,13 @@ export function mapApiConversation(
       conversation.participantEmail ||
       conversation.participantId,
     userAvatar: conversation.participantAvatar,
-    userRole: "Người dùng HomeSpace",
+    userRole:
+      conversation.participantRole === "TENANT"
+        ? "Người hỏi thuê"
+        : conversation.participantRole === "LANDLORD"
+        ? "Chủ thuê"
+        : "Người dùng HomeSpace",
+    participantRole: conversation.participantRole,
     isOnline: false,
     lastActive: "",
     lastMessage: conversation.lastMessage ?? "",
@@ -50,5 +56,12 @@ export function mapApiMessage(
     dateGroup: "Hôm nay",
     status: "read",
     listingCard: message.listing,
+    attachments: (message.attachments ?? []).map((attachment) => ({
+      type: attachment.contentType.startsWith("image/") ? "image" : "file",
+      url: "",
+      storageId: attachment.storageId,
+      name: attachment.fileName,
+      size: `${Math.max(1, Math.round(attachment.sizeBytes / 1024))} KB`,
+    })),
   };
 }

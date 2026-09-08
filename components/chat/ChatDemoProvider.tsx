@@ -15,6 +15,7 @@ import chatService from "@/services/chat.service";
 import type { ChatParticipantProfile } from "@/services/chat.service";
 import type { ChatConversation, RelatedListing } from "@/types/chat.type";
 import { mapApiConversation, mapApiMessage } from "@/lib/chat-api-mapper";
+import type { ChatApiAttachment } from "@/types/chat-api.type";
 
 type ChatContact = {
   id?: string;
@@ -36,7 +37,8 @@ type ChatDemoContextValue = {
   sendMessage: (
     conversationId: string,
     content: string,
-    listingCard?: RelatedListing
+    listingCard?: RelatedListing,
+    attachments?: ChatApiAttachment[],
   ) => Promise<void>;
   loadConversationMessages: (conversationId: string) => Promise<void>;
   toggleHideConversation: (conversationId: string) => void;
@@ -200,7 +202,12 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   );
 
   const sendMessage = useCallback(
-    async (conversationId: string, content: string, listingCard?: RelatedListing) => {
+    async (
+      conversationId: string,
+      content: string,
+      listingCard?: RelatedListing,
+      attachments?: ChatApiAttachment[],
+    ) => {
       const trimmed = content.trim();
       if (!trimmed || !currentUserId) return;
 
@@ -210,6 +217,7 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
           trimmed,
           listingCard,
           currentParticipantProfile,
+          attachments,
         );
         const mappedMessage = mapApiMessage(message, currentUserId);
         setConversations((current) =>

@@ -100,6 +100,24 @@ const storageService = {
       referenceId: "draft",
     });
   },
+
+  async uploadChatAttachment(file: File, conversationId: string) {
+    const storageId = await uploadFile(file, {
+      fileName: file.name,
+      contentType: file.type || "application/octet-stream",
+      size: file.size,
+      purpose: "CHAT_ATTACHMENT",
+      visibility: "AUTHENTICATED",
+      referenceType: "CHAT_CONVERSATION",
+      referenceId: conversationId,
+    });
+    return {
+      storageId,
+      fileName: file.name,
+      contentType: file.type || "application/octet-stream",
+      sizeBytes: file.size,
+    };
+  },
 };
 
 export default storageService;

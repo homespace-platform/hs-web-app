@@ -375,7 +375,9 @@ export default function ChatPage() {
               <ChatWindow
                 conversation={activeDirectConversation}
                 onBack={() => setActiveDirectConversationId(null)}
-                onSendMessage={sendDirectMessage}
+                onSendMessage={(conversationId, text, attachments) =>
+                  sendDirectMessage(conversationId, text, undefined, attachments)
+                }
                 onToggleHideConversation={toggleHideConversation}
                 onTogglePinConversation={togglePinConversation}
                 currentUserId={currentUserId}

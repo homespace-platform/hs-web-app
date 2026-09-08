@@ -1,5 +1,12 @@
 import type { RelatedListing } from "@/types/chat.type";
 
+export type ChatApiAttachment = {
+  storageId: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+};
+
 export type ChatApiConversation = {
   id: string;
   participantId: string;
@@ -11,6 +18,7 @@ export type ChatApiConversation = {
   lastMessageAt?: string;
   lastMessageSenderId?: string;
   unreadCount: number;
+  participantRole?: "TENANT" | "LANDLORD";
 };
 
 export type ChatApiMessage = {
@@ -20,6 +28,7 @@ export type ChatApiMessage = {
   content: string;
   listing?: RelatedListing;
   createdAt: string;
+  attachments?: ChatApiAttachment[];
 };
 
 export type ChatApiMessagePage = {

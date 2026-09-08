@@ -43,6 +43,7 @@ import { useChatDemo } from "@/components/chat/ChatDemoProvider";
 import type { RelatedListing } from "@/types/chat.type";
 import { chatConversationUrl } from "@/lib/chat-demo-state";
 import { RENTAL_HOLD_DURATION_LABEL } from "@/config/rental-hold.config";
+import { requireKyc } from "@/lib/kyc-gate";
 
 const formatPrice = (priceMillion: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -546,7 +547,11 @@ export default function RentDetailView({
                         login();
                         return;
                       }
-                      setIsRentalModalOpen(true);
+                      requireKyc(profile, {
+                        router,
+                        redirect: false,
+                        onAllowed: () => setIsRentalModalOpen(true),
+                      });
                     }}
                     className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3.5 px-4 text-sm font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all cursor-pointer active:scale-[0.98]"
                     title="Gửi yêu cầu thuê nhà trực tiếp tới chủ nhà"
@@ -570,7 +575,11 @@ export default function RentDetailView({
                         login();
                         return;
                       }
-                      setIsBookingModalOpen(true);
+                      requireKyc(profile, {
+                        router,
+                        redirect: false,
+                        onAllowed: () => setIsBookingModalOpen(true),
+                      });
                     }}
                     className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-[0.98] ${
                       hasActiveBooking
@@ -595,7 +604,23 @@ export default function RentDetailView({
                   {isNegotiable && (
                     <button
                       type="button"
-                      onClick={() => toast.info("Tính năng Thương lượng đang được kết nối!")}
+                      onClick={() => {
+                        if (isOwner) {
+                          toast.info("Bạn là chủ bài đăng này, không thể tự thương lượng.");
+                          return;
+                        }
+                        if (!authenticated) {
+                          toast.error("Vui lòng đăng nhập để thương lượng");
+                          login();
+                          return;
+                        }
+                        requireKyc(profile, {
+                          router,
+                          redirect: false,
+                          onAllowed: () =>
+                            toast.info("Tính năng Thương lượng đang được kết nối!"),
+                        });
+                      }}
                       className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground py-2.5 px-3 text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-[0.98] hover:border-primary/40"
                       title="Đề xuất giá thuê, tiền cọc hoặc các điều khoản mong muốn"
                     >

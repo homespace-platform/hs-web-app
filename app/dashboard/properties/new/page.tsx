@@ -11,6 +11,7 @@ import storageService from "@/services/storage.service";
 import type { Province, Ward } from "@/types/province.type";
 import type { ListingOptionsResponse, ListingSubmissionAction } from "@/types/listing.type";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { isKycSatisfied, requireKyc } from "@/lib/kyc-gate";
 import {
   buildCreateListingPayload,
   furnishingStatusToFormValue,
@@ -240,6 +241,13 @@ function CreatePropertyListingContent() {
 
   // Errors state
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // Block unverified users from the listing form (Admin / verified pass)
+  useEffect(() => {
+    if (!profile) return;
+    if (isKycSatisfied(profile)) return;
+    requireKyc(profile, { router, redirect: true });
+  }, [profile, router]);
 
   // Fetch provinces
   useEffect(() => {
@@ -952,6 +960,8 @@ function CreatePropertyListingContent() {
   const [submittingAction, setSubmittingAction] = useState<ListingSubmissionAction | null>(null);
 
   async function handleSaveListing(action: ListingSubmissionAction) {
+    if (!requireKyc(profile, { router, redirect: true })) return;
+
     const isValid = validateAllFields();
     if (!isValid) return;
 

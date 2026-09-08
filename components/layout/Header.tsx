@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/useAuth";
 import { Button } from "@/components/ui/button";
 import UserDropdown from "./UserDropdown";
@@ -15,6 +15,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchFavoriteIds } from "@/features/favorite/favoriteSlice";
 import { fetchHistoryIds } from "@/features/history/historySlice";
 import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
+import { requireKyc } from "@/lib/kyc-gate";
 import {
   Menu,
   X,
@@ -31,6 +32,7 @@ import {
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const isDashboard = pathname?.startsWith("/dashboard");
   const { openRolePicker } = useDashboardRole();
 
@@ -41,10 +43,19 @@ export default function Header() {
     logout,
     username,
     avatarUrl,
+    profile,
   } = useAuth();
 
   const goToDashboard = () => {
     openRolePicker();
+  };
+
+  const goToPostListing = () => {
+    requireKyc(profile, {
+      router,
+      redirect: true,
+      onAllowed: () => router.push("/dashboard/properties/upsert"),
+    });
   };
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dispatch = useAppDispatch();
@@ -333,13 +344,14 @@ export default function Header() {
                 {/* Bảng điều khiển / Đăng tin (Chỉ hiển thị trên Desktop) */}
                 <div className="hidden items-center gap-2 sm:flex">
                   {isDashboard ? (
-                    <Link
-                      href="/dashboard/properties/upsert"
+                    <button
+                      type="button"
+                      onClick={goToPostListing}
                       className="h-10 px-4 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-semibold flex items-center gap-2 shadow-xs transition-all cursor-pointer"
                     >
                       <Plus className="w-4 h-4 text-primary-foreground" />
                       <span>Đăng tin</span>
-                    </Link>
+                    </button>
                   ) : (
                     <button
                       type="button"
@@ -568,13 +580,14 @@ export default function Header() {
       {authenticated && !mobileMenuOpen && (
         <div className="fixed top-[88px] right-4 z-40 flex gap-2 sm:hidden select-none animate-in fade-in-50 duration-200">
           {isDashboard ? (
-            <Link
-              href="/dashboard/properties/upsert"
+            <button
+              type="button"
+              onClick={goToPostListing}
               className="h-9 px-3.5 rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5 text-primary-foreground" />
               <span>Đăng tin</span>
-            </Link>
+            </button>
           ) : (
             <button
               type="button"

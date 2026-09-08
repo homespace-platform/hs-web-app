@@ -1,8 +1,27 @@
+"use client";
+
 import { PlusCircle, ArrowRight, ShieldCheck, Zap, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/features/auth/useAuth";
+import { requireKyc } from "@/lib/kyc-gate";
 
 export default function LandlordCta() {
+  const router = useRouter();
+  const { authenticated, login, profile } = useAuth();
+
+  const goPostListing = () => {
+    if (!authenticated) {
+      login();
+      return;
+    }
+    requireKyc(profile, {
+      router,
+      redirect: true,
+      onAllowed: () => router.push("/dashboard/properties/upsert"),
+    });
+  };
+
   return (
     <section id="landlord-cta" className="py-12 md:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
       <div className="bg-primary-dark dark:bg-card rounded-3xl p-8 sm:p-12 md:p-14 text-white border border-primary-dark/80 dark:border-border shadow-xl relative overflow-hidden">
@@ -26,13 +45,14 @@ export default function LandlordCta() {
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 w-full sm:w-auto mb-10">
-            <Link
-              href="/dashboard/properties/upsert"
+            <button
+              type="button"
+              onClick={goPostListing}
               className="inline-flex w-full items-center justify-center sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8 py-3 h-auto rounded-full shadow-md transition-all text-sm cursor-pointer"
             >
               <PlusCircle className="w-4 h-4 mr-2" />
               Đăng tin ngay
-            </Link>
+            </button>
 
             <Button
               variant="outline"
@@ -50,33 +70,31 @@ export default function LandlordCta() {
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-white">0% Rủi ro bùng cọc</h4>
-                <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                  Tiền cọc được khóa bảo chứng trong Smart Contract.
+                <h3 className="font-semibold text-sm text-white mb-1">Xác thực danh tính</h3>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  KYC giúp tin đăng tin cậy hơn với khách thuê.
                 </p>
               </div>
             </div>
-
             <div className="flex items-start gap-3 bg-white/5 rounded-2xl p-4 border border-white/10">
               <div className="p-2 rounded-xl bg-primary/30 text-accent-ai shrink-0">
                 <Zap className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-white">Ký hợp đồng tức thì</h4>
-                <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                  Tạo và ký hợp đồng thuê chỉ trong 2 phút online.
+                <h3 className="font-semibold text-sm text-white mb-1">Đăng tin nhanh</h3>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Form đăng tin đầy đủ tiện nghi, lịch xem nhà.
                 </p>
               </div>
             </div>
-
             <div className="flex items-start gap-3 bg-white/5 rounded-2xl p-4 border border-white/10">
               <div className="p-2 rounded-xl bg-primary/30 text-accent-ai shrink-0">
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-white">Khách thuê định danh</h4>
-                <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                  100% hồ sơ khách thuê đã KYC xác minh danh tính.
+                <h3 className="font-semibold text-sm text-white mb-1">Quản lý tập trung</h3>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Theo dõi yêu cầu thuê và lịch tiếp khách.
                 </p>
               </div>
             </div>

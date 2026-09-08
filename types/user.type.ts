@@ -19,12 +19,15 @@ export type UserProfile = {
   avatarUrl?: string | null;
   avatarStorageId?: string | null;
   phone?: string | null;
+  /** Citizen ID synced from Didit when KYC Approved. */
+  cccd?: string | null;
   dob?: string | null;
   gender?: string | null;
   roleId?: string | null;
   role?: string | null;
   onBoarded?: boolean | null;
   active?: boolean | null;
+  kycVerified?: boolean | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   address?: UserAddress | null;

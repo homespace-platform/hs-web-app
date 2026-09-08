@@ -15,6 +15,8 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import kycService from "@/services/kyc.service";
 import type { KycStatus, KycStatusResponse } from "@/types/kyc.type";
+import { fetchCurrentUser } from "@/features/user/userSlice";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 const POLL_INTERVAL_MS = 2500;
 const POLL_MAX_MS = 60_000;
@@ -68,6 +70,8 @@ function statusMeta(status: KycStatus) {
 }
 
 export default function KycSection() {
+  const dispatch = useAppDispatch();
+  const userId = useAppSelector((state) => state.auth.userId);
   const [kyc, setKyc] = useState<KycStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
@@ -95,8 +99,11 @@ export default function KycSection() {
     ) {
       stopPolling();
     }
+    if (status.status === "VERIFIED" && userId) {
+      void dispatch(fetchCurrentUser({ userId, force: true }));
+    }
     return status;
-  }, [stopPolling]);
+  }, [dispatch, stopPolling, userId]);
 
   const startPolling = useCallback(() => {
     stopPolling();

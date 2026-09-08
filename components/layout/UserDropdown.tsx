@@ -201,7 +201,7 @@ export default function UserDropdown() {
 
             {/* Cài đặt */}
             <Link
-              href="/settings"
+              href="/settings/profile"
               onClick={() => setIsOpen(false)}
               className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
             >

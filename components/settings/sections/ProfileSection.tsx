@@ -4,7 +4,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
-import { Camera, Check, LoaderCircle } from 'lucide-react';
+import { Camera, Check, LoaderCircle, ShieldAlert } from 'lucide-react';
+import Link from 'next/link';
 import userService from '@/services/user.service';
 import storageService from '@/services/storage.service';
 import AvatarCropModal from '@/components/avatar/AvatarCropModal';
@@ -320,9 +321,42 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                     </button>
                 </div>
 
-                <div className="flex-1 text-center sm:text-left space-y-1">
-                    <h3 className="font-bold text-base text-foreground">{fullName}</h3>
+                <div className="flex-1 text-center sm:text-left space-y-1 min-w-0">
+                    <div className="flex items-center justify-center sm:justify-start gap-1.5">
+                        <h3 className="font-bold text-base text-foreground">{fullName}</h3>
+                        {profile.kycVerified && (
+                            <span
+                                className="relative group inline-flex shrink-0"
+                                tabIndex={0}
+                                aria-label="Đã xác minh danh tính"
+                            >
+                                <span className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#1877F2] text-white shadow-xs">
+                                    <Check className="h-2.5 w-2.5" strokeWidth={3.5} />
+                                </span>
+                                <span
+                                    role="tooltip"
+                                    className="pointer-events-none absolute left-1/2 top-full z-30 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg bg-foreground px-2.5 py-1 text-[10px] font-semibold text-background opacity-0 shadow-md transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                                >
+                                    Đã xác minh danh tính
+                                </span>
+                            </span>
+                        )}
+                    </div>
                     <p className="text-xs text-muted-foreground">{form.email}</p>
+                    {!profile.kycVerified && (
+                        <Link
+                            href="/settings/account-security"
+                            className="inline-flex items-start gap-1.5 max-w-full rounded-xl border border-amber-500/25 bg-amber-500/10 px-2.5 py-2 text-[11px] font-medium text-amber-800 dark:text-amber-200 hover:bg-amber-500/15 transition-colors text-left"
+                        >
+                            <ShieldAlert className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                            <span>
+                                Tài khoản chưa xác minh danh tính.{" "}
+                                <span className="font-bold underline underline-offset-2">
+                                    Xác minh KYC ngay
+                                </span>
+                            </span>
+                        </Link>
+                    )}
                 </div>
             </div>
 
@@ -387,6 +421,18 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                             <option value="OTHER">Khác</option>
                         </select>
                     </div>
+
+                    <ReadOnlyField
+                        label="CCCD"
+                        value={
+                            profile.cccd?.trim()
+                                ? profile.cccd
+                                : profile.kycVerified
+                                  ? 'Chưa nhận được số CCCD từ Didit'
+                                  : 'Sẽ cập nhật sau khi xác minh KYC'
+                        }
+                        mono={Boolean(profile.cccd?.trim())}
+                    />
                 </div>
 
                 <div className="pt-2 flex justify-end">

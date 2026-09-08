@@ -2,14 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { Check, Eye, EyeOff, LoaderCircle, LockKeyhole, UserRound } from "lucide-react";
+import { Check, Eye, EyeOff, LoaderCircle, LockKeyhole, MapPin, UserRound } from "lucide-react";
 import userService from "@/services/user.service";
 import { fetchCurrentUser } from "@/features/user/userSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import type { OnboardingRequest, UserProfile } from "@/types/user.type";
+import AddressEditor from "@/components/settings/AddressEditor";
 import { toast } from "sonner";
 
-type Step = "profile" | "password";
+type Step = "profile" | "address" | "password";
 
 type OnboardingForm = {
   firstName: string;
@@ -48,6 +49,10 @@ function profileToForm(profile: UserProfile): OnboardingForm {
         ? profile.gender
         : "OTHER",
   };
+}
+
+function afterAddressStep(hasPassword: boolean | null) {
+  return hasPassword === false ? ("password" as const) : null;
 }
 
 export default function OnboardingInitializer() {
@@ -120,19 +125,36 @@ export default function OnboardingInitializer() {
     try {
       await userService.completeOnboarding(request);
       await dispatch(fetchCurrentUser({ userId: userId!, force: true })).unwrap();
+      toast.success("Thông tin cá nhân đã được cập nhật.");
+      setStep("address");
+    } catch (requestError) {
+      const message = getErrorMessage(
+        requestError,
+        "Không thể hoàn tất thông tin cá nhân. Vui lòng thử lại.",
+      );
+      setError(message);
+      toast.error(message);
+      throw requestError;
+    }
+  }
 
-      if (hasPassword === false) {
-        toast.success("Thông tin cá nhân đã được cập nhật.");
-        setStep("password");
+  async function finishAddress() {
+    setError(null);
+    try {
+      await dispatch(fetchCurrentUser({ userId: userId!, force: true })).unwrap();
+      const next = afterAddressStep(hasPassword);
+      if (next) {
+        toast.success("Địa chỉ đã được lưu.");
+        setStep(next);
       } else {
         setOpen(false);
         toast.success("Thiết lập tài khoản hoàn tất.");
       }
     } catch (requestError) {
       const message = getErrorMessage(
-          requestError,
-          "Không thể hoàn tất thông tin cá nhân. Vui lòng thử lại.",
-        );
+        requestError,
+        "Không thể làm mới hồ sơ sau khi lưu địa chỉ.",
+      );
       setError(message);
       toast.error(message);
       throw requestError;
@@ -147,9 +169,9 @@ export default function OnboardingInitializer() {
       toast.success("Tạo mật khẩu thành công. Tài khoản đã sẵn sàng.");
     } catch (requestError) {
       const message = getErrorMessage(
-          requestError,
-          "Không thể tạo mật khẩu. Vui lòng thử lại.",
-        );
+        requestError,
+        "Không thể tạo mật khẩu. Vui lòng thử lại.",
+      );
       setError(message);
       toast.error(message);
       throw requestError;
@@ -195,11 +217,9 @@ export default function OnboardingInitializer() {
             </button>
           </div>
         ) : step === "profile" ? (
-          <ProfileStep
-            profile={profile}
-            error={error}
-            onSubmit={finishProfile}
-          />
+          <ProfileStep profile={profile} error={error} onSubmit={finishProfile} />
+        ) : step === "address" ? (
+          <AddressStep profile={profile} error={error} onComplete={finishAddress} />
         ) : (
           <PasswordStep error={error} onSubmit={finishPassword} />
         )}
@@ -215,18 +235,24 @@ function StepIndicator({
   step: Step;
   showPasswordStep: boolean;
 }) {
-  const steps = showPasswordStep
-    ? [
-        { id: "profile", label: "Thông tin cá nhân", icon: UserRound },
-        { id: "password", label: "Tạo mật khẩu", icon: LockKeyhole },
-      ]
-    : [{ id: "profile", label: "Thông tin cá nhân", icon: UserRound }];
+  const steps: { id: Step; label: string; icon: typeof UserRound }[] = [
+    { id: "profile", label: "Thông tin cá nhân", icon: UserRound },
+    { id: "address", label: "Địa chỉ", icon: MapPin },
+    ...(showPasswordStep
+      ? [{ id: "password" as const, label: "Tạo mật khẩu", icon: LockKeyhole }]
+      : []),
+  ];
+
+  const order: Step[] = showPasswordStep
+    ? ["profile", "address", "password"]
+    : ["profile", "address"];
+  const currentIndex = order.indexOf(step);
 
   return (
     <div className="mb-6 flex gap-2">
       {steps.map(({ id, label, icon: Icon }, index) => {
         const active = step === id;
-        const completed = step === "password" && id === "profile";
+        const completed = currentIndex > index;
         return (
           <div key={id} className="flex min-w-0 flex-1 items-center gap-2">
             <div
@@ -238,7 +264,11 @@ function StepIndicator({
             >
               {completed ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
             </div>
-            <span className={`truncate text-xs font-semibold ${active ? "text-foreground" : "text-muted-foreground"}`}>
+            <span
+              className={`truncate text-xs font-semibold ${
+                active ? "text-foreground" : "text-muted-foreground"
+              }`}
+            >
               {index + 1}. {label}
             </span>
           </div>
@@ -259,6 +289,7 @@ function ProfileStep({
 }) {
   const [form, setForm] = useState(() => profileToForm(profile));
   const [saving, setSaving] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   function setField<K extends keyof OnboardingForm>(key: K, value: OnboardingForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -266,13 +297,32 @@ function ProfileStep({
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    const firstName = form.firstName.trim();
+    const lastName = form.lastName.trim();
+    const phone = form.phone.trim();
+    const dob = form.dob.trim();
+
+    if (!firstName || !lastName || !phone || !dob || !form.gender) {
+      setLocalError("Vui lòng điền đầy đủ tất cả các trường.");
+      return;
+    }
+    if (firstName.length < 2 || lastName.length < 2) {
+      setLocalError("Họ và tên phải có ít nhất 2 ký tự.");
+      return;
+    }
+    if (!/^\d{10,15}$/.test(phone)) {
+      setLocalError("Số điện thoại phải gồm 10–15 chữ số.");
+      return;
+    }
+
+    setLocalError(null);
     setSaving(true);
     try {
       await onSubmit({
-        firstName: form.firstName.trim() || null,
-        lastName: form.lastName.trim() || null,
-        phone: form.phone.trim() || null,
-        dob: form.dob || null,
+        firstName,
+        lastName,
+        phone,
+        dob,
         gender: form.gender,
       });
     } catch {
@@ -283,18 +333,51 @@ function ProfileStep({
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
-      {error && <ErrorBox message={error} />}
+    <form onSubmit={submit} className="space-y-4" noValidate>
+      {(localError || error) && <ErrorBox message={localError || error || ""} />}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Input label="Tên" value={form.firstName} onValueChange={(value) => setField("firstName", value)} minLength={2} maxLength={50} />
-        <Input label="Họ" value={form.lastName} onValueChange={(value) => setField("lastName", value)} minLength={2} maxLength={50} />
-        <Input label="Số điện thoại" value={form.phone} onValueChange={(value) => setField("phone", value.replace(/\D/g, ""))} inputMode="numeric" pattern="[0-9]{10,15}" />
-        <Input label="Ngày sinh" value={form.dob} onValueChange={(value) => setField("dob", value)} type="date" max={getLatestAdultBirthDate()} />
+        <Input
+          label="Tên"
+          value={form.firstName}
+          onValueChange={(value) => setField("firstName", value)}
+          required
+          minLength={2}
+          maxLength={50}
+        />
+        <Input
+          label="Họ"
+          value={form.lastName}
+          onValueChange={(value) => setField("lastName", value)}
+          required
+          minLength={2}
+          maxLength={50}
+        />
+        <Input
+          label="Số điện thoại"
+          value={form.phone}
+          onValueChange={(value) => setField("phone", value.replace(/\D/g, ""))}
+          inputMode="numeric"
+          pattern="[0-9]{10,15}"
+          required
+        />
+        <Input
+          label="Ngày sinh"
+          value={form.dob}
+          onValueChange={(value) => setField("dob", value)}
+          type="date"
+          max={getLatestAdultBirthDate()}
+          required
+        />
         <label className="space-y-1.5 sm:col-span-2">
-          <span className="text-xs font-semibold text-foreground">Giới tính</span>
+          <span className="text-xs font-semibold text-foreground">
+            Giới tính <span className="text-red-500">*</span>
+          </span>
           <select
             value={form.gender}
-            onChange={(event) => setField("gender", event.target.value as OnboardingForm["gender"])}
+            required
+            onChange={(event) =>
+              setField("gender", event.target.value as OnboardingForm["gender"])
+            }
             className="h-11 w-full rounded-xl border border-border bg-background px-3.5 text-sm outline-none focus:border-primary"
           >
             <option value="OTHER">Khác</option>
@@ -303,11 +386,38 @@ function ProfileStep({
           </select>
         </label>
       </div>
-      <button type="submit" disabled={saving} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 disabled:opacity-60">
+      <button
+        type="submit"
+        disabled={saving}
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 disabled:opacity-60"
+      >
         {saving && <LoaderCircle className="h-4 w-4 animate-spin" />}
         {saving ? "Đang lưu..." : "Lưu và tiếp tục"}
       </button>
     </form>
+  );
+}
+
+function AddressStep({
+  profile,
+  error,
+  onComplete,
+}: {
+  profile: UserProfile;
+  error: string | null;
+  onComplete: () => Promise<void>;
+}) {
+  return (
+    <div className="space-y-4">
+      {error && <ErrorBox message={error} />}
+      <AddressEditor
+        initialAddress={profile.address}
+        embedded
+        alwaysAllowSave
+        saveButtonLabel="Lưu và tiếp tục"
+        onSaved={onComplete}
+      />
+    </div>
   );
 }
 
@@ -345,14 +455,31 @@ function PasswordStep({
     <form onSubmit={submit} className="space-y-4">
       {(localError || error) && <ErrorBox message={localError || error || ""} />}
       <p className="rounded-xl bg-blue-50 p-3 text-xs leading-5 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
-        Tài khoản đăng nhập mạng xã hội chưa có mật khẩu. Hãy tạo mật khẩu để có thể đăng nhập bằng email, username hoặc số điện thoại.
+        Tài khoản đăng nhập mạng xã hội chưa có mật khẩu. Hãy tạo mật khẩu để có thể đăng nhập bằng
+        email, username hoặc số điện thoại.
       </p>
-      <PasswordInput label="Mật khẩu mới" value={password} onChange={setPassword} visible={showPassword} onToggle={() => setShowPassword((value) => !value)} />
-      <PasswordInput label="Xác nhận mật khẩu" value={confirmPassword} onChange={setConfirmPassword} visible={showPassword} onToggle={() => setShowPassword((value) => !value)} />
+      <PasswordInput
+        label="Mật khẩu mới"
+        value={password}
+        onChange={setPassword}
+        visible={showPassword}
+        onToggle={() => setShowPassword((value) => !value)}
+      />
+      <PasswordInput
+        label="Xác nhận mật khẩu"
+        value={confirmPassword}
+        onChange={setConfirmPassword}
+        visible={showPassword}
+        onToggle={() => setShowPassword((value) => !value)}
+      />
       <p className="text-[11px] leading-5 text-muted-foreground">
         Tối thiểu 8 ký tự, gồm chữ hoa, số và ký tự đặc biệt.
       </p>
-      <button type="submit" disabled={saving} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 disabled:opacity-60">
+      <button
+        type="submit"
+        disabled={saving}
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 disabled:opacity-60"
+      >
         {saving && <LoaderCircle className="h-4 w-4 animate-spin" />}
         {saving ? "Đang tạo mật khẩu..." : "Hoàn tất thiết lập"}
       </button>
@@ -363,6 +490,7 @@ function PasswordStep({
 function Input({
   label,
   onValueChange,
+  required,
   ...props
 }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange"> & {
   label: string;
@@ -370,19 +498,51 @@ function Input({
 }) {
   return (
     <label className="space-y-1.5">
-      <span className="text-xs font-semibold text-foreground">{label}</span>
-      <input {...props} onChange={(event) => onValueChange(event.target.value)} className="h-11 w-full rounded-xl border border-border bg-background px-3.5 text-sm outline-none focus:border-primary" />
+      <span className="text-xs font-semibold text-foreground">
+        {label}
+        {required ? <span className="text-red-500"> *</span> : null}
+      </span>
+      <input
+        {...props}
+        required={required}
+        onChange={(event) => onValueChange(event.target.value)}
+        className="h-11 w-full rounded-xl border border-border bg-background px-3.5 text-sm outline-none focus:border-primary"
+      />
     </label>
   );
 }
 
-function PasswordInput({ label, value, onChange, visible, onToggle }: { label: string; value: string; onChange: (value: string) => void; visible: boolean; onToggle: () => void }) {
+function PasswordInput({
+  label,
+  value,
+  onChange,
+  visible,
+  onToggle,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  visible: boolean;
+  onToggle: () => void;
+}) {
   return (
     <label className="block space-y-1.5">
       <span className="text-xs font-semibold text-foreground">{label}</span>
       <span className="relative block">
-        <input type={visible ? "text" : "password"} value={value} onChange={(event) => onChange(event.target.value)} required minLength={8} className="h-11 w-full rounded-xl border border-border bg-background px-3.5 pr-11 text-sm outline-none focus:border-primary" />
-        <button type="button" onClick={onToggle} className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-muted-foreground" aria-label={visible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}>
+        <input
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          required
+          minLength={8}
+          className="h-11 w-full rounded-xl border border-border bg-background px-3.5 pr-11 text-sm outline-none focus:border-primary"
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-muted-foreground"
+          aria-label={visible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+        >
           {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </span>
@@ -391,5 +551,9 @@ function PasswordInput({ label, value, onChange, visible, onToggle }: { label: s
 }
 
 function ErrorBox({ message }: { message: string }) {
-  return <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">{message}</div>;
+  return (
+    <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+      {message}
+    </div>
+  );
 }

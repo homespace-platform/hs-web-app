@@ -420,10 +420,8 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                             profile.cccd?.trim()
                                 ? profile.cccd
                                 : profile.kycVerified
-                                  ? 'Chưa nhận được số CCCD từ Didit'
-                                  : profile.kycOptional
-                                    ? 'Không bắt buộc (Admin) — có thể xác minh KYC nếu muốn'
-                                    : 'Sẽ cập nhật sau khi xác minh KYC'
+                                  ? 'Chưa có số CCCD trên hồ sơ'
+                                  : 'Sẽ cập nhật sau khi xác minh KYC'
                         }
                         mono={Boolean(profile.cccd?.trim())}
                     />

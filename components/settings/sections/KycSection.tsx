@@ -260,7 +260,7 @@ export default function KycSection() {
       </h3>
       <p className="text-xs text-muted-foreground">
         {kycOptional
-          ? "Tài khoản Admin không bắt buộc KYC. Bạn vẫn có thể xác minh nếu muốn đồng bộ CCCD."
+          ? "Tài khoản Admin được coi là đã xác minh danh tính (không bắt buộc Didit). Bạn vẫn có thể chạy KYC nếu muốn đồng bộ CCCD thật."
           : "HomeSpace dùng Didit để xác minh CCCD và khuôn mặt. Trạng thái chính thức chỉ cập nhật sau webhook từ Didit — trình duyệt không tự đánh dấu đã xác minh."}
       </p>
 

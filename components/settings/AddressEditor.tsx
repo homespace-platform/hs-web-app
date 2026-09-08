@@ -14,13 +14,24 @@ import type { UserAddress } from "@/types/user.type";
 type AddressEditorProps = {
   initialAddress?: UserAddress | null;
   onSaved?: () => Promise<void> | void;
+  /** Compact layout for onboarding modal (full-width continue button). */
+  embedded?: boolean;
+  saveButtonLabel?: string;
+  /** Allow save without editing when an initial address already exists. */
+  alwaysAllowSave?: boolean;
 };
 
 function codeOf(value: string | number) {
   return String(value);
 }
 
-export default function AddressEditor({ initialAddress, onSaved }: AddressEditorProps) {
+export default function AddressEditor({
+  initialAddress,
+  onSaved,
+  embedded = false,
+  saveButtonLabel = "Lưu địa chỉ",
+  alwaysAllowSave = false,
+}: AddressEditorProps) {
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
   const [provinceCode, setProvinceCode] = useState(initialAddress?.provinceCode ?? "");
@@ -98,7 +109,9 @@ export default function AddressEditor({ initialAddress, onSaved }: AddressEditor
         streetLine: streetLine.trim(),
       });
       setDirty(false);
-      toast.success("Đã lưu địa chỉ.");
+      if (!embedded) {
+        toast.success("Đã lưu địa chỉ.");
+      }
       await onSaved?.();
     } catch (error) {
       const message = axios.isAxiosError(error)
@@ -120,7 +133,13 @@ export default function AddressEditor({ initialAddress, onSaved }: AddressEditor
   }));
 
   return (
-    <section className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-4 shadow-2xs">
+    <section
+      className={
+        embedded
+          ? "space-y-4"
+          : "bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-4 shadow-2xs"
+      }
+    >
       <div>
         <h4 className="text-sm font-bold text-foreground">Địa chỉ hiện tại</h4>
         <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -182,15 +201,17 @@ export default function AddressEditor({ initialAddress, onSaved }: AddressEditor
 
       {fullAddress && <AddressMapPreview fullAddress={fullAddress} />}
 
-      <div className="flex justify-end pt-1">
+      <div className={`flex pt-1 ${embedded ? "justify-stretch" : "justify-end"}`}>
         <button
           type="button"
           onClick={handleSave}
-          disabled={saving || (!dirty && Boolean(initialAddress))}
-          className="h-10 px-5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-md shadow-primary/20 transition-all cursor-pointer flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={saving || (!alwaysAllowSave && !dirty && Boolean(initialAddress))}
+          className={`h-10 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-md shadow-primary/20 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60 ${
+            embedded ? "w-full h-11 text-sm" : "px-5"
+          }`}
         >
           {saving ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-          <span>{saving ? "Đang lưu..." : "Lưu địa chỉ"}</span>
+          <span>{saving ? "Đang lưu..." : saveButtonLabel}</span>
         </button>
       </div>
     </section>

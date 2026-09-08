@@ -247,7 +247,7 @@ export default function PricingSection({
               onChange={(e) => onChange({ isNegotiable: e.target.checked })}
               className="h-4 w-4 rounded accent-primary"
             />
-            Giá thuê có thương lượng
+            Thương lượng
           </label>
 
           {showVatOption && (

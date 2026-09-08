@@ -139,6 +139,11 @@ export default function RentDetailView({
         (currentUserId === property.ownerId || currentUserId === property.landlord?.id)
     );
 
+  const pricing = (property.details?.pricing as Record<string, unknown> | undefined) ?? undefined;
+  const isNegotiable = Boolean(
+    pricing?.negotiable ?? property.details?.negotiable
+  );
+
   const [phoneRevealed, setPhoneRevealed] = useState(false);
   const [quickMessage, setQuickMessage] = useState("");
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -550,8 +555,8 @@ export default function RentDetailView({
                   </button>
                 )}
 
-                {/* 2. Hàng 2 nút phụ: Đặt lịch xem & Thương lượng hợp đồng */}
-                <div className="grid grid-cols-2 gap-2.5">
+                {/* 2. Hàng nút phụ: Đặt lịch xem (+ Thương lượng nếu tin cho phép) */}
+                <div className={`grid gap-2.5 ${isNegotiable ? "grid-cols-2" : "grid-cols-1"}`}>
                   <button
                     type="button"
                     onClick={() => {
@@ -586,15 +591,17 @@ export default function RentDetailView({
                     )}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => toast.info("Tính năng Thương lượng đang được kết nối!")}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground py-2.5 px-3 text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-[0.98] hover:border-primary/40"
-                    title="Đề xuất giá thuê, tiền cọc hoặc các điều khoản mong muốn"
-                  >
-                    <Handshake className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <span className="truncate">Thương lượng</span>
-                  </button>
+                  {isNegotiable && (
+                    <button
+                      type="button"
+                      onClick={() => toast.info("Tính năng Thương lượng đang được kết nối!")}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground py-2.5 px-3 text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-[0.98] hover:border-primary/40"
+                      title="Đề xuất giá thuê, tiền cọc hoặc các điều khoản mong muốn"
+                    >
+                      <Handshake className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <span className="truncate">Thương lượng</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* 3. Hàng 2 nút liên hệ: Gọi điện & Chat */}

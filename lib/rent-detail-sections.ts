@@ -300,8 +300,13 @@ export function getRentDetailSections(
     ),
     detail("Thời hạn thuê tối thiểu", pricing.minimumLeaseMonths, " tháng"),
     detail(
-      "Giá thuê có thương lượng",
-      pricing.negotiable === true ? "Có thể thương lượng" : pricing.negotiable === false ? "Không thương lượng" : ""
+      "Thương lượng",
+      (() => {
+        const negotiable = pricing.negotiable ?? details.negotiable;
+        if (negotiable === true) return "Có thể thương lượng";
+        if (negotiable === false) return "Không thương lượng";
+        return "";
+      })()
     ),
     detail(
       "Phí quản lý",

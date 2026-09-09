@@ -31,6 +31,8 @@ import { format, formatDistanceToNow, isPast } from "date-fns";
 import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
 import ListingPreviewModal from "@/components/listing/ListingPreviewModal";
+import CreateContractFromRequestModal from "@/components/contract/CreateContractFromRequestModal";
+import { contractService } from "@/services/contract.service";
 import type {
   RentalRequestResponse,
   RentalRequestStatus,
@@ -39,7 +41,7 @@ import {
   RENTAL_HOLD_DURATION_LABEL,
   RENTAL_HOLD_DURATION_SHORT,
 } from "@/config/rental-hold.config";
-
+import { useRouter } from "next/navigation";
 interface RentalRequestsManagementProps {
   mode: "RECEIVED" | "SENT";
 }
@@ -116,6 +118,7 @@ function isValidImageUrl(url?: string | null): boolean {
 }
 
 export default function RentalRequestsManagement({ mode }: RentalRequestsManagementProps) {
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<RentalRequestStatus | "ALL">("ALL");
   const [page, setPage] = useState<number>(1);
   const [pageSize] = useState<number>(8);
@@ -132,6 +135,9 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [previewListingId, setPreviewListingId] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [contractTarget, setContractTarget] = useState<RentalRequestResponse | null>(null);
+  const [contractIds, setContractIds] = useState<Record<string, string>>({});
+  const [openingContractId, setOpeningContractId] = useState<string | null>(null);
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -166,7 +172,37 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     fetchRequests();
   }, [fetchRequests]);
 
-  // Tick mỗi giây để countdown giữ chỗ cập nhật (đặc biệt với hold 15 phút)
+  // Tra cứu hợp đồng đã gắn với các yêu cầu ACCEPTED (chủ nhà tạo / cả hai bên xem)
+  useEffect(() => {
+    const accepted = requests.filter((r) => r.status === "ACCEPTED");
+    if (accepted.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        accepted.map(async (r) => {
+          try {
+            const c = await contractService.getByRentalRequest(r.id);
+            return c?.id ? ([r.id, c.id] as const) : null;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (cancelled) return;
+      setContractIds((prev) => {
+        const next = { ...prev };
+        for (const entry of entries) {
+          if (entry) next[entry[0]] = entry[1];
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [requests]);
+
+  // Tick mỗi giây để countdown giữ chỗ cập nhật
   useEffect(() => {
     const hasActiveHold = requests.some(
       (r) => r.status === "ACCEPTED" && r.holdExpiresAt && !isPast(new Date(r.holdExpiresAt))
@@ -517,18 +553,57 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
 
                 {/* Khối Thông Báo Đếm Ngược Giữ Chỗ (Khi ACCEPTED) */}
                 {isHoldActive && (
-                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-emerald-600 animate-pulse shrink-0" />
-                      <span>
-                        Thời hạn giữ chỗ độc quyền:{" "}
-                        <strong>còn {formatHoldRemaining(req.holdExpiresAt!, nowMs)}</strong>{" "}
-                        (hết hạn lúc {format(new Date(req.holdExpiresAt!), "HH:mm:ss, dd/MM/yyyy")})
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-2.5 text-xs text-emerald-800 dark:text-emerald-300">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Clock className="w-4 h-4 text-emerald-600 animate-pulse shrink-0" />
+                        <span>
+                          Thời hạn giữ chỗ độc quyền:{" "}
+                          <strong>còn {formatHoldRemaining(req.holdExpiresAt!, nowMs)}</strong>{" "}
+                          (hết hạn lúc {format(new Date(req.holdExpiresAt!), "HH:mm:ss, dd/MM/yyyy")})
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider bg-emerald-600 text-white px-2 py-0.5 rounded-md shrink-0">
+                        Giữ chỗ {RENTAL_HOLD_DURATION_SHORT}
                       </span>
                     </div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider bg-emerald-600 text-white px-2 py-0.5 rounded-md">
-                      Khóa giữ chỗ
-                    </span>
+                    {mode === "RECEIVED" && (
+                      <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                        {contractIds[req.id] ? (
+                          <button
+                            type="button"
+                            disabled={openingContractId === req.id}
+                            onClick={() => {
+                              setOpeningContractId(req.id);
+                              router.push(`/dashboard/contracts/${contractIds[req.id]}`);
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            Xem / tiếp tục hợp đồng
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setContractTarget(req)}
+                            className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            Tạo hợp đồng
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {mode === "SENT" && contractIds[req.id] && (
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/dashboard/contracts/${contractIds[req.id]}`)}
+                        className="px-3.5 py-1.5 rounded-xl border border-emerald-600/40 bg-background/80 hover:bg-background text-emerald-800 dark:text-emerald-200 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        Xem hợp đồng
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -742,6 +817,13 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         isOpen={Boolean(previewListingId)}
         onClose={() => setPreviewListingId(null)}
       />
+
+      {contractTarget && (
+        <CreateContractFromRequestModal
+          request={contractTarget}
+          onClose={() => setContractTarget(null)}
+        />
+      )}
     </div>
   );
 }

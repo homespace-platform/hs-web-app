@@ -63,6 +63,104 @@ export interface CreateTemplateVersionRequest {
   originalFileName?: string;
 }
 
+export type ContractStatus =
+  | "DRAFT"
+  | "PENDING_REVIEW"
+  | "ACTIVE"
+  | "TERMINATED"
+  | "CANCELLED";
+
+export type ContractDocumentType = "DOCX" | "PDF";
+export type DocumentPurpose = "PREVIEW" | "OFFICIAL";
+export type DocumentGenerationStatus = "GENERATING" | "READY" | "FAILED" | "STALE";
+
+export interface CreateContractDraftRequest {
+  rentalRequestId: string;
+  templateVersionId: string;
+}
+
+export interface UpdateContractRevisionRequest {
+  landlord: Record<string, unknown>;
+  tenant: Record<string, unknown>;
+  property: Record<string, unknown>;
+  lease: Record<string, unknown>;
+  financial: Record<string, unknown>;
+  charges: Record<string, unknown>[];
+  equipments: Record<string, unknown>[];
+  meters: Record<string, unknown>;
+  specialTerms?: string | null;
+  revisionNote?: string | null;
+}
+
+export interface ContractResponse {
+  id: string;
+  contractNumber: string;
+  rentalRequestId: string;
+  listingId: string;
+  landlordId: string;
+  tenantId: string;
+  templateId: string;
+  templateVersionId: string;
+  currentRevisionId?: string | null;
+  status: ContractStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractRevisionResponse {
+  id: string;
+  contractId: string;
+  revisionNumber: number;
+  templateVersionId: string;
+  landlord: Record<string, unknown> | null;
+  tenant: Record<string, unknown> | null;
+  property: Record<string, unknown> | null;
+  lease: Record<string, unknown> | null;
+  financial: Record<string, unknown> | null;
+  charges: Record<string, unknown>[] | null;
+  equipments: Record<string, unknown>[] | null;
+  meters: Record<string, unknown> | null;
+  specialTerms?: string | null;
+  revisionNote?: string | null;
+  createdAt: string;
+}
+
+export interface ContractDocumentResponse {
+  id: string;
+  contractId: string;
+  revisionId: string;
+  templateVersionId: string;
+  documentType: ContractDocumentType;
+  purpose: DocumentPurpose;
+  storageObjectId?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
+  status: DocumentGenerationStatus;
+  errorMessage?: string | null;
+  generatedAt?: string | null;
+  viewUrl?: string | null;
+  downloadUrl?: string | null;
+}
+
+/** Trường bắt buộc của file mẫu Word mà bản nháp hiện tại còn để trống. */
+export interface ContractMissingField {
+  key: string;
+  label: string;
+  group: string;
+  /** Nhóm snapshot cần sửa: landlord | tenant | property | lease | financial | meters | system */
+  section: string;
+}
+
+export interface ContractCompletenessResponse {
+  contractId: string;
+  revisionId: string;
+  complete: boolean;
+  totalFields: number;
+  filledFields: number;
+  missingFields: ContractMissingField[];
+  warnings: string[];
+}
+
 export const CATEGORY_NAMES: Record<ListingCategory, string> = {
   APARTMENT: "Căn hộ / Chung cư",
   HOUSE: "Nhà nguyên căn",

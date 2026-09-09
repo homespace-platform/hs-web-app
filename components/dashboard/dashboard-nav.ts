@@ -60,7 +60,7 @@ export const LANDLORD_NAV: DashboardNavGroup[] = [
         children: [
           { title: "Từ điển mã trường", path: "/dashboard/contracts/fields" },
           { title: "Mẫu hợp đồng", path: "/dashboard/contracts/templates" },
-          { title: "Hợp đồng đã ký", path: "/dashboard/contracts" },
+          { title: "Hợp đồng của tôi", path: "/dashboard/contracts" },
         ],
       },
     ],

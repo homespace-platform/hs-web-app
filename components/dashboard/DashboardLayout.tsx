@@ -52,7 +52,7 @@ const BREADCRUMB_MAP: Record<string, BreadcrumbItem> = {
   },
   "/dashboard/contracts": {
     parent: { title: "Hợp đồng", path: "/dashboard/contracts" },
-    title: "Hợp đồng đã ký",
+    title: "Hợp đồng của tôi",
   },
   "/dashboard/contracts/fields": {
     parent: { title: "Hợp đồng", path: "/dashboard/contracts" },
@@ -95,6 +95,11 @@ export default function DashboardLayout({
           parent: { title: "Mẫu hợp đồng", path: "/dashboard/contracts/templates" },
           title: "Chi tiết mẫu",
         }
+      : pathname.match(/^\/dashboard\/contracts\/[^/]+$/) && pathname !== "/dashboard/contracts"
+        ? {
+            parent: { title: "Hợp đồng của tôi", path: "/dashboard/contracts" },
+            title: "Chi tiết hợp đồng",
+          }
       : { title: "Bảng điều khiển" });
 
   return (

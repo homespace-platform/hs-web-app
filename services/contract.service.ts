@@ -1,12 +1,19 @@
 import axiosClient from "@/lib/axios-client";
 import type { ApiResponse, PageResponse } from "@/types/api.type";
 import type {
+  ContractCompletenessResponse,
+  ContractDocumentResponse,
+  ContractResponse,
+  ContractRevisionResponse,
+  ContractStatus,
   ContractTemplateResponse,
   ContractTemplateStatus,
   ContractTemplateVersionResponse,
+  CreateContractDraftRequest,
   CreateContractTemplateRequest,
   CreateTemplateVersionRequest,
   TemplateFieldDefinition,
+  UpdateContractRevisionRequest,
 } from "@/types/contract.type";
 import type { ListingCategory } from "@/types/listing.type";
 
@@ -105,5 +112,94 @@ export const contractService = {
       filename: isPdf ? "test_preview.pdf" : "test_preview.docx",
       contentType,
     };
+  },
+
+  // --- Hợp đồng ---
+
+  /** Mẫu đã publish dùng được cho tin đăng của yêu cầu thuê này (lọc theo loại hình). */
+  async getApplicableTemplates(
+    rentalRequestId: string
+  ): Promise<ContractTemplateResponse[]> {
+    const response = await axiosClient.get<ApiResponse<ContractTemplateResponse[]>>(
+      "/api/v1/contracts/applicable-templates",
+      { params: { rentalRequestId } }
+    );
+    return response.data.result || [];
+  },
+
+  async getByRentalRequest(
+    rentalRequestId: string
+  ): Promise<ContractResponse | null> {
+    const response = await axiosClient.get<ApiResponse<ContractResponse | null>>(
+      `/api/v1/contracts/by-rental-request/${rentalRequestId}`
+    );
+    return response.data.result ?? null;
+  },
+
+  async createDraft(request: CreateContractDraftRequest): Promise<ContractResponse> {
+    const response = await axiosClient.post<ApiResponse<ContractResponse>>(
+      "/api/v1/contracts",
+      request
+    );
+    return response.data.result;
+  },
+
+  async listContracts(params?: {
+    status?: ContractStatus;
+    page?: number;
+    size?: number;
+  }): Promise<PageResponse<ContractResponse>> {
+    const response = await axiosClient.get<PageResponse<ContractResponse>>(
+      "/api/v1/contracts",
+      { params }
+    );
+    return response.data;
+  },
+
+  async getContract(contractId: string): Promise<ContractResponse> {
+    const response = await axiosClient.get<ApiResponse<ContractResponse>>(
+      `/api/v1/contracts/${contractId}`
+    );
+    return response.data.result;
+  },
+
+  async getRevision(contractId: string): Promise<ContractRevisionResponse> {
+    const response = await axiosClient.get<ApiResponse<ContractRevisionResponse>>(
+      `/api/v1/contracts/${contractId}/revision`
+    );
+    return response.data.result;
+  },
+
+  async updateRevision(
+    contractId: string,
+    request: UpdateContractRevisionRequest
+  ): Promise<ContractRevisionResponse> {
+    const response = await axiosClient.patch<ApiResponse<ContractRevisionResponse>>(
+      `/api/v1/contracts/${contractId}/revision`,
+      request
+    );
+    return response.data.result;
+  },
+
+  async getCompleteness(contractId: string): Promise<ContractCompletenessResponse> {
+    const response = await axiosClient.get<ApiResponse<ContractCompletenessResponse>>(
+      `/api/v1/contracts/${contractId}/completeness`
+    );
+    return response.data.result;
+  },
+
+  /** Kết xuất bản nháp ra file. Trả về PDF nếu Gotenberg bật, ngược lại là DOCX. */
+  async triggerPreview(contractId: string): Promise<ContractDocumentResponse> {
+    const response = await axiosClient.post<ApiResponse<ContractDocumentResponse>>(
+      `/api/v1/contracts/${contractId}/previews`
+    );
+    return response.data.result;
+  },
+
+  async getDocuments(contractId: string): Promise<ContractDocumentResponse[]> {
+    const response = await axiosClient.get<ApiResponse<ContractDocumentResponse[]>>(
+      `/api/v1/contracts/${contractId}/documents`
+    );
+    return response.data.result || [];
   },
 };

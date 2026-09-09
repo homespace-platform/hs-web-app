@@ -147,7 +147,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const [previewListingId, setPreviewListingId] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [contractTarget, setContractTarget] = useState<RentalRequestResponse | null>(null);
-  const [contractsByRequest, setContractsByRequest] = useState<Record<string, ContractResponse>>({});
+  const [contractsByRequest, setContractsByRequest] = useState<Record<string, ContractResponse | null>>({});
   const [openingContractId, setOpeningContractId] = useState<string | null>(null);
 
   const fetchRequests = useCallback(async () => {
@@ -184,10 +184,16 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     void fetchRequests();
   }, [fetchRequests]);
 
+  const handleCloseContractModal = useCallback(() => {
+    setContractTarget(null);
+  }, []);
+
   // Tra cứu hợp đồng trong suốt vòng đời giữ chỗ và sau khi thuê thành công.
   useEffect(() => {
     const contractRequests = requests.filter(
-      (request) => request.status === "ACCEPTED" || request.status === "COMPLETED"
+      (request) =>
+        (request.status === "ACCEPTED" || request.status === "COMPLETED") &&
+        !(request.id in contractsByRequest)
     );
     if (contractRequests.length === 0) return;
     let cancelled = false;
@@ -196,17 +202,17 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         contractRequests.map(async (r) => {
           try {
             const c = await contractService.getByRentalRequest(r.id);
-            return c?.id ? ([r.id, c] as const) : null;
+            return [r.id, c] as const;
           } catch {
-            return null;
+            return [r.id, null] as const;
           }
         }),
       );
       if (cancelled) return;
       setContractsByRequest((prev) => {
         const next = { ...prev };
-        for (const entry of entries) {
-          if (entry) next[entry[0]] = entry[1];
+        for (const [reqId, contract] of entries) {
+          next[reqId] = contract;
         }
         return next;
       });
@@ -214,7 +220,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     return () => {
       cancelled = true;
     };
-  }, [requests]);
+  }, [requests, contractsByRequest]);
 
   // Tick mỗi giây để countdown giữ chỗ cập nhật
   useEffect(() => {
@@ -876,7 +882,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
       {contractTarget && (
         <CreateContractFromRequestModal
           request={contractTarget}
-          onClose={() => setContractTarget(null)}
+          onClose={handleCloseContractModal}
         />
       )}
     </div>

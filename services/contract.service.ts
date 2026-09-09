@@ -196,6 +196,13 @@ export const contractService = {
     return response.data.result;
   },
 
+  async sendToTenant(contractId: string): Promise<ContractResponse> {
+    const response = await axiosClient.post<ApiResponse<ContractResponse>>(
+      `/api/v1/contracts/${contractId}/send`
+    );
+    return response.data.result;
+  },
+
   async getDocuments(contractId: string): Promise<ContractDocumentResponse[]> {
     const response = await axiosClient.get<ApiResponse<ContractDocumentResponse[]>>(
       `/api/v1/contracts/${contractId}/documents`

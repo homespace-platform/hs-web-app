@@ -13,6 +13,7 @@ import {
   RefreshCw,
   AlertTriangle,
   ExternalLink,
+  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import { contractService } from "@/services/contract.service";
@@ -72,6 +73,7 @@ export default function ContractDetailPage() {
   const [documents, setDocuments] = useState<ContractDocumentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [rendering, setRendering] = useState(false);
+  const [sending, setSending] = useState(false);
   const [savingMeters, setSavingMeters] = useState(false);
   const [electricityInitial, setElectricityInitial] = useState("");
   const [waterInitial, setWaterInitial] = useState("");
@@ -114,6 +116,20 @@ export default function ContractDetailPage() {
     const ready = documents.filter((d) => d.status === "READY" && (d.viewUrl || d.downloadUrl));
     return ready[0] ?? documents[0] ?? null;
   }, [documents]);
+
+  const hasReadyCurrentDocument = useMemo(
+    () =>
+      Boolean(
+        revision &&
+          documents.some(
+            (document) =>
+              document.revisionId === revision.id &&
+              document.status === "READY" &&
+              Boolean(document.storageObjectId)
+          )
+      ),
+    [documents, revision]
+  );
 
   const waterPerPersonCharge = useMemo(
     () =>
@@ -202,6 +218,22 @@ export default function ContractDetailPage() {
     }
   }
 
+  async function handleSendToTenant() {
+    if (!contractId) return;
+    setSending(true);
+    try {
+      const sent = await contractService.sendToTenant(contractId);
+      setContract(sent);
+      const refreshed = await contractService.getDocuments(contractId);
+      setDocuments(refreshed);
+      toast.success("Đã gửi hợp đồng cho người thuê.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không thể gửi hợp đồng cho người thuê."));
+    } finally {
+      setSending(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -242,7 +274,7 @@ export default function ContractDetailPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {isLandlord && (
+          {isLandlord && contract.status === "DRAFT" && (
             <button
               type="button"
               disabled={rendering || completeness?.complete === false}
@@ -252,6 +284,24 @@ export default function ContractDetailPage() {
             >
               {rendering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
               Kết xuất lại file
+            </button>
+          )}
+          {isLandlord && contract.status === "DRAFT" && (
+            <button
+              type="button"
+              disabled={sending || !completeness?.complete || !hasReadyCurrentDocument}
+              onClick={handleSendToTenant}
+              title={
+                !completeness?.complete
+                  ? "Bổ sung đủ trường còn thiếu trước khi gửi"
+                  : !hasReadyCurrentDocument
+                    ? "Kết xuất file hợp đồng trước khi gửi"
+                    : undefined
+              }
+              className="h-9 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+              {sending ? "Đang gửi..." : "Gửi cho người thuê"}
             </button>
           )}
           {latestDoc?.downloadUrl && (
@@ -321,6 +371,17 @@ export default function ContractDetailPage() {
         </div>
       )}
 
+      {contract.status === "PENDING_REVIEW" && (
+        <div className="rounded-lg border border-sky-200 bg-sky-50 p-3.5 text-xs text-sky-800 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-200 flex items-start gap-2">
+          <Send className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>
+            {isLandlord
+              ? "Hợp đồng đã được gửi. Đang chờ người thuê xem và thực hiện bước tiếp theo."
+              : "Chủ nhà đã gửi hợp đồng cho bạn. Bạn có thể xem hoặc tải file để kiểm tra nội dung."}
+          </span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <section className="rounded-2xl border border-border bg-card p-4 space-y-1 shadow-2xs">
           <h2 className="text-sm font-bold text-foreground mb-2">Bên A — Chủ nhà</h2>
@@ -378,7 +439,7 @@ export default function ContractDetailPage() {
           </div>
         </div>
 
-        {isLandlord && (contract.status === "DRAFT" || contract.status === "PENDING_REVIEW") ? (
+        {isLandlord && contract.status === "DRAFT" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="space-y-1.5 text-xs font-semibold text-foreground">
               <span>Chỉ số điện ban đầu</span>
@@ -451,9 +512,10 @@ export default function ContractDetailPage() {
         </section>
       )}
 
-      <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-xs text-muted-foreground">
-        Phase A: tạo bản nháp, xem dữ liệu đã điền và tải file Word/PDF. Bước{" "}
-        <strong>Gửi cho người thuê → thanh toán ảo → ký</strong> sẽ làm ở Phase B/C.
+      <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-xs text-muted-foreground">
+        {contract.status === "DRAFT"
+          ? "Kiểm tra dữ liệu, kết xuất file rồi gửi hợp đồng cho người thuê."
+          : "Hai bên có thể xem và tải tài liệu hợp đồng đã gửi. Thanh toán và ký sẽ được thực hiện ở bước tiếp theo."}
         {isLandlord && (
           <>
             {" "}

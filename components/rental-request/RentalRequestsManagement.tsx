@@ -8,12 +8,9 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  AlertCircle,
-  Calendar,
   User,
   Phone,
   Mail,
-  Users,
   Search,
   RefreshCw,
   ChevronLeft,
@@ -23,7 +20,6 @@ import {
   Inbox,
   AlertTriangle,
   FileText,
-  DollarSign,
   Ban,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -33,6 +29,7 @@ import rentalRequestService from "@/services/rental-request.service";
 import ListingPreviewModal from "@/components/listing/ListingPreviewModal";
 import CreateContractFromRequestModal from "@/components/contract/CreateContractFromRequestModal";
 import { contractService } from "@/services/contract.service";
+import type { ContractResponse } from "@/types/contract.type";
 import type {
   RentalRequestResponse,
   RentalRequestStatus,
@@ -42,6 +39,7 @@ import {
   RENTAL_HOLD_DURATION_SHORT,
 } from "@/config/rental-hold.config";
 import { useRouter } from "next/navigation";
+import { getApiErrorMessage } from "@/utils/apiError";
 interface RentalRequestsManagementProps {
   mode: "RECEIVED" | "SENT";
 }
@@ -107,6 +105,17 @@ const formatVND = (price: number) =>
     maximumFractionDigits: 0,
   }).format(price);
 
+const STATUS_FILTER_TABS: Array<{
+  key: RentalRequestStatus | "ALL";
+  label: string;
+}> = [
+  { key: "ALL", label: "Tất cả" },
+  { key: "PENDING", label: "Chờ duyệt" },
+  { key: "ACCEPTED", label: `Đang giữ chỗ ${RENTAL_HOLD_DURATION_SHORT}` },
+  { key: "REJECTED", label: "Bị từ chối" },
+  { key: "EXPIRED", label: "Hết hạn" },
+];
+
 function isValidImageUrl(url?: string | null): boolean {
   if (!url || typeof url !== "string") return false;
   const trimmed = url.trim();
@@ -136,7 +145,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const [previewListingId, setPreviewListingId] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [contractTarget, setContractTarget] = useState<RentalRequestResponse | null>(null);
-  const [contractIds, setContractIds] = useState<Record<string, string>>({});
+  const [contractsByRequest, setContractsByRequest] = useState<Record<string, ContractResponse>>({});
   const [openingContractId, setOpeningContractId] = useState<string | null>(null);
 
   const fetchRequests = useCallback(async () => {
@@ -169,7 +178,8 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   }, [mode, statusFilter, page, pageSize]);
 
   useEffect(() => {
-    fetchRequests();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchRequests();
   }, [fetchRequests]);
 
   // Tra cứu hợp đồng đã gắn với các yêu cầu ACCEPTED (chủ nhà tạo / cả hai bên xem)
@@ -182,14 +192,14 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         accepted.map(async (r) => {
           try {
             const c = await contractService.getByRentalRequest(r.id);
-            return c?.id ? ([r.id, c.id] as const) : null;
+            return c?.id ? ([r.id, c] as const) : null;
           } catch {
             return null;
           }
         }),
       );
       if (cancelled) return;
-      setContractIds((prev) => {
+      setContractsByRequest((prev) => {
         const next = { ...prev };
         for (const entry of entries) {
           if (entry) next[entry[0]] = entry[1];
@@ -235,8 +245,8 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
       );
       setAcceptTarget(null);
       fetchRequests();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Duyệt yêu cầu thất bại.");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "Duyệt yêu cầu thất bại."));
     } finally {
       setIsProcessing(false);
     }
@@ -252,8 +262,8 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
       setRejectTarget(null);
       setRejectReason("");
       fetchRequests();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Từ chối yêu cầu thất bại.");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "Từ chối yêu cầu thất bại."));
     } finally {
       setIsProcessing(false);
     }
@@ -268,8 +278,8 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
       toast.success("Đã hủy yêu cầu thuê của bạn.");
       setCancelTarget(null);
       fetchRequests();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Hủy yêu cầu thất bại.");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "Hủy yêu cầu thất bại."));
     } finally {
       setIsProcessing(false);
     }
@@ -313,18 +323,12 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
 
       {/* 2. STATUS FILTER TABS */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        {[
-          { key: "ALL", label: "Tất cả" },
-          { key: "PENDING", label: "Chờ duyệt" },
-          { key: "ACCEPTED", label: `Đang giữ chỗ ${RENTAL_HOLD_DURATION_SHORT}` },
-          { key: "REJECTED", label: "Bị từ chối" },
-          { key: "EXPIRED", label: "Hết hạn" },
-        ].map((tab) => (
+        {STATUS_FILTER_TABS.map((tab) => (
           <button
             key={tab.key}
             type="button"
             onClick={() => {
-              setStatusFilter(tab.key as any);
+              setStatusFilter(tab.key);
               setPage(1);
             }}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 border ${
@@ -372,10 +376,20 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
       ) : (
         <div className="space-y-4">
           {requests.map((req) => {
-            const statusInfo = STATUS_CONFIG[req.status] || STATUS_CONFIG.PENDING;
+            const linkedContract = contractsByRequest[req.id];
+            const isContractSent = linkedContract?.status === "PENDING_REVIEW";
+            const statusInfo = isContractSent
+              ? {
+                  label: "Đã gửi hợp đồng",
+                  badgeClass:
+                    "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800",
+                  icon: Send,
+                }
+              : STATUS_CONFIG[req.status] || STATUS_CONFIG.PENDING;
             const StatusIcon = statusInfo.icon;
             const isHoldActive =
               req.status === "ACCEPTED" &&
+              !isContractSent &&
               req.holdExpiresAt &&
               !isPast(new Date(req.holdExpiresAt));
 
@@ -569,13 +583,13 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                     </div>
                     {mode === "RECEIVED" && (
                       <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                        {contractIds[req.id] ? (
+                        {linkedContract ? (
                           <button
                             type="button"
                             disabled={openingContractId === req.id}
                             onClick={() => {
                               setOpeningContractId(req.id);
-                              router.push(`/dashboard/contracts/${contractIds[req.id]}`);
+                              router.push(`/dashboard/contracts/${linkedContract.id}`);
                             }}
                             className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
                           >
@@ -594,16 +608,27 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                         )}
                       </div>
                     )}
-                    {mode === "SENT" && contractIds[req.id] && (
-                      <button
-                        type="button"
-                        onClick={() => router.push(`/dashboard/contracts/${contractIds[req.id]}`)}
-                        className="px-3.5 py-1.5 rounded-xl border border-emerald-600/40 bg-background/80 hover:bg-background text-emerald-800 dark:text-emerald-200 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        Xem hợp đồng
-                      </button>
-                    )}
+                  </div>
+                )}
+
+                {isContractSent && linkedContract && (
+                  <div className="p-3 rounded-lg bg-sky-50 border border-sky-200 text-xs text-sky-800 dark:bg-sky-950/30 dark:border-sky-900 dark:text-sky-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2">
+                      <Send className="w-4 h-4 shrink-0" />
+                      <span>
+                        {mode === "RECEIVED"
+                          ? "Hợp đồng đã gửi, đang chờ người thuê xem."
+                          : "Chủ nhà đã gửi hợp đồng cho bạn."}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/dashboard/contracts/${linkedContract.id}`)}
+                      className="h-8 px-3 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      {mode === "RECEIVED" ? "Đã gửi / xem hợp đồng" : "Xem hợp đồng"}
+                    </button>
                   </div>
                 )}
               </div>

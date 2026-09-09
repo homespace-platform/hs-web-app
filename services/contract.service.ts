@@ -3,6 +3,7 @@ import type { ApiResponse, PageResponse } from "@/types/api.type";
 import type {
   ContractCompletenessResponse,
   ContractDocumentResponse,
+  ContractPaymentBreakdownResponse,
   ContractResponse,
   ContractRevisionResponse,
   ContractStatus,
@@ -199,6 +200,27 @@ export const contractService = {
   async sendToTenant(contractId: string): Promise<ContractResponse> {
     const response = await axiosClient.post<ApiResponse<ContractResponse>>(
       `/api/v1/contracts/${contractId}/send`
+    );
+    return response.data.result;
+  },
+
+  async getPaymentBreakdown(contractId: string): Promise<ContractPaymentBreakdownResponse> {
+    const response = await axiosClient.get<ApiResponse<ContractPaymentBreakdownResponse>>(
+      `/api/v1/contracts/${contractId}/payment-breakdown`
+    );
+    return response.data.result;
+  },
+
+  async payMock(contractId: string): Promise<ContractPaymentBreakdownResponse> {
+    const response = await axiosClient.post<ApiResponse<ContractPaymentBreakdownResponse>>(
+      `/api/v1/contracts/${contractId}/pay-mock`
+    );
+    return response.data.result;
+  },
+
+  async sign(contractId: string): Promise<ContractResponse> {
+    const response = await axiosClient.post<ApiResponse<ContractResponse>>(
+      `/api/v1/contracts/${contractId}/sign`
     );
     return response.data.result;
   },

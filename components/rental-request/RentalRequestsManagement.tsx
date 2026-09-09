@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   FileText,
   Ban,
+  CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow, isPast } from "date-fns";
@@ -112,6 +113,7 @@ const STATUS_FILTER_TABS: Array<{
   { key: "ALL", label: "Tất cả" },
   { key: "PENDING", label: "Chờ duyệt" },
   { key: "ACCEPTED", label: `Đang giữ chỗ ${RENTAL_HOLD_DURATION_SHORT}` },
+  { key: "COMPLETED", label: "Đã thuê" },
   { key: "REJECTED", label: "Bị từ chối" },
   { key: "EXPIRED", label: "Hết hạn" },
 ];
@@ -182,14 +184,16 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     void fetchRequests();
   }, [fetchRequests]);
 
-  // Tra cứu hợp đồng đã gắn với các yêu cầu ACCEPTED (chủ nhà tạo / cả hai bên xem)
+  // Tra cứu hợp đồng trong suốt vòng đời giữ chỗ và sau khi thuê thành công.
   useEffect(() => {
-    const accepted = requests.filter((r) => r.status === "ACCEPTED");
-    if (accepted.length === 0) return;
+    const contractRequests = requests.filter(
+      (request) => request.status === "ACCEPTED" || request.status === "COMPLETED"
+    );
+    if (contractRequests.length === 0) return;
     let cancelled = false;
     (async () => {
       const entries = await Promise.all(
-        accepted.map(async (r) => {
+        contractRequests.map(async (r) => {
           try {
             const c = await contractService.getByRentalRequest(r.id);
             return c?.id ? ([r.id, c] as const) : null;
@@ -377,19 +381,29 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         <div className="space-y-4">
           {requests.map((req) => {
             const linkedContract = contractsByRequest[req.id];
-            const isContractSent = linkedContract?.status === "PENDING_REVIEW";
-            const statusInfo = isContractSent
+            const isContractPending = linkedContract?.status === "PENDING_REVIEW";
+            const isContractActive = linkedContract?.status === "ACTIVE";
+            const isContractPaid = linkedContract?.paymentStatus === "PAID_MOCK";
+            const hasExecutionContract = isContractPending || isContractActive;
+            const statusInfo = isContractActive
               ? {
-                  label: "Đã gửi hợp đồng",
+                  label: "Đã thuê thành công",
                   badgeClass:
-                    "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800",
-                  icon: Send,
+                    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
+                  icon: CheckCircle2,
+                }
+              : isContractPending
+              ? {
+                  label: isContractPaid ? "Chờ ký hợp đồng" : "Chờ thanh toán/ký",
+                  badgeClass:
+                    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+                  icon: isContractPaid ? FileText : CreditCard,
                 }
               : STATUS_CONFIG[req.status] || STATUS_CONFIG.PENDING;
             const StatusIcon = statusInfo.icon;
             const isHoldActive =
               req.status === "ACCEPTED" &&
-              !isContractSent &&
+              !hasExecutionContract &&
               req.holdExpiresAt &&
               !isPast(new Date(req.holdExpiresAt));
 
@@ -611,14 +625,26 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                   </div>
                 )}
 
-                {isContractSent && linkedContract && (
-                  <div className="p-3 rounded-lg bg-sky-50 border border-sky-200 text-xs text-sky-800 dark:bg-sky-950/30 dark:border-sky-900 dark:text-sky-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                {hasExecutionContract && linkedContract && (
+                  <div className={`p-3 rounded-lg border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                    isContractActive
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-200"
+                      : "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-200"
+                  }`}>
                     <div className="flex items-center gap-2">
-                      <Send className="w-4 h-4 shrink-0" />
+                      {isContractActive
+                        ? <CheckCircle2 className="w-4 h-4 shrink-0" />
+                        : <Send className="w-4 h-4 shrink-0" />}
                       <span>
-                        {mode === "RECEIVED"
-                          ? "Hợp đồng đã gửi, đang chờ người thuê xem."
-                          : "Chủ nhà đã gửi hợp đồng cho bạn."}
+                        {isContractActive
+                          ? "Hợp đồng đã có hiệu lực, giao dịch thuê đã hoàn tất."
+                          : mode === "RECEIVED"
+                            ? isContractPaid
+                              ? "Người thuê đã thanh toán, đang chờ ký hợp đồng."
+                              : "Đang chờ người thuê thanh toán và ký hợp đồng."
+                            : isContractPaid
+                              ? "Bạn đã thanh toán, hãy mở hợp đồng để ký."
+                              : "Hợp đồng đang chờ bạn thanh toán và ký."}
                       </span>
                     </div>
                     <button
@@ -627,7 +653,11 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                       className="h-8 px-3 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                     >
                       <FileText className="w-3.5 h-3.5" />
-                      {mode === "RECEIVED" ? "Đã gửi / xem hợp đồng" : "Xem hợp đồng"}
+                      {isContractActive
+                        ? "Xem hợp đồng hiệu lực"
+                        : mode === "RECEIVED"
+                          ? "Theo dõi hợp đồng"
+                          : "Mở hợp đồng"}
                     </button>
                   </div>
                 )}

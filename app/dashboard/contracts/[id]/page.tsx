@@ -14,12 +14,15 @@ import {
   AlertTriangle,
   ExternalLink,
   Send,
+  CreditCard,
+  PenLine,
 } from "lucide-react";
 import { toast } from "sonner";
 import { contractService } from "@/services/contract.service";
 import type {
   ContractCompletenessResponse,
   ContractDocumentResponse,
+  ContractPaymentBreakdownResponse,
   ContractResponse,
   ContractRevisionResponse,
   ContractStatus,
@@ -29,7 +32,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 
 const STATUS_LABEL: Record<ContractStatus, string> = {
   DRAFT: "Bản nháp",
-  PENDING_REVIEW: "Chờ người thuê xem",
+  PENDING_REVIEW: "Chờ thanh toán/ký",
   ACTIVE: "Đã hiệu lực",
   TERMINATED: "Đã chấm dứt",
   CANCELLED: "Đã hủy",
@@ -74,6 +77,10 @@ export default function ContractDetailPage() {
   const [loading, setLoading] = useState(true);
   const [rendering, setRendering] = useState(false);
   const [sending, setSending] = useState(false);
+  const [payment, setPayment] = useState<ContractPaymentBreakdownResponse | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [agreedToContract, setAgreedToContract] = useState(false);
   const [savingMeters, setSavingMeters] = useState(false);
   const [electricityInitial, setElectricityInitial] = useState("");
   const [waterInitial, setWaterInitial] = useState("");
@@ -81,16 +88,20 @@ export default function ContractDetailPage() {
   const isLandlord = Boolean(
     profile?.id && contract?.landlordId && profile.id === contract.landlordId
   );
+  const isTenant = Boolean(
+    profile?.id && contract?.tenantId && profile.id === contract.tenantId
+  );
 
   const load = useCallback(async () => {
     if (!contractId) return;
     setLoading(true);
     try {
-      const [c, rev, comp, docs] = await Promise.all([
-        contractService.getContract(contractId),
+      const c = await contractService.getContract(contractId);
+      const [rev, comp, docs, paymentBreakdown] = await Promise.all([
         contractService.getRevision(contractId),
         contractService.getCompleteness(contractId),
         contractService.getDocuments(contractId),
+        contractService.getPaymentBreakdown(contractId),
       ]);
       setContract(c);
       setRevision(rev);
@@ -98,6 +109,7 @@ export default function ContractDetailPage() {
       setWaterInitial(String(rev.meters?.waterInitial ?? ""));
       setCompleteness(comp);
       setDocuments(docs);
+      setPayment(paymentBreakdown);
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Không thể tải hợp đồng."));
       router.replace("/dashboard/contracts");
@@ -234,6 +246,40 @@ export default function ContractDetailPage() {
     }
   }
 
+  async function handleMockPayment() {
+    if (!contractId) return;
+    setPaying(true);
+    try {
+      const paid = await contractService.payMock(contractId);
+      setPayment(paid);
+      setContract((current) =>
+        current
+          ? { ...current, paymentStatus: paid.paymentStatus, paidAt: paid.paidAt }
+          : current
+      );
+      toast.success("Thanh toán tháng đầu thành công.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không thể thực hiện thanh toán."));
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  async function handleSign() {
+    if (!contractId || !agreedToContract) return;
+    setSigning(true);
+    try {
+      const signed = await contractService.sign(contractId);
+      setContract(signed);
+      setAgreedToContract(false);
+      toast.success("Hợp đồng đã được ký và có hiệu lực.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không thể ký hợp đồng."));
+    } finally {
+      setSigning(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -251,6 +297,10 @@ export default function ContractDetailPage() {
   const lease = revision.lease || {};
   const financial = revision.financial || {};
   const charges = revision.charges || [];
+  const currentStatusLabel =
+    contract.status === "PENDING_REVIEW" && payment?.paymentStatus === "PAID_MOCK"
+      ? "Chờ ký hợp đồng"
+      : STATUS_LABEL[contract.status];
 
   return (
     <div className="space-y-5 animate-in fade-in-50 duration-200 pb-8">
@@ -269,7 +319,7 @@ export default function ContractDetailPage() {
             <span className="truncate">{contract.contractNumber}</span>
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Trạng thái: <strong>{STATUS_LABEL[contract.status]}</strong>
+            Trạng thái: <strong>{currentStatusLabel}</strong>
             {isLandlord ? " · Bạn là Bên A (chủ nhà)" : " · Bạn là Bên B (người thuê)"}
           </p>
         </div>
@@ -376,9 +426,20 @@ export default function ContractDetailPage() {
           <Send className="w-4 h-4 mt-0.5 shrink-0" />
           <span>
             {isLandlord
-              ? "Hợp đồng đã được gửi. Đang chờ người thuê xem và thực hiện bước tiếp theo."
-              : "Chủ nhà đã gửi hợp đồng cho bạn. Bạn có thể xem hoặc tải file để kiểm tra nội dung."}
+              ? payment?.paymentStatus === "PAID_MOCK"
+                ? "Người thuê đã thanh toán. Đang chờ người thuê xác nhận và ký hợp đồng."
+                : "Hợp đồng đã được gửi. Đang chờ người thuê thanh toán và ký."
+              : payment?.paymentStatus === "PAID_MOCK"
+                ? "Bạn đã thanh toán. Hãy kiểm tra nội dung, xác nhận đồng ý và ký hợp đồng."
+                : "Chủ nhà đã gửi hợp đồng. Bạn có thể xem file và thực hiện thanh toán tháng đầu."}
           </span>
+        </div>
+      )}
+
+      {contract.status === "ACTIVE" && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-semibold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200 flex items-start gap-2">
+          <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>Hợp đồng đã được thanh toán, ký và đang có hiệu lực.</span>
         </div>
       )}
 
@@ -512,14 +573,116 @@ export default function ContractDetailPage() {
         </section>
       )}
 
+      {payment && contract.status !== "DRAFT" && (
+        <section className="rounded-lg border border-border bg-card p-4 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 mb-4">
+            <div className="flex items-start gap-2.5">
+              <CreditCard className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <div>
+                <h2 className="text-sm font-bold text-foreground">Thanh toán tháng đầu</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {payment.paymentStatus === "PAID_MOCK"
+                    ? "Đã thanh toán trên môi trường giả lập."
+                    : "Chưa thanh toán."}
+                </p>
+              </div>
+            </div>
+            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border self-start ${
+              payment.paymentStatus === "PAID_MOCK"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
+                : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
+            }`}>
+              {payment.paymentStatus === "PAID_MOCK" ? "Đã thanh toán" : "Chưa thanh toán"}
+            </span>
+          </div>
+
+          <div className="divide-y divide-border/60 border-y border-border/60">
+            <FieldRow label="Tiền thuê tháng đầu" value={formatMonthlyAmount(payment.monthlyRent)} />
+            <FieldRow label="Tiền cọc" value={formatMonthlyAmount(payment.deposit)} />
+            {payment.charges.map((charge) => (
+              <FieldRow
+                key={`${charge.name}-${charge.amount}`}
+                label={charge.name}
+                value={formatMonthlyAmount(charge.amount)}
+              />
+            ))}
+            <div className="flex items-center justify-between gap-3 py-3 text-sm">
+              <span className="font-bold text-foreground">Tổng thanh toán</span>
+              <span className="font-extrabold text-primary text-right">
+                {formatMonthlyAmount(payment.totalAmount)}
+              </span>
+            </div>
+          </div>
+
+          {payment.excludedMeterCharges.length > 0 && (
+            <p className="mt-3 text-[11px] text-muted-foreground">
+              {payment.excludedMeterCharges.join(", ")} tính theo công tơ chưa bao gồm trong lần thanh toán này.
+            </p>
+          )}
+
+          {isTenant && contract.status === "PENDING_REVIEW" && payment.paymentStatus === "UNPAID" && (
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                disabled={paying}
+                onClick={handleMockPayment}
+                className="h-9 px-3.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                {paying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CreditCard className="w-3.5 h-3.5" />}
+                {paying ? "Đang thanh toán..." : "Thanh toán giả lập"}
+              </button>
+            </div>
+          )}
+
+          {isTenant && contract.status === "PENDING_REVIEW" && payment.paymentStatus === "PAID_MOCK" && (
+            <div className="mt-4 border-t border-border pt-4 space-y-3">
+              <label className="flex items-start gap-2.5 text-xs text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreedToContract}
+                  onChange={(event) => setAgreedToContract(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+                />
+                <span>Tôi đã đọc và đồng ý với nội dung hợp đồng.</span>
+              </label>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={signing || !agreedToContract}
+                  onClick={handleSign}
+                  title={!agreedToContract ? "Xác nhận đã đọc và đồng ý trước khi ký" : undefined}
+                  className="h-9 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {signing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PenLine className="w-3.5 h-3.5" />}
+                  {signing ? "Đang ký..." : "Ký hợp đồng"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isLandlord && contract.status === "PENDING_REVIEW" && (
+            <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
+              {payment.paymentStatus === "PAID_MOCK"
+                ? "Người thuê đã thanh toán. Đang chờ người thuê xác nhận và ký hợp đồng."
+                : "Đang chờ người thuê thanh toán và ký hợp đồng."}
+            </p>
+          )}
+        </section>
+      )}
+
       <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-xs text-muted-foreground">
         {contract.status === "DRAFT"
           ? "Kiểm tra dữ liệu, kết xuất file rồi gửi hợp đồng cho người thuê."
-          : "Hai bên có thể xem và tải tài liệu hợp đồng đã gửi. Thanh toán và ký sẽ được thực hiện ở bước tiếp theo."}
-        {isLandlord && (
+          : contract.status === "ACTIVE"
+            ? "Hợp đồng đã có hiệu lực. Tin đăng đã chuyển sang trạng thái đã cho thuê."
+            : "Hai bên có thể xem và tải tài liệu hợp đồng; người thuê hoàn tất thanh toán và ký tại trang này."}
+        {(isLandlord || isTenant) && (
           <>
             {" "}
-            <Link href="/dashboard/rental-requests" className="text-primary font-semibold hover:underline">
+            <Link
+              href={isLandlord ? "/dashboard/rental-requests" : "/dashboard/rental-requests/my-requests"}
+              className="text-primary font-semibold hover:underline"
+            >
               Quay lại yêu cầu thuê
             </Link>
           </>

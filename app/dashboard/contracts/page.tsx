@@ -27,6 +27,13 @@ const STATUS_BADGE: Record<ContractStatus, string> = {
   CANCELLED: "bg-rose-50 text-rose-700 border-rose-200",
 };
 
+function contractStatusLabel(contract: ContractResponse): string {
+  if (contract.status === "PENDING_REVIEW") {
+    return contract.paymentStatus === "PAID_MOCK" ? "Chờ ký hợp đồng" : "Chờ thanh toán/ký";
+  }
+  return STATUS_LABEL[contract.status];
+}
+
 export default function ContractsPage() {
   const router = useRouter();
   const { profile } = useAuth();
@@ -54,6 +61,7 @@ export default function ContractsPage() {
   }, [page, statusFilter]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -136,7 +144,7 @@ export default function ContractsPage() {
                   <span
                     className={`self-start sm:self-center text-[11px] font-bold px-2.5 py-1 rounded-full border ${STATUS_BADGE[c.status]}`}
                   >
-                    {STATUS_LABEL[c.status]}
+                    {contractStatusLabel(c)}
                   </span>
                 </div>
               </button>

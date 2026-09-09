@@ -70,6 +70,8 @@ export type ContractStatus =
   | "TERMINATED"
   | "CANCELLED";
 
+export type ContractPaymentStatus = "UNPAID" | "PAID_MOCK";
+
 export type ContractDocumentType = "DOCX" | "PDF";
 export type DocumentPurpose = "PREVIEW" | "OFFICIAL";
 export type DocumentGenerationStatus = "GENERATING" | "READY" | "FAILED" | "STALE";
@@ -103,8 +105,28 @@ export interface ContractResponse {
   templateVersionId: string;
   currentRevisionId?: string | null;
   status: ContractStatus;
+  paymentStatus: ContractPaymentStatus;
+  paidAt?: string | null;
+  signedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ContractPaymentCharge {
+  name: string;
+  amount: number;
+}
+
+export interface ContractPaymentBreakdownResponse {
+  contractId: string;
+  monthlyRent: number;
+  deposit: number;
+  charges: ContractPaymentCharge[];
+  chargesTotal: number;
+  totalAmount: number;
+  excludedMeterCharges: string[];
+  paymentStatus: ContractPaymentStatus;
+  paidAt?: string | null;
 }
 
 export interface ContractRevisionResponse {

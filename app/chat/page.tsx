@@ -57,7 +57,9 @@ export default function ChatPage() {
     sendMessage: sendDirectMessage,
     toggleHideConversation,
     togglePinConversation,
+    updateParticipantRole,
     loadConversationMessages,
+    setActiveConversationId,
   } = useChatDemo();
   const [activeDirectConversationId, setActiveDirectConversationId] = useState<string | null>(
     conversationIdFromUrl
@@ -86,6 +88,13 @@ export default function ChatPage() {
       void loadConversationMessages(selectedDirectConversationId);
     }
   }, [selectedDirectConversationId, loadConversationMessages]);
+
+  useEffect(() => {
+    setActiveConversationId(
+      activeChannel === "direct" ? selectedDirectConversationId : null,
+    );
+    return () => setActiveConversationId(null);
+  }, [activeChannel, selectedDirectConversationId, setActiveConversationId]);
 
   // Sidebar Drag-to-Resize Logic
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -380,6 +389,7 @@ export default function ChatPage() {
                 }
                 onToggleHideConversation={toggleHideConversation}
                 onTogglePinConversation={togglePinConversation}
+                onUpdateParticipantRole={updateParticipantRole}
                 currentUserId={currentUserId}
                 isSidebarCollapsed={isSidebarCollapsed}
                 onToggleSidebar={toggleSidebar}

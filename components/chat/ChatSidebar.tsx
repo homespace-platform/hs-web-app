@@ -101,16 +101,10 @@ export default function ChatSidebar({
       return c.unreadCount > 0;
     }
     if (activeTab === "landlord") {
-      return (
-        c.userRole?.toLowerCase().includes("chủ nhà") ||
-        c.userName.toLowerCase().includes("chủ nhà")
-      );
+      return c.participantRole === "LANDLORD";
     }
     if (activeTab === "tenant") {
-      return (
-        c.userRole?.toLowerCase().includes("khách") ||
-        c.userRole?.toLowerCase().includes("thuê")
-      );
+      return c.participantRole === "TENANT";
     }
 
     return true;
@@ -499,15 +493,24 @@ export default function ChatSidebar({
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-0.5">
-                          <h3
-                            className={`text-xs truncate ${
-                              isSelected
-                                ? "text-primary font-bold"
-                                : "text-foreground font-semibold"
-                            }`}
-                          >
-                            {conv.userName}
-                          </h3>
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <h3
+                              className={`text-xs truncate ${
+                                isSelected
+                                  ? "text-primary font-bold"
+                                  : "text-foreground font-semibold"
+                              }`}
+                            >
+                              {conv.userName}
+                            </h3>
+                            {conv.participantRole && (
+                              <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+                                {conv.participantRole === "TENANT"
+                                  ? "Khách thuê"
+                                  : "Chủ thuê"}
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[10px] text-muted-foreground shrink-0 font-normal">
                             {conv.lastMessageTime}
                           </span>

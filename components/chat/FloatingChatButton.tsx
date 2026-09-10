@@ -4,10 +4,12 @@ import React, { useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
+import { useChatDemo } from "@/components/chat/ChatDemoProvider";
 
 export default function FloatingChatButton() {
   const pathname = usePathname();
   const router = useRouter();
+  const { conversations } = useChatDemo();
   const [isHovered, setIsHovered] = useState(false);
 
   // Nếu đang ở màn hình /chat thì ẩn nút bấm
@@ -15,7 +17,10 @@ export default function FloatingChatButton() {
     return null;
   }
 
-  const unreadCount = 3;
+  const unreadCount = conversations.reduce(
+    (total, conversation) => total + conversation.unreadCount,
+    0
+  );
 
   return (
     <>

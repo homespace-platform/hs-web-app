@@ -10,12 +10,14 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { io, type Socket } from "socket.io-client";
 import { useAuth } from "@/features/auth/useAuth";
+import keycloak from "@/lib/keycloak";
 import chatService from "@/services/chat.service";
 import type { ChatParticipantProfile } from "@/services/chat.service";
 import type { ChatConversation, RelatedListing } from "@/types/chat.type";
 import { mapApiConversation, mapApiMessage } from "@/lib/chat-api-mapper";
-import type { ChatApiAttachment } from "@/types/chat-api.type";
+import type { ChatApiAttachment, ChatApiMessage } from "@/types/chat-api.type";
 
 type ChatContact = {
   id?: string;
@@ -41,8 +43,13 @@ type ChatDemoContextValue = {
     attachments?: ChatApiAttachment[],
   ) => Promise<void>;
   loadConversationMessages: (conversationId: string) => Promise<void>;
+  setActiveConversationId: (conversationId: string | null) => void;
   toggleHideConversation: (conversationId: string) => void;
   togglePinConversation: (conversationId: string) => void;
+  updateParticipantRole: (
+    conversationId: string,
+    role: "TENANT" | "LANDLORD",
+  ) => Promise<void>;
 };
 
 const ChatDemoContext = createContext<ChatDemoContextValue | null>(null);
@@ -65,6 +72,53 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   );
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const loadingConversationIds = useRef(new Set<string>());
+  const activeConversationId = useRef<string | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+
+  const receiveMessage = useCallback(
+    async (message: ChatApiMessage) => {
+      if (!currentUserId) return;
+      if (
+        message.senderId !== currentUserId &&
+        activeConversationId.current === message.conversationId
+      ) {
+        await chatService.markRead(message.conversationId).catch(() => undefined);
+      }
+      // ponytail: refresh summaries per message; include the conversation in the event if this GET becomes hot.
+      const latest = await chatService.listConversations().catch(() => null);
+      const mappedMessage = mapApiMessage(message, currentUserId);
+
+      setConversations((current) => {
+        const source = latest
+          ? latest.map((item) => {
+              const mapped = mapApiConversation(item, currentUserId);
+              const existing = current.find(
+                (conversation) => conversation.id === item.id,
+              );
+              return existing
+                ? {
+                    ...mapped,
+                    isHidden: existing.isHidden,
+                    isPinned: existing.isPinned,
+                    messages: existing.messages,
+                  }
+                : mapped;
+            })
+          : current;
+
+        return source.map((conversation) =>
+          conversation.id === message.conversationId &&
+          !conversation.messages.some((item) => item.id === message.id)
+            ? {
+                ...conversation,
+                messages: [...conversation.messages, mappedMessage],
+              }
+            : conversation,
+        );
+      });
+    },
+    [currentUserId],
+  );
 
   useEffect(() => {
     if (!authenticated || !currentUserId) return;
@@ -91,6 +145,40 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, [authenticated, currentUserId]);
+
+  useEffect(() => {
+    if (!authenticated || !currentUserId) return;
+
+    let cancelled = false;
+    let socket: Socket | undefined;
+    void keycloak
+      .updateToken(30)
+      .then(() => {
+        if (cancelled || !keycloak.token) return;
+        socket = io(process.env.NEXT_PUBLIC_GATEWAY_BASE_URL || window.location.origin, {
+          path: "/api/v1/chat/socket.io",
+          extraHeaders: { Authorization: `Bearer ${keycloak.token}` },
+        });
+        socket.on("chat:message", (message: ChatApiMessage) => void receiveMessage(message));
+        socket.io.on("reconnect_attempt", () => {
+          if (keycloak.token) {
+            socket!.io.opts.extraHeaders = { Authorization: `Bearer ${keycloak.token}` };
+          }
+        });
+        socketRef.current = socket;
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+      socket?.disconnect();
+      if (socketRef.current === socket) socketRef.current = null;
+    };
+  }, [authenticated, currentUserId, receiveMessage]);
+
+  const setActiveConversationId = useCallback((conversationId: string | null) => {
+    activeConversationId.current = conversationId;
+  }, []);
 
   const loadConversationMessages = useCallback(
     async (conversationId: string) => {
@@ -212,27 +300,17 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       if (!trimmed || !currentUserId) return;
 
       try {
-        const message = await chatService.sendMessage(
+        const socket = socketRef.current;
+        if (!socket?.connected) throw new Error("WebSocket disconnected");
+        await keycloak.updateToken(30);
+        socket.io.opts.extraHeaders = { Authorization: `Bearer ${keycloak.token}` };
+        await socket.timeout(10_000).emitWithAck("chat:send", {
           conversationId,
-          trimmed,
-          listingCard,
-          currentParticipantProfile,
-          attachments,
-        );
-        const mappedMessage = mapApiMessage(message, currentUserId);
-        setConversations((current) =>
-          current.map((conversation) =>
-            conversation.id === conversationId
-              ? {
-                  ...conversation,
-                  lastMessage: mappedMessage.content,
-                  lastMessageTime: mappedMessage.timestamp,
-                  lastMessageSender: "me",
-                  messages: [...conversation.messages, mappedMessage],
-                }
-              : conversation,
-          ),
-        );
+          content: trimmed,
+          ...(listingCard ? { listing: listingCard } : {}),
+          ...(currentParticipantProfile ? { senderProfile: currentParticipantProfile } : {}),
+          ...(attachments?.length ? { attachments } : {}),
+        });
       } catch {
         toast.error("Không thể gửi tin nhắn");
       }
@@ -260,6 +338,24 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const updateParticipantRole = useCallback(
+    async (conversationId: string, role: "TENANT" | "LANDLORD") => {
+      try {
+        const updated = await chatService.updateParticipantRole(conversationId, role);
+        setConversations((current) =>
+          current.map((conversation) =>
+            conversation.id === conversationId
+              ? { ...conversation, participantRole: updated.participantRole }
+              : conversation,
+          ),
+        );
+      } catch {
+        toast.error("Không thể cập nhật biệt danh");
+      }
+    },
+    [],
+  );
+
   const value = useMemo(
     () => ({
       currentUserId,
@@ -267,8 +363,10 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       openConversation,
       sendMessage,
       loadConversationMessages,
+      setActiveConversationId,
       toggleHideConversation,
       togglePinConversation,
+      updateParticipantRole,
     }),
     [
       currentUserId,
@@ -276,8 +374,10 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       openConversation,
       sendMessage,
       loadConversationMessages,
+      setActiveConversationId,
       toggleHideConversation,
       togglePinConversation,
+      updateParticipantRole,
     ]
   );
 

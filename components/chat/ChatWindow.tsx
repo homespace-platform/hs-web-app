@@ -76,6 +76,10 @@ interface ChatWindowProps {
   ) => void;
   onToggleHideConversation: (conversationId: string) => void;
   onTogglePinConversation: (conversationId: string) => void;
+  onUpdateParticipantRole: (
+    conversationId: string,
+    role: "TENANT" | "LANDLORD",
+  ) => void;
   currentUserId?: string;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
@@ -87,6 +91,7 @@ export default function ChatWindow({
   onSendMessage,
   onToggleHideConversation,
   onTogglePinConversation,
+  onUpdateParticipantRole,
   currentUserId,
   isSidebarCollapsed,
   onToggleSidebar,
@@ -215,7 +220,7 @@ export default function ChatWindow({
               </span>
               {conversation.participantRole && (
                 <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                  {conversation.participantRole === "TENANT" ? "Người hỏi thuê" : "Chủ thuê"}
+                  {conversation.participantRole === "TENANT" ? "Khách thuê" : "Chủ thuê"}
                 </span>
               )}
               {isAi ? (
@@ -284,6 +289,24 @@ export default function ChatWindow({
 
             {isMoreMenuOpen && (
               <div className="absolute right-0 top-full mt-1.5 w-48 bg-popover text-popover-foreground rounded-2xl shadow-xl border border-border p-1.5 z-50 animate-in fade-in-50 zoom-in-95">
+                <div className="px-3 py-1.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                  Đặt biệt danh
+                </div>
+                {(["TENANT", "LANDLORD"] as const).map((role) => (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => {
+                      onUpdateParticipantRole(conversation.id, role);
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs font-medium rounded-lg hover:bg-muted flex items-center justify-between"
+                  >
+                    <span>{role === "TENANT" ? "Khách thuê" : "Chủ thuê"}</span>
+                    {conversation.participantRole === role && <span aria-label="Đang chọn">✓</span>}
+                  </button>
+                ))}
+                <div className="my-1 border-t border-border/60" />
                 <button
                   type="button"
                   onClick={() => {

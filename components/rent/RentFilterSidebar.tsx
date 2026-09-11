@@ -59,12 +59,9 @@ interface RentFilterSidebarProps {
 
 export const RENT_CATEGORIES = [
   { id: "all", label: "Tất cả" },
-  { id: "apartment", label: "Căn hộ/Chung cư" },
-  { id: "house", label: "Nhà ở" },
-  { id: "office", label: "Văn phòng" },
-  { id: "commercial", label: "Mặt bằng kinh doanh" },
-  { id: "studio", label: "Studio" },
-  { id: "room", label: "Phòng trọ" },
+  { id: "house", label: "Nhà ở nguyên căn" },
+  { id: "apartment", label: "Căn hộ / Chung cư" },
+  { id: "room", label: "Phòng trọ / Căn hộ dịch vụ" },
 ];
 
 export const CATEGORY_SUBTYPES: Record<string, { id: string; label: string }[]> = {

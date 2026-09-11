@@ -1,6 +1,6 @@
 import React, { ChangeEvent } from "react";
 import Image from "next/image";
-import { ImagePlus, Video as VideoIcon, X } from "lucide-react";
+import { ImagePlus, Video as VideoIcon, X, Lock } from "lucide-react";
 import FormField, { inputClass, selectClass } from "./FormField";
 import FormSectionWrapper from "./FormSectionWrapper";
 import {
@@ -255,27 +255,45 @@ export default function BasicInfoSection({
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             {PROPERTY_CATEGORIES.map((cat) => {
               const active = data.category === cat.key;
+              const disabled = !!cat.disabled;
               return (
                 <button
                   key={cat.key}
                   type="button"
-                  onClick={() => onRequestCategoryChange(cat.key)}
-                  className={`flex flex-col items-start rounded-xl border p-3 text-left transition-all ${
-                    active
+                  disabled={disabled}
+                  onClick={() => !disabled && onRequestCategoryChange(cat.key)}
+                  className={`relative flex flex-col items-start rounded-xl border p-3 text-left transition-all ${
+                    disabled
+                      ? "opacity-60 bg-muted/20 border-border cursor-not-allowed select-none"
+                      : active
                       ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary"
                       : "border-border bg-card hover:border-primary/40 hover:bg-muted/30"
                   }`}
                 >
-                  <span
-                    className={`text-xs font-bold ${
-                      active ? "text-primary" : "text-foreground"
-                    }`}
-                  >
-                    {cat.label}
-                  </span>
+                  <div className="flex w-full items-center justify-between gap-1">
+                    <span
+                      className={`text-xs font-bold ${
+                        disabled
+                          ? "text-muted-foreground"
+                          : active
+                          ? "text-primary"
+                          : "text-foreground"
+                      }`}
+                    >
+                      {cat.label}
+                    </span>
+                    {disabled && (
+                      <Lock className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                    )}
+                  </div>
                   <span className="mt-1 line-clamp-2 text-[10px] text-muted-foreground">
                     {cat.description}
                   </span>
+                  {disabled && (
+                    <span className="mt-1.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400">
+                      Tạm khóa
+                    </span>
+                  )}
                 </button>
               );
             })}

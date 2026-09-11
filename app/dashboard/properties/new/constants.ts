@@ -4,31 +4,34 @@ export const PROPERTY_CATEGORIES: {
   key: PropertyCategoryKey;
   label: string;
   description: string;
+  disabled?: boolean;
 }[] = [
-  {
-    key: "apartment",
-    label: "Căn hộ / Chung cư",
-    description: "Căn hộ chung cư, studio, duplex, penthouse, officetel",
-  },
   {
     key: "house",
     label: "Nhà nguyên căn",
     description: "Nhà phố, nhà trong hẻm, biệt thự, nhà cấp 4",
   },
   {
-    key: "office",
-    label: "Văn phòng",
-    description: "Văn phòng truyền thống, trọn gói, coworking, chia sẻ",
-  },
-  {
-    key: "commercial",
-    label: "Mặt bằng kinh doanh",
-    description: "Cửa hàng, ki-ốt, showroom, shophouse, mặt bằng TTTM",
+    key: "apartment",
+    label: "Căn hộ / Chung cư",
+    description: "Căn hộ chung cư, studio, duplex, penthouse, officetel",
   },
   {
     key: "room",
     label: "Nhà trọ / Căn hộ dịch vụ",
     description: "Phòng trọ, phòng trong nhà, căn hộ dịch vụ, ký túc xá",
+  },
+  {
+    key: "office",
+    label: "Văn phòng",
+    description: "Văn phòng truyền thống, trọn gói, coworking, chia sẻ",
+    disabled: true,
+  },
+  {
+    key: "commercial",
+    label: "Mặt bằng kinh doanh",
+    description: "Cửa hàng, ki-ốt, showroom, shophouse, mặt bằng TTTM",
+    disabled: true,
   },
 ];
 

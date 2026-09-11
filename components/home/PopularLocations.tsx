@@ -52,12 +52,9 @@ const SUB_AREAS: AreaItem[] = [
 ];
 
 const CATEGORIES = [
-  { id: "apartment", label: "Căn hộ/Chung cư" },
-  { id: "house", label: "Nhà ở" },
-  { id: "office", label: "Văn phòng" },
-  { id: "commercial", label: "Mặt bằng kinh doanh" },
-  { id: "studio", label: "Studio" },
-  { id: "room", label: "Phòng trọ" },
+  { id: "house", label: "Nhà ở nguyên căn" },
+  { id: "apartment", label: "Căn hộ / Chung cư" },
+  { id: "room", label: "Phòng trọ / Căn hộ dịch vụ" },
 ];
 
 export default function PopularLocations() {

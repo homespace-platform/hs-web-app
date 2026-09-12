@@ -6,7 +6,7 @@ import type { OfficeDetailsData, FormErrors } from "../../types";
 
 interface OfficeDetailsSectionProps {
   data: OfficeDetailsData;
-  subtype: string;
+  subtype?: string;
   errors: FormErrors;
   onChange: (updates: Partial<OfficeDetailsData>) => void;
   furnishingSlot: ReactNode;

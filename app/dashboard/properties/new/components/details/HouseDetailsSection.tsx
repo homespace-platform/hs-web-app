@@ -9,7 +9,7 @@ import type { HouseDetailsData, FormErrors } from "../../types";
 
 interface HouseDetailsSectionProps {
   data: HouseDetailsData;
-  rentalType: string;
+  rentalType?: string;
   errors: FormErrors;
   onChange: (updates: Partial<HouseDetailsData>) => void;
   furnishingSlot: ReactNode;

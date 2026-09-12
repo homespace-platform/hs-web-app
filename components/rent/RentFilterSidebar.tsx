@@ -349,48 +349,6 @@ export default function RentFilterSidebar({
           </div>
         </div>
 
-        {/* 1.1 Thuộc tính con: Loại chi tiết (Subtypes) */}
-        {activeSubtypes && activeSubtypes.length > 0 && (
-          <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/80 space-y-2.5 animate-in fade-in-50 duration-200">
-            <div className="flex items-center gap-2">
-              <Layers className="w-3.5 h-3.5 text-primary" />
-              <h4 className="text-[11px] font-bold text-foreground uppercase tracking-wider">
-                {draft.category === "apartment" || draft.category === "studio"
-                  ? "Loại căn hộ chi tiết"
-                  : draft.category === "house"
-                  ? "Kiểu nhà ở"
-                  : draft.category === "office"
-                  ? "Loại hình văn phòng"
-                  : draft.category === "commercial"
-                  ? "Loại mặt bằng"
-                  : "Loại phòng trọ"}
-              </h4>
-            </div>
-
-            <div className="flex flex-wrap gap-1.5">
-              {activeSubtypes.map((sub) => {
-                const isSelected = draft.subtype === sub.id;
-                return (
-                  <button
-                    key={sub.id}
-                    type="button"
-                    onClick={() =>
-                      setDraft((prev) => ({ ...prev, subtype: sub.id }))
-                    }
-                    className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold transition-all duration-150 cursor-pointer select-none ${
-                      isSelected
-                        ? "bg-primary text-primary-foreground font-bold shadow-xs scale-[1.02]"
-                        : "bg-background hover:bg-muted text-muted-foreground hover:text-foreground border border-border"
-                    }`}
-                  >
-                    {sub.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* 2. Khoảng giá thuê */}
         <div className="space-y-3.5">
           <div className="flex items-center justify-between">

@@ -352,17 +352,6 @@ export default function ListingPreviewModal({
               {/* 2. TIÊU ĐỀ, ĐỊA CHỈ & THỜI GIAN */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-                  {listing.subtype && (
-                    <span className="font-semibold text-primary">
-                      {SUBTYPE_LABELS[listing.subtype] || listing.subtype}
-                    </span>
-                  )}
-                  {listing.rentalMode && (
-                    <>
-                      <span>•</span>
-                      <span>{RENTAL_MODE_LABELS[listing.rentalMode] || listing.rentalMode}</span>
-                    </>
-                  )}
                   {listing.areaM2 && (
                     <>
                       <span>•</span>

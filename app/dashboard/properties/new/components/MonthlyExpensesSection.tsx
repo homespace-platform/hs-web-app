@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Info, Plus, Trash2 } from "lucide-react";
 import { inputClass, selectClass } from "./FormField";
 import FormSectionWrapper from "./FormSectionWrapper";
 import type {
@@ -13,12 +13,14 @@ interface MonthlyExpensesSectionProps {
   category: PropertyCategoryKey;
   data: MonthlyExpensesData;
   errors?: FormErrors;
+  isBranchSelected?: boolean;
   onChange: (updates: Partial<MonthlyExpensesData>) => void;
 }
 
 export default function MonthlyExpensesSection({
   category,
   data,
+  isBranchSelected = false,
   onChange,
 }: MonthlyExpensesSectionProps) {
   const isOffice = category === "office";
@@ -60,6 +62,18 @@ export default function MonthlyExpensesSection({
       description="Minh bạch chi phí điện, nước và các dịch vụ đi kèm giúp người thuê dễ dàng tính toán"
     >
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        {isBranchSelected && (
+          <div className="sm:col-span-2 flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50/80 p-3.5 text-xs text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-100">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
+            <div>
+              <p className="font-bold">Đã tự động điền Đơn giá Điện &amp; Nước từ Chi nhánh</p>
+              <p className="mt-0.5 text-[11px] opacity-90">
+                Thông tin <strong>Tiền điện</strong> và <strong>Tiền nước</strong> đã được tự động áp dụng từ chi nhánh đã chọn. Các khoản chi phí khác bên dưới là tùy chọn (optional), bạn có thể tùy chỉnh hoặc để trống.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Tiền điện */}
         <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3.5">
           <label className="block text-xs font-bold text-foreground">
@@ -77,9 +91,7 @@ export default function MonthlyExpensesSection({
               className={selectClass}
             >
               <option value="KWH">Tính theo số công tơ (kWh)</option>
-              <option value="STATE_PRICE">Theo giá nhà nước / Hóa đơn EVN</option>
               <option value="INCLUDED">Đã bao gồm trong giá thuê</option>
-              <option value="NEGOTIATE">Thỏa thuận riêng</option>
             </select>
 
             {data.electricityType === "KWH" ? (
@@ -99,9 +111,7 @@ export default function MonthlyExpensesSection({
               </div>
             ) : (
               <div className="flex h-10 items-center rounded-xl bg-muted/50 px-3 text-xs text-muted-foreground">
-                {data.electricityType === "STATE_PRICE" && "Tính theo bậc thang EVN"}
-                {data.electricityType === "INCLUDED" && "Miễn phí tiền điện"}
-                {data.electricityType === "NEGOTIATE" && "Hai bên tự thỏa thuận"}
+                Miễn phí tiền điện
               </div>
             )}
           </div>

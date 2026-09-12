@@ -3,6 +3,7 @@ import {
   BarChart2,
   Users,
   FileText,
+  Building2,
   Send,
   FileCheck,
   Calendar,
@@ -43,6 +44,7 @@ export const LANDLORD_NAV: DashboardNavGroup[] = [
     groupTitle: "QUẢN LÝ",
     items: [
       { title: "Khách hàng", path: "/dashboard/customers", icon: Users },
+      { title: "Chi nhánh / Tòa nhà", path: "/dashboard/branches", icon: Building2 },
       { title: "Tin đăng", path: "/dashboard/properties", icon: FileText },
       {
         title: "Lịch xem nhà",

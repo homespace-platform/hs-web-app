@@ -8,6 +8,7 @@ import { useAuth } from "@/features/auth/useAuth";
 import provinceService from "@/services/province.service";
 import listingService from "@/services/listing.service";
 import storageService from "@/services/storage.service";
+import branchService, { type PropertyBranch } from "@/services/branch.service";
 import type { Province, Ward } from "@/types/province.type";
 import type { ListingOptionsResponse, ListingSubmissionAction } from "@/types/listing.type";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -34,8 +35,6 @@ import FormActions from "./components/FormActions";
 import CategoryChangeConfirmModal from "./components/CategoryChangeConfirmModal";
 
 import {
-  SUBTYPES_BY_CATEGORY,
-  RENTAL_TYPES_BY_CATEGORY,
   PRICE_UNITS_BY_CATEGORY,
 } from "./constants";
 import type {
@@ -61,6 +60,11 @@ function CreatePropertyListingContent() {
   const { profile } = useAuth();
 
   const [isLoadingDetail, setIsLoadingDetail] = useState(Boolean(editId));
+  const [branches, setBranches] = useState<PropertyBranch[]>([]);
+
+  useEffect(() => {
+    branchService.getMyBranches().then(setBranches).catch(() => {});
+  }, []);
 
   // Section 1: Basic Info
   const [basicInfo, setBasicInfo] = useState<BasicInfoData>({
@@ -68,8 +72,6 @@ function CreatePropertyListingContent() {
     images: [],
     videos: [],
     category: "apartment",
-    subtype: "apartment_normal",
-    rentalType: "WHOLE",
     availableDate: new Date().toISOString().split("T")[0],
     description: "",
   });
@@ -249,6 +251,137 @@ function CreatePropertyListingContent() {
     requireKyc(profile, { router, redirect: true });
   }, [profile, router]);
 
+  function handleSelectBranch(branchId: string) {
+    if (!branchId) {
+      setBasicInfo((prev) => ({ ...prev, branchId: "" }));
+      toast.info("Đã chuyển sang Bất động sản độc lập (bạn có thể tự nhập thủ công tất cả thông tin).");
+      return;
+    }
+
+    const branch = branches.find((b) => b.id === branchId);
+    if (!branch) return;
+
+    if (branch.category) {
+      const mappedCategory = branch.category.toLowerCase() as PropertyCategoryKey;
+      setBasicInfo((prev) => ({
+        ...prev,
+        branchId,
+        category: mappedCategory,
+      }));
+    } else {
+      setBasicInfo((prev) => ({ ...prev, branchId }));
+    }
+
+    if (branch.fullAddress || branch.streetLine) {
+      setAddressMode("new");
+      if (branch.provinceCode) {
+        const pCodeStr = String(branch.provinceCode);
+        setProvinceCode(pCodeStr);
+        const foundP = provinces.find((p) => String(p.code) === pCodeStr);
+        setProvinceQuery(foundP ? foundP.name : branch.provinceName || "");
+      }
+      if (branch.wardCode) {
+        const wCodeStr = String(branch.wardCode);
+        setWardCode(wCodeStr);
+        const foundW = wards.find((w) => String(w.code) === wCodeStr);
+        setWardQuery(foundW ? foundW.name : branch.wardName || "");
+      }
+      if (branch.streetLine) setStreetLine(branch.streetLine);
+    }
+
+    if (branch.defaultCharges && branch.defaultCharges.length > 0) {
+      const newExpenses: Partial<MonthlyExpensesData> = {};
+
+      const elec = branch.defaultCharges.find((c) => c.chargeType === "ELECTRICITY");
+      if (elec) {
+        newExpenses.electricityPrice = elec.amount ? String(elec.amount) : "";
+        if (elec.includedInRent || elec.billingMethod === "INCLUDED") newExpenses.electricityType = "INCLUDED";
+        else newExpenses.electricityType = "KWH";
+      }
+
+      const water = branch.defaultCharges.find((c) => c.chargeType === "WATER");
+      if (water) {
+        newExpenses.waterPrice = water.amount ? String(water.amount) : "";
+        if (water.billingMethod === "PER_PERSON_MONTH") newExpenses.waterType = "PER_PERSON";
+        else if (water.billingMethod === "PER_MONTH") newExpenses.waterType = "FLAT_ROOM";
+        else if (water.includedInRent || water.billingMethod === "INCLUDED") newExpenses.waterType = "INCLUDED";
+        else newExpenses.waterType = "M3";
+      }
+
+      const mgmt = branch.defaultCharges.find((c) => c.chargeType === "MANAGEMENT");
+      if (mgmt) {
+        newExpenses.managementFee = mgmt.amount ? String(mgmt.amount) : "";
+        if (mgmt.includedInRent || mgmt.billingMethod === "INCLUDED") newExpenses.managementFeeType = "INCLUDED";
+        else if (mgmt.billingMethod === "PER_M2_MONTH") newExpenses.managementFeeType = "PER_M2";
+        else if (mgmt.billingMethod === "NOT_APPLICABLE" || mgmt.billingMethod === "FREE") newExpenses.managementFeeType = "NONE";
+        else newExpenses.managementFeeType = "MONTHLY";
+      }
+
+      const net = branch.defaultCharges.find((c) => c.chargeType === "INTERNET");
+      if (net) {
+        newExpenses.internetFee = net.amount ? String(net.amount) : "";
+        if (net.includedInRent || net.billingMethod === "INCLUDED") newExpenses.internetType = "INCLUDED";
+        else if (net.billingMethod === "NOT_APPLICABLE") newExpenses.internetType = "SELF_PAY";
+        else newExpenses.internetType = "MONTHLY";
+      }
+
+      const garb = branch.defaultCharges.find(
+        (c) => c.chargeType === "SERVICE_OR_GARBAGE" || c.chargeType === "GARBAGE"
+      );
+      if (garb) {
+        newExpenses.garbageFee = garb.amount ? String(garb.amount) : "";
+        if (garb.includedInRent || garb.billingMethod === "INCLUDED") newExpenses.garbageFeeType = "INCLUDED";
+        else newExpenses.garbageFeeType = "MONTHLY";
+      }
+
+      const moto = branch.defaultCharges.find((c) => c.chargeType === "MOTORBIKE_PARKING");
+      if (moto) {
+        newExpenses.motorbikeParkingFee = moto.amount ? String(moto.amount) : "";
+        if (moto.billingMethod === "FREE" || moto.includedInRent || moto.billingMethod === "INCLUDED")
+          newExpenses.motorbikeParkingType = "INCLUDED";
+        else if (moto.billingMethod === "NOT_APPLICABLE") newExpenses.motorbikeParkingType = "NONE";
+        else newExpenses.motorbikeParkingType = "PER_VEHICLE";
+      }
+
+      const car = branch.defaultCharges.find((c) => c.chargeType === "CAR_PARKING");
+      if (car) {
+        newExpenses.carParkingFee = car.amount ? String(car.amount) : "";
+        if (car.billingMethod === "FREE" || car.includedInRent || car.billingMethod === "INCLUDED")
+          newExpenses.carParkingType = "INCLUDED";
+        else if (car.billingMethod === "NOT_APPLICABLE") newExpenses.carParkingType = "NONE";
+        else newExpenses.carParkingType = "PER_VEHICLE";
+      }
+
+      const ac = branch.defaultCharges.find((c) => c.chargeType === "OVERTIME_AIR_CONDITIONING");
+      if (ac) {
+        newExpenses.overtimeAcFee = ac.amount ? String(ac.amount) : "";
+      }
+
+      const customOthers = branch.defaultCharges
+        .filter((c) => c.chargeType === "OTHER")
+        .map((c, idx) => ({
+          id: c.id || `branch-fee-${idx}`,
+          name: c.customName || "Phí dịch vụ khác",
+          amount: c.amount ? String(c.amount) : "",
+          unit: c.unit || "tháng",
+        }));
+      if (customOthers.length > 0) {
+        newExpenses.customFees = customOthers;
+      }
+
+      setMonthlyExpenses((prev) => ({ ...prev, ...newExpenses }));
+    }
+
+    if (branch.buildingRules && !basicInfo.description) {
+      setBasicInfo((prev) => ({
+        ...prev,
+        description: `Nội quy & Quy định chung tòa nhà ${branch.name}:\n${branch.buildingRules}`,
+      }));
+    }
+
+    toast.info(`Đã áp dụng thông tin địa chỉ & biểu phí từ chi nhánh "${branch.name}"`);
+  }
+
   // Fetch provinces
   useEffect(() => {
     let cancelled = false;
@@ -388,12 +521,11 @@ function CreatePropertyListingContent() {
           }));
 
         setBasicInfo({
+          branchId: res.branchId || "",
           title: res.title || "",
           images: existingImages,
           videos: existingVideos,
           category: cat,
-          subtype: subtypeMap[res.subtype] || "standard",
-          rentalType: res.rentalMode === "PARTIAL" ? "PARTIAL" : "WHOLE",
           availableDate: res.availableFrom || new Date().toISOString().split("T")[0],
           description: res.description || "",
         });
@@ -565,10 +697,8 @@ function CreatePropertyListingContent() {
           const customs = res.charges.filter((c) => c.chargeType === "OTHER");
 
           setMonthlyExpenses({
-            electricityType: elec?.includedInRent
+            electricityType: elec?.includedInRent || elec?.billingMethod === "INCLUDED"
               ? "INCLUDED"
-              : elec?.billingMethod === "STATE_WATER_RATE"
-              ? "STATE_PRICE"
               : "KWH",
             electricityPrice: elec?.amount != null ? String(elec.amount) : "3500",
             waterType: water?.includedInRent
@@ -750,15 +880,11 @@ function CreatePropertyListingContent() {
   }
 
   function applyCategoryChange(newCategory: PropertyCategoryKey) {
-    const defaultSubtype = SUBTYPES_BY_CATEGORY[newCategory]?.[0]?.value ?? "";
-    const defaultRentalType = RENTAL_TYPES_BY_CATEGORY[newCategory]?.[0]?.value ?? "";
     const defaultPriceUnit = PRICE_UNITS_BY_CATEGORY[newCategory]?.[0]?.value ?? "VND_MONTH";
 
     setBasicInfo((prev) => ({
       ...prev,
       category: newCategory,
-      subtype: defaultSubtype,
-      rentalType: defaultRentalType,
     }));
 
     setPricing((prev) => ({
@@ -834,13 +960,7 @@ function CreatePropertyListingContent() {
       if (!houseDetails.totalFloors || Number(houseDetails.totalFloors) <= 0) {
         addError("field-house-floors", "totalFloors", "Số tầng phải lớn hơn 0.");
       }
-      if (basicInfo.rentalType === "PARTIAL" && !houseDetails.rentalScope?.trim()) {
-        addError("field-rental-scope", "rentalScope", "Vui lòng mô tả phần diện tích cho thuê.");
-      }
     } else if (basicInfo.category === "office") {
-      if (basicInfo.subtype === "traditional_office" && !officeDetails.buildingName?.trim()) {
-        addError("field-office-building", "buildingName", "Vui lòng nhập tên tòa nhà văn phòng.");
-      }
       if (!officeDetails.rentalAreaM2 || Number(officeDetails.rentalAreaM2) <= 0) {
         addError("field-office-area", "rentalAreaM2", "Diện tích thuê phải lớn hơn 0.");
       }
@@ -850,12 +970,6 @@ function CreatePropertyListingContent() {
     } else if (basicInfo.category === "commercial") {
       if (!commercialDetails.areaM2 || Number(commercialDetails.areaM2) <= 0) {
         addError("field-commercial-area", "areaM2", "Diện tích mặt bằng phải lớn hơn 0.");
-      }
-      if (
-        ["shop", "showroom", "shophouse"].includes(basicInfo.subtype) &&
-        (!commercialDetails.facadeWidthM || Number(commercialDetails.facadeWidthM) <= 0)
-      ) {
-        addError("field-commercial-facade", "facadeWidthM", "Vui lòng nhập chiều rộng mặt tiền.");
       }
     } else if (basicInfo.category === "room") {
       if (!roomDetails.areaM2 || Number(roomDetails.areaM2) <= 0) {
@@ -1085,10 +1199,9 @@ function CreatePropertyListingContent() {
 
     switch (basicInfo.category) {
       case "apartment":
-              return (
+        return (
           <ApartmentDetailsSection
             data={apartmentDetails}
-            subtype={basicInfo.subtype}
             errors={errors}
             onChange={(updates) =>
               setApartmentDetails((prev) => ({ ...prev, ...updates }))
@@ -1100,7 +1213,6 @@ function CreatePropertyListingContent() {
         return (
           <HouseDetailsSection
             data={houseDetails}
-            rentalType={basicInfo.rentalType}
             errors={errors}
             onChange={(updates) =>
               setHouseDetails((prev) => ({ ...prev, ...updates }))
@@ -1109,10 +1221,9 @@ function CreatePropertyListingContent() {
           />
         );
       case "office":
-                    return (
+        return (
           <OfficeDetailsSection
             data={officeDetails}
-            subtype={basicInfo.subtype}
             errors={errors}
             onChange={(updates) =>
               setOfficeDetails((prev) => ({ ...prev, ...updates }))
@@ -1124,7 +1235,6 @@ function CreatePropertyListingContent() {
         return (
           <CommercialDetailsSection
             data={commercialDetails}
-            subtype={basicInfo.subtype}
             errors={errors}
             onChange={(updates) =>
               setCommercialDetails((prev) => ({ ...prev, ...updates }))
@@ -1175,8 +1285,11 @@ function CreatePropertyListingContent() {
         {/* Section 1: Thông tin cơ bản */}
         <BasicInfoSection
           data={basicInfo}
+          branches={branches}
           errors={errors}
+          isBranchSelected={Boolean(basicInfo.branchId)}
           onChange={(updates) => setBasicInfo((prev) => ({ ...prev, ...updates }))}
+          onSelectBranch={handleSelectBranch}
           onRequestCategoryChange={requestCategoryChange}
         />
 
@@ -1196,6 +1309,7 @@ function CreatePropertyListingContent() {
           category={basicInfo.category}
           data={monthlyExpenses}
           errors={errors}
+          isBranchSelected={Boolean(basicInfo.branchId)}
           onChange={(updates) =>
             setMonthlyExpenses((prev) => ({ ...prev, ...updates }))
           }
@@ -1224,6 +1338,7 @@ function CreatePropertyListingContent() {
           locationError={locationError}
           previewFullAddress={previewFullAddress}
           errors={errors}
+          isBranchSelected={Boolean(basicInfo.branchId)}
           onAddressModeChange={setAddressMode}
           onStreetLineChange={setStreetLine}
           onProvinceSelect={handleProvinceSelect}

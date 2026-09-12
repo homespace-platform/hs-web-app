@@ -183,7 +183,6 @@ export default function RentPage() {
           page: currentPage,
           size: ITEMS_PER_PAGE,
           category: apiCategory,
-          subtype: apiSubtype,
           priceMin,
           priceMax,
           areaMin,

@@ -17,7 +17,9 @@ import type {
 
 export interface MyListingsQueryParams {
   page?: number;
+  size?: number;
   status?: ListingStatus;
+  branchId?: string;
   keyword?: string;
 }
 
@@ -34,16 +36,18 @@ const listingService = {
   },
 
   /**
-   * Lấy danh sách tin đăng của tài khoản hiện tại (phân trang 10 items/trang)
+   * Lấy danh sách tin đăng của tài khoản hiện tại
    */
   async getMyListings(params: MyListingsQueryParams = {}): Promise<PageResponse<MyListingSummaryResponse>> {
-    const { page = 1, status, keyword } = params;
+    const { page = 1, size, status, branchId, keyword } = params;
     const response = await axiosClient.get<PageResponse<MyListingSummaryResponse>>(
       "/api/v1/listings/me",
       {
         params: {
           page,
+          ...(size ? { size } : {}),
           ...(status ? { status } : {}),
+          ...(branchId ? { branchId } : {}),
           ...(keyword && keyword.trim() ? { keyword: keyword.trim() } : {}),
         },
       },

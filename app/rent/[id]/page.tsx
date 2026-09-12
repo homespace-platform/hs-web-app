@@ -15,53 +15,88 @@ import { useAppDispatch } from "@/store/hooks";
 import { recordHistoryItem } from "@/features/history/historySlice";
 import { RENTAL_HOLD_DURATION_LABEL } from "@/config/rental-hold.config";
 
+import { getListingStatusConfig } from "@/config/listing-status.config";
+
 export default function RentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { authenticated } = useAuth();
   const dispatch = useAppDispatch();
   const [property, setProperty] = useState<RentPropertyItem | null>(null);
+  const [listingStatus, setListingStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
 
-    // Load listing detail from API (cho phép xem tin PUBLISHED hoặc RESERVED)
-    listingService
-      .getById(id)
-      .then((listing) => {
-        if (!cancelled && listing) {
-          if (listing.status !== "PUBLISHED" && listing.status !== "RESERVED") {
-            setProperty(null);
-          } else {
-            setProperty(toRentProperty(listing));
-            // Ghi nhận lượt xem hợp lệ (Backend có cơ chế chống spam Redis TTL)
-            listingService.recordView(id).then((viewRes) => {
-              if (viewRes.counted && !cancelled) {
-                setProperty((prev) =>
-                  prev ? { ...prev, viewCount: viewRes.viewCount, viewsCount: viewRes.viewCount } : null,
-                );
-              }
-            });
-            // Ghi nhận lịch sử xem tin cho user đã đăng nhập
-            if (authenticated) {
-              dispatch(recordHistoryItem(id));
-            }
-          }
+    const loadDetail = async () => {
+      let listingDetail = null;
+      let isOwnerView = false;
+
+      // 1. Thử gọi API chính chủ getMyListingById trước (cho phép chủ tin xem bài đăng ở mọi trạng thái: Đã ẩn, Tin nháp, Chờ duyệt...)
+      if (authenticated) {
+        try {
+          listingDetail = await listingService.getMyListingById(id);
+          isOwnerView = true;
+        } catch {
+          // Không phải chủ tin hoặc chưa đăng nhập -> fallback
         }
-      })
-      .catch((err) => {
-        console.error("Error fetching rent detail:", err);
-        if (!cancelled) setProperty(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      }
+
+      // 2. Nếu chưa lấy được bằng API cá nhân, gọi API công khai getById
+      if (!listingDetail) {
+        try {
+          listingDetail = await listingService.getById(id);
+        } catch {
+          listingDetail = null;
+        }
+      }
+
+      if (cancelled) return;
+
+      if (!listingDetail) {
+        setProperty(null);
+        setLoading(false);
+        return;
+      }
+
+      const isVisible = listingDetail.status === "PUBLISHED" || listingDetail.status === "RESERVED";
+
+      // Nếu tin không thuộc dạng công khai VÀ người dùng không phải là chủ tin -> Trả về 404 không tìm thấy
+      if (!isVisible && !isOwnerView) {
+        setProperty(null);
+        setLoading(false);
+        return;
+      }
+
+      setListingStatus(listingDetail.status);
+      setProperty(toRentProperty(listingDetail));
+
+      // Ghi nhận lượt xem (chỉ áp dụng cho tin công khai)
+      if (isVisible) {
+        listingService.recordView(id).then((viewRes) => {
+          if (viewRes.counted && !cancelled) {
+            setProperty((prev) =>
+              prev ? { ...prev, viewCount: viewRes.viewCount, viewsCount: viewRes.viewCount } : null,
+            );
+          }
+        });
+      }
+
+      // Ghi nhận lịch sử xem tin cho user đã đăng nhập
+      if (authenticated) {
+        dispatch(recordHistoryItem(id));
+      }
+
+      setLoading(false);
+    };
+
+    loadDetail();
 
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, authenticated, dispatch]);
 
   if (loading) {
     return (
@@ -111,6 +146,9 @@ export default function RentDetailPage() {
     );
   }
 
+  const currentStatus = listingStatus || property.status;
+  const statusCfg = getListingStatusConfig(currentStatus);
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Header />
@@ -121,13 +159,23 @@ export default function RentDetailPage() {
           <RentDetailView
             property={property}
             alertBanner={
-              property.status === "RESERVED" ? (
+              currentStatus === "RESERVED" ? (
                 <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 flex items-center gap-3 text-xs sm:text-sm shadow-xs">
                   <Clock className="w-5 h-5 text-amber-600 animate-pulse shrink-0" />
                   <div>
                     <p className="font-bold text-sm">Tin đăng đang trong thời gian giữ chỗ</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Chủ nhà đã duyệt một yêu cầu thuê và tin đăng đang tạm thời được giữ chỗ trong {RENTAL_HOLD_DURATION_LABEL}.
+                    </p>
+                  </div>
+                </div>
+              ) : currentStatus && currentStatus !== "PUBLISHED" ? (
+                <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-800 dark:text-blue-200 flex items-center gap-3 text-xs sm:text-sm shadow-xs">
+                  <Building className="w-5 h-5 text-blue-600 shrink-0" />
+                  <div>
+                    <p className="font-bold text-sm">Xem trước tin đăng ({statusCfg.label})</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Tin đăng này hiện đang ở trạng thái &quot;{statusCfg.label}&quot; và không hiển thị công khai với khách thuê. Chỉ có bạn (chủ tin đăng) mới có quyền truy cập xem trước.
                     </p>
                   </div>
                 </div>

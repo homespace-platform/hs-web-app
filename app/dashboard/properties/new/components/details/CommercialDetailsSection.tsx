@@ -5,7 +5,7 @@ import type { CommercialDetailsData, FormErrors } from "../../types";
 
 interface CommercialDetailsSectionProps {
   data: CommercialDetailsData;
-  subtype: string;
+  subtype?: string;
   errors: FormErrors;
   onChange: (updates: Partial<CommercialDetailsData>) => void;
   furnishingSlot: ReactNode;

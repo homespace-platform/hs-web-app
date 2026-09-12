@@ -1,9 +1,7 @@
 import type {
   CreateListingRequest,
   ListingCategory,
-  ListingSubtype,
   ListingSubmissionAction,
-  RentalMode,
   PriceUnit,
   DepositType,
   PaymentCycle,
@@ -79,56 +77,7 @@ function resolveCategory(cat: string): ListingCategory {
   }
 }
 
-function resolveSubtype(cat: string, subtype: string): ListingSubtype {
-  if (subtype === "other") {
-    switch (cat) {
-      case "apartment":
-        return "APARTMENT_OTHER";
-      case "house":
-        return "HOUSE_OTHER";
-      case "office":
-        return "OFFICE_OTHER";
-      case "commercial":
-        return "COMMERCIAL_OTHER";
-      case "room":
-        return "ROOM_OTHER";
-      default:
-        return "APARTMENT_OTHER";
-    }
-  }
 
-  const map: Record<string, ListingSubtype> = {
-    // apartment
-    standard: "APARTMENT_STANDARD",
-    studio: "APARTMENT_STUDIO",
-    duplex: "APARTMENT_DUPLEX",
-    penthouse: "APARTMENT_PENTHOUSE",
-    officetel: "APARTMENT_OFFICETEL",
-    // house
-    townhouse: "HOUSE_TOWNHOUSE",
-    alley_house: "HOUSE_ALLEY",
-    villa: "HOUSE_VILLA",
-    grade4: "HOUSE_GRADE_4",
-    // office
-    traditional_office: "OFFICE_TRADITIONAL",
-    serviced_office: "OFFICE_SERVICED",
-    coworking: "OFFICE_COWORKING",
-    shared_space: "OFFICE_SHARED",
-    // commercial
-    shop: "COMMERCIAL_STORE",
-    kiosk: "COMMERCIAL_KIOSK",
-    showroom: "COMMERCIAL_SHOWROOM",
-    shophouse: "COMMERCIAL_SHOPHOUSE",
-    mall_space: "COMMERCIAL_MALL",
-    // room
-    boarding_room: "ROOM_BOARDING",
-    house_room: "ROOM_IN_HOUSE",
-    serviced_apartment: "ROOM_SERVICED_APARTMENT",
-    dormitory: "ROOM_DORMITORY",
-  };
-
-  return map[subtype] || "APARTMENT_STANDARD";
-}
 
 function resolvePriceUnit(unit: string): PriceUnit {
   switch (unit) {
@@ -234,12 +183,6 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
   } = params;
 
   const category = resolveCategory(basicInfo.category);
-  const subtype = resolveSubtype(basicInfo.category, basicInfo.subtype);
-
-  const rentalMode: RentalMode =
-    basicInfo.category === "house" && basicInfo.rentalType === "PARTIAL"
-      ? "PARTIAL"
-      : "WHOLE_UNIT";
 
   // Calculate total main area
   let areaM2 = 30;
@@ -303,7 +246,6 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
       legalStatus: apartmentDetails.legalStatus || null,
     };
   } else if (category === "HOUSE") {
-    const isPartial = rentalMode === "PARTIAL";
     houseDetail = {
       landAreaM2: houseDetails.landAreaM2 ? Number(houseDetails.landAreaM2) : null,
       frontageWidthM: houseDetails.facadeWidthM ? Number(houseDetails.facadeWidthM) : null,
@@ -322,9 +264,9 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
       maxVehicles: houseDetails.maxVehicles ? Number(houseDetails.maxVehicles) : null,
       furnishingStatus: resolveFurnishing(houseDetails.furnishing),
       legalStatus: houseDetails.legalStatus || null,
-      rentalScopeDescription: isPartial ? houseDetails.rentalScope?.trim() || null : null,
-      rentedFloorFrom: isPartial && houseDetails.rentalFloor ? Number(houseDetails.rentalFloor) : null,
-      rentedFloorTo: isPartial && houseDetails.rentalFloor ? Number(houseDetails.rentalFloor) : null,
+      rentalScopeDescription: houseDetails.rentalScope?.trim() || null,
+      rentedFloorFrom: houseDetails.rentalFloor ? Number(houseDetails.rentalFloor) : null,
+      rentedFloorTo: houseDetails.rentalFloor ? Number(houseDetails.rentalFloor) : null,
     };
   } else if (category === "OFFICE") {
     const is24_7 = officeDetails.operatingHours?.includes("24/7");
@@ -430,11 +372,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
       billingMethod:
         monthlyExpenses.electricityType === "KWH"
           ? "PER_KWH"
-          : monthlyExpenses.electricityType === "STATE_PRICE"
-          ? "STATE_WATER_RATE"
-          : monthlyExpenses.electricityType === "INCLUDED"
-          ? "INCLUDED"
-          : "NEGOTIABLE",
+          : "INCLUDED",
       amount:
         monthlyExpenses.electricityType === "KWH" && monthlyExpenses.electricityPrice
           ? Number(monthlyExpenses.electricityPrice)
@@ -589,12 +527,11 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
 
   return {
     id: params.id || null,
+    branchId: basicInfo.branchId || null,
     submissionAction: params.submissionAction,
     title: basicInfo.title.trim(),
     description: basicInfo.description.trim(),
     category,
-    subtype,
-    rentalMode,
     availableFrom: basicInfo.availableDate || new Date().toISOString().split("T")[0],
     areaM2,
     pricing: pricingPayload,

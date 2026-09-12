@@ -5,8 +5,6 @@ import FormField, { inputClass, selectClass } from "./FormField";
 import FormSectionWrapper from "./FormSectionWrapper";
 import {
   PROPERTY_CATEGORIES,
-  SUBTYPES_BY_CATEGORY,
-  RENTAL_TYPES_BY_CATEGORY,
   MAX_IMAGES,
   MAX_VIDEOS,
 } from "../constants";
@@ -18,10 +16,15 @@ import type {
   FormErrors,
 } from "../types";
 
+import type { PropertyBranch } from "@/services/branch.service";
+
 interface BasicInfoSectionProps {
   data: BasicInfoData;
+  branches?: PropertyBranch[];
   errors: FormErrors;
+  isBranchSelected?: boolean;
   onChange: (updates: Partial<BasicInfoData>) => void;
+  onSelectBranch?: (branchId: string) => void;
   onRequestCategoryChange: (newCategory: PropertyCategoryKey) => void;
 }
 
@@ -37,13 +40,13 @@ function readFileAsDataUrl(file: File): Promise<string> {
 
 export default function BasicInfoSection({
   data,
+  branches,
   errors,
+  isBranchSelected = false,
   onChange,
+  onSelectBranch,
   onRequestCategoryChange,
 }: BasicInfoSectionProps) {
-  const currentSubtypes = SUBTYPES_BY_CATEGORY[data.category] || [];
-  const currentRentalTypes = RENTAL_TYPES_BY_CATEGORY[data.category] || [];
-
   async function handleImageUpload(e: ChangeEvent<HTMLInputElement>) {
     const remainingSlots = MAX_IMAGES - data.images.length;
     const files = Array.from(e.target.files ?? []).slice(0, remainingSlots);
@@ -98,6 +101,31 @@ export default function BasicInfoSection({
       description="Cung cấp các thông tin tổng quan, hình ảnh và loại hình cho thuê"
     >
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        {/* Chọn Chi nhánh / Tòa nhà */}
+        <FormField
+          id="field-branch"
+          label="Chi nhánh / Tòa nhà"
+          hint="Nếu bất động sản này thuộc chi nhánh/tòa nhà của bạn, chọn chi nhánh để gán tự động"
+          className="sm:col-span-2"
+        >
+          <select
+            value={data.branchId || ""}
+            onChange={(e) => {
+              const bId = e.target.value;
+              onChange({ branchId: bId });
+              if (onSelectBranch) onSelectBranch(bId);
+            }}
+            className={selectClass}
+          >
+            <option value="">-- Bất động sản độc lập (Không chọn chi nhánh) --</option>
+            {(branches || []).map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name} {b.code ? `(${b.code})` : ""} - {b.fullAddress}
+              </option>
+            ))}
+          </select>
+        </FormField>
+
         {/* Tiêu đề tin đăng */}
         <FormField
           id="field-title"
@@ -255,7 +283,7 @@ export default function BasicInfoSection({
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             {PROPERTY_CATEGORIES.map((cat) => {
               const active = data.category === cat.key;
-              const disabled = !!cat.disabled;
+              const disabled = !!cat.disabled || isBranchSelected;
               return (
                 <button
                   key={cat.key}
@@ -273,7 +301,7 @@ export default function BasicInfoSection({
                   <div className="flex w-full items-center justify-between gap-1">
                     <span
                       className={`text-xs font-bold ${
-                        disabled
+                        disabled && !active
                           ? "text-muted-foreground"
                           : active
                           ? "text-primary"
@@ -282,66 +310,33 @@ export default function BasicInfoSection({
                     >
                       {cat.label}
                     </span>
-                    {disabled && (
+                    {(disabled || isBranchSelected) && (
                       <Lock className="h-3.5 w-3.5 shrink-0 text-amber-500" />
                     )}
                   </div>
                   <span className="mt-1 line-clamp-2 text-[10px] text-muted-foreground">
                     {cat.description}
                   </span>
-                  {disabled && (
+                  {cat.disabled && (
                     <span className="mt-1.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400">
                       Tạm khóa
+                    </span>
+                  )}
+                  {isBranchSelected && active && (
+                    <span className="mt-1.5 rounded bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-sky-600 dark:text-sky-400">
+                      Theo chi nhánh
                     </span>
                   )}
                 </button>
               );
             })}
           </div>
+          {isBranchSelected && (
+            <p className="pt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+              ⓘ Loại hình bất động sản được chọn tự động và cố định từ chi nhánh đã chọn.
+            </p>
+          )}
         </div>
-
-        {/* Loại chi tiết (Subtype) */}
-        <FormField
-          id="field-subtype"
-          label="Loại chi tiết"
-          required
-          error={errors.subtype}
-        >
-          <select
-            value={data.subtype}
-            onChange={(e) => onChange({ subtype: e.target.value })}
-            className={selectClass}
-          >
-            <option value="" disabled>
-              -- Chọn loại chi tiết --
-            </option>
-            {currentSubtypes.map((sub) => (
-              <option key={sub.value} value={sub.value}>
-                {sub.label}
-              </option>
-            ))}
-          </select>
-        </FormField>
-
-        {/* Hình thức cho thuê */}
-        <FormField
-          id="field-rental-type"
-          label="Hình thức cho thuê"
-          required
-          error={errors.rentalType}
-        >
-          <select
-            value={data.rentalType}
-            onChange={(e) => onChange({ rentalType: e.target.value })}
-            className={selectClass}
-          >
-            {currentRentalTypes.map((rt) => (
-              <option key={rt.value} value={rt.value}>
-                {rt.label}
-              </option>
-            ))}
-          </select>
-        </FormField>
 
         {/* Ngày có thể vào thuê / bàn giao */}
         <FormField

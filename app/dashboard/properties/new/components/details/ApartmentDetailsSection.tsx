@@ -10,7 +10,7 @@ import type { ApartmentDetailsData, FormErrors } from "../../types";
 
 interface ApartmentDetailsSectionProps {
   data: ApartmentDetailsData;
-  subtype: string;
+  subtype?: string;
   errors: FormErrors;
   onChange: (updates: Partial<ApartmentDetailsData>) => void;
   furnishingSlot: ReactNode;

@@ -63,12 +63,11 @@ export type CustomMonthlyFee = {
 
 // Section 1: Basic Info
 export interface BasicInfoData {
+  branchId?: string;
   title: string;
   images: SelectedMediaImage[];
   videos: SelectedMediaVideo[];
   category: PropertyCategoryKey;
-  subtype: string;
-  rentalType: string;
   availableDate: string;
   description: string;
 }
@@ -188,7 +187,7 @@ export interface FurnishingAssetRow {
 
 // Section 4: Monthly Expenses
 export interface MonthlyExpensesData {
-  electricityType: "KWH" | "STATE_PRICE" | "INCLUDED" | "NEGOTIATE";
+  electricityType: "KWH" | "INCLUDED";
   electricityPrice?: number | string;
   waterType: "M3" | "PER_PERSON" | "FLAT_ROOM" | "INCLUDED";
   waterPrice?: number | string;

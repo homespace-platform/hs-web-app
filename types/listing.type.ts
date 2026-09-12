@@ -318,12 +318,11 @@ export type ListingMediaRequest = {
 
 export type CreateListingRequest = {
   id?: string | null;
+  branchId?: string | null;
   submissionAction: ListingSubmissionAction;
   title: string;
   description: string;
   category: ListingCategory;
-  subtype: ListingSubtype;
-  rentalMode: RentalMode;
   availableFrom: string; // "YYYY-MM-DD"
   areaM2: number;
   pricing: ListingPricingRequest;
@@ -352,9 +351,10 @@ export type CreateListingResponse = {
 
 export type MyListingSummaryResponse = {
   id: string;
+  branchId?: string | null;
+  branchName?: string | null;
   title: string;
   category: ListingCategory;
-  subtype: ListingSubtype;
   status: ListingStatus;
   availableFrom: string;
   areaM2: number;
@@ -415,11 +415,11 @@ export type ListingOwner = {
 export type ListingDetailResponse = {
   id: string;
   ownerId: string;
+  branchId?: string | null;
+  branchName?: string | null;
   title: string;
   description: string;
   category: ListingCategory;
-  subtype: ListingSubtype;
-  rentalMode: RentalMode;
   status: ListingStatus;
   availableFrom: string;
   areaM2: number;
@@ -508,7 +508,6 @@ export type PublicListingSummaryResponse = {
   id: string;
   title: string;
   category: ListingCategory;
-  subtype: ListingSubtype;
   areaM2: number;
   priceAmount: number;
   currency: string;
@@ -550,7 +549,6 @@ export interface PublicListingQueryParams {
   page?: number;
   size?: number;
   category?: ListingCategory;
-  subtype?: ListingSubtype;
   keyword?: string;
   provinceCode?: string;
   wardCode?: string;

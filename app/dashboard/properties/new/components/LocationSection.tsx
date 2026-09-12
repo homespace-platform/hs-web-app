@@ -23,6 +23,18 @@ function matchesLocation(option: LocationOption, query: string) {
     .includes(normalizedQuery);
 }
 
+function getFilteredLocationOptions(
+  options: LocationOption[],
+  query: string,
+  selectedCode?: string
+) {
+  const selected = options.find((o) => String(o.code) === String(selectedCode));
+  if (selected && (query.trim() === selected.name.trim() || query.trim() === (selected.full_name ?? "").trim())) {
+    return options;
+  }
+  return options.filter((o) => matchesLocation(o, query));
+}
+
 function SearchableLocationDropdown({
   name,
   placeholder,
@@ -61,7 +73,7 @@ function SearchableLocationDropdown({
         autoComplete="off"
         onFocus={onOpen}
         onChange={(e) => onChange(e.target.value)}
-        className={`${inputClass} pl-9 pr-9`}
+        className={`${inputClass} pl-9 pr-9 ${disabled ? "opacity-75 bg-muted cursor-not-allowed" : ""}`}
       />
       <ChevronDown
         className={`pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-transform ${
@@ -123,6 +135,7 @@ interface LocationSectionProps {
   locationError: string;
   previewFullAddress: string;
   errors: FormErrors;
+  isBranchSelected?: boolean;
   onAddressModeChange: (mode: AddressMode) => void;
   onStreetLineChange: (val: string) => void;
   onProvinceSelect: (province: Province) => void;
@@ -145,6 +158,7 @@ export default function LocationSection({
   locationError,
   previewFullAddress,
   errors,
+  isBranchSelected = false,
   onAddressModeChange,
   onStreetLineChange,
   onProvinceSelect,
@@ -164,36 +178,53 @@ export default function LocationSection({
       description="Địa chỉ chính xác giúp khách hàng dễ dàng tìm kiếm và di chuyển đến xem"
     >
       <div className="space-y-4">
-        {/* Lựa chọn dùng địa chỉ đã lưu hoặc nhập mới */}
-        {savedUserAddress && (
-          <div className="flex flex-col gap-2 sm:flex-row">
+        {/* Nút lựa chọn chế độ địa chỉ */}
+        <div className="flex flex-wrap gap-2.5">
+          {savedUserAddress && (
             <button
               type="button"
-              onClick={() => onAddressModeChange("saved")}
+              disabled={isBranchSelected}
+              onClick={() => !isBranchSelected && onAddressModeChange("saved")}
               className={`rounded-xl border px-4 py-2.5 text-left text-xs font-semibold transition-all ${
-                addressMode === "saved"
+                isBranchSelected
+                  ? "opacity-50 cursor-not-allowed border-border bg-card text-muted-foreground"
+                  : addressMode === "saved"
                   ? "border-primary bg-primary/10 text-primary ring-1 ring-primary"
                   : "border-border bg-card text-muted-foreground hover:border-primary/50"
               }`}
             >
               Sử dụng địa chỉ đã lưu trong cài đặt
             </button>
+          )}
+
+          <button
+            type="button"
+            disabled={isBranchSelected}
+            onClick={() => !isBranchSelected && onAddressModeChange("new")}
+            className={`rounded-xl border px-4 py-2.5 text-left text-xs font-semibold transition-all ${
+              isBranchSelected
+                ? "opacity-50 cursor-not-allowed border-border bg-card text-muted-foreground"
+                : addressMode === "new"
+                ? "border-primary bg-primary/10 text-primary ring-1 ring-primary"
+                : "border-border bg-card text-muted-foreground hover:border-primary/50"
+            }`}
+          >
+            Nhập địa chỉ mới
+          </button>
+
+          {isBranchSelected && (
             <button
               type="button"
-              onClick={() => onAddressModeChange("new")}
-              className={`rounded-xl border px-4 py-2.5 text-left text-xs font-semibold transition-all ${
-                addressMode === "new"
-                  ? "border-primary bg-primary/10 text-primary ring-1 ring-primary"
-                  : "border-border bg-card text-muted-foreground hover:border-primary/50"
-              }`}
+              disabled
+              className="rounded-xl border border-primary bg-primary/10 px-4 py-2.5 text-left text-xs font-semibold text-primary ring-1 ring-primary"
             >
-              Nhập địa chỉ mới
+              Địa chỉ theo chi nhánh đã chọn
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {addressMode === "saved" && savedUserAddress ? (
+          {addressMode === "saved" && savedUserAddress && !isBranchSelected ? (
             <div className="sm:col-span-2 rounded-xl border border-border bg-muted/20 p-4">
               <p className="text-xs font-bold text-foreground">
                 Địa chỉ liên kết từ tài khoản:
@@ -227,14 +258,16 @@ export default function LocationSection({
                   value={provinceQuery}
                   onChange={onProvinceQueryChange}
                   open={openDropdown === "province"}
-                  onOpen={() => setOpenDropdown("province")}
+                  onOpen={() => !isBranchSelected && setOpenDropdown("province")}
                   onClose={() => setOpenDropdown(null)}
-                  options={provinces.filter((p) =>
-                    matchesLocation(p, provinceQuery)
+                  options={getFilteredLocationOptions(
+                    provinces,
+                    provinceQuery,
+                    provinceCode
                   )}
                   selectedCode={provinceCode}
                   onSelect={onProvinceSelect}
-                  disabled={!provinces.length}
+                  disabled={isBranchSelected || !provinces.length}
                   emptyText="Không tìm thấy tỉnh/thành phố"
                 />
               </FormField>
@@ -256,12 +289,16 @@ export default function LocationSection({
                   value={wardQuery}
                   onChange={onWardQueryChange}
                   open={openDropdown === "ward"}
-                  onOpen={() => setOpenDropdown("ward")}
+                  onOpen={() => !isBranchSelected && setOpenDropdown("ward")}
                   onClose={() => setOpenDropdown(null)}
-                  options={wards.filter((w) => matchesLocation(w, wardQuery))}
+                  options={getFilteredLocationOptions(
+                    wards,
+                    wardQuery,
+                    wardCode
+                  )}
                   selectedCode={wardCode}
                   onSelect={onWardSelect}
-                  disabled={wardLoading || !wards.length}
+                  disabled={isBranchSelected || wardLoading || !wards.length}
                   emptyText="Không tìm thấy phường/xã"
                 />
               </FormField>
@@ -277,11 +314,12 @@ export default function LocationSection({
                 <input
                   type="text"
                   value={streetLine}
+                  disabled={isBranchSelected}
                   onChange={(e) => onStreetLineChange(e.target.value)}
                   placeholder="Ví dụ: 12 Nguyễn Huệ hoặc 208 Nguyễn Hữu Cảnh..."
                   className={`${inputClass} ${
                     errors.streetLine ? "border-destructive focus:border-destructive" : ""
-                  }`}
+                  } ${isBranchSelected ? "opacity-75 bg-muted cursor-not-allowed" : ""}`}
                 />
               </FormField>
             </>
@@ -300,7 +338,15 @@ export default function LocationSection({
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
                 <span>{previewFullAddress}</span>
               </div>
-              <AddressMapPreview fullAddress={previewFullAddress} />
+              <div className="space-y-2">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Xác nhận vị trí trên bản đồ
+                </p>
+                <AddressMapPreview fullAddress={previewFullAddress} />
+                <p className="text-[11px] text-muted-foreground">
+                  Bản đồ chỉ để xem trước, không lưu tọa độ. Kiểm tra vị trí có đúng địa chỉ cho thuê không.
+                </p>
+              </div>
             </div>
           )}
         </div>

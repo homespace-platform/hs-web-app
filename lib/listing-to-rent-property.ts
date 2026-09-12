@@ -50,6 +50,7 @@ export function toRentProperty(
 
     return {
       id: pub.id,
+      status: pub.status,
       ownerId: pub.ownerId || undefined,
       title: pub.title,
       description: undefined,
@@ -77,7 +78,6 @@ export function toRentProperty(
       viewCount: pub.viewCount ?? (pub as any).viewsCount ?? 0,
       viewsCount: pub.viewCount ?? (pub as any).viewsCount ?? 0,
       details: {
-        subtype: pub.subtype,
         currency: pub.currency,
         priceUnit: pub.priceUnit,
         negotiable: pub.negotiable,
@@ -121,7 +121,6 @@ export function toRentProperty(
     ...(detail?.officeDetail ?? {}),
     ...(detail?.commercialDetail ?? {}),
     ...(detail?.roomDetail ?? {}),
-    subtype: detail?.subtype ?? (listing as any).subtype,
     pricing: detail?.pricing,
     charges: detail?.charges ?? [],
     amenities: (detail?.amenities ?? []).map((a: any) => a.name || a.code),
@@ -132,7 +131,6 @@ export function toRentProperty(
     viewingDays: detail?.viewingDays ?? [],
     viewingSlots: detail?.viewingSlots ?? [],
     availableFrom: detail?.availableFrom,
-    rentalMode: detail?.rentalMode,
     depositType: detail?.pricing?.depositType ?? (summary as any)?.depositType ?? (listing as any).depositType,
     depositAmount: detail?.pricing?.depositAmount != null
       ? Number(detail.pricing.depositAmount)
@@ -231,6 +229,7 @@ export function toRentProperty(
 
   return {
     id: listing.id,
+    status: listing.status,
     title: listing.title,
     description: listing.description ?? undefined,
     location: address?.fullAddress ?? [streetLine, wardName, provinceName].filter(Boolean).join(", "),

@@ -760,19 +760,10 @@ function CreatePropertyListingContent() {
                 ? "AMOUNT"
                 : res.pricing.depositType === "MONTH_COUNT"
                 ? "MONTHS"
-                : res.pricing.depositType === "NEGOTIABLE"
-                ? "NEGOTIATE"
                 : "NONE",
             depositAmount: String(res.pricing.depositAmount ?? ""),
             depositMonths: String(res.pricing.depositMonths ?? ""),
-            paymentCycle:
-              res.pricing.paymentCycle === "EVERY_2_MONTHS"
-                ? "TWO_MONTHS"
-                : res.pricing.paymentCycle === "EVERY_6_MONTHS"
-                ? "HALF_YEAR"
-                : res.pricing.paymentCycle === "NEGOTIABLE"
-                ? "NEGOTIATE"
-                : res.pricing.paymentCycle || "MONTHLY",
+            paymentCycle: "MONTHLY",
             minimumLeaseMonths: String(res.pricing.minimumLeaseMonths ?? "6"),
             includeManagementFee: false,
             includeVat: Boolean(res.pricing.vatIncluded),

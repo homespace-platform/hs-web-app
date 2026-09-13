@@ -96,14 +96,9 @@ export type PriceUnit =
   | "PERSON_MONTH"
   | "SEAT_MONTH";
 
-export type DepositType = "NONE" | "FIXED_AMOUNT" | "MONTH_COUNT" | "NEGOTIABLE";
+export type DepositType = "NONE" | "FIXED_AMOUNT" | "MONTH_COUNT";
 
-export type PaymentCycle =
-  | "MONTHLY"
-  | "EVERY_2_MONTHS"
-  | "QUARTERLY"
-  | "EVERY_6_MONTHS"
-  | "NEGOTIABLE";
+export type PaymentCycle = "MONTHLY";
 
 export type ListingMediaType = "IMAGE" | "VIDEO";
 

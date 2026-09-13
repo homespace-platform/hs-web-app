@@ -201,15 +201,10 @@ export const DEPOSIT_TYPES = [
   { value: "NONE", label: "Không đặt cọc" },
   { value: "AMOUNT", label: "Cọc theo số tiền" },
   { value: "MONTHS", label: "Cọc theo số tháng" },
-  { value: "NEGOTIATE", label: "Thỏa thuận" },
 ] as const;
 
 export const PAYMENT_CYCLES = [
   { value: "MONTHLY", label: "Hằng tháng (1 tháng)" },
-  { value: "TWO_MONTHS", label: "Mỗi 2 tháng" },
-  { value: "QUARTERLY", label: "Mỗi quý (3 tháng)" },
-  { value: "HALF_YEAR", label: "Mỗi 6 tháng" },
-  { value: "NEGOTIATE", label: "Thỏa thuận" },
 ] as const;
 
 export const VIEWING_DAYS = [

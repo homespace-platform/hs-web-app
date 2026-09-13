@@ -101,28 +101,14 @@ function resolveDepositType(type: string): DepositType {
       return "FIXED_AMOUNT";
     case "MONTHS":
       return "MONTH_COUNT";
-    case "NEGOTIATE":
-      return "NEGOTIABLE";
     case "NONE":
     default:
       return "NONE";
   }
 }
 
-function resolvePaymentCycle(cycle: string): PaymentCycle {
-  switch (cycle) {
-    case "TWO_MONTHS":
-      return "EVERY_2_MONTHS";
-    case "QUARTERLY":
-      return "QUARTERLY";
-    case "HALF_YEAR":
-      return "EVERY_6_MONTHS";
-    case "NEGOTIATE":
-      return "NEGOTIABLE";
-    case "MONTHLY":
-    default:
-      return "MONTHLY";
-  }
+function resolvePaymentCycle(_cycle?: string): PaymentCycle {
+  return "MONTHLY";
 }
 
 function resolveFurnishing(f: string): FurnishingStatus {

@@ -51,8 +51,8 @@ export type SelectedMediaVideo = {
   storageObjectId?: string;
 };
 
-export type DepositType = "NONE" | "AMOUNT" | "MONTHS" | "NEGOTIATE";
-export type PaymentCycleType = "MONTHLY" | "TWO_MONTHS" | "QUARTERLY" | "HALF_YEAR" | "NEGOTIATE";
+export type DepositType = "NONE" | "AMOUNT" | "MONTHS";
+export type PaymentCycleType = "MONTHLY";
 
 export type CustomMonthlyFee = {
   id: string;

@@ -60,17 +60,12 @@ const BILLING_METHOD_LABELS: Record<string, string> = {
 
 const PAYMENT_CYCLE_LABELS: Record<string, string> = {
   MONTHLY: "1 tháng/lần (Hàng tháng)",
-  EVERY_2_MONTHS: "2 tháng/lần",
-  QUARTERLY: "3 tháng/lần (Theo quý)",
-  EVERY_6_MONTHS: "6 tháng/lần",
-  NEGOTIABLE: "Thỏa thuận với chủ nhà",
 };
 
 const DEPOSIT_TYPE_LABELS: Record<string, string> = {
   NONE: "Không cần đặt cọc",
   FIXED_AMOUNT: "Số tiền cố định",
   MONTH_COUNT: "Theo số tháng thuê",
-  NEGOTIABLE: "Thỏa thuận",
 };
 
 export function getRentDetailSections(

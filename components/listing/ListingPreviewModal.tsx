@@ -121,10 +121,6 @@ const FURNISHING_LABELS: Record<FurnishingStatus, string> = {
 
 const PAYMENT_CYCLE_LABELS: Record<string, string> = {
   MONTHLY: "Hàng tháng (1 tháng / lần)",
-  EVERY_2_MONTHS: "2 tháng / lần",
-  QUARTERLY: "Theo quý (3 tháng / lần)",
-  EVERY_6_MONTHS: "6 tháng / lần",
-  NEGOTIABLE: "Thỏa thuận linh hoạt",
 };
 
 const CHARGE_TYPE_LABELS: Record<ChargeType, string> = {
@@ -410,10 +406,17 @@ export default function ListingPreviewModal({
                       `${listing.pricing?.depositMonths} tháng thuê (${formatVND(
                         (listing.pricing?.amount ?? 0) * (listing.pricing?.depositMonths ?? 1)
                       )})`}
-                    {listing.pricing?.depositType === "NEGOTIABLE" && "Thỏa thuận với chủ nhà"}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    Hình thức: {listing.pricing?.depositType || "Chưa rõ"}
+                    Hình thức: {
+                      listing.pricing?.depositType === "NONE"
+                        ? "Không cần cọc"
+                        : listing.pricing?.depositType === "FIXED_AMOUNT"
+                        ? "Số tiền cố định"
+                        : listing.pricing?.depositType === "MONTH_COUNT"
+                        ? "Theo số tháng"
+                        : listing.pricing?.depositType || "Chưa rõ"
+                    }
                   </p>
                 </div>
 

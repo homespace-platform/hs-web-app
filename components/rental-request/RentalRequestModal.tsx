@@ -11,12 +11,6 @@ import {
   Phone,
   Mail,
   Users,
-  AlertCircle,
-  CheckCircle2,
-  ChevronRight,
-  ShieldCheck,
-  FileText,
-  DollarSign,
   Sparkles,
   Handshake,
 } from "lucide-react";
@@ -79,10 +73,12 @@ export default function RentalRequestModal({
   const { profile, username } = useAuth();
 
   // Form states
-  const [moveInDate, setMoveInDate] = useState<Date>(() => addDays(new Date(), 3));
+  const [moveInDate, setMoveInDate] = useState<Date>(() =>
+    addDays(new Date(), 3),
+  );
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [leaseMonths, setLeaseMonths] = useState<number>(() =>
-    Math.max(minimumLeaseMonths || 6, 12)
+    Math.max(minimumLeaseMonths || 6, 12),
   );
   const [customMonthsInput, setCustomMonthsInput] = useState<string>("");
   const [occupantCount, setOccupantCount] = useState<number>(1);
@@ -96,7 +92,9 @@ export default function RentalRequestModal({
   // Prefill user information from auth profile
   useEffect(() => {
     if (profile) {
-      const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(" ");
+      const fullName = [profile.firstName, profile.lastName]
+        .filter(Boolean)
+        .join(" ");
       if (fullName) setRenterName(fullName);
       else if (username) setRenterName(username);
 
@@ -161,7 +159,9 @@ export default function RentalRequestModal({
       setCustomMonthsInput(defaultLease > 24 ? String(defaultLease) : "");
       setRenterNote("");
       setIsDatePickerOpen(false);
-      setCustomDepositInput(listingPrice ? new Intl.NumberFormat("vi-VN").format(listingPrice) : "");
+      setCustomDepositInput(
+        listingPrice ? new Intl.NumberFormat("vi-VN").format(listingPrice) : "",
+      );
     }
   }, [isOpen, minimumLeaseMonths, listingPrice]);
 
@@ -180,7 +180,7 @@ export default function RentalRequestModal({
     const rent = listingPrice || 0;
 
     // Suy luận loại cọc nếu bài đăng chưa cấu hình rõ ràng
-    let type = depositType;
+    let type = depositType as string | undefined;
     if (!type) {
       if (listingDepositAmount != null && listingDepositAmount > 0) {
         type = "FIXED_AMOUNT";
@@ -241,10 +241,17 @@ export default function RentalRequestModal({
       label: "Tiền cọc thỏa thuận",
       badge: "Đề xuất theo thỏa thuận",
       amount: negotiatedAmt,
-      description: "Chủ nhà chấp nhận thỏa thuận. Bạn có thể nhập mức tiền cọc đề xuất.",
+      description:
+        "Chủ nhà chấp nhận thỏa thuận. Bạn có thể nhập mức tiền cọc đề xuất.",
       isNegotiable: true,
     };
-  }, [depositType, listingDepositAmount, depositMonths, listingPrice, customDepositInput]);
+  }, [
+    depositType,
+    listingDepositAmount,
+    depositMonths,
+    listingPrice,
+    customDepositInput,
+  ]);
 
   // Calculate estimated total initial payment
   const initialPayment = useMemo(() => {
@@ -278,7 +285,9 @@ export default function RentalRequestModal({
     }
 
     if (minimumLeaseMonths && leaseMonths < minimumLeaseMonths) {
-      toast.error(`Thời hạn thuê tối thiểu cho căn này là ${minimumLeaseMonths} tháng`);
+      toast.error(
+        `Thời hạn thuê tối thiểu cho căn này là ${minimumLeaseMonths} tháng`,
+      );
       return;
     }
 
@@ -311,11 +320,16 @@ export default function RentalRequestModal({
         renterNote: renterNote.trim() || undefined,
       });
 
-      toast.success("Gửi yêu cầu thuê nhà thành công! Chủ nhà sẽ nhận được thông báo để xem xét.");
+      toast.success(
+        "Gửi yêu cầu thuê nhà thành công! Chủ nhà sẽ nhận được thông báo để xem xét.",
+      );
       onSuccess?.(created);
       onClose();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Không thể gửi yêu cầu thuê nhà. Vui lòng thử lại.");
+      toast.error(
+        err?.response?.data?.message ||
+          "Không thể gửi yêu cầu thuê nhà. Vui lòng thử lại.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -341,7 +355,8 @@ export default function RentalRequestModal({
                 Gửi yêu cầu thuê nhà
               </h2>
               <p className="text-xs text-muted-foreground">
-                Chủ nhà sẽ nhận được thông báo và giữ chỗ trong {RENTAL_HOLD_DURATION_LABEL} khi duyệt
+                Chủ nhà sẽ nhận được thông báo và giữ chỗ trong{" "}
+                {RENTAL_HOLD_DURATION_LABEL} khi duyệt
               </p>
             </div>
           </div>
@@ -355,7 +370,10 @@ export default function RentalRequestModal({
         </div>
 
         {/* CONTENT FORM */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+        <form
+          onSubmit={handleSubmit}
+          className="p-4 sm:p-5 space-y-4 max-h-[80vh] overflow-y-auto"
+        >
           {/* 1. PROPERTY SUMMARY CARD */}
           <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30">
             <div className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-muted">
@@ -383,7 +401,9 @@ export default function RentalRequestModal({
               )}
               <p className="text-xs font-bold text-primary mt-1">
                 {formatVND(listingPrice)}
-                <span className="text-[10px] font-normal text-muted-foreground">/tháng</span>
+                <span className="text-[10px] font-normal text-muted-foreground">
+                  /tháng
+                </span>
               </p>
             </div>
           </div>
@@ -409,9 +429,13 @@ export default function RentalRequestModal({
               >
                 <div className="flex items-center gap-2">
                   <CalendarIcon className="w-4 h-4 text-primary" />
-                  <span>{format(moveInDate, "dd 'tháng' MM, yyyy", { locale: vi })}</span>
+                  <span>
+                    {format(moveInDate, "dd 'tháng' MM, yyyy", { locale: vi })}
+                  </span>
                 </div>
-                <span className="text-xs text-primary hover:underline">Đổi ngày</span>
+                <span className="text-xs text-primary hover:underline">
+                  Đổi ngày
+                </span>
               </button>
 
               {isDatePickerOpen && (
@@ -425,7 +449,9 @@ export default function RentalRequestModal({
                         setIsDatePickerOpen(false);
                       }
                     }}
-                    disabled={(date) => isBefore(startOfDay(date), startOfDay(new Date()))}
+                    disabled={(date) =>
+                      isBefore(startOfDay(date), startOfDay(new Date()))
+                    }
                   />
                 </div>
               )}
@@ -450,7 +476,9 @@ export default function RentalRequestModal({
             {/* Quick Select Buttons - Tự động thích ứng theo minimumLeaseMonths */}
             <div className="grid grid-cols-4 gap-2">
               {quickLeaseOptions.map((m) => {
-                const isMinDisabled = Boolean(minimumLeaseMonths && m < minimumLeaseMonths);
+                const isMinDisabled = Boolean(
+                  minimumLeaseMonths && m < minimumLeaseMonths,
+                );
                 const isSelected = leaseMonths === m;
                 return (
                   <button
@@ -465,8 +493,8 @@ export default function RentalRequestModal({
                       isSelected
                         ? "border-primary bg-primary/10 text-primary shadow-xs font-bold ring-1 ring-primary/40"
                         : isMinDisabled
-                        ? "border-border/50 bg-muted/30 text-muted-foreground/50 cursor-not-allowed"
-                        : "border-border bg-background hover:bg-muted text-foreground"
+                          ? "border-border/50 bg-muted/30 text-muted-foreground/50 cursor-not-allowed"
+                          : "border-border bg-background hover:bg-muted text-foreground"
                     }`}
                   >
                     {formatLeaseLabel(m)}
@@ -505,7 +533,10 @@ export default function RentalRequestModal({
                   type="button"
                   disabled={leaseMonths <= (minimumLeaseMonths || 1)}
                   onClick={() => {
-                    const newM = Math.max((minimumLeaseMonths || 1), leaseMonths - 1);
+                    const newM = Math.max(
+                      minimumLeaseMonths || 1,
+                      leaseMonths - 1,
+                    );
                     setLeaseMonths(newM);
                     setCustomMonthsInput(String(newM));
                   }}
@@ -606,7 +637,9 @@ export default function RentalRequestModal({
               <button
                 type="button"
                 disabled={occupantCount <= 1}
-                onClick={() => setOccupantCount((prev) => Math.max(1, (prev || 1) - 1))}
+                onClick={() =>
+                  setOccupantCount((prev) => Math.max(1, (prev || 1) - 1))
+                }
                 className="px-3 py-2 rounded-xl border border-border bg-card hover:bg-muted disabled:opacity-40 text-xs font-bold transition-colors cursor-pointer"
                 title="Giảm 1 người"
               >
@@ -615,7 +648,11 @@ export default function RentalRequestModal({
               <button
                 type="button"
                 disabled={occupantCount >= 20}
-                onClick={() => setOccupantCount((prev) => Math.min(20, Math.max(1, (prev || 0) + 1)))}
+                onClick={() =>
+                  setOccupantCount((prev) =>
+                    Math.min(20, Math.max(1, (prev || 0) + 1)),
+                  )
+                }
                 className="px-3 py-2 rounded-xl border border-border bg-card hover:bg-muted disabled:opacity-40 text-xs font-bold transition-colors cursor-pointer"
                 title="Tăng 1 người"
               >
@@ -626,7 +663,9 @@ export default function RentalRequestModal({
 
           {/* 5. THÔNG TIN LIÊN HỆ CỦA BẠN */}
           <div className="space-y-2.5 pt-1">
-            <h4 className="text-xs font-bold text-foreground">Thông tin liên hệ của bạn</h4>
+            <h4 className="text-xs font-bold text-foreground">
+              Thông tin liên hệ của bạn
+            </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div className="space-y-1">
                 <label className="text-[11px] font-medium text-muted-foreground">
@@ -700,7 +739,11 @@ export default function RentalRequestModal({
                   value={customDepositInput}
                   onChange={(e) => {
                     const digits = e.target.value.replace(/\D/g, "");
-                    setCustomDepositInput(digits ? new Intl.NumberFormat("vi-VN").format(Number(digits)) : "");
+                    setCustomDepositInput(
+                      digits
+                        ? new Intl.NumberFormat("vi-VN").format(Number(digits))
+                        : "",
+                    );
                   }}
                   className="w-full pl-3 pr-14 py-2 text-xs font-bold rounded-xl border border-amber-300 dark:border-amber-700 bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-amber-500/40"
                 />
@@ -710,10 +753,16 @@ export default function RentalRequestModal({
               </div>
               {/* Nút chọn nhanh */}
               <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                <span className="text-[11px] text-muted-foreground">Gợi ý nhanh:</span>
+                <span className="text-[11px] text-muted-foreground">
+                  Gợi ý nhanh:
+                </span>
                 <button
                   type="button"
-                  onClick={() => setCustomDepositInput(new Intl.NumberFormat("vi-VN").format(listingPrice))}
+                  onClick={() =>
+                    setCustomDepositInput(
+                      new Intl.NumberFormat("vi-VN").format(listingPrice),
+                    )
+                  }
                   className="px-2 py-0.5 rounded-md bg-background hover:bg-muted border border-border text-[11px] font-semibold text-foreground transition-colors cursor-pointer"
                 >
                   1 tháng ({formatVND(listingPrice)})
@@ -721,7 +770,11 @@ export default function RentalRequestModal({
                 {listingPrice > 0 && (
                   <button
                     type="button"
-                    onClick={() => setCustomDepositInput(new Intl.NumberFormat("vi-VN").format(listingPrice * 2))}
+                    onClick={() =>
+                      setCustomDepositInput(
+                        new Intl.NumberFormat("vi-VN").format(listingPrice * 2),
+                      )
+                    }
                     className="px-2 py-0.5 rounded-md bg-background hover:bg-muted border border-border text-[11px] font-semibold text-foreground transition-colors cursor-pointer"
                   >
                     2 tháng ({formatVND(listingPrice * 2)})
@@ -736,7 +789,8 @@ export default function RentalRequestModal({
                 </button>
               </div>
               <p className="text-[10px] text-muted-foreground">
-                * Bài đăng cho phép thỏa thuận tiền cọc. Mức tiền cọc bạn đề xuất sẽ được gửi đến chủ nhà xem xét duyệt.
+                * Bài đăng cho phép thỏa thuận tiền cọc. Mức tiền cọc bạn đề
+                xuất sẽ được gửi đến chủ nhà xem xét duyệt.
               </p>
             </div>
           )}
@@ -744,8 +798,12 @@ export default function RentalRequestModal({
           {/* 7. BẢNG TỔNG KẾT TÀI CHÍNH */}
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Giá thuê hàng tháng:</span>
-              <span className="font-bold text-foreground">{formatVND(initialPayment.monthlyRent)}</span>
+              <span className="text-muted-foreground">
+                Giá thuê hàng tháng:
+              </span>
+              <span className="font-bold text-foreground">
+                {formatVND(initialPayment.monthlyRent)}
+              </span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1.5">
@@ -754,16 +812,22 @@ export default function RentalRequestModal({
                   {depositInfo.badge}
                 </span>
               </div>
-              <span className="font-bold text-foreground">{formatVND(initialPayment.deposit)}</span>
+              <span className="font-bold text-foreground">
+                {formatVND(initialPayment.deposit)}
+              </span>
             </div>
             <div className="pt-2 border-t border-primary/20 flex items-center justify-between text-xs font-bold">
               <div>
-                <span className="text-foreground block">Tổng chi phí dự kiến ban đầu:</span>
+                <span className="text-foreground block">
+                  Tổng chi phí dự kiến ban đầu:
+                </span>
                 <span className="text-[10px] text-muted-foreground font-normal">
                   (Giá thuê tháng đầu + Tiền đặt cọc)
                 </span>
               </div>
-              <span className="text-sm font-extrabold text-primary">{formatVND(initialPayment.total)}</span>
+              <span className="text-sm font-extrabold text-primary">
+                {formatVND(initialPayment.total)}
+              </span>
             </div>
           </div>
 
@@ -803,7 +867,9 @@ export default function RentalRequestModal({
               className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>{isSubmitting ? "Đang gửi yêu cầu..." : "Gửi yêu cầu thuê"}</span>
+              <span>
+                {isSubmitting ? "Đang gửi yêu cầu..." : "Gửi yêu cầu thuê"}
+              </span>
             </button>
           </div>
         </form>

@@ -24,6 +24,7 @@ import branchService, {
 } from "@/services/branch.service";
 import provinceService from "@/services/province.service";
 import type { Province, Ward } from "@/types/province.type";
+import AddressMapPreview from "@/components/address/AddressMapPreview";
 import { PROPERTY_CATEGORIES } from "../properties/new/constants";
 import type { PropertyCategoryKey } from "../properties/new/types";
 
@@ -44,17 +45,22 @@ function matchesLocation(option: LocationOption, query: string) {
 function getFilteredLocationOptions(
   options: LocationOption[],
   query: string,
-  selectedCode?: string
+  selectedCode?: string,
 ) {
   const selected = options.find((o) => String(o.code) === String(selectedCode));
-  if (selected && (query.trim() === selected.name.trim() || query.trim() === (selected.full_name ?? "").trim())) {
+  if (
+    selected &&
+    (query.trim() === selected.name.trim() ||
+      query.trim() === (selected.full_name ?? "").trim())
+  ) {
     return options;
   }
   return options.filter((o) => matchesLocation(o, query));
 }
 
 function getChargeDisplayLabel(c: BranchCharge) {
-  if (c.billingMethod === "INCLUDED" || c.includedInRent) return "Đã bao gồm trong giá";
+  if (c.billingMethod === "INCLUDED" || c.includedInRent)
+    return "Đã bao gồm trong giá";
   if (c.billingMethod === "STATE_WATER_RATE") return "Theo giá EVN";
   if (c.billingMethod === "NEGOTIABLE") return "Thỏa thuận riêng";
   if (c.amount !== undefined && c.amount !== null && c.amount > 0) {
@@ -185,14 +191,15 @@ export default function BranchesPage() {
   const [loadingListings, setLoadingListings] = useState(false);
   const [expandedBranchId, setExpandedBranchId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingBranch, setEditingBranch] = useState<PropertyBranch | null>(null);
+  const [editingBranch, setEditingBranch] = useState<PropertyBranch | null>(
+    null,
+  );
   const [submitting, setSubmitting] = useState(false);
 
   // Form State
   const [name, setName] = useState("");
-  const [code, setCode] = useState("");
   const [category, setCategory] = useState<PropertyCategoryKey>("house");
-  
+
   // Location States
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
@@ -202,12 +209,18 @@ export default function BranchesPage() {
   const [wardQuery, setWardQuery] = useState("");
   const [streetLine, setStreetLine] = useState("");
   const [wardLoading, setWardLoading] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState<"province" | "ward" | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<"province" | "ward" | null>(
+    null,
+  );
 
   const [description, setDescription] = useState("");
-  const [electricityBillingMethod, setElectricityBillingMethod] = useState<string>("PER_KWH");
-  const [electricityAmount, setElectricityAmount] = useState<number | string>(3500);
-  const [waterBillingMethod, setWaterBillingMethod] = useState<string>("PER_PERSON_MONTH");
+  const [electricityBillingMethod, setElectricityBillingMethod] =
+    useState<string>("PER_KWH");
+  const [electricityAmount, setElectricityAmount] = useState<number | string>(
+    3500,
+  );
+  const [waterBillingMethod, setWaterBillingMethod] =
+    useState<string>("PER_PERSON_MONTH");
   const [waterAmount, setWaterAmount] = useState<number | string>(100000);
   const [buildingRules, setBuildingRules] = useState("");
 
@@ -267,7 +280,6 @@ export default function BranchesPage() {
   const handleOpenCreateModal = () => {
     setEditingBranch(null);
     setName("");
-    setCode("");
     setCategory("house");
     setProvinceCode("79");
     const foundP = provinces.find((p) => String(p.code) === "79");
@@ -287,14 +299,13 @@ export default function BranchesPage() {
   const handleOpenEditModal = (branch: PropertyBranch) => {
     setEditingBranch(branch);
     setName(branch.name);
-    setCode(branch.code || "");
     setCategory(branch.category);
-    
+
     const pCode = branch.provinceCode || "79";
     setProvinceCode(pCode);
     const foundP = provinces.find((p) => String(p.code) === pCode);
     setProvinceQuery(foundP ? foundP.name : branch.provinceName || "");
-    
+
     setWardCode(branch.wardCode || "");
     setWardQuery(branch.wardName || "");
     setStreetLine(branch.streetLine || "");
@@ -302,7 +313,9 @@ export default function BranchesPage() {
     setDescription(branch.description || "");
     setBuildingRules(branch.buildingRules || "");
 
-    const eleCharge = branch.defaultCharges?.find((c) => c.chargeType === "ELECTRICITY");
+    const eleCharge = branch.defaultCharges?.find(
+      (c) => c.chargeType === "ELECTRICITY",
+    );
     if (eleCharge) {
       setElectricityBillingMethod(eleCharge.billingMethod || "PER_KWH");
       setElectricityAmount(eleCharge.amount ?? "");
@@ -311,7 +324,9 @@ export default function BranchesPage() {
       setElectricityAmount(3500);
     }
 
-    const waterCharge = branch.defaultCharges?.find((c) => c.chargeType === "WATER");
+    const waterCharge = branch.defaultCharges?.find(
+      (c) => c.chargeType === "WATER",
+    );
     if (waterCharge) {
       setWaterBillingMethod(waterCharge.billingMethod || "PER_PERSON_MONTH");
       setWaterAmount(waterCharge.amount ?? "");
@@ -323,7 +338,9 @@ export default function BranchesPage() {
     setIsModalOpen(true);
   };
 
-  const selectedProvince = provinces.find((p) => String(p.code) === String(provinceCode));
+  const selectedProvince = provinces.find(
+    (p) => String(p.code) === String(provinceCode),
+  );
   const selectedWard = wards.find((w) => String(w.code) === String(wardCode));
   const previewFullAddress = [
     streetLine.trim(),
@@ -355,7 +372,10 @@ export default function BranchesPage() {
         {
           chargeType: "ELECTRICITY",
           billingMethod: electricityBillingMethod,
-          amount: electricityBillingMethod === "PER_KWH" ? (Number(electricityAmount) || 0) : undefined,
+          amount:
+            electricityBillingMethod === "PER_KWH"
+              ? Number(electricityAmount) || 0
+              : undefined,
           currency: "VND",
           unit: electricityBillingMethod === "PER_KWH" ? "kWh" : "",
           includedInRent: electricityBillingMethod === "INCLUDED",
@@ -364,16 +384,19 @@ export default function BranchesPage() {
         {
           chargeType: "WATER",
           billingMethod: waterBillingMethod,
-          amount: waterBillingMethod !== "INCLUDED" ? (Number(waterAmount) || 0) : undefined,
+          amount:
+            waterBillingMethod !== "INCLUDED"
+              ? Number(waterAmount) || 0
+              : undefined,
           currency: "VND",
           unit:
             waterBillingMethod === "PER_M3"
               ? "m³"
               : waterBillingMethod === "PER_PERSON_MONTH"
-              ? "người/tháng"
-              : waterBillingMethod === "PER_MONTH"
-              ? "phòng/tháng"
-              : "",
+                ? "người/tháng"
+                : waterBillingMethod === "PER_MONTH"
+                  ? "phòng/tháng"
+                  : "",
           includedInRent: waterBillingMethod === "INCLUDED",
           sortOrder: 2,
         },
@@ -384,7 +407,7 @@ export default function BranchesPage() {
 
       const payload: CreatePropertyBranchPayload = {
         name,
-        code,
+        code: editingBranch?.code || undefined,
         category,
         streetLine,
         wardCode,
@@ -412,13 +435,21 @@ export default function BranchesPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa chi nhánh này?")) return;
+  const handleDelete = async (b: PropertyBranch) => {
+    const units = b.totalUnits || 0;
+    if (units > 0) {
+      alert(
+        `Chi nhánh "${b.name}" đang có ${units} phòng/căn hộ. Không thể xóa chi nhánh khi vẫn còn phòng!\nVui lòng chuyển hoặc xóa các phòng thuộc chi nhánh này trước.`
+      );
+      return;
+    }
+    if (!confirm(`Bạn có chắc chắn muốn xóa chi nhánh "${b.name}"?`)) return;
     try {
-      await branchService.deleteBranch(id);
+      await branchService.deleteBranch(b.id);
       loadBranches();
-    } catch {
-      alert("Không thể xóa chi nhánh.");
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || "Không thể xóa chi nhánh.";
+      alert(msg);
     }
   };
 
@@ -436,7 +467,8 @@ export default function BranchesPage() {
             Quản lý Chi nhánh / Tòa nhà
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Quản lý tập trung Địa chỉ, Loại hình thuê, Biểu phí điện/nước và Tiện ích tòa nhà của các cụm bất động sản.
+            Quản lý tập trung Địa chỉ, Loại hình thuê, Biểu phí điện/nước và
+            Tiện ích tòa nhà của các cụm bất động sản.
           </p>
         </div>
         <button
@@ -452,14 +484,18 @@ export default function BranchesPage() {
       {/* Branch List - Horizontal Layout */}
       {loading ? (
         <div className="flex items-center justify-center p-12 text-muted-foreground">
-          <RefreshCw className="h-5 w-5 animate-spin mr-2" /> Đang tải danh sách chi nhánh...
+          <RefreshCw className="h-5 w-5 animate-spin mr-2" /> Đang tải danh sách
+          chi nhánh...
         </div>
       ) : branches.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
           <Building2 className="mx-auto h-12 w-12 text-muted-foreground/40 mb-3" />
-          <h3 className="text-sm font-bold text-foreground">Chưa có Chi nhánh / Tòa nhà nào</h3>
+          <h3 className="text-sm font-bold text-foreground">
+            Chưa có Chi nhánh / Tòa nhà nào
+          </h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
-            Tạo chi nhánh đầu tiên để cố định địa chỉ, biểu phí điện nước và quy định chung cho dãy phòng trọ hoặc tòa nhà của bạn.
+            Tạo chi nhánh đầu tiên để cố định địa chỉ, biểu phí điện nước và quy
+            định chung cho dãy phòng trọ hoặc tòa nhà của bạn.
           </p>
           <button
             type="button"
@@ -555,9 +591,17 @@ export default function BranchesPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDelete(b.id)}
-                    title="Xóa chi nhánh"
-                    className="rounded-xl p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                    onClick={() => handleDelete(b)}
+                    title={
+                      (b.totalUnits || 0) > 0
+                        ? `Chi nhánh đang có ${b.totalUnits} phòng/căn, không thể xóa!`
+                        : "Xóa chi nhánh"
+                    }
+                    className={
+                      (b.totalUnits || 0) > 0
+                        ? "rounded-xl p-2 text-muted-foreground/40 cursor-not-allowed transition-colors"
+                        : "rounded-xl p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer"
+                    }
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -575,7 +619,9 @@ export default function BranchesPage() {
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-primary" />
-                {editingBranch ? "Chỉnh sửa Chi nhánh" : "Tạo Chi nhánh / Tòa nhà mới"}
+                {editingBranch
+                  ? "Chỉnh sửa Chi nhánh"
+                  : "Tạo Chi nhánh / Tòa nhà mới"}
               </h3>
               <button
                 type="button"
@@ -589,7 +635,8 @@ export default function BranchesPage() {
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">
               <div>
                 <label className="block font-semibold text-foreground mb-1">
-                  Tên Chi nhánh / Tòa nhà <span className="text-destructive">*</span>
+                  Tên Chi nhánh / Tòa nhà{" "}
+                  <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="text"
@@ -601,24 +648,27 @@ export default function BranchesPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-foreground mb-1">Mã Chi nhánh</label>
-                  <input
-                    type="text"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="Ví dụ: HS-Q7"
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {editingBranch?.code && (
+                  <div>
+                    <label className="block font-semibold text-foreground mb-1">
+                      Mã Chi nhánh
+                    </label>
+                    <div className="w-full rounded-xl border border-border/80 bg-muted/40 px-3 py-2 text-xs font-mono font-bold text-foreground">
+                      {editingBranch.code}
+                    </div>
+                  </div>
+                )}
+                <div className={editingBranch?.code ? "" : "sm:col-span-2"}>
                   <label className="block font-semibold text-foreground mb-1">
-                    Loại hình thuê chính <span className="text-destructive">*</span>
+                    Loại hình thuê chính{" "}
+                    <span className="text-destructive">*</span>
                   </label>
                   <select
                     value={category}
-                    onChange={(e) => setCategory(e.target.value as PropertyCategoryKey)}
+                    onChange={(e) =>
+                      setCategory(e.target.value as PropertyCategoryKey)
+                    }
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     {PROPERTY_CATEGORIES.filter((c) => !c.disabled).map((c) => (
@@ -633,7 +683,8 @@ export default function BranchesPage() {
               {/* Địa chỉ chọn theo Tỉnh / Phường / Đường */}
               <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-3">
                 <label className="block font-bold text-foreground">
-                  Địa chỉ Chi nhánh / Tòa nhà <span className="text-destructive">*</span>
+                  Địa chỉ Chi nhánh / Tòa nhà{" "}
+                  <span className="text-destructive">*</span>
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -662,7 +713,7 @@ export default function BranchesPage() {
                       options={getFilteredLocationOptions(
                         provinces,
                         provinceQuery,
-                        provinceCode
+                        provinceCode,
                       )}
                       selectedCode={provinceCode}
                       onSelect={handleProvinceSelect}
@@ -677,7 +728,9 @@ export default function BranchesPage() {
                     </label>
                     <SearchableLocationDropdown
                       name="wardCode"
-                      placeholder={wardLoading ? "Đang tải..." : "Tìm phường / xã..."}
+                      placeholder={
+                        wardLoading ? "Đang tải..." : "Tìm phường / xã..."
+                      }
                       value={wardQuery}
                       onChange={(val) => {
                         setWardQuery(val);
@@ -694,7 +747,7 @@ export default function BranchesPage() {
                       options={getFilteredLocationOptions(
                         wards,
                         wardQuery,
-                        wardCode
+                        wardCode,
                       )}
                       selectedCode={wardCode}
                       onSelect={handleWardSelect}
@@ -719,20 +772,27 @@ export default function BranchesPage() {
                 </div>
 
                 {previewFullAddress && (
-                  <div className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-medium text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-100">
-                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
-                    <span>{previewFullAddress}</span>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-medium text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-100">
+                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
+                      <span>{previewFullAddress}</span>
+                    </div>
+                    <AddressMapPreview fullAddress={previewFullAddress} />
                   </div>
                 )}
               </div>
 
               {/* Cấu hình Tiền điện */}
               <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3">
-                <label className="block font-bold text-foreground">Tiền điện</label>
+                <label className="block font-bold text-foreground">
+                  Tiền điện
+                </label>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <select
                     value={electricityBillingMethod}
-                    onChange={(e) => setElectricityBillingMethod(e.target.value)}
+                    onChange={(e) =>
+                      setElectricityBillingMethod(e.target.value)
+                    }
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     <option value="PER_KWH">Tính theo số công tơ (kWh)</option>
@@ -764,7 +824,9 @@ export default function BranchesPage() {
 
               {/* Cấu hình Tiền nước */}
               <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3">
-                <label className="block font-bold text-foreground">Tiền nước sinh hoạt</label>
+                <label className="block font-bold text-foreground">
+                  Tiền nước sinh hoạt
+                </label>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <select
                     value={waterBillingMethod}
@@ -772,7 +834,9 @@ export default function BranchesPage() {
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     <option value="PER_M3">Tính theo m³ (Khối nước)</option>
-                    <option value="PER_PERSON_MONTH">Tính theo người / tháng</option>
+                    <option value="PER_PERSON_MONTH">
+                      Tính theo người / tháng
+                    </option>
                     <option value="PER_MONTH">Khoán theo phòng / tháng</option>
                     <option value="INCLUDED">Đã bao gồm trong giá thuê</option>
                   </select>
@@ -789,8 +853,8 @@ export default function BranchesPage() {
                           waterBillingMethod === "PER_M3"
                             ? "Ví dụ: 25000"
                             : waterBillingMethod === "PER_PERSON_MONTH"
-                            ? "Ví dụ: 100000"
-                            : "Ví dụ: 150000"
+                              ? "Ví dụ: 100000"
+                              : "Ví dụ: 150000"
                         }
                         className="w-full rounded-xl border border-border bg-background pl-3 pr-28 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                       />
@@ -798,8 +862,8 @@ export default function BranchesPage() {
                         {waterBillingMethod === "PER_M3"
                           ? "đ/m³"
                           : waterBillingMethod === "PER_PERSON_MONTH"
-                          ? "đ/người/tháng"
-                          : "đ/phòng/tháng"}
+                            ? "đ/người/tháng"
+                            : "đ/phòng/tháng"}
                       </span>
                     </div>
                   ) : (
@@ -811,7 +875,9 @@ export default function BranchesPage() {
               </div>
 
               <div>
-                <label className="block font-semibold text-foreground mb-1">Nội quy & Quy định chung tòa nhà</label>
+                <label className="block font-semibold text-foreground mb-1">
+                  Nội quy & Quy định chung tòa nhà
+                </label>
                 <textarea
                   rows={3}
                   value={buildingRules}
@@ -834,7 +900,11 @@ export default function BranchesPage() {
                   disabled={submitting}
                   className="rounded-xl bg-primary px-4 py-2 font-bold text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-50"
                 >
-                  {submitting ? "Đang lưu..." : editingBranch ? "Cập nhật" : "Tạo Chi nhánh"}
+                  {submitting
+                    ? "Đang lưu..."
+                    : editingBranch
+                      ? "Cập nhật"
+                      : "Tạo Chi nhánh"}
                 </button>
               </div>
             </form>

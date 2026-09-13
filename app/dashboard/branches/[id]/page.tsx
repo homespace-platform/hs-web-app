@@ -140,12 +140,19 @@ export default function BranchDetailPage() {
   };
 
   const handleDeleteBranch = async () => {
+    if (displayUnitsCount > 0) {
+      alert(
+        `Chi nhánh đang có ${displayUnitsCount} phòng/căn hộ. Không thể xóa chi nhánh khi vẫn còn phòng!\nVui lòng chuyển hoặc xóa các phòng thuộc chi nhánh này trước.`
+      );
+      return;
+    }
     if (!confirm("Bạn có chắc chắn muốn xóa chi nhánh này?")) return;
     try {
       await branchService.deleteBranch(branchId);
       router.push("/dashboard/branches");
-    } catch {
-      alert("Không thể xóa chi nhánh.");
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || "Không thể xóa chi nhánh.";
+      alert(msg);
     }
   };
 
@@ -210,8 +217,16 @@ export default function BranchDetailPage() {
             <button
               type="button"
               onClick={handleDeleteBranch}
-              className="rounded-xl border border-border p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-              title="Xóa chi nhánh"
+              className={
+                displayUnitsCount > 0
+                  ? "rounded-xl border border-border/60 p-2 text-muted-foreground/40 cursor-not-allowed transition-colors"
+                  : "rounded-xl border border-border p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer"
+              }
+              title={
+                displayUnitsCount > 0
+                  ? `Chi nhánh đang có ${displayUnitsCount} phòng/căn, không thể xóa!`
+                  : "Xóa chi nhánh"
+              }
             >
               <Trash2 className="h-4 w-4" />
             </button>

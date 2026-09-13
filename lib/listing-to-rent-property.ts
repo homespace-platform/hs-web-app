@@ -50,7 +50,7 @@ export function toRentProperty(
 
     return {
       id: pub.id,
-      status: pub.status,
+      status: (pub as any).status || "PUBLISHED",
       ownerId: pub.ownerId || undefined,
       title: pub.title,
       description: undefined,

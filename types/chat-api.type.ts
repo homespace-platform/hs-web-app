@@ -35,3 +35,25 @@ export type ChatApiMessagePage = {
   items: ChatApiMessage[];
   nextBefore?: string;
 };
+
+export type ChatCallMode = "voice" | "video";
+
+export type ChatCallSignal = {
+  conversationId: string;
+  callId: string;
+  mode: ChatCallMode;
+  callerId?: string;
+};
+
+export type ChatCallEndSignal = Pick<
+  ChatCallSignal,
+  "conversationId" | "callId"
+>;
+
+export type ChatCallToken = {
+  appId: string;
+  channel: string;
+  token: string;
+  uid: string;
+  expiresIn: number;
+};

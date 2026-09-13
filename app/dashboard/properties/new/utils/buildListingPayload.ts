@@ -9,15 +9,9 @@ import type {
   ListingMediaRequest,
   ApartmentDetailRequest,
   HouseDetailRequest,
-  OfficeDetailRequest,
-  CommercialDetailRequest,
   RoomDetailRequest,
   FurnishingStatus,
   HandoverCondition,
-  OfficeHandoverStatus,
-  CommercialHandoverStatus,
-  PositionType,
-  ParkingType,
   DayOfWeek,
   ViewingSlot,
 } from "@/types/listing.type";
@@ -26,8 +20,6 @@ import type {
   BasicInfoData,
   ApartmentDetailsData,
   HouseDetailsData,
-  OfficeDetailsData,
-  CommercialDetailsData,
   RoomDetailsData,
   FurnishingAssetRow,
   MonthlyExpensesData,
@@ -40,8 +32,6 @@ export interface BuildPayloadParams {
   basicInfo: BasicInfoData;
   apartmentDetails: ApartmentDetailsData;
   houseDetails: HouseDetailsData;
-  officeDetails: OfficeDetailsData;
-  commercialDetails: CommercialDetailsData;
   roomDetails: RoomDetailsData;
   furnishingAssets: FurnishingAssetRow[];
   selectedAmenities: string[];
@@ -62,16 +52,11 @@ export interface BuildPayloadParams {
 
 function resolveCategory(cat: string): ListingCategory {
   switch (cat) {
-    case "apartment":
-      return "APARTMENT";
     case "house":
       return "HOUSE";
-    case "office":
-      return "OFFICE";
-    case "commercial":
-      return "COMMERCIAL_SPACE";
     case "room":
       return "ROOM";
+    case "apartment":
     default:
       return "APARTMENT";
   }
@@ -150,8 +135,6 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
     basicInfo,
     apartmentDetails,
     houseDetails,
-    officeDetails,
-    commercialDetails,
     roomDetails,
     furnishingAssets,
     selectedAmenities,
@@ -176,10 +159,6 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
     areaM2 = Number(apartmentDetails.areaM2) || 30;
   } else if (basicInfo.category === "house") {
     areaM2 = Number(houseDetails.totalUsableAreaM2) || 50;
-  } else if (basicInfo.category === "office") {
-    areaM2 = Number(officeDetails.rentalAreaM2) || 40;
-  } else if (basicInfo.category === "commercial") {
-    areaM2 = Number(commercialDetails.areaM2) || 40;
   } else if (basicInfo.category === "room") {
     areaM2 = Number(roomDetails.areaM2) || 20;
   }
@@ -209,8 +188,6 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
   // Build Category Specific Details
   let apartmentDetail: ApartmentDetailRequest | null = null;
   let houseDetail: HouseDetailRequest | null = null;
-  let officeDetail: OfficeDetailRequest | null = null;
-  let commercialDetail: CommercialDetailRequest | null = null;
   let roomDetail: RoomDetailRequest | null = null;
 
   if (category === "APARTMENT") {
@@ -250,71 +227,9 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
       maxVehicles: houseDetails.maxVehicles ? Number(houseDetails.maxVehicles) : null,
       furnishingStatus: resolveFurnishing(houseDetails.furnishing),
       legalStatus: houseDetails.legalStatus || null,
-      rentalScopeDescription: houseDetails.rentalScope?.trim() || null,
-      rentedFloorFrom: houseDetails.rentalFloor ? Number(houseDetails.rentalFloor) : null,
-      rentedFloorTo: houseDetails.rentalFloor ? Number(houseDetails.rentalFloor) : null,
-    };
-  } else if (category === "OFFICE") {
-    const is24_7 = officeDetails.operatingHours?.includes("24/7");
-    officeDetail = {
-      buildingName: officeDetails.buildingName?.trim() || null,
-      officeGrade: officeDetails.officeGrade || "GRADE_B",
-      floorNumber: Number(officeDetails.rentalFloor) || 1,
-      handoverStatus: (officeDetails.handoverCondition || "BASIC") as OfficeHandoverStatus,
-      expectedSeats: officeDetails.seatsCount ? Number(officeDetails.seatsCount) : null,
-      minimumDivisibleAreaM2: officeDetails.isSubdivisible ? Number(officeDetails.rentalAreaM2) : null,
-      restroomCount: officeDetails.toiletsCount ? Number(officeDetails.toiletsCount) : null,
-      restroomType: officeDetails.toiletType || "SHARED",
-      pantryType: officeDetails.pantry || "SHARED",
-      carParkingCapacity: officeDetails.carParkingSlots ? Number(officeDetails.carParkingSlots) || 0 : null,
-      motorbikeParkingCapacity: officeDetails.motorbikeParkingSlots ? Number(officeDetails.motorbikeParkingSlots) || 0 : null,
-      operatingMode: is24_7 ? "ALWAYS_OPEN" : "CUSTOM_SCHEDULE",
-      operatingHours: is24_7
-        ? []
-        : [
-            { dayOfWeek: "MONDAY", openTime: "07:30", closeTime: "18:30" },
-            { dayOfWeek: "TUESDAY", openTime: "07:30", closeTime: "18:30" },
-            { dayOfWeek: "WEDNESDAY", openTime: "07:30", closeTime: "18:30" },
-            { dayOfWeek: "THURSDAY", openTime: "07:30", closeTime: "18:30" },
-            { dayOfWeek: "FRIDAY", openTime: "07:30", closeTime: "18:30" },
-            ...(officeDetails.operatingHours?.includes("Thứ 7") ||
-            officeDetails.operatingHours?.includes("Cả tuần")
-              ? [{ dayOfWeek: "SATURDAY" as const, openTime: "07:30", closeTime: "18:30" }]
-              : []),
-            ...(officeDetails.operatingHours?.includes("CN") ||
-            officeDetails.operatingHours?.includes("Chủ nhật") ||
-            officeDetails.operatingHours?.includes("Cả tuần")
-              ? [{ dayOfWeek: "SUNDAY" as const, openTime: "07:30", closeTime: "18:30" }]
-              : []),
-          ],
-    };
-  } else if (category === "COMMERCIAL_SPACE") {
-    let positionType: PositionType = "GROUND_FLOOR";
-    if (commercialDetails.spacePosition === "UPPER_FLOOR") positionType = "UPPER_FLOOR";
-    else if (commercialDetails.spacePosition === "MALL") positionType = "SHOPPING_MALL";
-    else if (commercialDetails.spacePosition === "OTHER") positionType = "OTHER";
-
-    let parkingType: ParkingType = "MOTORBIKE_AND_CAR";
-    if (commercialDetails.parkingOption === "MOTORBIKE_ONLY") parkingType = "MOTORBIKE";
-    else if (commercialDetails.parkingOption === "NONE") parkingType = "NONE";
-
-    commercialDetail = {
-      positionType,
-      frontageWidthM: commercialDetails.facadeWidthM ? Number(commercialDetails.facadeWidthM) : null,
-      lengthM: commercialDetails.lengthM ? Number(commercialDetails.lengthM) : null,
-      roadWidthM: commercialDetails.streetWidthM ? Number(commercialDetails.streetWidthM) : null,
-      frontageCount: commercialDetails.frontageCount ? Number(commercialDetails.frontageCount) : 1,
-      rentedFloorCount: commercialDetails.rentalFloorsCount ? Number(commercialDetails.rentalFloorsCount) : 1,
-      hasMezzanine: Boolean(commercialDetails.hasLoft),
-      restroomCount: commercialDetails.toiletsCount ? Number(commercialDetails.toiletsCount) : null,
-      accessType: commercialDetails.privateEntrance || "PRIVATE",
-      parkingType,
-      handoverStatus: (commercialDetails.handoverCondition || "BASIC") as CommercialHandoverStatus,
-      hasThreePhasePower: Boolean(commercialDetails.hasThreePhasePower),
-      hasStandardFireSafety: Boolean(commercialDetails.hasFireSafety),
-      operatingHoursDescription: commercialDetails.operatingHours?.trim() || null,
-      restrictedBusinesses: commercialDetails.restrictedIndustries?.trim() || null,
-      loadingAreaDescription: commercialDetails.loadingArea?.trim() || null,
+      rentalScopeDescription: null,
+      rentedFloorFrom: null,
+      rentedFloorTo: null,
     };
   } else if (category === "ROOM") {
     roomDetail = {
@@ -463,17 +378,6 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
       includedInRent: monthlyExpenses.carParkingType === "INCLUDED",
       sortOrder: 7,
     },
-    ...(category === "OFFICE" && monthlyExpenses.overtimeAcFee
-      ? [
-          {
-            chargeType: "OVERTIME_AIR_CONDITIONING" as const,
-            billingMethod: "PER_HOUR" as const,
-            amount: Number(monthlyExpenses.overtimeAcFee),
-            includedInRent: false,
-            sortOrder: 8,
-          },
-        ]
-      : []),
     ...monthlyExpenses.customFees.map((fee, idx) => ({
       chargeType: "OTHER" as const,
       billingMethod: "PER_MONTH" as const,
@@ -523,8 +427,6 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
     pricing: pricingPayload,
     apartmentDetail,
     houseDetail,
-    officeDetail,
-    commercialDetail,
     roomDetail,
     amenityCodes: selectedAmenities,
     customAmenities: [],

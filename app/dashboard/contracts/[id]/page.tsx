@@ -469,7 +469,6 @@ export default function ContractDetailPage() {
           <FieldRow label="Loại hình" value={property.propertyType} />
           <FieldRow label="Diện tích" value={property.areaText} />
           <FieldRow label="Tầng / căn" value={`${str(property.floor)} / ${str(property.unitNumber)}`} />
-          <FieldRow label="Hình thức thuê" value={lease.rentalMode} />
           <FieldRow label="Từ ngày" value={lease.startDateText} />
           <FieldRow label="Đến ngày" value={lease.endDateText} />
           <FieldRow label="Thời hạn" value={lease.durationText} />

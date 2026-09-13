@@ -1,41 +1,4 @@
-export type PropertyCategoryKey = "apartment" | "house" | "office" | "commercial" | "room";
-
-export type ApartmentSubtype =
-  | "apartment_normal"
-  | "studio"
-  | "duplex"
-  | "penthouse"
-  | "officetel"
-  | "other";
-
-export type HouseSubtype =
-  | "townhouse"
-  | "alley_house"
-  | "villa"
-  | "level4_house"
-  | "other";
-
-export type OfficeSubtype =
-  | "traditional_office"
-  | "serviced_office"
-  | "coworking"
-  | "shared_office"
-  | "other";
-
-export type CommercialSubtype =
-  | "shop"
-  | "kiosk"
-  | "showroom"
-  | "shophouse"
-  | "mall_space"
-  | "other";
-
-export type RoomSubtype =
-  | "boarding_room"
-  | "house_room"
-  | "serviced_apartment"
-  | "dormitory"
-  | "other";
+export type PropertyCategoryKey = "apartment" | "house" | "room";
 
 export type SelectedMediaImage = {
   name: string;
@@ -112,10 +75,6 @@ export interface HouseDetailsData {
   maxVehicles?: number | string;
   furnishing: string;
   legalStatus?: string;
-  // Conditional when renting a part of house
-  rentalScope?: string;
-  rentalFloor?: string;
-  sharedEntrance?: string;
 }
 
 // Section 2C: Office Details
@@ -201,7 +160,6 @@ export interface MonthlyExpensesData {
   motorbikeParkingFee?: number | string;
   carParkingType: "PER_VEHICLE" | "INCLUDED" | "NONE";
   carParkingFee?: number | string;
-  overtimeAcFee?: number | string;
   customFees: CustomMonthlyFee[];
 }
 

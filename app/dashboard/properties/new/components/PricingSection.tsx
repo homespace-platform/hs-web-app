@@ -51,8 +51,6 @@ export default function PricingSection({
     return `${formatVnd(raw)} ₫`;
   }, [data.depositType, data.depositAmount]);
 
-  const showVatOption = category === "office" || category === "commercial";
-
   return (
     <FormSectionWrapper
       id="section-pricing"
@@ -238,8 +236,8 @@ export default function PricingSection({
           </div>
         </FormField>
 
-        {/* Checkbox tùy chọn thương lượng & thuế VAT */}
-        <div className="sm:col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Checkbox tùy chọn thương lượng */}
+        <div className="sm:col-span-2">
           <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-xs font-medium text-foreground cursor-pointer hover:bg-muted/50">
             <input
               type="checkbox"
@@ -249,18 +247,6 @@ export default function PricingSection({
             />
             Thương lượng
           </label>
-
-          {showVatOption && (
-            <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-xs font-medium text-foreground cursor-pointer hover:bg-muted/50">
-              <input
-                type="checkbox"
-                checked={data.includeVat}
-                onChange={(e) => onChange({ includeVat: e.target.checked })}
-                className="h-4 w-4 rounded accent-primary"
-              />
-              Giá đã bao gồm thuế VAT (Xuất hóa đơn)
-            </label>
-          )}
         </div>
       </div>
     </FormSectionWrapper>

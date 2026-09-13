@@ -36,10 +36,8 @@ const ITEMS_PER_PAGE = 8;
 
 const FAVORITE_CATEGORIES = [
   { id: "all", label: "Tất cả" },
-  { id: "apartment", label: "Căn hộ/Chung cư" },
-  { id: "house", label: "Nhà ở" },
-  { id: "studio", label: "Studio" },
-  { id: "office", label: "Văn phòng" },
+  { id: "house", label: "Nhà nguyên căn" },
+  { id: "apartment", label: "Căn hộ chung cư" },
   { id: "room", label: "Phòng trọ" },
 ];
 

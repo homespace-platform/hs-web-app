@@ -23,7 +23,7 @@ export default function RoomDetailsSection({
     <FormSectionWrapper
       id="section-details"
       stepNumber={2}
-      title="Thông tin chi tiết — Nhà trọ / Căn hộ dịch vụ"
+      title="Thông tin chi tiết — Phòng trọ"
       description="Chi tiết về tiện nghi phòng, khu vệ sinh, nội thất và quy định sinh hoạt"
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -9,7 +9,6 @@ import type { HouseDetailsData, FormErrors } from "../../types";
 
 interface HouseDetailsSectionProps {
   data: HouseDetailsData;
-  rentalType?: string;
   errors: FormErrors;
   onChange: (updates: Partial<HouseDetailsData>) => void;
   furnishingSlot: ReactNode;
@@ -17,12 +16,10 @@ interface HouseDetailsSectionProps {
 
 export default function HouseDetailsSection({
   data,
-  rentalType,
   errors,
   onChange,
   furnishingSlot,
 }: HouseDetailsSectionProps) {
-  const isPartialRental = rentalType === "PARTIAL";
 
   return (
     <FormSectionWrapper
@@ -344,59 +341,6 @@ export default function HouseDetailsSection({
             ))}
           </select>
         </FormField>
-
-        {/* Nếu hình thức là Cho thuê Một phần căn nhà */}
-        {isPartialRental && (
-          <div className="sm:col-span-2 space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
-            <h3 className="text-xs font-bold text-primary">
-              Thông tin bổ sung cho thuê một phần căn nhà
-            </h3>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <FormField
-                id="field-rental-scope"
-                label="Phạm vi cho thuê"
-                error={errors.rentalScope}
-              >
-                <input
-                  type="text"
-                  value={data.rentalScope ?? ""}
-                  onChange={(e) => onChange({ rentalScope: e.target.value })}
-                  placeholder="Ví dụ: Nguyên tầng trệt, Lầu 1 và 2..."
-                  className={inputClass}
-                />
-              </FormField>
-
-              <FormField
-                id="field-rental-floor"
-                label="Tầng được cho thuê"
-                error={errors.rentalFloor}
-              >
-                <input
-                  type="text"
-                  value={data.rentalFloor ?? ""}
-                  onChange={(e) => onChange({ rentalFloor: e.target.value })}
-                  placeholder="Ví dụ: Tầng 1, Tầng 2"
-                  className={inputClass}
-                />
-              </FormField>
-
-              <FormField
-                id="field-shared-entrance"
-                label="Lối đi sử dụng"
-                error={errors.sharedEntrance}
-              >
-                <select
-                  value={data.sharedEntrance ?? "SHARED"}
-                  onChange={(e) => onChange({ sharedEntrance: e.target.value })}
-                  className={selectClass}
-                >
-                  <option value="SHARED">Đi chung với chủ nhà / người khác</option>
-                  <option value="PRIVATE">Có lối đi riêng độc lập</option>
-                </select>
-              </FormField>
-            </div>
-          </div>
-        )}
       </div>
     </FormSectionWrapper>
   );

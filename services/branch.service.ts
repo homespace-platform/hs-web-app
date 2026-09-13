@@ -54,7 +54,7 @@ export interface CreatePropertyBranchPayload {
 
 function formatBranchPayload(payload: CreatePropertyBranchPayload) {
   const cat = payload.category ? String(payload.category) : "apartment";
-  const categoryEnum = cat === "commercial" ? "COMMERCIAL_SPACE" : cat.toUpperCase();
+  const categoryEnum = cat.toUpperCase();
   return {
     ...payload,
     category: categoryEnum as any,

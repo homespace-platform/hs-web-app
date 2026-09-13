@@ -139,6 +139,7 @@ export interface ContractRevisionResponse {
   property: Record<string, unknown> | null;
   lease: Record<string, unknown> | null;
   financial: Record<string, unknown> | null;
+
   charges: Record<string, unknown>[] | null;
   equipments: Record<string, unknown>[] | null;
   meters: Record<string, unknown> | null;
@@ -184,25 +185,23 @@ export interface ContractCompletenessResponse {
 }
 
 export const CATEGORY_NAMES: Record<ListingCategory, string> = {
-  APARTMENT: "Căn hộ / Chung cư",
   HOUSE: "Nhà nguyên căn",
+  APARTMENT: "Căn hộ chung cư",
+  ROOM: "Phòng trọ",
   OFFICE: "Văn phòng",
   COMMERCIAL_SPACE: "Mặt bằng kinh doanh",
-  ROOM: "Nhà trọ / Căn hộ dịch vụ",
 };
 
 export const CATEGORY_DESCRIPTIONS: Record<ListingCategory, string> = {
-  APARTMENT: "Căn hộ chung cư, studio, duplex, penthouse, officetel",
-  HOUSE: "Nhà phố, nhà trong hẻm, biệt thự, nhà cấp 4",
-  OFFICE: "Văn phòng truyền thống, trọn gói, coworking, chia sẻ",
-  COMMERCIAL_SPACE: "Cửa hàng, ki-ốt, showroom, shophouse, mặt bằng TTTM",
-  ROOM: "Phòng trọ, phòng trong nhà, căn hộ dịch vụ, ký túc xá",
+  HOUSE: "Nhà nguyên căn, nhà phố, biệt thự",
+  APARTMENT: "Căn hộ chung cư",
+  ROOM: "Phòng trọ",
+  OFFICE: "Văn phòng",
+  COMMERCIAL_SPACE: "Mặt bằng kinh doanh",
 };
 
 export const CATEGORY_OPTIONS: ListingCategory[] = [
-  "APARTMENT",
   "HOUSE",
-  "OFFICE",
-  "COMMERCIAL_SPACE",
+  "APARTMENT",
   "ROOM",
 ];

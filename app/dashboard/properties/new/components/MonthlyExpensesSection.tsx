@@ -23,9 +23,7 @@ export default function MonthlyExpensesSection({
   isBranchSelected = false,
   onChange,
 }: MonthlyExpensesSectionProps) {
-  const isOffice = category === "office";
-  const showManagementFee =
-    category === "apartment" || category === "office" || category === "commercial";
+  const showManagementFee = category === "apartment";
 
   function handleAddCustomFee() {
     const newFee: CustomMonthlyFee = {
@@ -405,34 +403,6 @@ export default function MonthlyExpensesSection({
             )}
           </div>
         </div>
-
-        {/* Điều hòa ngoài giờ (Chỉ hiển thị cho Văn phòng) */}
-        {isOffice && (
-          <div className="sm:col-span-2 space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3.5">
-            <label className="block text-xs font-bold text-foreground">
-              Phí điều hòa ngoài giờ (Văn phòng)
-            </label>
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  step="10000"
-                  value={data.overtimeAcFee ?? ""}
-                  onChange={(e) => onChange({ overtimeAcFee: e.target.value })}
-                  placeholder="Ví dụ: 150000 hoặc để trống nếu tính theo thỏa thuận"
-                  className={inputClass}
-                />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
-                  đ/giờ
-                </span>
-              </div>
-              <p className="flex items-center text-xs text-muted-foreground">
-                Phí vận hành hệ thống điều hòa khi làm việc ngoài giờ quy định của tòa nhà
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Danh sách khoản phí tùy chỉnh khác */}
         <div className="sm:col-span-2 space-y-3 pt-2">

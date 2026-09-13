@@ -13,7 +13,7 @@ import provinceService from "@/services/province.service";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
 import { District } from "@/types/province.type";
-import type { ListingCategory, ListingSubtype } from "@/types/listing.type";
+import type { ListingCategory } from "@/types/listing.type";
 import { useAuth } from "@/features/auth/useAuth";
 import { useAppSelector } from "@/store/hooks";
 import {
@@ -68,7 +68,6 @@ export default function RentPage() {
   // Active Filter State (CHỈ cập nhật khi bấm "Áp dụng bộ lọc" hoặc submit search/district)
   const [filter, setFilter] = useState<FilterState>({
     category: "all",
-    subtype: "all",
     minPrice: 0,
     maxPrice: 100,
     areaRange: "all",
@@ -78,8 +77,6 @@ export default function RentPage() {
     furnishingStatus: "all",
     direction: "all",
     balconyDirection: "all",
-    officeGrade: "all",
-    positionType: "all",
     restroomType: "all",
     kitchenType: "all",
     accessType: "all",
@@ -108,22 +105,8 @@ export default function RentPage() {
           apiCategory = "APARTMENT";
         } else if (filter.category === "house") {
           apiCategory = "HOUSE";
-        } else if (filter.category === "office") {
-          apiCategory = "OFFICE";
-        } else if (filter.category === "commercial") {
-          apiCategory = "COMMERCIAL_SPACE";
         } else if (filter.category === "room") {
           apiCategory = "ROOM";
-        } else if (filter.category === "studio") {
-          apiCategory = "APARTMENT";
-        }
-
-        // Map subtype
-        let apiSubtype: ListingSubtype | undefined = undefined;
-        if (filter.subtype && filter.subtype !== "all") {
-          apiSubtype = filter.subtype as ListingSubtype;
-        } else if (filter.category === "studio") {
-          apiSubtype = "APARTMENT_STUDIO";
         }
 
         // Map price (in millions -> VND)
@@ -193,8 +176,6 @@ export default function RentPage() {
           furnishingStatus: filter.furnishingStatus !== "all" ? (filter.furnishingStatus as any) : undefined,
           direction: filter.direction !== "all" ? filter.direction : undefined,
           balconyDirection: filter.balconyDirection !== "all" ? filter.balconyDirection : undefined,
-          officeGrade: filter.officeGrade !== "all" ? filter.officeGrade : undefined,
-          positionType: filter.positionType !== "all" ? (filter.positionType as any) : undefined,
           restroomType: filter.restroomType !== "all" ? (filter.restroomType as any) : undefined,
           kitchenType: filter.kitchenType !== "all" ? filter.kitchenType : undefined,
           accessType: filter.accessType !== "all" ? filter.accessType : undefined,
@@ -335,7 +316,6 @@ export default function RentPage() {
     setSearchInput("");
     setFilter({
       category: "all",
-      subtype: "all",
       minPrice: 0,
       maxPrice: 100,
       areaRange: "all",
@@ -345,8 +325,6 @@ export default function RentPage() {
       furnishingStatus: "all",
       direction: "all",
       balconyDirection: "all",
-      officeGrade: "all",
-      positionType: "all",
       restroomType: "all",
       kitchenType: "all",
       accessType: "all",

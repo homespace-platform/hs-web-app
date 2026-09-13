@@ -376,7 +376,7 @@ export default function ContractTemplatesPage() {
                 <p className="text-[11px] text-muted-foreground">
                   {createCategory
                     ? CATEGORY_DESCRIPTIONS[createCategory]
-                    : "Mỗi mẫu gắn đúng một loại hình. Hình thức thuê điền qua {{lease.rentalMode}}."}
+                    : "Mỗi mẫu gắn đúng một loại hình (Nhà nguyên căn, Căn hộ chung cư, Phòng trọ)."}
                 </p>
               </div>
 

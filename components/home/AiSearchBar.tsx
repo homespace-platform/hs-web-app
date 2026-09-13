@@ -45,9 +45,9 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
 
   const propertyTypes = [
     { value: "", label: "Tất cả thể loại" },
-    { value: "house", label: "Nhà ở nguyên căn" },
-    { value: "apartment", label: "Căn hộ / Chung cư" },
-    { value: "room", label: "Phòng trọ / Căn hộ dịch vụ" },
+    { value: "house", label: "Nhà nguyên căn" },
+    { value: "apartment", label: "Căn hộ chung cư" },
+    { value: "room", label: "Phòng trọ" },
   ];
 
   // 1. Load initial province & district from localStorage and fetch districts

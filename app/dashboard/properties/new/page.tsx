@@ -21,8 +21,7 @@ import {
 import BasicInfoSection from "./components/BasicInfoSection";
 import ApartmentDetailsSection from "./components/details/ApartmentDetailsSection";
 import HouseDetailsSection from "./components/details/HouseDetailsSection";
-import OfficeDetailsSection from "./components/details/OfficeDetailsSection";
-import CommercialDetailsSection from "./components/details/CommercialDetailsSection";
+
 import RoomDetailsSection from "./components/details/RoomDetailsSection";
 import FurnishingAssetsSection from "./components/details/FurnishingAssetsSection";
 import AmenitiesSection from "./components/AmenitiesSection";
@@ -42,8 +41,6 @@ import type {
   BasicInfoData,
   ApartmentDetailsData,
   HouseDetailsData,
-  OfficeDetailsData,
-  CommercialDetailsData,
   RoomDetailsData,
   FurnishingAssetRow,
   MonthlyExpensesData,
@@ -115,45 +112,6 @@ function CreatePropertyListingContent() {
     maxVehicles: "4",
     furnishing: "BASIC",
     legalStatus: "PINK_BOOK",
-    rentalScope: "",
-    rentalFloor: "",
-    sharedEntrance: "SHARED",
-  });
-
-  const [officeDetails, setOfficeDetails] = useState<OfficeDetailsData>({
-    buildingName: "",
-    officeGrade: "GRADE_B",
-    rentalAreaM2: "",
-    isSubdivisible: false,
-    rentalFloor: "",
-    handoverCondition: "BASIC",
-    seatsCount: "",
-    toiletsCount: "2",
-    toiletType: "SHARED",
-    pantry: "SHARED",
-    operatingHours: "07:30 – 18:30 (Thứ 2 - Thứ 7)",
-    carParkingSlots: "",
-    motorbikeParkingSlots: "",
-  });
-
-  const [commercialDetails, setCommercialDetails] = useState<CommercialDetailsData>({
-    areaM2: "",
-    spacePosition: "GROUND_LEVEL",
-    facadeWidthM: "",
-    lengthM: "",
-    frontageCount: "1",
-    streetWidthM: "",
-    rentalFloorsCount: "1",
-    hasLoft: false,
-    toiletsCount: "1",
-    privateEntrance: "PRIVATE",
-    parkingOption: "BOTH",
-    handoverCondition: "BASIC",
-    hasThreePhasePower: false,
-    hasFireSafety: true,
-    operatingHours: "Tự do 24/7",
-    restrictedIndustries: "",
-    loadingArea: "",
   });
 
   const [roomDetails, setRoomDetails] = useState<RoomDetailsData>({
@@ -202,7 +160,6 @@ function CreatePropertyListingContent() {
     motorbikeParkingFee: "",
     carParkingType: "NONE",
     carParkingFee: "",
-    overtimeAcFee: "",
     customFees: [],
   });
 
@@ -352,11 +309,6 @@ function CreatePropertyListingContent() {
         else newExpenses.carParkingType = "PER_VEHICLE";
       }
 
-      const ac = branch.defaultCharges.find((c) => c.chargeType === "OVERTIME_AIR_CONDITIONING");
-      if (ac) {
-        newExpenses.overtimeAcFee = ac.amount ? String(ac.amount) : "";
-      }
-
       const customOthers = branch.defaultCharges
         .filter((c) => c.chargeType === "OTHER")
         .map((c, idx) => ({
@@ -407,10 +359,6 @@ function CreatePropertyListingContent() {
     const catEnum =
       basicInfo.category === "house"
         ? "HOUSE"
-        : basicInfo.category === "office"
-        ? "OFFICE"
-        : basicInfo.category === "commercial"
-        ? "COMMERCIAL_SPACE"
         : basicInfo.category === "room"
         ? "ROOM"
         : "APARTMENT";
@@ -470,39 +418,7 @@ function CreatePropertyListingContent() {
         // 1. Basic Info
         let cat: PropertyCategoryKey = "apartment";
         if (res.category === "HOUSE") cat = "house";
-        else if (res.category === "OFFICE") cat = "office";
-        else if (res.category === "COMMERCIAL_SPACE") cat = "commercial";
         else if (res.category === "ROOM") cat = "room";
-
-        const subtypeMap: Record<string, string> = {
-          APARTMENT_STANDARD: "standard",
-          APARTMENT_STUDIO: "studio",
-          APARTMENT_DUPLEX: "duplex",
-          APARTMENT_PENTHOUSE: "penthouse",
-          APARTMENT_OFFICETEL: "officetel",
-          APARTMENT_OTHER: "other",
-          HOUSE_TOWNHOUSE: "townhouse",
-          HOUSE_ALLEY: "alley_house",
-          HOUSE_VILLA: "villa",
-          HOUSE_GRADE_4: "grade4",
-          HOUSE_OTHER: "other",
-          OFFICE_TRADITIONAL: "traditional_office",
-          OFFICE_SERVICED: "serviced_office",
-          OFFICE_COWORKING: "coworking",
-          OFFICE_SHARED: "shared_space",
-          OFFICE_OTHER: "other",
-          COMMERCIAL_STORE: "shop",
-          COMMERCIAL_KIOSK: "kiosk",
-          COMMERCIAL_SHOWROOM: "showroom",
-          COMMERCIAL_SHOPHOUSE: "shophouse",
-          COMMERCIAL_MALL: "mall_space",
-          COMMERCIAL_OTHER: "other",
-          ROOM_BOARDING: "boarding_room",
-          ROOM_IN_HOUSE: "house_room",
-          ROOM_SERVICED_APARTMENT: "serviced_apartment",
-          ROOM_DORMITORY: "dormitory",
-          ROOM_OTHER: "other",
-        };
 
         const existingImages: SelectedMediaImage[] = (res.media || [])
           .filter((m) => m.mediaType === "IMAGE")
@@ -572,62 +488,6 @@ function CreatePropertyListingContent() {
             maxVehicles: String(res.houseDetail.maxVehicles ?? "4"),
             furnishing: furnishingStatusToFormValue(res.houseDetail.furnishingStatus),
             legalStatus: res.houseDetail.legalStatus || "PINK_BOOK",
-            rentalScope: res.houseDetail.rentalScopeDescription || "",
-            rentalFloor: String(res.houseDetail.rentedFloorFrom ?? ""),
-            sharedEntrance: "SHARED",
-          });
-        }
-
-        if (res.officeDetail) {
-          setOfficeDetails({
-            buildingName: res.officeDetail.buildingName || "",
-            officeGrade: res.officeDetail.officeGrade || "GRADE_B",
-            rentalAreaM2: String(res.areaM2 || ""),
-            isSubdivisible: Boolean(res.officeDetail.minimumDivisibleAreaM2),
-            rentalFloor: String(res.officeDetail.floorNumber ?? "1"),
-            handoverCondition: res.officeDetail.handoverStatus || "BASIC",
-            seatsCount: String(res.officeDetail.expectedSeats ?? ""),
-            toiletsCount: String(res.officeDetail.restroomCount ?? "2"),
-            toiletType: res.officeDetail.restroomType || "SHARED",
-            pantry: res.officeDetail.pantryType || "SHARED",
-            operatingHours:
-              res.officeDetail.operatingMode === "ALWAYS_OPEN"
-                ? "24/7 (Tự do ra vào)"
-                : "07:30 – 18:30 (Thứ 2 - Thứ 7)",
-            carParkingSlots: String(res.officeDetail.carParkingCapacity ?? ""),
-            motorbikeParkingSlots: String(res.officeDetail.motorbikeParkingCapacity ?? ""),
-          });
-        }
-
-        if (res.commercialDetail) {
-          setCommercialDetails({
-            areaM2: String(res.areaM2 || ""),
-            spacePosition:
-              res.commercialDetail.positionType === "UPPER_FLOOR"
-                ? "UPPER_FLOOR"
-                : res.commercialDetail.positionType === "SHOPPING_MALL"
-                ? "MALL"
-                : "GROUND_LEVEL",
-            facadeWidthM: String(res.commercialDetail.frontageWidthM ?? ""),
-            lengthM: String(res.commercialDetail.lengthM ?? ""),
-            frontageCount: String(res.commercialDetail.frontageCount ?? "1"),
-            streetWidthM: String(res.commercialDetail.roadWidthM ?? ""),
-            rentalFloorsCount: String(res.commercialDetail.rentedFloorCount ?? "1"),
-            hasLoft: Boolean(res.commercialDetail.hasMezzanine),
-            toiletsCount: String(res.commercialDetail.restroomCount ?? "1"),
-            privateEntrance: res.commercialDetail.accessType || "PRIVATE",
-            parkingOption:
-              res.commercialDetail.parkingType === "MOTORBIKE"
-                ? "MOTORBIKE_ONLY"
-                : res.commercialDetail.parkingType === "NONE"
-                ? "NONE"
-                : "BOTH",
-            handoverCondition: res.commercialDetail.handoverStatus || "BASIC",
-            hasThreePhasePower: Boolean(res.commercialDetail.hasThreePhasePower),
-            hasFireSafety: Boolean(res.commercialDetail.hasStandardFireSafety),
-            operatingHours: res.commercialDetail.operatingHoursDescription || "Tự do 24/7",
-            restrictedIndustries: res.commercialDetail.restrictedBusinesses || "",
-            loadingArea: res.commercialDetail.loadingAreaDescription || "",
           });
         }
 
@@ -693,7 +553,6 @@ function CreatePropertyListingContent() {
           const garb = res.charges.find((c) => c.chargeType === "SERVICE_OR_GARBAGE");
           const moto = res.charges.find((c) => c.chargeType === "MOTORBIKE_PARKING");
           const car = res.charges.find((c) => c.chargeType === "CAR_PARKING");
-          const otAc = res.charges.find((c) => c.chargeType === "OVERTIME_AIR_CONDITIONING");
           const customs = res.charges.filter((c) => c.chargeType === "OTHER");
 
           setMonthlyExpenses({
@@ -730,7 +589,6 @@ function CreatePropertyListingContent() {
               ? "PER_VEHICLE"
               : "NONE",
             carParkingFee: car?.amount != null ? String(car.amount) : "",
-            overtimeAcFee: otAc?.amount != null ? String(otAc.amount) : "",
             customFees: customs.map((c, i) => ({
               id: `custom-${i}`,
               name: c.customName || "",
@@ -847,10 +705,6 @@ function CreatePropertyListingContent() {
         return houseDetails.furnishing !== "RAW";
       case "room":
         return roomDetails.furnishing !== "RAW";
-      case "office":
-        return officeDetails.handoverCondition !== "RAW";
-      case "commercial":
-        return commercialDetails.handoverCondition !== "RAW";
       default:
         return false;
     }
@@ -859,8 +713,6 @@ function CreatePropertyListingContent() {
     apartmentDetails.furnishing,
     houseDetails.furnishing,
     roomDetails.furnishing,
-    officeDetails.handoverCondition,
-    commercialDetails.handoverCondition,
   ]);
 
   // Category change handler with confirmation
@@ -950,17 +802,6 @@ function CreatePropertyListingContent() {
       }
       if (!houseDetails.totalFloors || Number(houseDetails.totalFloors) <= 0) {
         addError("field-house-floors", "totalFloors", "Số tầng phải lớn hơn 0.");
-      }
-    } else if (basicInfo.category === "office") {
-      if (!officeDetails.rentalAreaM2 || Number(officeDetails.rentalAreaM2) <= 0) {
-        addError("field-office-area", "rentalAreaM2", "Diện tích thuê phải lớn hơn 0.");
-      }
-      if (!officeDetails.rentalFloor) {
-        addError("field-office-floor", "rentalFloor", "Vui lòng nhập tầng đặt văn phòng.");
-      }
-    } else if (basicInfo.category === "commercial") {
-      if (!commercialDetails.areaM2 || Number(commercialDetails.areaM2) <= 0) {
-        addError("field-commercial-area", "areaM2", "Diện tích mặt bằng phải lớn hơn 0.");
       }
     } else if (basicInfo.category === "room") {
       if (!roomDetails.areaM2 || Number(roomDetails.areaM2) <= 0) {
@@ -1125,8 +966,6 @@ function CreatePropertyListingContent() {
         basicInfo,
         apartmentDetails,
         houseDetails,
-        officeDetails,
-        commercialDetails,
         roomDetails,
         furnishingAssets,
         selectedAmenities,
@@ -1211,28 +1050,7 @@ function CreatePropertyListingContent() {
             furnishingSlot={furnishingSlot}
           />
         );
-      case "office":
-        return (
-          <OfficeDetailsSection
-            data={officeDetails}
-            errors={errors}
-            onChange={(updates) =>
-              setOfficeDetails((prev) => ({ ...prev, ...updates }))
-            }
-            furnishingSlot={furnishingSlot}
-          />
-        );
-      case "commercial":
-        return (
-          <CommercialDetailsSection
-            data={commercialDetails}
-            errors={errors}
-            onChange={(updates) =>
-              setCommercialDetails((prev) => ({ ...prev, ...updates }))
-            }
-            furnishingSlot={furnishingSlot}
-          />
-        );
+
       case "room":
         return (
           <RoomDetailsSection

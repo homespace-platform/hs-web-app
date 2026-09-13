@@ -13,9 +13,9 @@ import provinceService from "@/services/province.service";
 import { Province } from "@/types/province.type";
 
 const CATEGORIES = [
-  { id: "house", label: "Nhà ở nguyên căn" },
-  { id: "apartment", label: "Căn hộ / Chung cư" },
-  { id: "room", label: "Phòng trọ / Căn hộ dịch vụ" },
+  { id: "house", label: "Nhà nguyên căn" },
+  { id: "apartment", label: "Căn hộ chung cư" },
+  { id: "room", label: "Phòng trọ" },
 ];
 
 export default function LocationMapExplorer() {

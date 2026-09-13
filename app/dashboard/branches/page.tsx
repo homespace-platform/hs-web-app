@@ -671,7 +671,7 @@ export default function BranchesPage() {
                     }
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    {PROPERTY_CATEGORIES.filter((c) => !c.disabled).map((c) => (
+                    {PROPERTY_CATEGORIES.map((c) => (
                       <option key={c.key} value={c.key}>
                         {c.label}
                       </option>

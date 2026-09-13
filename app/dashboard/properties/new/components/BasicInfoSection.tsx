@@ -280,10 +280,10 @@ export default function BasicInfoSection({
               Loại hình <span className="text-destructive">*</span>
             </span>
           </label>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {PROPERTY_CATEGORIES.map((cat) => {
               const active = data.category === cat.key;
-              const disabled = !!cat.disabled || isBranchSelected;
+              const disabled = isBranchSelected;
               return (
                 <button
                   key={cat.key}
@@ -310,18 +310,10 @@ export default function BasicInfoSection({
                     >
                       {cat.label}
                     </span>
-                    {(disabled || isBranchSelected) && (
+                    {isBranchSelected && (
                       <Lock className="h-3.5 w-3.5 shrink-0 text-amber-500" />
                     )}
                   </div>
-                  <span className="mt-1 line-clamp-2 text-[10px] text-muted-foreground">
-                    {cat.description}
-                  </span>
-                  {cat.disabled && (
-                    <span className="mt-1.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400">
-                      Tạm khóa
-                    </span>
-                  )}
                   {isBranchSelected && active && (
                     <span className="mt-1.5 rounded bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-sky-600 dark:text-sky-400">
                       Theo chi nhánh

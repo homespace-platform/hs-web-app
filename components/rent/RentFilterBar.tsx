@@ -40,12 +40,10 @@ interface RentFilterBarProps {
 }
 
 const QUICK_CATEGORIES = [
-  { id: "all", label: "Tất cả loại nhà", icon: Building2 },
-  { id: "house", label: "Nhà ở nguyên căn", icon: Home },
-  { id: "apartment", label: "Căn hộ / Chung cư", icon: Building2 },
-  { id: "room", label: "Phòng trọ / Studio", icon: BedDouble },
-  { id: "commercial", label: "Văn phòng / Mặt bằng", icon: Store },
-  { id: "villa", label: "Biệt thự / Villa", icon: Castle },
+  { id: "all", label: "Tất cả", icon: Building2 },
+  { id: "house", label: "Nhà nguyên căn", icon: Home },
+  { id: "apartment", label: "Căn hộ chung cư", icon: Building2 },
+  { id: "room", label: "Phòng trọ", icon: BedDouble },
 ];
 
 const PRICE_OPTIONS = [

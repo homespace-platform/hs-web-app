@@ -41,8 +41,6 @@ import MediaGallery, { type MediaGalleryItem } from "@/components/common/MediaGa
 import type {
   ListingDetailResponse,
   ListingCategory,
-  ListingSubtype,
-  RentalMode,
   DayOfWeek,
   ViewingSlot,
   ChargeType,
@@ -65,39 +63,10 @@ const formatVND = (amount?: number | null) => {
   }).format(amount);
 };
 
-const CATEGORY_LABELS: Record<ListingCategory, string> = {
-  APARTMENT: "Căn hộ / Chung cư",
-  HOUSE: "Nhà riêng / Nhà nguyên căn",
-  OFFICE: "Văn phòng",
-  COMMERCIAL_SPACE: "Mặt bằng kinh doanh",
-  ROOM: "Phòng trọ / Căn hộ mini",
-};
-
-const SUBTYPE_LABELS: Record<string, string> = {
-  APARTMENT_STANDARD: "Chung cư tiêu chuẩn",
-  APARTMENT_MINI: "Chung cư mini",
-  APARTMENT_STUDIO: "Studio",
-  APARTMENT_OFFICETEL: "Officetel",
-  APARTMENT_SERVICED: "Căn hộ dịch vụ",
-  APARTMENT_PENTHOUSE: "Penthouse / Duplex",
-  HOUSE_TOWNHOUSE: "Nhà phố liền kề",
-  HOUSE_VILLA: "Biệt thự",
-  HOUSE_ALLEY: "Nhà trong ngõ / hẻm",
-  HOUSE_CORNER: "Nhà góc 2 mặt tiền",
-  OFFICE_TRADITIONAL: "Văn phòng truyền thống",
-  OFFICE_COWORKING: "Coworking Space",
-  OFFICE_SHARED: "Văn phòng chia sẻ",
-  COMMERCIAL_STREET_FRONT: "Mặt bằng mặt phố",
-  COMMERCIAL_MALL: "Gian hàng TTTM",
-  COMMERCIAL_KIOSK: "Kiot / Chợ",
-  ROOM_BOARDING: "Phòng trọ khép kín",
-  ROOM_HOMESTAY: "Homestay / Co-living",
-  ROOM_MEZZANINE: "Phòng có gác lửng",
-};
-
-const RENTAL_MODE_LABELS: Record<RentalMode, string> = {
-  WHOLE_UNIT: "Thuê nguyên căn / Toàn bộ diện tích",
-  PARTIAL: "Thuê một phần / Phòng riêng",
+const CATEGORY_LABELS: Record<string, string> = {
+  HOUSE: "Nhà nguyên căn",
+  APARTMENT: "Căn hộ chung cư",
+  ROOM: "Phòng trọ",
 };
 
 const DIRECTION_LABELS: Record<string, string> = {
@@ -615,110 +584,6 @@ export default function ListingPreviewModal({
                           </p>
                         </div>
                       )}
-                    </>
-                  )}
-
-                  {/* VĂN PHÒNG (OFFICE) */}
-                  {listing.officeDetail && (
-                    <>
-                      {listing.officeDetail.officeGrade && (
-                        <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                          <p className="text-muted-foreground">Hạng văn phòng</p>
-                          <p className="font-bold text-foreground mt-0.5">
-                            Hạng {listing.officeDetail.officeGrade}
-                          </p>
-                        </div>
-                      )}
-                      {listing.officeDetail.floorNumber != null && (
-                        <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                          <p className="text-muted-foreground">Vị trí tầng</p>
-                          <p className="font-bold text-foreground mt-0.5">
-                            Tầng {listing.officeDetail.floorNumber}
-                          </p>
-                        </div>
-                      )}
-                      {listing.officeDetail.buildingName && (
-                        <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                          <p className="text-muted-foreground">Tòa nhà</p>
-                          <p className="font-bold text-foreground mt-0.5">
-                            {listing.officeDetail.buildingName}
-                          </p>
-                        </div>
-                      )}
-                      {listing.officeDetail.handoverStatus && (
-                        <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                          <p className="text-muted-foreground">Bàn giao</p>
-                          <p className="font-bold text-foreground mt-0.5">
-                            {listing.officeDetail.handoverStatus}
-                          </p>
-                        </div>
-                      )}
-                      {listing.officeDetail.expectedSeats && (
-                        <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                          <p className="text-muted-foreground">Chỗ ngồi dự kiến</p>
-                          <p className="font-bold text-foreground mt-0.5">
-                            {listing.officeDetail.expectedSeats} chỗ
-                          </p>
-                        </div>
-                      )}
-                      {listing.officeDetail.carParkingCapacity != null && (
-                        <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                          <p className="text-muted-foreground">Chỗ đỗ ô tô</p>
-                          <p className="font-bold text-foreground mt-0.5">
-                            {listing.officeDetail.carParkingCapacity} chỗ
-                          </p>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* MẶT BẰNG THƯƠNG MẠI (COMMERCIAL) */}
-                  {listing.commercialDetail && (
-                    <>
-                      {listing.commercialDetail.frontageWidthM && (
-                        <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                          <p className="text-muted-foreground">Mặt tiền</p>
-                          <p className="font-bold text-foreground mt-0.5">
-                            {listing.commercialDetail.frontageWidthM} m
-                          </p>
-                        </div>
-                      )}
-                      {listing.commercialDetail.roadWidthM && (
-                        <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                          <p className="text-muted-foreground">Đường trước mặt bằng</p>
-                          <p className="font-bold text-foreground mt-0.5">
-                            {listing.commercialDetail.roadWidthM} m
-                          </p>
-                        </div>
-                      )}
-                      {listing.commercialDetail.rentedFloorCount && (
-                        <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                          <p className="text-muted-foreground">Số tầng cho thuê</p>
-                          <p className="font-bold text-foreground mt-0.5">
-                            {listing.commercialDetail.rentedFloorCount} tầng
-                          </p>
-                        </div>
-                      )}
-                      {listing.commercialDetail.positionType && (
-                        <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                          <p className="text-muted-foreground">Vị trí mặt bằng</p>
-                          <p className="font-bold text-foreground mt-0.5">
-                            {listing.commercialDetail.positionType}
-                          </p>
-                        </div>
-                      )}
-                      <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                        <p className="text-muted-foreground">Điện 3 pha</p>
-                        <p className="font-bold text-foreground mt-0.5">
-                          {listing.commercialDetail.hasThreePhasePower ? "✓ Có" : "Không"}
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                        <p className="text-muted-foreground">Tiêu chuẩn PCCC</p>
-                        <p className="font-bold text-foreground mt-0.5">
-                          {listing.commercialDetail.hasStandardFireSafety ? "✓ Đạt chuẩn" : "Chưa đạt"}
-                        </p>
-                      </div>
                     </>
                   )}
 

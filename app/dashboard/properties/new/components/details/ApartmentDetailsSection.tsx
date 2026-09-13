@@ -10,7 +10,6 @@ import type { ApartmentDetailsData, FormErrors } from "../../types";
 
 interface ApartmentDetailsSectionProps {
   data: ApartmentDetailsData;
-  subtype?: string;
   errors: FormErrors;
   onChange: (updates: Partial<ApartmentDetailsData>) => void;
   furnishingSlot: ReactNode;
@@ -18,25 +17,17 @@ interface ApartmentDetailsSectionProps {
 
 export default function ApartmentDetailsSection({
   data,
-  subtype,
   errors,
   onChange,
   furnishingSlot,
 }: ApartmentDetailsSectionProps) {
-  const isStudio = subtype === "studio";
-
   return (
     <FormSectionWrapper
       id="section-details"
       stepNumber={2}
-      title="Thông tin chi tiết — Căn hộ / Chung cư"
+      title="Thông tin chi tiết — Căn hộ chung cư"
       description="Chi tiết về diện tích, số phòng, tầng và hiện trạng căn hộ"
     >
-      {isStudio && (
-        <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-200">
-          <span className="font-semibold">Lưu ý loại hình Studio:</span> Cho phép số phòng ngủ bằng 0 (không gian mở liền kề).
-        </div>
-      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {/* Tên dự án / chung cư */}
@@ -152,15 +143,14 @@ export default function ApartmentDetailsSection({
           label="Số phòng ngủ"
           required
           error={errors.bedrooms}
-          hint={isStudio ? "Có thể nhập 0 đối với căn Studio" : undefined}
         >
           <input
             type="number"
-            min={isStudio ? "0" : "1"}
+            min="0"
             step="1"
             value={data.bedrooms ?? ""}
             onChange={(e) => onChange({ bedrooms: e.target.value })}
-            placeholder={isStudio ? "0 (Studio) hoặc số phòng" : "Ví dụ: 2"}
+            placeholder="Ví dụ: 2"
             className={`${inputClass} ${
               errors.bedrooms ? "border-destructive focus:border-destructive" : ""
             }`}

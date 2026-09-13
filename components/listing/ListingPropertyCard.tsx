@@ -20,20 +20,16 @@ import type { ListingCategory, MyListingSummaryResponse } from "@/types/listing.
 import { getListingStatusConfig } from "@/config/listing-status.config";
 import ListingStatusActionMenu from "@/app/dashboard/properties/components/ListingStatusActionMenu";
 
-const CATEGORY_ICONS: Record<ListingCategory, React.ReactNode> = {
-  APARTMENT: <Building className="h-3.5 w-3.5" />,
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   HOUSE: <Home className="h-3.5 w-3.5" />,
-  OFFICE: <Briefcase className="h-3.5 w-3.5" />,
-  COMMERCIAL_SPACE: <Store className="h-3.5 w-3.5" />,
+  APARTMENT: <Building className="h-3.5 w-3.5" />,
   ROOM: <DoorOpen className="h-3.5 w-3.5" />,
 };
 
-const CATEGORY_LABELS: Record<ListingCategory, string> = {
-  APARTMENT: "Căn hộ",
+const CATEGORY_LABELS: Record<string, string> = {
   HOUSE: "Nhà nguyên căn",
-  OFFICE: "Văn phòng",
-  COMMERCIAL_SPACE: "Mặt bằng",
-  ROOM: "Nhà trọ / Phòng",
+  APARTMENT: "Căn hộ chung cư",
+  ROOM: "Phòng trọ",
 };
 
 function formatCurrency(amount: number): string {

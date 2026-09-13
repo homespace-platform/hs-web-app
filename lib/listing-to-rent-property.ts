@@ -19,20 +19,16 @@ export function toRentProperty(
   // Check if it's PublicListingSummaryResponse
   if (isPublicListing(listing)) {
     const pub = listing as PublicListingSummaryResponse;
-    const categoryMap: Record<string, "apartment" | "house" | "office" | "commercial" | "room"> = {
+    const categoryMap: Record<string, "apartment" | "house" | "room"> = {
       APARTMENT: "apartment",
       HOUSE: "house",
-      OFFICE: "office",
-      COMMERCIAL_SPACE: "commercial",
       ROOM: "room",
     };
-    const propertyCategory = categoryMap[pub.category] ?? "apartment";
-    const categoryLabelMap = {
-      apartment: "Căn hộ / Chung cư",
-      house: "Nhà ở",
-      office: "Văn phòng",
-      commercial: "Mặt bằng kinh doanh",
-      room: "Nhà trọ / Căn hộ dịch vụ",
+    const propertyCategory = categoryMap[pub.category] ?? "room";
+    const categoryLabelMap: Record<string, string> = {
+      apartment: "Căn hộ chung cư",
+      house: "Nhà nguyên căn",
+      room: "Phòng trọ",
     };
 
     const imageUrls: string[] =
@@ -43,7 +39,7 @@ export function toRentProperty(
         : [];
     const rawPrice = Number(pub.priceAmount ?? 0);
     const rawBeds =
-      propertyCategory === "room" || propertyCategory === "office" || propertyCategory === "commercial"
+      propertyCategory === "room"
         ? 0
         : pub.bedroomCount ?? 0;
     const rawBaths = pub.bathroomCount ?? 0;
@@ -153,25 +149,17 @@ export function toRentProperty(
   const provinceName = address?.provinceName ?? "";
   const wardName = address?.wardName ?? "";
   const streetLine = address?.streetLine ?? "";
-  const categoryMap: Record<string, "apartment" | "house" | "room" | "studio" | "commercial" | "office"> = {
+  const categoryMap: Record<string, "apartment" | "house" | "room"> = {
     APARTMENT: "apartment",
     HOUSE: "house",
     ROOM: "room",
-    STUDIO: "apartment",
-    OFFICE: "office",
-    COMMERCIAL: "commercial",
-    COMMERCIAL_SPACE: "commercial",
   };
   const propertyCategory = categoryMap[listing.category] ?? "room";
   const categoryLabel = {
-    apartment: "Căn hộ / Chung cư",
-    house: "Nhà ở",
-    commercial: "Mặt bằng kinh doanh",
-    office: "Văn phòng",
-    studio: "Căn hộ Studio",
-    room: "Nhà trọ / Căn hộ dịch vụ",
-    villa: "Biệt thự",
-  }[propertyCategory];
+    apartment: "Căn hộ chung cư",
+    house: "Nhà nguyên căn",
+    room: "Phòng trọ",
+  }[propertyCategory] || "Phòng trọ";
 
   const mediaImages: string[] = detail?.media
     ? detail.media

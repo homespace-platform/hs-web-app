@@ -4,108 +4,23 @@ export const PROPERTY_CATEGORIES: {
   key: PropertyCategoryKey;
   label: string;
   description: string;
-  disabled?: boolean;
 }[] = [
   {
     key: "house",
     label: "Nhà nguyên căn",
-    description: "Nhà phố, nhà trong hẻm, biệt thự, nhà cấp 4",
+    description: "Nhà nguyên căn, nhà phố, biệt thự",
   },
   {
     key: "apartment",
-    label: "Căn hộ / Chung cư",
-    description: "Căn hộ chung cư, studio, duplex, penthouse, officetel",
+    label: "Căn hộ chung cư",
+    description: "Căn hộ chung cư",
   },
   {
     key: "room",
-    label: "Nhà trọ / Căn hộ dịch vụ",
-    description: "Phòng trọ, phòng trong nhà, căn hộ dịch vụ, ký túc xá",
-  },
-  {
-    key: "office",
-    label: "Văn phòng",
-    description: "Văn phòng truyền thống, trọn gói, coworking, chia sẻ",
-    disabled: true,
-  },
-  {
-    key: "commercial",
-    label: "Mặt bằng kinh doanh",
-    description: "Cửa hàng, ki-ốt, showroom, shophouse, mặt bằng TTTM",
-    disabled: true,
+    label: "Phòng trọ",
+    description: "Phòng trọ",
   },
 ];
-
-export const SUBTYPES_BY_CATEGORY: Record<
-  PropertyCategoryKey,
-  { value: string; label: string }[]
-> = {
-  apartment: [
-    { value: "apartment_normal", label: "Căn hộ thường" },
-    { value: "studio", label: "Studio" },
-    { value: "duplex", label: "Duplex" },
-    { value: "penthouse", label: "Penthouse" },
-    { value: "officetel", label: "Officetel" },
-    { value: "other", label: "Loại khác" },
-  ],
-  house: [
-    { value: "townhouse", label: "Nhà phố" },
-    { value: "alley_house", label: "Nhà trong hẻm" },
-    { value: "villa", label: "Biệt thự" },
-    { value: "level4_house", label: "Nhà cấp 4" },
-    { value: "other", label: "Loại khác" },
-  ],
-  office: [
-    { value: "traditional_office", label: "Văn phòng truyền thống" },
-    { value: "serviced_office", label: "Văn phòng dịch vụ" },
-    { value: "coworking", label: "Coworking" },
-    { value: "shared_office", label: "Văn phòng chia sẻ" },
-    { value: "other", label: "Loại khác" },
-  ],
-  commercial: [
-    { value: "shop", label: "Cửa hàng" },
-    { value: "kiosk", label: "Ki-ốt" },
-    { value: "showroom", label: "Showroom" },
-    { value: "shophouse", label: "Shophouse" },
-    { value: "mall_space", label: "Mặt bằng trong trung tâm thương mại" },
-    { value: "other", label: "Loại khác" },
-  ],
-  room: [
-    { value: "boarding_room", label: "Phòng trọ" },
-    { value: "house_room", label: "Phòng trong nhà nguyên căn" },
-    { value: "serviced_apartment", label: "Căn hộ dịch vụ" },
-    { value: "dormitory", label: "Ký túc xá" },
-    { value: "other", label: "Loại khác" },
-  ],
-};
-
-export const RENTAL_TYPES_BY_CATEGORY: Record<
-  PropertyCategoryKey,
-  { value: string; label: string }[]
-> = {
-  apartment: [
-    { value: "WHOLE", label: "Cho thuê nguyên căn" },
-    { value: "PRIVATE_ROOM", label: "Phòng riêng trong căn hộ" },
-    { value: "SHARED_ROOM", label: "Ở ghép" },
-  ],
-  house: [
-    { value: "WHOLE", label: "Cho thuê nguyên căn" },
-    { value: "PARTIAL", label: "Một phần căn nhà (thuê tầng/phòng)" },
-  ],
-  office: [
-    { value: "WHOLE_FLOOR", label: "Nguyên sàn / Diện tích lớn" },
-    { value: "PRIVATE_OFFICE", label: "Phòng làm việc riêng" },
-    { value: "HOT_DESK", label: "Chỗ ngồi làm việc / Coworking" },
-  ],
-  commercial: [
-    { value: "WHOLE", label: "Nguyên mặt bằng" },
-    { value: "PARTIAL", label: "Một phần mặt bằng" },
-    { value: "KIOSK", label: "Ki-ốt / Quầy kinh doanh" },
-  ],
-  room: [
-    { value: "PRIVATE_ROOM", label: "Phòng riêng" },
-    { value: "SHARED_ROOM", label: "Ở ghép (Share phòng / Giường tầng)" },
-  ],
-};
 
 // Section 3: Dynamic amenities per category without duplication
 export const APARTMENT_AMENITIES = [
@@ -137,25 +52,6 @@ export const HOUSE_AMENITIES = [
   "Phòng gym",
 ];
 
-export const OFFICE_AMENITIES = [
-  "Thang máy",
-  "Lễ tân",
-  "Bảo vệ 24/7",
-  "Camera",
-  "Máy phát điện",
-  "Điều hòa trung tâm",
-  "Phòng họp",
-  "Internet",
-  "Hệ thống PCCC",
-];
-
-export const COMMERCIAL_AMENITIES = [
-  "Thang máy",
-  "Camera",
-  "Bảo vệ",
-  "Vị trí đặt biển hiệu",
-];
-
 export const ROOM_AMENITIES = [
   "WiFi",
   "Thang máy",
@@ -169,8 +65,6 @@ export const ROOM_AMENITIES = [
 export const AMENITIES_BY_CATEGORY: Record<PropertyCategoryKey, string[]> = {
   apartment: APARTMENT_AMENITIES,
   house: HOUSE_AMENITIES,
-  office: OFFICE_AMENITIES,
-  commercial: COMMERCIAL_AMENITIES,
   room: ROOM_AMENITIES,
 };
 
@@ -181,15 +75,6 @@ export const PRICE_UNITS_BY_CATEGORY: Record<
 > = {
   apartment: [{ value: "VND_MONTH", label: "VNĐ / tháng" }],
   house: [{ value: "VND_MONTH", label: "VNĐ / tháng" }],
-  office: [
-    { value: "VND_MONTH", label: "VNĐ / tháng" },
-    { value: "VND_M2_MONTH", label: "VNĐ / m² / tháng" },
-    { value: "VND_SEAT_MONTH", label: "VNĐ / chỗ ngồi / tháng" },
-  ],
-  commercial: [
-    { value: "VND_MONTH", label: "VNĐ / tháng" },
-    { value: "VND_M2_MONTH", label: "VNĐ / m² / tháng" },
-  ],
   room: [
     { value: "VND_ROOM_MONTH", label: "VNĐ / phòng / tháng" },
     { value: "VND_PERSON_MONTH", label: "VNĐ / người / tháng" },

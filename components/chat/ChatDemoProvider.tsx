@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Phone, PhoneOff, Video } from "lucide-react";
 import { toast } from "sonner";
 import { io, type Socket } from "socket.io-client";
 import { useAuth } from "@/features/auth/useAuth";
@@ -17,7 +18,13 @@ import chatService from "@/services/chat.service";
 import type { ChatParticipantProfile } from "@/services/chat.service";
 import type { ChatConversation, RelatedListing } from "@/types/chat.type";
 import { mapApiConversation, mapApiMessage } from "@/lib/chat-api-mapper";
-import type { ChatApiAttachment, ChatApiMessage } from "@/types/chat-api.type";
+import type {
+  ChatApiAttachment,
+  ChatApiMessage,
+  ChatCallEndSignal,
+  ChatCallMode,
+  ChatCallSignal,
+} from "@/types/chat-api.type";
 
 type ChatContact = {
   id?: string;
@@ -31,6 +38,81 @@ type OpenConversationInput = {
   listing?: RelatedListing;
   contact?: ChatContact;
 };
+
+function openCallTab(call: ChatCallSignal, participantName: string) {
+  const params = new URLSearchParams({
+    conversationId: call.conversationId,
+    callId: call.callId,
+    mode: call.mode,
+    participantName,
+  });
+  const width = Math.min(1100, window.screen.availWidth - 48);
+  const height = Math.min(720, window.screen.availHeight - 48);
+  const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);
+  const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2);
+  const callTab = window.open(
+    `/chat/call?${params}`,
+    `hs-call-${call.callId}`,
+    `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes`,
+  );
+  if (callTab) callTab.opener = null;
+  callTab?.focus();
+  return callTab;
+}
+
+function IncomingCallToast({
+  call,
+  participantName,
+  onAccept,
+  onReject,
+}: {
+  call: ChatCallSignal;
+  participantName: string;
+  onAccept: () => void;
+  onReject: () => void;
+}) {
+  const isVideo = call.mode === "video";
+
+  return (
+    <div className="w-[min(380px,calc(100vw-2rem))] rounded-2xl border border-border/70 bg-background p-4 text-foreground shadow-2xl ring-1 ring-black/10">
+      <div className="flex items-center gap-3">
+        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <span className="absolute inset-0 animate-ping rounded-full bg-primary/15" />
+          {isVideo ? <Video className="relative h-6 w-6" /> : <Phone className="relative h-6 w-6" />}
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+            Cuộc gọi đến
+          </p>
+          <p className="truncate text-base font-bold">{participantName}</p>
+          <p className="text-sm text-muted-foreground">
+            {isVideo ? "Cuộc gọi video" : "Cuộc gọi thoại"}
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 flex items-center justify-end gap-3">
+        <button
+          type="button"
+          onClick={onReject}
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white shadow-md transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+          aria-label="Từ chối cuộc gọi"
+          title="Từ chối"
+        >
+          <PhoneOff className="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          onClick={onAccept}
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+          aria-label="Nhận cuộc gọi"
+          title="Nhận cuộc gọi"
+        >
+          <Phone className="h-5 w-5" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 type ChatDemoContextValue = {
   currentUserId?: string;
@@ -50,6 +132,12 @@ type ChatDemoContextValue = {
     conversationId: string,
     role: "TENANT" | "LANDLORD",
   ) => Promise<void>;
+  startCall: (
+    conversationId: string,
+    mode: ChatCallMode,
+    participantName: string,
+  ) => void;
+  endCall: (conversationId: string, callId: string) => void;
 };
 
 const ChatDemoContext = createContext<ChatDemoContextValue | null>(null);
@@ -74,6 +162,11 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   const loadingConversationIds = useRef(new Set<string>());
   const activeConversationId = useRef<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const conversationsRef = useRef(conversations);
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
 
   const receiveMessage = useCallback(
     async (message: ChatApiMessage) => {
@@ -160,6 +253,37 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
           extraHeaders: { Authorization: `Bearer ${keycloak.token}` },
         });
         socket.on("chat:message", (message: ChatApiMessage) => void receiveMessage(message));
+        socket.on("chat:call:incoming", (call: ChatCallSignal) => {
+          const participantName =
+            conversationsRef.current.find(
+              (conversation) => conversation.id === call.conversationId,
+            )?.userName || "Người dùng HomeSpace";
+          const toastId = `call-${call.callId}`;
+          toast.custom(
+            (id) => (
+              <IncomingCallToast
+                call={call}
+                participantName={participantName}
+                onAccept={() => {
+                  toast.dismiss(id);
+                  openCallTab(call, participantName);
+                }}
+                onReject={() => {
+                  toast.dismiss(id);
+                  socket?.emit("chat:call:end", {
+                    conversationId: call.conversationId,
+                    callId: call.callId,
+                  });
+                }}
+              />
+            ),
+            { id: toastId, duration: Infinity, unstyled: true },
+          );
+        });
+        socket.on("chat:call:ended", (call: ChatCallEndSignal) => {
+          toast.dismiss(`call-${call.callId}`);
+          window.dispatchEvent(new CustomEvent("hs:call-ended", { detail: call }));
+        });
         socket.io.on("reconnect_attempt", () => {
           if (keycloak.token) {
             socket!.io.opts.extraHeaders = { Authorization: `Bearer ${keycloak.token}` };
@@ -178,6 +302,39 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
 
   const setActiveConversationId = useCallback((conversationId: string | null) => {
     activeConversationId.current = conversationId;
+  }, []);
+
+  const startCall = useCallback(
+    (conversationId: string, mode: ChatCallMode, participantName: string) => {
+      const socket = socketRef.current;
+      if (!socket?.connected) {
+        toast.error("Kết nối chat chưa sẵn sàng");
+        return;
+      }
+
+      const call: ChatCallSignal = {
+        conversationId,
+        callId: crypto.randomUUID(),
+        mode,
+      };
+      const callTab = openCallTab(call, participantName);
+      if (!callTab) {
+        toast.error("Trình duyệt đã chặn tab cuộc gọi");
+        return;
+      }
+      void socket
+        .timeout(10_000)
+        .emitWithAck("chat:call:invite", call)
+        .catch(() => {
+          callTab.close();
+          toast.error("Không thể gửi lời mời cuộc gọi");
+        });
+    },
+    [],
+  );
+
+  const endCall = useCallback((conversationId: string, callId: string) => {
+    socketRef.current?.emit("chat:call:end", { conversationId, callId });
   }, []);
 
   const loadConversationMessages = useCallback(
@@ -367,6 +524,8 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       toggleHideConversation,
       togglePinConversation,
       updateParticipantRole,
+      startCall,
+      endCall,
     }),
     [
       currentUserId,
@@ -378,6 +537,8 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       toggleHideConversation,
       togglePinConversation,
       updateParticipantRole,
+      startCall,
+      endCall,
     ]
   );
 

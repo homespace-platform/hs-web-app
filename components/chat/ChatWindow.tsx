@@ -24,7 +24,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { ChatConversation, ChatMessage } from "@/types/chat.type";
-import type { ChatApiAttachment } from "@/types/chat-api.type";
+import type { ChatApiAttachment, ChatCallMode } from "@/types/chat-api.type";
 import storageService from "@/services/storage.service";
 import { toast } from "sonner";
 
@@ -80,6 +80,11 @@ interface ChatWindowProps {
     conversationId: string,
     role: "TENANT" | "LANDLORD",
   ) => void;
+  onStartCall: (
+    conversationId: string,
+    mode: ChatCallMode,
+    participantName: string,
+  ) => void;
   currentUserId?: string;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
@@ -92,6 +97,7 @@ export default function ChatWindow({
   onToggleHideConversation,
   onTogglePinConversation,
   onUpdateParticipantRole,
+  onStartCall,
   currentUserId,
   isSidebarCollapsed,
   onToggleSidebar,
@@ -254,7 +260,9 @@ export default function ChatWindow({
                 type="button"
                 className="p-2 rounded-xl hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
                 title="Gọi thoại trực tiếp"
-                onClick={() => toast.info("Tính năng gọi thoại đang được phát triển.")}
+                onClick={() =>
+                  onStartCall(conversation.id, "voice", conversation.userName)
+                }
               >
                 <Phone className="w-4 h-4" />
               </button>
@@ -262,7 +270,9 @@ export default function ChatWindow({
                 type="button"
                 className="p-2 rounded-xl hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
                 title="Gọi video xem phòng trực tiếp"
-                onClick={() => toast.info("Tính năng gọi video đang được phát triển.")}
+                onClick={() =>
+                  onStartCall(conversation.id, "video", conversation.userName)
+                }
               >
                 <Video className="w-4 h-4" />
               </button>

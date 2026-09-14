@@ -220,10 +220,15 @@ function CreatePropertyListingContent() {
 
     if (branch.category) {
       const mappedCategory = branch.category.toLowerCase() as PropertyCategoryKey;
+      const defaultPriceUnit = PRICE_UNITS_BY_CATEGORY[mappedCategory]?.[0]?.value ?? "VND_MONTH";
       setBasicInfo((prev) => ({
         ...prev,
         branchId,
         category: mappedCategory,
+      }));
+      setPricing((prev) => ({
+        ...prev,
+        priceUnit: defaultPriceUnit,
       }));
     } else {
       setBasicInfo((prev) => ({ ...prev, branchId }));

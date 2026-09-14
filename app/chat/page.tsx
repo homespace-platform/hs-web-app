@@ -60,6 +60,7 @@ export default function ChatPage() {
     updateParticipantRole,
     loadConversationMessages,
     setActiveConversationId,
+    startCall,
   } = useChatDemo();
   const [activeDirectConversationId, setActiveDirectConversationId] = useState<string | null>(
     conversationIdFromUrl
@@ -390,6 +391,7 @@ export default function ChatPage() {
                 onToggleHideConversation={toggleHideConversation}
                 onTogglePinConversation={togglePinConversation}
                 onUpdateParticipantRole={updateParticipantRole}
+                onStartCall={startCall}
                 currentUserId={currentUserId}
                 isSidebarCollapsed={isSidebarCollapsed}
                 onToggleSidebar={toggleSidebar}

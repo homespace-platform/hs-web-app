@@ -5,6 +5,7 @@ import type {
   ChatApiConversation,
   ChatApiMessage,
   ChatApiMessagePage,
+  ChatCallToken,
 } from "@/types/chat-api.type";
 import type { RelatedListing } from "@/types/chat.type";
 
@@ -85,6 +86,17 @@ const chatService = {
     await axiosClient.patch<ApiResponse<unknown>>(
       `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/read`,
     );
+  },
+
+  async createCallToken(
+    conversationId: string,
+    callId: string,
+  ): Promise<ChatCallToken> {
+    const response = await axiosClient.post<ApiResponse<ChatCallToken>>(
+      `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/call-token`,
+      { callId },
+    );
+    return response.data.result;
   },
 };
 

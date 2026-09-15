@@ -702,15 +702,14 @@ export default function ChatWindow({
               </p>
 
               <div className="mt-5 grid w-full grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  disabled
-                  className="flex flex-col items-center gap-1 rounded-xl p-2 text-[11px] text-muted-foreground opacity-60"
-                  title="Trang cá nhân sẽ được bổ sung sau"
+                <Link
+                  href={`/users/${encodeURIComponent(conversation.userId)}`}
+                  className="flex flex-col items-center gap-1 rounded-xl p-2 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  title="Xem trang cá nhân"
                 >
                   <UserRound className="h-5 w-5" />
                   Profile
-                </button>
+                </Link>
                 <button
                   type="button"
                   disabled

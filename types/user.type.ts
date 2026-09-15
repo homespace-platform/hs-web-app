@@ -35,6 +35,16 @@ export type UserProfile = {
   address?: UserAddress | null;
 };
 
+export type PublicUserProfile = {
+  id: string;
+  username: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  avatarUrl?: string | null;
+  kycVerified?: boolean | null;
+  createdAt?: string | null;
+};
+
 export type UpsertUserAddressRequest = {
   provinceCode: string;
   provinceName: string;

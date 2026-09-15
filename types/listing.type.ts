@@ -543,6 +543,7 @@ export type PublicListingSummaryResponse = {
 export interface PublicListingQueryParams {
   page?: number;
   size?: number;
+  ownerId?: string;
   category?: ListingCategory;
   keyword?: string;
   provinceCode?: string;

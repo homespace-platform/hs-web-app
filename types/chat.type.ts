@@ -15,8 +15,11 @@ export interface ChatMessage {
   senderId?: string;
   content: string;
   timestamp: string;
+  createdAt?: string;
   dateGroup?: string;
   status: "sent" | "delivered" | "read";
+  isPinned?: boolean;
+  isRecalled?: boolean;
   listingCard?: RelatedListing;
   attachments?: {
     type: "image" | "file";

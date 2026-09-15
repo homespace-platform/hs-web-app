@@ -53,8 +53,11 @@ export function mapApiMessage(
     senderId: message.senderId,
     content: message.content,
     timestamp: formatTime(message.createdAt),
+    createdAt: message.createdAt,
     dateGroup: "Hôm nay",
     status: "read",
+    isPinned: message.isPinned,
+    isRecalled: message.isRecalled,
     listingCard: message.listing,
     attachments: (message.attachments ?? []).map((attachment) => ({
       type: attachment.contentType.startsWith("image/") ? "image" : "file",

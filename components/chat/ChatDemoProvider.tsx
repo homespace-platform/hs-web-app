@@ -24,6 +24,7 @@ import type {
   ChatCallEndSignal,
   ChatCallMode,
   ChatCallSignal,
+  ChatMessageAction,
 } from "@/types/chat-api.type";
 
 type ChatContact = {
@@ -138,6 +139,11 @@ type ChatDemoContextValue = {
     participantName: string,
   ) => void;
   endCall: (conversationId: string, callId: string) => void;
+  manageMessage: (
+    conversationId: string,
+    messageId: string,
+    action: ChatMessageAction,
+  ) => Promise<void>;
 };
 
 const ChatDemoContext = createContext<ChatDemoContextValue | null>(null);
@@ -213,6 +219,42 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
     [currentUserId],
   );
 
+  const updateMessage = useCallback(
+    (message: ChatApiMessage) => {
+      if (!currentUserId) return;
+      const mapped = mapApiMessage(message, currentUserId);
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === message.conversationId
+            ? {
+                ...conversation,
+                messages: conversation.messages.map((item) =>
+                  item.id === message.id ? mapped : item,
+                ),
+              }
+            : conversation,
+        ),
+      );
+    },
+    [currentUserId],
+  );
+
+  const removeMessage = useCallback(
+    ({ conversationId, messageId }: { conversationId: string; messageId: string }) => {
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === conversationId
+            ? {
+                ...conversation,
+                messages: conversation.messages.filter((message) => message.id !== messageId),
+              }
+            : conversation,
+        ),
+      );
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!authenticated || !currentUserId) return;
 
@@ -253,6 +295,8 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
           extraHeaders: { Authorization: `Bearer ${keycloak.token}` },
         });
         socket.on("chat:message", (message: ChatApiMessage) => void receiveMessage(message));
+        socket.on("chat:message:updated", updateMessage);
+        socket.on("chat:message:deleted", removeMessage);
         socket.on("chat:call:incoming", (call: ChatCallSignal) => {
           const participantName =
             conversationsRef.current.find(
@@ -298,7 +342,7 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       socket?.disconnect();
       if (socketRef.current === socket) socketRef.current = null;
     };
-  }, [authenticated, currentUserId, receiveMessage]);
+  }, [authenticated, currentUserId, receiveMessage, removeMessage, updateMessage]);
 
   const setActiveConversationId = useCallback((conversationId: string | null) => {
     activeConversationId.current = conversationId;
@@ -336,6 +380,35 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   const endCall = useCallback((conversationId: string, callId: string) => {
     socketRef.current?.emit("chat:call:end", { conversationId, callId });
   }, []);
+
+  const manageMessage = useCallback(
+    async (
+      conversationId: string,
+      messageId: string,
+      action: ChatMessageAction,
+    ) => {
+      try {
+        const socket = socketRef.current;
+        if (!socket?.connected) throw new Error("WebSocket disconnected");
+        const event =
+          action === "delete"
+            ? "chat:message:delete"
+            : action === "recall"
+              ? "chat:message:recall"
+              : "chat:message:pin";
+        await socket.timeout(10_000).emitWithAck(event, {
+          conversationId,
+          messageId,
+          ...(action === "pin" || action === "unpin"
+            ? { pinned: action === "pin" }
+            : {}),
+        });
+      } catch {
+        toast.error("Không thể cập nhật tin nhắn");
+      }
+    },
+    [],
+  );
 
   const loadConversationMessages = useCallback(
     async (conversationId: string) => {
@@ -526,6 +599,7 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       updateParticipantRole,
       startCall,
       endCall,
+      manageMessage,
     }),
     [
       currentUserId,
@@ -539,6 +613,7 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       updateParticipantRole,
       startCall,
       endCall,
+      manageMessage,
     ]
   );
 

@@ -19,12 +19,19 @@ import {
   ShieldCheck,
   Info,
   Sparkles,
-  Bot,
-  PanelLeftClose,
   PanelLeftOpen,
+  Pin,
+  Trash2,
+  Undo2,
+  UserRound,
+  X,
 } from "lucide-react";
 import { ChatConversation, ChatMessage } from "@/types/chat.type";
-import type { ChatApiAttachment, ChatCallMode } from "@/types/chat-api.type";
+import type {
+  ChatApiAttachment,
+  ChatCallMode,
+  ChatMessageAction,
+} from "@/types/chat-api.type";
 import storageService from "@/services/storage.service";
 import { toast } from "sonner";
 
@@ -85,6 +92,11 @@ interface ChatWindowProps {
     mode: ChatCallMode,
     participantName: string,
   ) => void;
+  onMessageAction: (
+    conversationId: string,
+    messageId: string,
+    action: ChatMessageAction,
+  ) => Promise<void>;
   currentUserId?: string;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
@@ -98,12 +110,15 @@ export default function ChatWindow({
   onTogglePinConversation,
   onUpdateParticipantRole,
   onStartCall,
+  onMessageAction,
   currentUserId,
   isSidebarCollapsed,
   onToggleSidebar,
 }: ChatWindowProps) {
   const [inputText, setInputText] = useState("");
-  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [openMessageMenuId, setOpenMessageMenuId] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(Date.now);
   const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -119,6 +134,11 @@ export default function ChatWindow({
     const frameId = window.requestAnimationFrame(scrollToBottom);
     return () => window.cancelAnimationFrame(frameId);
   }, [conversation.id, conversation.messages.length]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setCurrentTime(Date.now()), 60_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -165,9 +185,29 @@ export default function ChatWindow({
 
   const initial = conversation.userName.charAt(0).toUpperCase();
   const isAi = conversation.id === "conv-ai-assistant";
+  const attachments = conversation.messages.flatMap(
+    (message) => message.attachments ?? [],
+  );
+  const pinnedMessages = conversation.messages.filter((message) => message.isPinned);
+
+  const handleMessageAction = (message: ChatMessage, action: ChatMessageAction) => {
+    setOpenMessageMenuId(null);
+    if (
+      (action === "delete" || action === "recall") &&
+      !window.confirm(
+        action === "delete"
+          ? "Xoá tin nhắn này ở phía bạn?"
+          : "Thu hồi tin nhắn này với tất cả mọi người?",
+      )
+    ) {
+      return;
+    }
+    void onMessageAction(conversation.id, message.id, action);
+  };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-background select-none overflow-hidden">
+    <div className="relative flex h-full flex-1 overflow-hidden bg-background select-none">
+      <div className="flex min-w-0 flex-1 flex-col">
       {/* 1. Chat Header */}
       <div className="h-16 px-4 border-b border-border flex items-center justify-between bg-card/80 backdrop-blur-sm shrink-0 z-10">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -278,79 +318,22 @@ export default function ChatWindow({
               </button>
             </>
           )}
-          <button
-            type="button"
-            className="p-2 rounded-xl hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-            title="Tìm trong hội thoại"
-          >
-            <Search className="w-4 h-4" />
-          </button>
-
-          {/* More Options Dropdown */}
-          <div className="relative">
+          {!isAi && (
             <button
               type="button"
-              onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
-              className="p-2 rounded-xl hover:bg-muted hover:text-foreground transition-colors"
-              title="Tùy chọn khác"
+              onClick={() => setIsDetailsOpen((open) => !open)}
+              aria-controls="chat-details-panel"
+              aria-expanded={isDetailsOpen}
+              className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                isDetailsOpen
+                  ? "bg-primary/10 text-primary"
+                  : "hover:bg-muted hover:text-foreground"
+              }`}
+              title={isDetailsOpen ? "Ẩn thông tin đoạn chat" : "Thông tin đoạn chat"}
             >
-              <MoreVertical className="w-4 h-4" />
+              <Info className="w-4 h-4" />
             </button>
-
-            {isMoreMenuOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-48 bg-popover text-popover-foreground rounded-2xl shadow-xl border border-border p-1.5 z-50 animate-in fade-in-50 zoom-in-95">
-                <div className="px-3 py-1.5 text-[10px] font-semibold uppercase text-muted-foreground">
-                  Đặt biệt danh
-                </div>
-                {(["TENANT", "LANDLORD"] as const).map((role) => (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => {
-                      onUpdateParticipantRole(conversation.id, role);
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs font-medium rounded-lg hover:bg-muted flex items-center justify-between"
-                  >
-                    <span>{role === "TENANT" ? "Khách thuê" : "Chủ thuê"}</span>
-                    {conversation.participantRole === role && <span aria-label="Đang chọn">✓</span>}
-                  </button>
-                ))}
-                <div className="my-1 border-t border-border/60" />
-                <button
-                  type="button"
-                  onClick={() => {
-                    onTogglePinConversation(conversation.id);
-                    setIsMoreMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium rounded-lg hover:bg-muted flex items-center justify-between"
-                >
-                  <span>{conversation.isPinned ? "Bỏ ghim hội thoại" : "Ghim hội thoại"}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onToggleHideConversation(conversation.id);
-                    setIsMoreMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium rounded-lg hover:bg-muted flex items-center justify-between"
-                >
-                  <span>{conversation.isHidden ? "Bỏ ẩn hội thoại" : "Ẩn hội thoại này"}</span>
-                </button>
-                <div className="my-1 border-t border-border/60" />
-                <button
-                  type="button"
-                  onClick={() => {
-                    toast.info("Tính năng xóa lịch sử trò chuyện đang được phát triển.");
-                    setIsMoreMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600"
-                >
-                  Xóa lịch sử tin nhắn
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
@@ -360,6 +343,11 @@ export default function ChatWindow({
           const isMe = currentUserId
             ? msg.senderId === currentUserId
             : msg.sender === "me";
+          const canRecall =
+            isMe &&
+            !msg.isRecalled &&
+            msg.createdAt !== undefined &&
+            currentTime - new Date(msg.createdAt).getTime() <= 60 * 60 * 1000;
           const showDateDivider =
             index === 0 ||
             msg.dateGroup !== conversation.messages[index - 1].dateGroup;
@@ -377,6 +365,7 @@ export default function ChatWindow({
 
               {/* Message Bubble Container */}
               <div
+                id={`message-${msg.id}`}
                 className={`flex flex-col ${
                   isMe ? "items-end" : "items-start"
                 } group`}
@@ -399,7 +388,7 @@ export default function ChatWindow({
                     </div>
                   )}
 
-            <div className="flex flex-col">
+                  <div className="flex flex-col">
                     {msg.attachments?.map((attachment) => (
                       <AttachmentPreview key={attachment.storageId || attachment.name} attachment={attachment} />
                     ))}
@@ -446,8 +435,69 @@ export default function ChatWindow({
                           : "bg-muted/70 text-foreground border border-border/60 rounded-bl-xs"
                       }`}
                     >
-                      <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                      <p
+                        className={`whitespace-pre-wrap break-words ${
+                          msg.isRecalled ? "italic text-muted-foreground" : ""
+                        }`}
+                      >
+                        {msg.content}
+                      </p>
                     </div>
+                  </div>
+
+                  <div className="relative self-center md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenMessageMenuId((current) =>
+                          current === msg.id ? null : msg.id,
+                        )
+                      }
+                      aria-label="Tuỳ chọn tin nhắn"
+                      aria-expanded={openMessageMenuId === msg.id}
+                      className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </button>
+
+                    {openMessageMenuId === msg.id && (
+                      <div
+                        className={`absolute bottom-full z-30 mb-1 w-44 rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-xl ${
+                          isMe ? "right-0" : "left-0"
+                        }`}
+                      >
+                        {!msg.isRecalled && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleMessageAction(msg, msg.isPinned ? "unpin" : "pin")
+                            }
+                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium hover:bg-muted"
+                          >
+                            <Pin className="h-4 w-4" />
+                            {msg.isPinned ? "Bỏ ghim tin nhắn" : "Ghim tin nhắn"}
+                          </button>
+                        )}
+                        {canRecall && (
+                          <button
+                            type="button"
+                            onClick={() => handleMessageAction(msg, "recall")}
+                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium hover:bg-muted"
+                          >
+                            <Undo2 className="h-4 w-4" />
+                            Thu hồi
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleMessageAction(msg, "delete")}
+                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Xoá ở phía bạn
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -458,6 +508,7 @@ export default function ChatWindow({
                   }`}
                 >
                   <span>{msg.timestamp}</span>
+                  {msg.isPinned && <Pin className="h-3 w-3 fill-current" aria-label="Đã ghim" />}
                   {isMe && (
                     <CheckCheck
                       className={`w-3.5 h-3.5 ${
@@ -603,6 +654,175 @@ export default function ChatWindow({
           </div>
         </form>
       </div>
+      </div>
+
+      {isDetailsOpen && !isAi && (
+        <>
+          <button
+            type="button"
+            aria-label="Đóng thông tin đoạn chat"
+            onClick={() => setIsDetailsOpen(false)}
+            className="absolute inset-0 z-20 bg-black/25 md:hidden"
+          />
+          <aside
+            id="chat-details-panel"
+            aria-label="Thông tin đoạn chat"
+            className="absolute inset-y-0 right-0 z-30 flex w-[min(22rem,calc(100%-2rem))] shrink-0 flex-col overflow-y-auto border-l border-border bg-card shadow-2xl md:relative md:z-auto md:w-80 md:shadow-none"
+          >
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4">
+              <h2 className="text-sm font-bold text-foreground">Thông tin đoạn chat</h2>
+              <button
+                type="button"
+                onClick={() => setIsDetailsOpen(false)}
+                className="rounded-xl p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                title="Đóng"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex flex-col items-center border-b border-border px-5 py-6 text-center">
+              {conversation.userAvatar ? (
+                <Image
+                  src={conversation.userAvatar}
+                  alt={conversation.userName}
+                  width={72}
+                  height={72}
+                  className="h-18 w-18 rounded-full border border-border object-cover"
+                  unoptimized
+                />
+              ) : (
+                <div className="flex h-18 w-18 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
+                  {initial}
+                </div>
+              )}
+              <h3 className="mt-3 font-bold text-foreground">{conversation.userName}</h3>
+              <p className="text-xs text-muted-foreground">
+                {conversation.isOnline ? "Đang hoạt động" : conversation.lastActive || "Ngoại tuyến"}
+              </p>
+
+              <div className="mt-5 grid w-full grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  disabled
+                  className="flex flex-col items-center gap-1 rounded-xl p-2 text-[11px] text-muted-foreground opacity-60"
+                  title="Trang cá nhân sẽ được bổ sung sau"
+                >
+                  <UserRound className="h-5 w-5" />
+                  Profile
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  className="flex flex-col items-center gap-1 rounded-xl p-2 text-[11px] text-muted-foreground opacity-60"
+                  title="Tìm kiếm tin nhắn sẽ được bổ sung sau"
+                >
+                  <Search className="h-5 w-5" />
+                  Tìm kiếm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onTogglePinConversation(conversation.id)}
+                  className="flex flex-col items-center gap-1 rounded-xl p-2 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  title={conversation.isPinned ? "Bỏ ghim hội thoại" : "Ghim hội thoại"}
+                >
+                  <Pin className={`h-5 w-5 ${conversation.isPinned ? "fill-primary text-primary" : ""}`} />
+                  {conversation.isPinned ? "Đã ghim" : "Ghim"}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2 p-4 text-sm">
+              <details open className="rounded-xl border border-border px-3 py-2">
+                <summary className="cursor-pointer font-semibold text-foreground">
+                  Tùy chỉnh đoạn chat
+                </summary>
+                <div className="space-y-1 pt-3">
+                  <p className="px-3 pb-1 text-[10px] font-semibold uppercase text-muted-foreground">
+                    Đặt biệt danh
+                  </p>
+                  {(["TENANT", "LANDLORD"] as const).map((role) => (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => onUpdateParticipantRole(conversation.id, role)}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium hover:bg-muted"
+                    >
+                      <span>{role === "TENANT" ? "Khách thuê" : "Chủ thuê"}</span>
+                      {conversation.participantRole === role && (
+                        <span aria-label="Đang chọn">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </details>
+
+              <details open className="rounded-xl border border-border px-3 py-2">
+                <summary className="cursor-pointer font-semibold text-foreground">
+                  Tin nhắn đã ghim
+                </summary>
+                <div className="space-y-1 pt-3">
+                  {pinnedMessages.length ? (
+                    pinnedMessages.map((message) => (
+                      <a
+                        key={message.id}
+                        href={`#message-${message.id}`}
+                        className="block truncate rounded-lg bg-muted/60 px-3 py-2 text-xs text-foreground hover:bg-muted"
+                      >
+                        {message.content}
+                      </a>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Chưa có tin nhắn đã ghim.</p>
+                  )}
+                </div>
+              </details>
+
+              <details className="rounded-xl border border-border px-3 py-2">
+                <summary className="cursor-pointer font-semibold text-foreground">
+                  Quyền riêng tư &amp; hỗ trợ
+                </summary>
+                <div className="space-y-1 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => onToggleHideConversation(conversation.id)}
+                    className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium hover:bg-muted"
+                  >
+                    {conversation.isHidden ? "Bỏ ẩn hội thoại" : "Ẩn hội thoại này"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      toast.info("Tính năng xóa lịch sử trò chuyện đang được phát triển.")
+                    }
+                    className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                  >
+                    Xóa lịch sử tin nhắn
+                  </button>
+                </div>
+              </details>
+
+              <details open className="rounded-xl border border-border px-3 py-2">
+                <summary className="cursor-pointer font-semibold text-foreground">
+                  Media &amp; file ({attachments.length})
+                </summary>
+                <div className="pt-3">
+                  {attachments.length ? (
+                    attachments.map((attachment, index) => (
+                      <AttachmentPreview
+                        key={`${attachment.storageId || attachment.url || attachment.name}-${index}`}
+                        attachment={attachment}
+                      />
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Chưa có ảnh hoặc tệp.</p>
+                  )}
+                </div>
+              </details>
+            </div>
+          </aside>
+        </>
+      )}
     </div>
   );
 }

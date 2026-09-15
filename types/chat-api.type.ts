@@ -29,7 +29,11 @@ export type ChatApiMessage = {
   listing?: RelatedListing;
   createdAt: string;
   attachments?: ChatApiAttachment[];
+  isPinned?: boolean;
+  isRecalled?: boolean;
 };
+
+export type ChatMessageAction = "pin" | "unpin" | "delete" | "recall";
 
 export type ChatApiMessagePage = {
   items: ChatApiMessage[];

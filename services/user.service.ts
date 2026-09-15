@@ -3,6 +3,7 @@ import axiosClient from "@/lib/axios-client";
 import type { ApiResponse } from "@/types/api.type";
 import type {
   OnboardingRequest,
+  PublicUserProfile,
   SetInitialPasswordRequest,
   UpdatePasswordRequest,
   UpdateUserAvatarRequest,
@@ -15,6 +16,13 @@ import type {
 let profileRequest: Promise<UserProfile> | null = null;
 
 const userService = {
+  async getPublicProfile(userId: string): Promise<PublicUserProfile> {
+    const response = await axiosClient.get<ApiResponse<PublicUserProfile>>(
+      `/api/v1/users/${encodeURIComponent(userId)}/profile`,
+    );
+    return response.data.result;
+  },
+
   async getProfile(): Promise<UserProfile> {
     if (!profileRequest) {
       profileRequest = axiosClient

@@ -205,6 +205,66 @@ export default function ChatWindow({
     void onMessageAction(conversation.id, message.id, action);
   };
 
+  const headerIdentity = (
+    <>
+      <div className="relative shrink-0">
+        {conversation.userAvatar ? (
+          <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-blue-50 dark:bg-slate-800 p-0.5 border border-primary/30 shadow-xs">
+            <Image
+              src={conversation.userAvatar}
+              alt={conversation.userName}
+              width={38}
+              height={38}
+              className="object-contain w-full h-full"
+              unoptimized
+            />
+          </div>
+        ) : (
+          <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-xs bg-primary text-primary-foreground">
+            {initial}
+          </div>
+        )}
+        <span
+          className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-card ${
+            conversation.isOnline ? "bg-emerald-500" : "bg-slate-400"
+          }`}
+        />
+      </div>
+
+      <div className="flex flex-col min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-sm font-bold text-foreground truncate">
+            {conversation.userName}
+          </span>
+          {conversation.participantRole && (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              {conversation.participantRole === "TENANT" ? "Khách thuê" : "Chủ thuê"}
+            </span>
+          )}
+          {isAi ? (
+            <span className="px-2 py-0.2 rounded-full bg-primary/10 text-primary text-[10px] font-bold border border-primary/20 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-primary animate-pulse" />
+              <span>Trợ lý AI</span>
+            </span>
+          ) : conversation.userRole?.includes("xác thực") ? (
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+          ) : null}
+        </div>
+        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+          {isAi ? (
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Trực tuyến 24/7
+            </span>
+          ) : (
+            conversation.lastActive ||
+            (conversation.isOnline ? "Đang hoạt động" : "Ngoại tuyến")
+          )}
+        </span>
+      </div>
+    </>
+  );
+
   return (
     <div className="relative flex h-full flex-1 overflow-hidden bg-background select-none">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -233,63 +293,17 @@ export default function ChatWindow({
             <ArrowLeft className="w-5 h-5" />
           </button>
 
-          {/* User / AI Avatar & Status */}
-          <div className="relative shrink-0">
-            {conversation.userAvatar ? (
-              <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-blue-50 dark:bg-slate-800 p-0.5 border border-primary/30 shadow-xs">
-                <Image
-                  src={conversation.userAvatar}
-                  alt={conversation.userName}
-                  width={38}
-                  height={38}
-                  className="object-contain w-full h-full"
-                  unoptimized
-                />
-              </div>
-            ) : (
-              <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-xs bg-primary text-primary-foreground">
-                {initial}
-              </div>
-            )}
-            <span
-              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-card ${
-                conversation.isOnline ? "bg-emerald-500" : "bg-slate-400"
-              }`}
-            />
-          </div>
-
-          {/* User / AI Name and Sub-status */}
-          <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-sm font-bold text-foreground truncate">
-                {conversation.userName}
-              </span>
-              {conversation.participantRole && (
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                  {conversation.participantRole === "TENANT" ? "Khách thuê" : "Chủ thuê"}
-                </span>
-              )}
-              {isAi ? (
-                <span className="px-2 py-0.2 rounded-full bg-primary/10 text-primary text-[10px] font-bold border border-primary/20 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-primary animate-pulse" />
-                  <span>Trợ lý AI</span>
-                </span>
-              ) : conversation.userRole?.includes("xác thực") ? (
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              ) : null}
-            </div>
-            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-              {isAi ? (
-                <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Trực tuyến 24/7
-                </span>
-              ) : (
-                conversation.lastActive ||
-                (conversation.isOnline ? "Đang hoạt động" : "Ngoại tuyến")
-              )}
-            </span>
-          </div>
+          {isAi ? (
+            <div className="flex min-w-0 items-center gap-3">{headerIdentity}</div>
+          ) : (
+            <Link
+              href={`/users/${encodeURIComponent(conversation.userId)}`}
+              className="flex min-w-0 items-center gap-3 rounded-xl pr-2 transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              title={`Xem trang cá nhân của ${conversation.userName}`}
+            >
+              {headerIdentity}
+            </Link>
+          )}
         </div>
 
         {/* Header Action Buttons */}

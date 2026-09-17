@@ -70,7 +70,12 @@ export type ContractStatus =
   | "TERMINATED"
   | "CANCELLED";
 
-export type ContractPaymentStatus = "UNPAID" | "PAID_MOCK";
+export type ContractPaymentStatus =
+  | "UNPAID"
+  | "PAID_MOCK"
+  | "PAID"
+  | "REFUNDED"
+  | "FAILED";
 
 export type ContractDocumentType = "DOCX" | "PDF";
 export type DocumentPurpose = "PREVIEW" | "OFFICIAL";
@@ -81,14 +86,51 @@ export interface CreateContractDraftRequest {
   templateVersionId: string;
 }
 
+export interface InitialPaymentSnapshot {
+  status?: string;
+  paidAt?: string;
+  provider?: string;
+  transactionCode?: string;
+  monthlyRent?: number;
+  monthlyCharges?: number;
+  depositAmount?: number;
+  totalAmount?: number;
+  currency?: string;
+}
+
+export interface AmenitySnapshot {
+  index?: number;
+  code?: string;
+  name?: string;
+  scope?: string;
+  costText?: string;
+  conditionText?: string;
+  sourceType?: string;
+}
+
+export interface PolicySnapshot {
+  paymentDueDay?: string;
+  paymentCycle?: string;
+  noticeDaysBeforeTermination?: number;
+  latePaymentPenaltyDays?: number;
+  depositRefundDays?: number;
+  sublettingAllowed?: boolean;
+  petsAllowed?: boolean;
+  smokingAllowed?: boolean;
+  disputeResolution?: string;
+}
+
 export interface UpdateContractRevisionRequest {
   landlord: Record<string, unknown>;
   tenant: Record<string, unknown>;
   property: Record<string, unknown>;
   lease: Record<string, unknown>;
   financial: Record<string, unknown>;
+  initialPayment?: Record<string, unknown>;
+  amenities?: Record<string, unknown>[];
   charges: Record<string, unknown>[];
   equipments: Record<string, unknown>[];
+  policies?: Record<string, unknown>;
   meters: Record<string, unknown>;
   specialTerms?: string | null;
   revisionNote?: string | null;
@@ -108,6 +150,7 @@ export interface ContractResponse {
   paymentStatus: ContractPaymentStatus;
   rentalPaymentId?: string | null;
   paidAt?: string | null;
+  landlordConfirmedAt?: string | null;
   signedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -140,12 +183,15 @@ export interface ContractRevisionResponse {
   property: Record<string, unknown> | null;
   lease: Record<string, unknown> | null;
   financial: Record<string, unknown> | null;
-
+  initialPayment?: Record<string, unknown> | null;
+  amenities?: Record<string, unknown>[] | null;
   charges: Record<string, unknown>[] | null;
   equipments: Record<string, unknown>[] | null;
+  policies?: Record<string, unknown> | null;
   meters: Record<string, unknown> | null;
   specialTerms?: string | null;
   revisionNote?: string | null;
+  schemaVersion?: number | null;
   createdAt: string;
 }
 

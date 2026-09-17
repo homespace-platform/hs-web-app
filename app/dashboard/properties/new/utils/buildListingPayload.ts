@@ -181,7 +181,9 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
     depositMonths,
     paymentCycle: resolvePaymentCycle(pricing.paymentCycle),
     minimumLeaseMonths: Number(pricing.minimumLeaseMonths) || 1,
-    managementFeeIncluded: monthlyExpenses.managementFeeType === "INCLUDED",
+    managementFeeIncluded:
+      basicInfo.category === "apartment" &&
+      monthlyExpenses.managementFeeType === "INCLUDED",
     vatIncluded: Boolean(pricing.includeVat),
   };
 
@@ -303,25 +305,28 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
       includedInRent: monthlyExpenses.waterType === "INCLUDED",
       sortOrder: 2,
     },
-    {
-      chargeType: "MANAGEMENT",
-      billingMethod:
-        monthlyExpenses.managementFeeType === "MONTHLY"
-          ? "PER_MONTH"
-          : monthlyExpenses.managementFeeType === "PER_M2"
-          ? "PER_M2_MONTH"
-          : monthlyExpenses.managementFeeType === "INCLUDED"
-          ? "INCLUDED"
-          : "NOT_APPLICABLE",
-      amount:
-        (monthlyExpenses.managementFeeType === "MONTHLY" ||
-          monthlyExpenses.managementFeeType === "PER_M2") &&
-        monthlyExpenses.managementFee
-          ? Number(monthlyExpenses.managementFee)
-          : null,
-      includedInRent: monthlyExpenses.managementFeeType === "INCLUDED",
-      sortOrder: 3,
-    },
+    ...(basicInfo.category === "apartment" &&
+    monthlyExpenses.managementFeeType !== "NONE"
+      ? [
+          {
+            chargeType: "MANAGEMENT" as const,
+            billingMethod:
+              monthlyExpenses.managementFeeType === "MONTHLY"
+                ? ("PER_MONTH" as const)
+                : monthlyExpenses.managementFeeType === "PER_M2"
+                ? ("PER_M2_MONTH" as const)
+                : ("INCLUDED" as const),
+            amount:
+              (monthlyExpenses.managementFeeType === "MONTHLY" ||
+                monthlyExpenses.managementFeeType === "PER_M2") &&
+              monthlyExpenses.managementFee
+                ? Number(monthlyExpenses.managementFee)
+                : null,
+            includedInRent: monthlyExpenses.managementFeeType === "INCLUDED",
+            sortOrder: 3,
+          },
+        ]
+      : []),
     {
       chargeType: "INTERNET",
       billingMethod:

@@ -33,7 +33,7 @@ const LEGAL_LABELS: Record<string, string> = {
 const CHARGE_TYPE_LABELS: Record<string, string> = {
   ELECTRICITY: "Tiền điện",
   WATER: "Tiền nước",
-  MANAGEMENT: "Phí quản lý",
+  MANAGEMENT: "Phí quản lý tòa nhà",
   INTERNET: "Internet / Wifi",
   SERVICE_OR_GARBAGE: "Phí dịch vụ & rác",
   MOTORBIKE_PARKING: "Phí gửi xe máy",
@@ -290,18 +290,26 @@ export function getRentDetailSections(
 
   // 2. Chi phí hàng tháng (Dynamic charges from DB)
   if (charges.length > 0) {
-    const chargeItems: RentDetailItem[] = charges.map((c) => {
-      const typeLabel = c.customName || CHARGE_TYPE_LABELS[String(c.chargeType)] || String(c.chargeType);
-      if (c.includedInRent) {
-        return { label: String(typeLabel), value: "Đã bao gồm trong giá thuê" };
-      }
-      const method = BILLING_METHOD_LABELS[String(c.billingMethod)] || String(c.billingMethod);
-      if (c.amount != null) {
-        const formattedMoney = new Intl.NumberFormat("vi-VN").format(Number(c.amount));
-        return { label: String(typeLabel), value: `${formattedMoney} ${method}` };
-      }
-      return { label: String(typeLabel), value: method };
-    });
+    const chargeItems: RentDetailItem[] = charges
+      .filter((c) => {
+        // Chỉ áp dụng phí quản lý cho căn hộ, bỏ qua cho ROOM/HOUSE
+        if (c.chargeType === "MANAGEMENT" && property.category !== "apartment") {
+          return false;
+        }
+        return true;
+      })
+      .map((c) => {
+        const typeLabel = c.customName || CHARGE_TYPE_LABELS[String(c.chargeType)] || String(c.chargeType);
+        if (c.includedInRent) {
+          return { label: String(typeLabel), value: "Đã bao gồm trong giá thuê" };
+        }
+        const method = BILLING_METHOD_LABELS[String(c.billingMethod)] || String(c.billingMethod);
+        if (c.amount != null) {
+          const formattedMoney = new Intl.NumberFormat("vi-VN").format(Number(c.amount));
+          return { label: String(typeLabel), value: `${formattedMoney} ${method}` };
+        }
+        return { label: String(typeLabel), value: method };
+      });
 
     sections.push({
       title: "Bảng chi phí hàng tháng",
@@ -340,8 +348,16 @@ export function getRentDetailSections(
       })()
     ),
     detail(
-      "Phí quản lý",
-      pricing.managementFeeIncluded === true ? "Đã bao gồm trong tiền thuê" : pricing.managementFeeIncluded === false ? "Chưa bao gồm" : ""
+      "Phí quản lý tòa nhà",
+      property.category === "apartment" &&
+        (pricing.managementFeeIncluded === true ||
+          charges.some(
+            (c) =>
+              c.chargeType === "MANAGEMENT" &&
+              (c.includedInRent || c.billingMethod === "INCLUDED")
+          ))
+        ? "Đã bao gồm trong tiền thuê"
+        : ""
     ),
     detail(
       "Thuế VAT",

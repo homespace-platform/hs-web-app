@@ -150,7 +150,7 @@ function CreatePropertyListingContent() {
     electricityPrice: "3500",
     waterType: "M3",
     waterPrice: "25000",
-    managementFeeType: "INCLUDED",
+    managementFeeType: "NONE",
     managementFee: "",
     internetType: "SELF_PAY",
     internetFee: "",
@@ -270,13 +270,17 @@ function CreatePropertyListingContent() {
         else newExpenses.waterType = "M3";
       }
 
+      const isApartment = basicInfo.category === "apartment";
       const mgmt = branch.defaultCharges.find((c) => c.chargeType === "MANAGEMENT");
-      if (mgmt) {
+      if (isApartment && mgmt) {
         newExpenses.managementFee = mgmt.amount ? String(mgmt.amount) : "";
         if (mgmt.includedInRent || mgmt.billingMethod === "INCLUDED") newExpenses.managementFeeType = "INCLUDED";
         else if (mgmt.billingMethod === "PER_M2_MONTH") newExpenses.managementFeeType = "PER_M2";
         else if (mgmt.billingMethod === "NOT_APPLICABLE" || mgmt.billingMethod === "FREE") newExpenses.managementFeeType = "NONE";
         else newExpenses.managementFeeType = "MONTHLY";
+      } else if (!isApartment) {
+        newExpenses.managementFeeType = "NONE";
+        newExpenses.managementFee = "";
       }
 
       const net = branch.defaultCharges.find((c) => c.chargeType === "INTERNET");
@@ -573,11 +577,17 @@ function CreatePropertyListingContent() {
               ? "FLAT_ROOM"
               : "M3",
             waterPrice: water?.amount != null ? String(water.amount) : "25000",
-            managementFeeType: mgmt?.includedInRent
-              ? "INCLUDED"
-              : mgmt?.billingMethod === "PER_M2_MONTH"
-              ? "PER_M2"
-              : "MONTHLY",
+            managementFeeType:
+              cat !== "apartment" || !mgmt || mgmt.billingMethod === "NOT_APPLICABLE" || mgmt.billingMethod === "FREE"
+                ? "NONE"
+                : mgmt.includedInRent || mgmt.billingMethod === "INCLUDED"
+                ? "INCLUDED"
+                : mgmt.billingMethod === "PER_M2_MONTH"
+                ? "PER_M2"
+                : mgmt.billingMethod === "PER_MONTH" || mgmt.amount != null
+                ? "MONTHLY"
+                : "NONE",
+            managementFee: cat === "apartment" && mgmt?.amount != null ? String(mgmt.amount) : "",
             internetType: net?.includedInRent ? "INCLUDED" : net?.amount != null ? "MONTHLY" : "SELF_PAY",
             internetFee: net?.amount != null ? String(net.amount) : "",
             garbageFeeType: garb?.includedInRent ? "INCLUDED" : "MONTHLY",
@@ -743,6 +753,13 @@ function CreatePropertyListingContent() {
     // Catalog tiện ích và trang thiết bị khác nhau theo loại hình
     setSelectedAmenities([]);
     setFurnishingAssets([]);
+    if (newCategory !== "apartment") {
+      setMonthlyExpenses((prev) => ({
+        ...prev,
+        managementFeeType: "NONE",
+        managementFee: "",
+      }));
+    }
     setErrors({});
     setIsCategoryModalOpen(false);
     setPendingCategory(null);

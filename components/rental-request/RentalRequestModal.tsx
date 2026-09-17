@@ -15,7 +15,6 @@ import {
   Handshake,
   Bike,
   Car,
-  RefreshCw,
   Info,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -36,6 +35,7 @@ import {
   hasVehicleParkingAllowed,
   hasPersonBasedCharges,
 } from "./rental-request.helper";
+import { RentalCostSummary } from "./RentalCostSummary";
 
 interface RentalRequestModalProps {
   isOpen: boolean;
@@ -86,7 +86,9 @@ export default function RentalRequestModal({
   const [leaseMonths, setLeaseMonths] = useState<number>(() =>
     Math.max(minimumLeaseMonths || 6, 12),
   );
-  const [customMonthsInput, setCustomMonthsInput] = useState<string>("");
+  const [customMonthsInput, setCustomMonthsInput] = useState<string>(() =>
+    String(Math.max(minimumLeaseMonths || 6, 12)),
+  );
   const [occupantCount, setOccupantCount] = useState<number>(1);
   const [motorbikeCount, setMotorbikeCount] = useState<number>(0);
   const [carCount, setCarCount] = useState<number>(0);
@@ -167,7 +169,7 @@ export default function RentalRequestModal({
         setOccupantCount(1);
         setMotorbikeCount(0);
         setCarCount(0);
-        setCustomMonthsInput(defaultLease > 24 ? String(defaultLease) : "");
+        setCustomMonthsInput(String(defaultLease));
         setRenterNote("");
         setIsDatePickerOpen(false);
         setEstimate(null);
@@ -203,7 +205,7 @@ export default function RentalRequestModal({
       return {
         type: "NONE" as const,
         label: "Không đặt cọc",
-        badge: "Miễn phí đặt cọc",
+        badge: "Không yêu cầu đặt cọc",
         amount: 0,
         isNegotiable: false,
       };
@@ -244,7 +246,7 @@ export default function RentalRequestModal({
     return {
       type: "NEGOTIABLE" as const,
       label: "Tiền cọc thỏa thuận",
-      badge: "Đề xuất theo thỏa thuận",
+      badge: "Theo thỏa thuận",
       amount: negotiatedAmt,
       isNegotiable: true,
     };
@@ -273,8 +275,8 @@ export default function RentalRequestModal({
           moveInDate: format(moveInDate, "yyyy-MM-dd"),
           leaseMonths,
           occupantCount: Math.max(1, occupantCount || 1),
-          motorbikeCount: Math.max(0, motorbikeCount || 0),
-          carCount: Math.max(0, carCount || 0),
+          motorbikeCount: Math.min(Math.max(0, motorbikeCount || 0), Math.max(1, occupantCount || 1)),
+          carCount: Math.min(Math.max(0, carCount || 0), Math.max(1, occupantCount || 1)),
           negotiatedDepositAmount: negotiatedAmt,
         })
         .then((res) => {
@@ -283,20 +285,30 @@ export default function RentalRequestModal({
             setLoadingEstimate(false);
 
             // Tự động reset hoặc clamp khi sức chứa hoặc quyền gửi xe thay đổi
+            const effectiveOcc = Math.max(1, occupantCount || 1);
             if (!res.motorbike.allowed && motorbikeCount > 0) {
               setMotorbikeCount(0);
-            } else if (res.motorbike.allowed && motorbikeCount > res.motorbike.available) {
-              setMotorbikeCount(res.motorbike.available);
+            } else if (res.motorbike.allowed) {
+              const maxMoto = Math.min(res.motorbike.available, effectiveOcc);
+              if (motorbikeCount > maxMoto) {
+                setMotorbikeCount(maxMoto);
+              }
             }
 
             if (!res.car.allowed && carCount > 0) {
               setCarCount(0);
-            } else if (res.car.allowed && carCount > res.car.available) {
-              setCarCount(res.car.available);
+            } else if (res.car.allowed) {
+              const maxCar = Math.min(res.car.available, effectiveOcc);
+              if (carCount > maxCar) {
+                setCarCount(maxCar);
+              }
             }
 
             if (res.occupantLimit && occupantCount > res.occupantLimit) {
-              setOccupantCount(res.occupantLimit);
+              const limit = res.occupantLimit;
+              setOccupantCount(limit);
+              setMotorbikeCount((m) => Math.min(m, limit));
+              setCarCount((c) => Math.min(c, limit));
             }
           }
         })
@@ -324,17 +336,18 @@ export default function RentalRequestModal({
     depositInfo.isNegotiable,
   ]);
 
-  // Giá trị dự phòng khi estimate chưa tải xong
-  const fallbackMonthlyRent = listingPrice || 0;
-  const effectiveMonthlyRent = estimate?.effectiveMonthlyRent ?? fallbackMonthlyRent;
-  const depositAmount = estimate?.depositAmount ?? depositInfo.amount;
-  const estimatedMonthlyTotal = estimate?.estimatedMonthlyTotal ?? (effectiveMonthlyRent);
-  const estimatedInitialTotal = estimate?.estimatedInitialTotal ?? (estimatedMonthlyTotal + depositAmount);
-  const estimatedLeaseTotal =
-    estimate?.estimatedLeaseTotal ??
-    (estimatedMonthlyTotal * leaseMonths + depositAmount);
 
+  const depositAmount = estimate?.depositAmount ?? depositInfo.amount;
   const occupantLimit = estimate?.occupantLimit;
+  const effectiveOccupants = Math.max(1, occupantCount || 1);
+  const maxMotorbikeAllowed = Math.min(
+    estimate?.motorbike.available ?? 0,
+    effectiveOccupants
+  );
+  const maxCarAllowed = Math.min(
+    estimate?.car.available ?? 0,
+    effectiveOccupants
+  );
 
   if (!isOpen) return null;
 
@@ -404,8 +417,8 @@ export default function RentalRequestModal({
         moveInDate: format(moveInDate, "yyyy-MM-dd"),
         leaseMonths,
         occupantCount,
-        motorbikeCount,
-        carCount,
+        motorbikeCount: Math.min(motorbikeCount, occupantCount),
+        carCount: Math.min(carCount, occupantCount),
         renterName: renterName.trim(),
         renterPhone: renterPhone.trim(),
         renterEmail: renterEmail.trim() || undefined,
@@ -587,7 +600,7 @@ export default function RentalRequestModal({
                     disabled={isMinDisabled}
                     onClick={() => {
                       setLeaseMonths(m);
-                      setCustomMonthsInput(m > 24 ? String(m) : "");
+                      setCustomMonthsInput(String(m));
                     }}
                     className={`py-2 px-1 text-center rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                       isSelected
@@ -619,6 +632,11 @@ export default function RentalRequestModal({
                       const num = parseInt(val, 10);
                       if (!isNaN(num) && num > 0) {
                         setLeaseMonths(num);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!customMonthsInput || parseInt(customMonthsInput, 10) < (minimumLeaseMonths || 1)) {
+                        setCustomMonthsInput(String(leaseMonths));
                       }
                     }}
                     className="w-full pl-3 pr-14 py-2 text-xs rounded-xl border border-input bg-background focus:outline-hidden focus:ring-1 focus:ring-primary text-foreground font-semibold"
@@ -727,12 +745,19 @@ export default function RentalRequestModal({
                     } else {
                       const num = parseInt(val, 10);
                       const maxLimit = occupantLimit || 20;
-                      setOccupantCount(isNaN(num) ? 0 : clampValue(num, 1, maxLimit));
+                      const validOccupants = isNaN(num) ? 0 : clampValue(num, 1, maxLimit);
+                      setOccupantCount(validOccupants);
+                      if (validOccupants > 0) {
+                        setMotorbikeCount((m) => Math.min(m, validOccupants));
+                        setCarCount((c) => Math.min(c, validOccupants));
+                      }
                     }
                   }}
                   onBlur={() => {
                     if (!occupantCount || occupantCount < 1) {
                       setOccupantCount(1);
+                      setMotorbikeCount((m) => Math.min(m, 1));
+                      setCarCount((c) => Math.min(c, 1));
                     }
                   }}
                   className="w-full pl-3 pr-16 py-2 text-xs rounded-xl border border-input bg-background focus:outline-hidden focus:ring-1 focus:ring-primary text-foreground font-semibold"
@@ -746,7 +771,12 @@ export default function RentalRequestModal({
                 type="button"
                 disabled={occupantCount <= 1}
                 onClick={() =>
-                  setOccupantCount((prev) => Math.max(1, (prev || 1) - 1))
+                  setOccupantCount((prev) => {
+                    const next = Math.max(1, (prev || 1) - 1);
+                    setMotorbikeCount((m) => Math.min(m, next));
+                    setCarCount((c) => Math.min(c, next));
+                    return next;
+                  })
                 }
                 className="px-3 py-2 rounded-xl border border-border bg-card hover:bg-muted disabled:opacity-40 text-xs font-bold transition-colors cursor-pointer"
                 title="Giảm 1 người"
@@ -822,22 +852,22 @@ export default function RentalRequestModal({
                       <input
                         type="number"
                         min={0}
-                        max={estimate.motorbike.available}
+                        max={maxMotorbikeAllowed}
                         value={motorbikeCount}
                         onChange={(e) => {
                           const val = parseInt(e.target.value, 10);
                           setMotorbikeCount(
-                            isNaN(val) ? 0 : clampValue(val, 0, estimate.motorbike.available)
+                            isNaN(val) ? 0 : clampValue(val, 0, maxMotorbikeAllowed)
                           );
                         }}
                         className="w-12 text-center py-1 text-xs rounded-lg border border-input bg-background font-bold text-foreground"
                       />
                       <button
                         type="button"
-                        disabled={motorbikeCount >= estimate.motorbike.available}
+                        disabled={motorbikeCount >= maxMotorbikeAllowed}
                         onClick={() =>
                           setMotorbikeCount((prev) =>
-                            Math.min(estimate.motorbike.available, prev + 1)
+                            Math.min(maxMotorbikeAllowed, prev + 1)
                           )
                         }
                         className="w-8 h-8 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-30 text-xs font-bold transition-colors cursor-pointer flex items-center justify-center"
@@ -886,21 +916,21 @@ export default function RentalRequestModal({
                       <input
                         type="number"
                         min={0}
-                        max={estimate.car.available}
+                        max={maxCarAllowed}
                         value={carCount}
                         onChange={(e) => {
                           const val = parseInt(e.target.value, 10);
                           setCarCount(
-                            isNaN(val) ? 0 : clampValue(val, 0, estimate.car.available)
+                            isNaN(val) ? 0 : clampValue(val, 0, maxCarAllowed)
                           );
                         }}
                         className="w-12 text-center py-1 text-xs rounded-lg border border-input bg-background font-bold text-foreground"
                       />
                       <button
                         type="button"
-                        disabled={carCount >= estimate.car.available}
+                        disabled={carCount >= maxCarAllowed}
                         onClick={() =>
-                          setCarCount((prev) => Math.min(estimate.car.available, prev + 1))
+                          setCarCount((prev) => Math.min(maxCarAllowed, prev + 1))
                         }
                         className="w-8 h-8 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-30 text-xs font-bold transition-colors cursor-pointer flex items-center justify-center"
                       >
@@ -1047,115 +1077,14 @@ export default function RentalRequestModal({
             </div>
           )}
 
-          {/* 8. BẢNG DỰ TOÁN CHI PHÍ (4 PHẦN CHI TIẾT) */}
-          <div className="rounded-2xl border border-border bg-card p-4 space-y-3 shadow-xs">
-            <div className="flex items-center justify-between border-b border-border pb-2">
-              <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-primary" />
-                <span>Bảng dự toán chi phí dự kiến</span>
-              </span>
-              {loadingEstimate && (
-                <span className="flex items-center gap-1 text-[11px] text-primary font-medium animate-pulse">
-                  <RefreshCw className="w-3 h-3 animate-spin" />
-                  Đang tính...
-                </span>
-              )}
-            </div>
-
-            {estimateError && (
-              <div className="p-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-[11px] dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
-                {estimateError}
-              </div>
-            )}
-
-            {/* A. Chi phí cố định mỗi tháng */}
-            <div className="space-y-1.5 rounded-xl border border-border/70 bg-muted/20 p-3">
-              <div className="flex items-center justify-between text-xs font-bold text-foreground">
-                <span>A. Chi phí cố định mỗi tháng</span>
-                <span className="text-primary font-extrabold text-sm">
-                  {formatVND(estimatedMonthlyTotal)}
-                </span>
-              </div>
-              <div className="space-y-1 pt-1 text-[11px]">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Tiền thuê nhà:</span>
-                  <span className="font-semibold text-foreground">
-                    {formatVND(effectiveMonthlyRent)}
-                  </span>
-                </div>
-                {estimate?.predictableCharges && estimate.predictableCharges.length > 0 ? (
-                  estimate.predictableCharges.map((c, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-muted-foreground">
-                      <span>{c.displayName}:</span>
-                      <span className="font-semibold text-foreground">
-                        {c.amount > 0 ? formatVND(c.amount) : (c.includedInRent ? "Đã bao gồm" : "Miễn phí")}
-                        {c.note ? ` (${c.note})` : ""}
-                      </span>
-                    </div>
-                  ))
-                ) : null}
-              </div>
-            </div>
-
-            {/* B. Chi phí cần chuẩn bị ban đầu */}
-            <div className="space-y-1.5 rounded-xl border border-primary/20 bg-primary/5 p-3">
-              <div className="flex items-center justify-between text-xs font-bold text-foreground">
-                <span>B. Cần chuẩn bị ban đầu</span>
-                <span className="text-primary font-extrabold text-sm">
-                  {formatVND(estimatedInitialTotal)}
-                </span>
-              </div>
-              <div className="space-y-1 pt-1 text-[11px]">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Chi phí cố định tháng đầu:</span>
-                  <span className="font-semibold text-foreground">
-                    {formatVND(estimatedMonthlyTotal)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <span>Tiền đặt cọc:</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded border border-border bg-background text-foreground">
-                      {depositInfo.badge}
-                    </span>
-                  </div>
-                  <span className="font-semibold text-foreground">
-                    {formatVND(depositAmount)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* C. Ước tính phần cố định trong toàn thời hạn thuê */}
-            <div className="space-y-1 rounded-xl border border-border/70 bg-muted/10 p-3 text-[11px]">
-              <div className="flex items-center justify-between text-xs font-bold text-foreground">
-                <span>C. Phần cố định toàn hạn ({leaseMonths} tháng)</span>
-                <span className="font-extrabold text-foreground">
-                  {formatVND(estimatedLeaseTotal)}
-                </span>
-              </div>
-              <p className="text-[10px] text-muted-foreground italic">
-                * Chỉ bao gồm các khoản chi phí cố định có thể dự kiến trước trong toàn bộ thời hạn thuê {leaseMonths} tháng + tiền cọc.
-              </p>
-            </div>
-
-            {/* D. Chưa bao gồm */}
-            {estimate?.excludedCharges && estimate.excludedCharges.length > 0 && (
-              <div className="space-y-1.5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-[11px]">
-                <span className="font-bold text-amber-800 dark:text-amber-300 block text-xs">
-                  D. Chưa bao gồm trong các tổng trên:
-                </span>
-                <ul className="space-y-1 text-muted-foreground list-disc list-inside">
-                  {estimate.excludedCharges.map((exc, idx) => (
-                    <li key={idx} className="leading-relaxed">
-                      <span className="font-medium text-foreground">{exc.displayName}:</span>{" "}
-                      <span>{exc.reason}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+          {/* 8. DỰ TOÁN THANH TOÁN */}
+          <RentalCostSummary
+            estimate={estimate}
+            loading={loadingEstimate}
+            error={estimateError}
+            depositBadge={depositInfo.badge}
+            occupantCount={occupantCount}
+          />
 
           {/* 9. LỜI NHẮN GỬI CHỦ NHÀ */}
           <div className="space-y-1">
@@ -1178,25 +1107,39 @@ export default function RentalRequestModal({
           </div>
 
           {/* 10. FOOTER ACTIONS */}
-          <div className="pt-3 border-t border-border flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold text-foreground transition-colors cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || loadingEstimate}
-              className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>
-                {isSubmitting ? "Đang gửi yêu cầu..." : "Gửi yêu cầu thuê"}
+          <div className="pt-3 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2.5">
+            {estimateError ? (
+              <span className="text-[11px] text-rose-500 font-medium">
+                Chưa thể xác nhận dự toán chi phí.
               </span>
-            </button>
+            ) : !estimate && loadingEstimate ? (
+              <span className="text-[11px] text-muted-foreground font-medium">
+                Đang tính toán dự toán thanh toán...
+              </span>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center justify-end gap-2.5 w-full sm:w-auto">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={onClose}
+                className="px-4 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold text-foreground transition-colors cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting || loadingEstimate || Boolean(estimateError) || !estimate}
+                className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>
+                  {isSubmitting ? "Đang gửi yêu cầu..." : "Gửi yêu cầu thuê"}
+                </span>
+              </button>
+            </div>
           </div>
         </form>
       </div>

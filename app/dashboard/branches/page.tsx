@@ -222,6 +222,10 @@ export default function BranchesPage() {
   const [waterBillingMethod, setWaterBillingMethod] =
     useState<string>("PER_PERSON_MONTH");
   const [waterAmount, setWaterAmount] = useState<number | string>(100000);
+  const [motorbikeParkingCapacity, setMotorbikeParkingCapacity] =
+    useState<number | string>(0);
+  const [carParkingCapacity, setCarParkingCapacity] =
+    useState<number | string>(0);
   const [buildingRules, setBuildingRules] = useState("");
 
   // Fetch provinces on load
@@ -292,6 +296,8 @@ export default function BranchesPage() {
     setElectricityAmount(3500);
     setWaterBillingMethod("PER_PERSON_MONTH");
     setWaterAmount(100000);
+    setMotorbikeParkingCapacity(0);
+    setCarParkingCapacity(0);
     setBuildingRules("");
     setIsModalOpen(true);
   };
@@ -312,6 +318,8 @@ export default function BranchesPage() {
 
     setDescription(branch.description || "");
     setBuildingRules(branch.buildingRules || "");
+    setMotorbikeParkingCapacity(branch.motorbikeParkingCapacity ?? 0);
+    setCarParkingCapacity(branch.carParkingCapacity ?? 0);
 
     const eleCharge = branch.defaultCharges?.find(
       (c) => c.chargeType === "ELECTRICITY",
@@ -417,6 +425,8 @@ export default function BranchesPage() {
         fullAddress: previewFullAddress,
         description,
         buildingRules,
+        motorbikeParkingCapacity: Number(motorbikeParkingCapacity) || 0,
+        carParkingCapacity: Number(carParkingCapacity) || 0,
         defaultCharges: charges,
       };
 
@@ -567,6 +577,12 @@ export default function BranchesPage() {
                 <span className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary">
                   <Layers className="h-3.5 w-3.5" />
                   {b.totalUnits || 0} phòng/căn
+                </span>
+
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 bg-muted/40 px-2.5 py-1.5 text-xs font-medium text-foreground">
+                  <span>🏍️ {b.motorbikeParkingCapacity ?? 0}</span>
+                  <span className="text-muted-foreground/50">|</span>
+                  <span>🚗 {b.carParkingCapacity ?? 0}</span>
                 </span>
 
                 <div
@@ -871,6 +887,46 @@ export default function BranchesPage() {
                       Miễn phí tiền nước
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Cấu hình Chỗ để xe */}
+              <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3">
+                <label className="block font-bold text-foreground">
+                  Chỗ để xe
+                </label>
+                <p className="text-[11px] text-muted-foreground">
+                  Nhập sức chứa tối đa của chi nhánh/tòa nhà. Nhập 0 nếu không nhận loại xe đó.
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div>
+                    <label className="block font-medium text-muted-foreground mb-1 text-[11px]">
+                      Tổng số chỗ xe máy
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={motorbikeParkingCapacity}
+                      onChange={(e) => setMotorbikeParkingCapacity(e.target.value)}
+                      placeholder="0"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-muted-foreground mb-1 text-[11px]">
+                      Tổng số chỗ ô tô
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={carParkingCapacity}
+                      onChange={(e) => setCarParkingCapacity(e.target.value)}
+                      placeholder="0"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
                 </div>
               </div>
 

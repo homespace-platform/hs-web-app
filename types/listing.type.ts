@@ -96,7 +96,7 @@ export type PriceUnit =
   | "PERSON_MONTH"
   | "SEAT_MONTH";
 
-export type DepositType = "NONE" | "FIXED_AMOUNT" | "MONTH_COUNT";
+export type DepositType = "NONE" | "FIXED_AMOUNT" | "MONTH_COUNT" | "NEGOTIABLE";
 
 export type PaymentCycle = "MONTHLY";
 
@@ -320,6 +320,8 @@ export type CreateListingRequest = {
   category: ListingCategory;
   availableFrom: string; // "YYYY-MM-DD"
   areaM2: number;
+  maxMotorbikeCount?: number | null;
+  maxCarCount?: number | null;
   pricing: ListingPricingRequest;
   apartmentDetail?: ApartmentDetailRequest | null;
   houseDetail?: HouseDetailRequest | null;

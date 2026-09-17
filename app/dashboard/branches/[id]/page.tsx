@@ -239,6 +239,13 @@ export default function BranchDetailPage() {
             <Layers className="h-4 w-4 text-primary" /> Tổng số phòng: {displayUnitsCount} phòng/căn
           </span>
           <span className="text-muted-foreground">•</span>
+          <div className="inline-flex items-center gap-2 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-1 text-[11px]">
+            <span className="text-muted-foreground">Chỗ để xe:</span>
+            <span className="font-bold text-foreground">
+              Tổng {branch.motorbikeParkingCapacity ?? 0} xe máy • {branch.carParkingCapacity ?? 0} ô tô
+            </span>
+          </div>
+          <span className="text-muted-foreground">•</span>
           {branch.defaultCharges && branch.defaultCharges.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               {branch.defaultCharges.map((c, i) => (

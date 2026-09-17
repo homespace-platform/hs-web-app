@@ -12,10 +12,13 @@ export interface CreateRentalRequestPayload {
   moveInDate: string; // "YYYY-MM-DD"
   leaseMonths: number;
   occupantCount?: number;
+  motorbikeCount?: number;
+  carCount?: number;
   renterName: string;
   renterPhone: string;
   renterEmail?: string;
   depositAmount?: number | null;
+  negotiatedDepositAmount?: number | null;
   renterNote?: string;
 }
 
@@ -34,8 +37,17 @@ export interface RentalRequestResponse {
   moveInDate: string;
   leaseMonths: number;
   occupantCount: number;
+  motorbikeCount: number;
+  carCount: number;
   monthlyRentPrice: number;
+  effectiveMonthlyRent?: number | null;
+  estimatedMonthlyCharges?: number | null;
+  estimatedMonthlyTotal?: number | null;
   depositAmount: number | null;
+  estimatedInitialTotal?: number | null;
+  estimatedLeaseTotal?: number | null;
+  costBreakdownSnapshot?: string | null;
+  excludedChargesSnapshot?: string | null;
   renterNote: string | null;
   status: RentalRequestStatus;
   rejectReason: string | null;
@@ -43,4 +55,60 @@ export interface RentalRequestResponse {
   holdExpiresAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PredictableChargeItem {
+  chargeType: string;
+  displayName: string;
+  billingMethod: string;
+  unitAmount: number;
+  quantity: number;
+  amount: number;
+  includedInRent: boolean;
+  note: string;
+}
+
+export interface ExcludedChargeItem {
+  chargeType: string;
+  displayName: string;
+  billingMethod: string;
+  unitAmount?: number | null;
+  reason: string;
+}
+
+export interface VehicleSlotEstimate {
+  allowed: boolean;
+  requested: number;
+  capacity: number;
+  reserved: number;
+  available: number;
+  monthlyAmount: number;
+  note: string;
+}
+
+export interface RentalEstimatePayload {
+  listingId: string;
+  moveInDate: string;
+  leaseMonths: number;
+  occupantCount: number;
+  motorbikeCount: number;
+  carCount: number;
+  negotiatedDepositAmount?: number | null;
+}
+
+export interface RentalEstimateResponse {
+  listingId: string;
+  occupantCount: number;
+  occupantLimit: number | null;
+  motorbike: VehicleSlotEstimate;
+  car: VehicleSlotEstimate;
+  effectiveMonthlyRent: number;
+  predictableCharges: PredictableChargeItem[];
+  predictableMonthlyChargesTotal: number;
+  estimatedMonthlyTotal: number;
+  depositAmount: number;
+  estimatedInitialTotal: number;
+  estimatedLeaseTotal: number;
+  excludedCharges: ExcludedChargeItem[];
+  disclaimer: string;
 }

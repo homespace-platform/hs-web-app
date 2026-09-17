@@ -30,6 +30,8 @@ export interface PropertyBranch {
   description?: string;
   buildingRules?: string;
   totalUnits?: number;
+  motorbikeParkingCapacity?: number;
+  carParkingCapacity?: number;
   defaultCharges?: BranchCharge[];
   buildingAmenityCodes?: string[];
   createdAt?: string;
@@ -48,6 +50,8 @@ export interface CreatePropertyBranchPayload {
   fullAddress: string;
   description?: string;
   buildingRules?: string;
+  motorbikeParkingCapacity?: number;
+  carParkingCapacity?: number;
   defaultCharges?: BranchCharge[];
   buildingAmenityCodes?: string[];
 }

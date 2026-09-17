@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import {
   X,
@@ -13,16 +13,29 @@ import {
   Users,
   Sparkles,
   Handshake,
+  Bike,
+  Car,
+  RefreshCw,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, addMonths, addDays, isBefore, startOfDay } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useAuth } from "@/features/auth/useAuth";
 import rentalRequestService from "@/services/rental-request.service";
-import type { RentalRequestResponse } from "@/types/rental-request.type";
+import type {
+  RentalRequestResponse,
+  RentalEstimateResponse,
+} from "@/types/rental-request.type";
 import type { DepositType } from "@/types/listing.type";
 import { Calendar } from "@/components/ui/calendar";
 import { RENTAL_HOLD_DURATION_LABEL } from "@/config/rental-hold.config";
+import {
+  formatVND,
+  clampValue,
+  hasVehicleParkingAllowed,
+  hasPersonBasedCharges,
+} from "./rental-request.helper";
 
 interface RentalRequestModalProps {
   isOpen: boolean;
@@ -38,13 +51,6 @@ interface RentalRequestModalProps {
   minimumLeaseMonths?: number;
   onSuccess?: (request: RentalRequestResponse) => void;
 }
-
-const formatVND = (price: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(price);
 
 function isValidImageUrl(url?: string | null): boolean {
   if (!url || typeof url !== "string") return false;
@@ -82,6 +88,8 @@ export default function RentalRequestModal({
   );
   const [customMonthsInput, setCustomMonthsInput] = useState<string>("");
   const [occupantCount, setOccupantCount] = useState<number>(1);
+  const [motorbikeCount, setMotorbikeCount] = useState<number>(0);
+  const [carCount, setCarCount] = useState<number>(0);
   const [renterName, setRenterName] = useState("");
   const [renterPhone, setRenterPhone] = useState("");
   const [renterEmail, setRenterEmail] = useState("");
@@ -89,17 +97,25 @@ export default function RentalRequestModal({
   const [customDepositInput, setCustomDepositInput] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Estimate state from backend calculation
+  const [estimate, setEstimate] = useState<RentalEstimateResponse | null>(null);
+  const [loadingEstimate, setLoadingEstimate] = useState(false);
+  const [estimateError, setEstimateError] = useState<string | null>(null);
+  const estimateSeqRef = useRef(0);
+
   // Prefill user information from auth profile
   useEffect(() => {
     if (profile) {
       const fullName = [profile.firstName, profile.lastName]
         .filter(Boolean)
         .join(" ");
-      if (fullName) setRenterName(fullName);
-      else if (username) setRenterName(username);
+      queueMicrotask(() => {
+        if (fullName) setRenterName(fullName);
+        else if (username) setRenterName(username);
 
-      if (profile.phone) setRenterPhone(profile.phone);
-      if (profile.email) setRenterEmail(profile.email);
+        if (profile.phone) setRenterPhone(profile.phone);
+        if (profile.email) setRenterEmail(profile.email);
+      });
     }
   }, [profile, username]);
 
@@ -108,24 +124,16 @@ export default function RentalRequestModal({
     const min = Math.max(Number(minimumLeaseMonths) || 1, 1);
 
     if (min <= 6) {
-      // Trường hợp phổ biến (<= 6 tháng): 6, 12, 18, 24
       return [6, 12, 18, 24];
     } else if (min <= 12) {
-      // Ví dụ min = 9 hoặc 12: 12, 24, 36, 48
       return [12, 24, 36, 48];
     } else if (min <= 24) {
-      // Ví dụ min = 18 hoặc 24: min, 24, 36, 48
       const opts = [min, 24, 36, 48].filter((v, i, a) => a.indexOf(v) === i);
       while (opts.length < 4) {
         opts.push(opts[opts.length - 1] + 12);
       }
       return opts.slice(0, 4);
     } else {
-      // Khi tối thiểu > 24 tháng (ví dụ 36, 60, 100 tháng...):
-      // Option 1: đúng mốc tối thiểu
-      // Option 2: min + 6 tháng
-      // Option 3: min + 12 tháng (1 năm tiếp)
-      // Option 4: min + 24 tháng (2 năm tiếp)
       return [min, min + 6, min + 12, min + 24];
     }
   }, [minimumLeaseMonths]);
@@ -151,17 +159,23 @@ export default function RentalRequestModal({
   // Reset or initialize when modal opens
   useEffect(() => {
     if (isOpen) {
-      setMoveInDate(addDays(new Date(), 3));
-      const min = Math.max(Number(minimumLeaseMonths) || 1, 1);
-      const defaultLease = min > 12 ? min : 12;
-      setLeaseMonths(defaultLease);
-      setOccupantCount(1);
-      setCustomMonthsInput(defaultLease > 24 ? String(defaultLease) : "");
-      setRenterNote("");
-      setIsDatePickerOpen(false);
-      setCustomDepositInput(
-        listingPrice ? new Intl.NumberFormat("vi-VN").format(listingPrice) : "",
-      );
+      queueMicrotask(() => {
+        setMoveInDate(addDays(new Date(), 3));
+        const min = Math.max(Number(minimumLeaseMonths) || 1, 1);
+        const defaultLease = min > 12 ? min : 12;
+        setLeaseMonths(defaultLease);
+        setOccupantCount(1);
+        setMotorbikeCount(0);
+        setCarCount(0);
+        setCustomMonthsInput(defaultLease > 24 ? String(defaultLease) : "");
+        setRenterNote("");
+        setIsDatePickerOpen(false);
+        setEstimate(null);
+        setEstimateError(null);
+        setCustomDepositInput(
+          listingPrice ? new Intl.NumberFormat("vi-VN").format(listingPrice) : "",
+        );
+      });
     }
   }, [isOpen, minimumLeaseMonths, listingPrice]);
 
@@ -171,15 +185,9 @@ export default function RentalRequestModal({
     return addMonths(moveInDate, leaseMonths);
   }, [moveInDate, leaseMonths]);
 
-  // Xử lý tính toán tiền cọc ứng với từng loại cọc:
-  // 1. NONE: Không đặt cọc (0 đ)
-  // 2. FIXED_AMOUNT: Cọc theo số tiền cố định từ bài đăng
-  // 3. MONTH_COUNT: Cọc theo số tháng (giá thuê * số tháng)
-  // 4. NEGOTIABLE: Thỏa thuận (người dùng tự do nhập mức cọc mong muốn)
+  // Xử lý thông tin cọc ban đầu
   const depositInfo = useMemo(() => {
     const rent = listingPrice || 0;
-
-    // Suy luận loại cọc nếu bài đăng chưa cấu hình rõ ràng
     let type = depositType as string | undefined;
     if (!type) {
       if (listingDepositAmount != null && listingDepositAmount > 0) {
@@ -197,7 +205,6 @@ export default function RentalRequestModal({
         label: "Không đặt cọc",
         badge: "Miễn phí đặt cọc",
         amount: 0,
-        description: "Chủ nhà không yêu cầu đặt cọc cho bất động sản này.",
         isNegotiable: false,
       };
     }
@@ -210,7 +217,6 @@ export default function RentalRequestModal({
         label: `Cọc ${months} tháng tiền nhà`,
         badge: `${months} tháng tiền nhà`,
         amount: amt,
-        description: `${months} tháng x ${formatVND(rent)}`,
         isNegotiable: false,
       };
     }
@@ -222,7 +228,6 @@ export default function RentalRequestModal({
         label: "Cọc theo số tiền",
         badge: "Cố định theo bài đăng",
         amount: amt,
-        description: "Số tiền cọc cố định theo niêm yết của chủ nhà.",
         isNegotiable: false,
       };
     }
@@ -230,7 +235,7 @@ export default function RentalRequestModal({
     // type === "NEGOTIABLE" (Thỏa thuận)
     let negotiatedAmt: number;
     if (customDepositInput === "") {
-      negotiatedAmt = rent; // Gợi ý mặc định 1 tháng
+      negotiatedAmt = rent;
     } else {
       const parsed = Number(customDepositInput.replace(/\D/g, ""));
       negotiatedAmt = isNaN(parsed) ? 0 : parsed;
@@ -241,8 +246,6 @@ export default function RentalRequestModal({
       label: "Tiền cọc thỏa thuận",
       badge: "Đề xuất theo thỏa thuận",
       amount: negotiatedAmt,
-      description:
-        "Chủ nhà chấp nhận thỏa thuận. Bạn có thể nhập mức tiền cọc đề xuất.",
       isNegotiable: true,
     };
   }, [
@@ -253,16 +256,85 @@ export default function RentalRequestModal({
     customDepositInput,
   ]);
 
-  // Calculate estimated total initial payment
-  const initialPayment = useMemo(() => {
-    const rent = listingPrice || 0;
-    const deposit = depositInfo.amount;
-    return {
-      monthlyRent: rent,
-      deposit: deposit,
-      total: rent + deposit,
-    };
-  }, [listingPrice, depositInfo.amount]);
+  // Backend Estimate Fetching (debounced)
+  useEffect(() => {
+    if (!isOpen || !listingId || !moveInDate || !leaseMonths) return;
+
+    const seq = ++estimateSeqRef.current;
+
+    const timer = setTimeout(() => {
+      setLoadingEstimate(true);
+      setEstimateError(null);
+      const negotiatedAmt = depositInfo.isNegotiable ? depositInfo.amount : undefined;
+
+      rentalRequestService
+        .estimateRentalCost({
+          listingId,
+          moveInDate: format(moveInDate, "yyyy-MM-dd"),
+          leaseMonths,
+          occupantCount: Math.max(1, occupantCount || 1),
+          motorbikeCount: Math.max(0, motorbikeCount || 0),
+          carCount: Math.max(0, carCount || 0),
+          negotiatedDepositAmount: negotiatedAmt,
+        })
+        .then((res) => {
+          if (seq === estimateSeqRef.current) {
+            setEstimate(res);
+            setLoadingEstimate(false);
+
+            // Tự động reset hoặc clamp khi sức chứa hoặc quyền gửi xe thay đổi
+            if (!res.motorbike.allowed && motorbikeCount > 0) {
+              setMotorbikeCount(0);
+            } else if (res.motorbike.allowed && motorbikeCount > res.motorbike.available) {
+              setMotorbikeCount(res.motorbike.available);
+            }
+
+            if (!res.car.allowed && carCount > 0) {
+              setCarCount(0);
+            } else if (res.car.allowed && carCount > res.car.available) {
+              setCarCount(res.car.available);
+            }
+
+            if (res.occupantLimit && occupantCount > res.occupantLimit) {
+              setOccupantCount(res.occupantLimit);
+            }
+          }
+        })
+        .catch((err) => {
+          if (seq === estimateSeqRef.current) {
+            setLoadingEstimate(false);
+            const msg =
+              err?.response?.data?.message ||
+              "Không thể tính toán chi phí dự kiến cho bài đăng này.";
+            setEstimateError(msg);
+          }
+        });
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [
+    isOpen,
+    listingId,
+    moveInDate,
+    leaseMonths,
+    occupantCount,
+    motorbikeCount,
+    carCount,
+    depositInfo.amount,
+    depositInfo.isNegotiable,
+  ]);
+
+  // Giá trị dự phòng khi estimate chưa tải xong
+  const fallbackMonthlyRent = listingPrice || 0;
+  const effectiveMonthlyRent = estimate?.effectiveMonthlyRent ?? fallbackMonthlyRent;
+  const depositAmount = estimate?.depositAmount ?? depositInfo.amount;
+  const estimatedMonthlyTotal = estimate?.estimatedMonthlyTotal ?? (effectiveMonthlyRent);
+  const estimatedInitialTotal = estimate?.estimatedInitialTotal ?? (estimatedMonthlyTotal + depositAmount);
+  const estimatedLeaseTotal =
+    estimate?.estimatedLeaseTotal ??
+    (estimatedMonthlyTotal * leaseMonths + depositAmount);
+
+  const occupantLimit = estimate?.occupantLimit;
 
   if (!isOpen) return null;
 
@@ -296,6 +368,25 @@ export default function RentalRequestModal({
       return;
     }
 
+    if (occupantLimit && occupantCount > occupantLimit) {
+      toast.error(`Bài đăng chỉ cho phép tối đa ${occupantLimit} người.`);
+      return;
+    }
+
+    if (estimate?.motorbike.allowed && motorbikeCount > estimate.motorbike.available) {
+      toast.error(
+        `Chỉ còn ${estimate.motorbike.available} chỗ xe máy khả dụng trong thời gian này.`
+      );
+      return;
+    }
+
+    if (estimate?.car.allowed && carCount > estimate.car.available) {
+      toast.error(
+        `Chỉ còn ${estimate.car.available} chỗ ô tô khả dụng trong thời gian này.`
+      );
+      return;
+    }
+
     if (!renterName.trim()) {
       toast.error("Vui lòng nhập họ và tên của bạn");
       return;
@@ -313,10 +404,13 @@ export default function RentalRequestModal({
         moveInDate: format(moveInDate, "yyyy-MM-dd"),
         leaseMonths,
         occupantCount,
+        motorbikeCount,
+        carCount,
         renterName: renterName.trim(),
         renterPhone: renterPhone.trim(),
         renterEmail: renterEmail.trim() || undefined,
-        depositAmount: depositInfo.amount,
+        depositAmount: depositAmount,
+        negotiatedDepositAmount: depositInfo.isNegotiable ? depositAmount : undefined,
         renterNote: renterNote.trim() || undefined,
       });
 
@@ -325,10 +419,15 @@ export default function RentalRequestModal({
       );
       onSuccess?.(created);
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errObj = err as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
       toast.error(
-        err?.response?.data?.message ||
-          "Không thể gửi yêu cầu thuê nhà. Vui lòng thử lại.",
+        errObj?.response?.data?.message ||
+          errObj?.message ||
+          "Không thể gửi yêu cầu thuê nhà. Vui lòng kiểm tra lại thông tin.",
       );
     } finally {
       setIsSubmitting(false);
@@ -351,95 +450,96 @@ export default function RentalRequestModal({
               <Home className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-heading font-bold text-base sm:text-lg text-foreground">
+              <h3 className="text-base sm:text-lg font-bold text-foreground">
                 Gửi yêu cầu thuê nhà
-              </h2>
+              </h3>
               <p className="text-xs text-muted-foreground">
-                Chủ nhà sẽ nhận được thông báo và giữ chỗ trong{" "}
-                {RENTAL_HOLD_DURATION_LABEL} khi duyệt
+                Đăng ký quan tâm và thỏa thuận điều kiện thuê
               </p>
             </div>
           </div>
           <button
-            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+            className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* CONTENT FORM */}
-        <form
-          onSubmit={handleSubmit}
-          className="p-4 sm:p-5 space-y-4 max-h-[80vh] overflow-y-auto"
-        >
-          {/* 1. PROPERTY SUMMARY CARD */}
-          <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30">
-            <div className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-muted">
-              {isValidImageUrl(listingThumbnail) ? (
+        {/* THÔNG BÁO THỜI HẠN GIỮ CHỖ */}
+        <div className="flex items-start gap-2.5 px-4 py-3 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
+          <Clock className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+          <p>
+            Sau khi chủ nhà chấp thuận, bạn có{" "}
+            <strong>{RENTAL_HOLD_DURATION_LABEL}</strong> để ký hợp đồng và hoàn
+            tất thanh toán để đảm bảo giữ chỗ căn nhà.
+          </p>
+        </div>
+
+        {/* FORM BODY */}
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+          {/* 1. TÓM TẮT BẤT ĐỘNG SẢN */}
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 border border-border/80">
+            {listingThumbnail && isValidImageUrl(listingThumbnail) ? (
+              <div className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-border">
                 <Image
-                  src={listingThumbnail!}
+                  src={listingThumbnail}
                   alt={listingTitle}
                   fill
+                  sizes="56px"
                   className="object-cover"
                 />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                  <Home className="w-6 h-6 opacity-30" />
-                </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center shrink-0 border border-border">
+                <Home className="w-6 h-6 text-muted-foreground" />
+              </div>
+            )}
             <div className="min-w-0 flex-1">
-              <h4 className="font-semibold text-xs sm:text-sm text-foreground line-clamp-1">
+              <h4 className="text-xs sm:text-sm font-bold text-foreground truncate">
                 {listingTitle}
               </h4>
               {listingAddress && (
-                <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                <p className="text-[11px] text-muted-foreground truncate">
                   {listingAddress}
                 </p>
               )}
-              <p className="text-xs font-bold text-primary mt-1">
-                {formatVND(listingPrice)}
-                <span className="text-[10px] font-normal text-muted-foreground">
-                  /tháng
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs font-extrabold text-primary">
+                  {formatVND(listingPrice)}/tháng
                 </span>
-              </p>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-background border border-border text-muted-foreground">
+                  {depositInfo.badge}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* 2. CHỌN NGÀY BẮT ĐẦU DỌN VÀO */}
+          {/* 2. NGÀY BẮT ĐẦU DỌN VÀO */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <CalendarIcon className="w-3.5 h-3.5 text-primary" />
-                <span>Ngày bắt đầu dọn vào</span>
-                <span className="text-rose-500">*</span>
-              </label>
-              <span className="text-[11px] text-muted-foreground">
-                {format(moveInDate, "EEEE, dd/MM/yyyy", { locale: vi })}
-              </span>
-            </div>
-
+            <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <CalendarIcon className="w-3.5 h-3.5 text-primary" />
+              <span>Ngày bắt đầu dọn vào</span>
+              <span className="text-rose-500">*</span>
+            </label>
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl border border-input bg-background hover:bg-muted/40 text-xs font-semibold text-foreground transition-all cursor-pointer"
+                className="w-full flex items-center justify-between px-3 py-2 text-xs rounded-xl border border-input bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
               >
-                <div className="flex items-center gap-2">
-                  <CalendarIcon className="w-4 h-4 text-primary" />
-                  <span>
-                    {format(moveInDate, "dd 'tháng' MM, yyyy", { locale: vi })}
-                  </span>
-                </div>
-                <span className="text-xs text-primary hover:underline">
-                  Đổi ngày
+                <span className="font-semibold">
+                  {moveInDate
+                    ? format(moveInDate, "EEEE, 'ngày' dd 'tháng' MM, yyyy", {
+                        locale: vi,
+                      })
+                    : "Chọn ngày dọn vào"}
                 </span>
+                <CalendarIcon className="w-4 h-4 text-muted-foreground" />
               </button>
 
               {isDatePickerOpen && (
-                <div className="absolute top-full left-0 mt-2 z-50 p-2 rounded-2xl bg-card border border-border shadow-xl">
+                <div className="absolute left-0 top-full mt-1 z-30 p-2 rounded-2xl bg-card border border-border shadow-xl">
                   <Calendar
                     mode="single"
                     selected={moveInDate}
@@ -473,7 +573,7 @@ export default function RentalRequestModal({
               ) : null}
             </div>
 
-            {/* Quick Select Buttons - Tự động thích ứng theo minimumLeaseMonths */}
+            {/* Quick Select Buttons */}
             <div className="grid grid-cols-4 gap-2">
               {quickLeaseOptions.map((m) => {
                 const isMinDisabled = Boolean(
@@ -528,7 +628,6 @@ export default function RentalRequestModal({
                   </span>
                 </div>
 
-                {/* Nút điều chỉnh nhanh: -1, +1, +1 năm */}
                 <button
                   type="button"
                   disabled={leaseMonths <= (minimumLeaseMonths || 1)}
@@ -571,7 +670,6 @@ export default function RentalRequestModal({
                 </button>
               </div>
 
-              {/* Thông tin quy đổi năm & dự kiến kết thúc hợp đồng */}
               <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 text-[11px] space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Thời gian thuê:</span>
@@ -591,26 +689,36 @@ export default function RentalRequestModal({
             </div>
           </div>
 
-          {/* 4. SỐ NGƯỜI DỌN VÀO Ở */}
+          {/* 4. SỐ NGƯỜI SẼ Ở THƯỜNG XUYÊN */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <label className="font-semibold text-foreground flex items-center gap-1.5">
                 <Users className="w-3.5 h-3.5 text-primary" />
-                <span>Số người dọn vào ở</span>
+                <span>Số người sẽ ở thường xuyên</span>
                 <span className="text-rose-500">*</span>
               </label>
               <span className="text-[11px] text-muted-foreground">
-                Tối thiểu 1 người
+                {occupantLimit
+                  ? `Tối đa ${occupantLimit} người theo bài đăng`
+                  : "Tối thiểu 1 người"}
               </span>
             </div>
+
+            {(hasPersonBasedCharges(estimate) || (estimate && estimate.effectiveMonthlyRent > (listingPrice || 0))) && (
+              <p className="text-[11px] text-primary font-medium flex items-center gap-1">
+                <Info className="w-3 h-3 shrink-0" />
+                <span>Số người được dùng để tính tiền thuê / phí nước.</span>
+              </p>
+            )}
+
             <div className="flex items-center gap-1.5">
               <div className="relative flex-1">
                 <input
                   type="number"
                   min={1}
-                  max={20}
+                  max={occupantLimit || 20}
                   step={1}
-                  placeholder="Nhập số người dọn vào ở (tối thiểu 1)"
+                  placeholder={`Nhập số người (tối đa ${occupantLimit || 20})`}
                   value={occupantCount || ""}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -618,7 +726,8 @@ export default function RentalRequestModal({
                       setOccupantCount(0);
                     } else {
                       const num = parseInt(val, 10);
-                      setOccupantCount(isNaN(num) ? 0 : Math.max(1, num));
+                      const maxLimit = occupantLimit || 20;
+                      setOccupantCount(isNaN(num) ? 0 : clampValue(num, 1, maxLimit));
                     }
                   }}
                   onBlur={() => {
@@ -633,7 +742,6 @@ export default function RentalRequestModal({
                 </span>
               </div>
 
-              {/* Nút điều chỉnh nhanh: -1, +1 */}
               <button
                 type="button"
                 disabled={occupantCount <= 1}
@@ -647,11 +755,12 @@ export default function RentalRequestModal({
               </button>
               <button
                 type="button"
-                disabled={occupantCount >= 20}
+                disabled={Boolean(occupantLimit ? occupantCount >= occupantLimit : occupantCount >= 20)}
                 onClick={() =>
-                  setOccupantCount((prev) =>
-                    Math.min(20, Math.max(1, (prev || 0) + 1)),
-                  )
+                  setOccupantCount((prev) => {
+                    const max = occupantLimit || 20;
+                    return Math.min(max, Math.max(1, (prev || 0) + 1));
+                  })
                 }
                 className="px-3 py-2 rounded-xl border border-border bg-card hover:bg-muted disabled:opacity-40 text-xs font-bold transition-colors cursor-pointer"
                 title="Tăng 1 người"
@@ -661,7 +770,150 @@ export default function RentalRequestModal({
             </div>
           </div>
 
-          {/* 5. THÔNG TIN LIÊN HỆ CỦA BẠN */}
+          {/* 5. PHƯƠNG TIỆN MANG THEO */}
+          {hasVehicleParkingAllowed(estimate) && (
+            <div className="space-y-2.5 rounded-xl border border-border bg-muted/20 p-3.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <Bike className="w-4 h-4 text-primary" />
+                  <span>Phương tiện mang theo</span>
+                </div>
+                <span className="text-[11px] text-muted-foreground">
+                  Chỗ khả dụng theo lịch thuê
+                </span>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                {/* Xe máy */}
+                {estimate?.motorbike.allowed && (
+                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-border/80 bg-background">
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-foreground flex items-center gap-1">
+                          <Bike className="w-3.5 h-3.5 text-primary" />
+                          <span>Xe máy</span>
+                        </span>
+                        <span
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                            estimate.motorbike.available > 0
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                              : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+                          }`}
+                        >
+                          {estimate.motorbike.available > 0
+                            ? `Còn ${estimate.motorbike.available} chỗ`
+                            : "Hết chỗ"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {estimate.motorbike.note}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        disabled={motorbikeCount <= 0}
+                        onClick={() => setMotorbikeCount((prev) => Math.max(0, prev - 1))}
+                        className="w-8 h-8 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-30 text-xs font-bold transition-colors cursor-pointer flex items-center justify-center"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min={0}
+                        max={estimate.motorbike.available}
+                        value={motorbikeCount}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          setMotorbikeCount(
+                            isNaN(val) ? 0 : clampValue(val, 0, estimate.motorbike.available)
+                          );
+                        }}
+                        className="w-12 text-center py-1 text-xs rounded-lg border border-input bg-background font-bold text-foreground"
+                      />
+                      <button
+                        type="button"
+                        disabled={motorbikeCount >= estimate.motorbike.available}
+                        onClick={() =>
+                          setMotorbikeCount((prev) =>
+                            Math.min(estimate.motorbike.available, prev + 1)
+                          )
+                        }
+                        className="w-8 h-8 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-30 text-xs font-bold transition-colors cursor-pointer flex items-center justify-center"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Ô tô */}
+                {estimate?.car.allowed && (
+                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-border/80 bg-background">
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-foreground flex items-center gap-1">
+                          <Car className="w-3.5 h-3.5 text-primary" />
+                          <span>Ô tô</span>
+                        </span>
+                        <span
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                            estimate.car.available > 0
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                              : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+                          }`}
+                        >
+                          {estimate.car.available > 0
+                            ? `Còn ${estimate.car.available} chỗ`
+                            : "Hết chỗ"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {estimate.car.note}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        disabled={carCount <= 0}
+                        onClick={() => setCarCount((prev) => Math.max(0, prev - 1))}
+                        className="w-8 h-8 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-30 text-xs font-bold transition-colors cursor-pointer flex items-center justify-center"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min={0}
+                        max={estimate.car.available}
+                        value={carCount}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          setCarCount(
+                            isNaN(val) ? 0 : clampValue(val, 0, estimate.car.available)
+                          );
+                        }}
+                        className="w-12 text-center py-1 text-xs rounded-lg border border-input bg-background font-bold text-foreground"
+                      />
+                      <button
+                        type="button"
+                        disabled={carCount >= estimate.car.available}
+                        onClick={() =>
+                          setCarCount((prev) => Math.min(estimate.car.available, prev + 1))
+                        }
+                        className="w-8 h-8 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-30 text-xs font-bold transition-colors cursor-pointer flex items-center justify-center"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 6. THÔNG TIN LIÊN HỆ CỦA BẠN */}
           <div className="space-y-2.5 pt-1">
             <h4 className="text-xs font-bold text-foreground">
               Thông tin liên hệ của bạn
@@ -719,7 +971,7 @@ export default function RentalRequestModal({
             </div>
           </div>
 
-          {/* 6. ĐỀ XUẤT TIỀN CỌC (CHỈ HIỂN THỊ KHI LOẠI CỌC LÀ THỎA THUẬN) */}
+          {/* 7. ĐỀ XUẤT TIỀN CỌC (CHỈ HIỂN THỊ KHI LOẠI CỌC LÀ THỎA THUẬN) */}
           {depositInfo.isNegotiable && (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-2.5">
               <div className="flex items-center justify-between">
@@ -728,7 +980,7 @@ export default function RentalRequestModal({
                   <span>Tiền cọc đề xuất (Thỏa thuận)</span>
                 </label>
                 <span className="text-xs font-extrabold text-amber-700 dark:text-amber-400">
-                  {formatVND(depositInfo.amount)}
+                  {formatVND(depositAmount)}
                 </span>
               </div>
               <div className="relative">
@@ -795,43 +1047,117 @@ export default function RentalRequestModal({
             </div>
           )}
 
-          {/* 7. BẢNG TỔNG KẾT TÀI CHÍNH */}
-          <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">
-                Giá thuê hàng tháng:
+          {/* 8. BẢNG DỰ TOÁN CHI PHÍ (4 PHẦN CHI TIẾT) */}
+          <div className="rounded-2xl border border-border bg-card p-4 space-y-3 shadow-xs">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span>Bảng dự toán chi phí dự kiến</span>
               </span>
-              <span className="font-bold text-foreground">
-                {formatVND(initialPayment.monthlyRent)}
-              </span>
+              {loadingEstimate && (
+                <span className="flex items-center gap-1 text-[11px] text-primary font-medium animate-pulse">
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  Đang tính...
+                </span>
+              )}
             </div>
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1.5">
-                <span className="text-muted-foreground">Tiền đặt cọc:</span>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-background text-foreground border border-border/80">
-                  {depositInfo.badge}
+
+            {estimateError && (
+              <div className="p-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-[11px] dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+                {estimateError}
+              </div>
+            )}
+
+            {/* A. Chi phí cố định mỗi tháng */}
+            <div className="space-y-1.5 rounded-xl border border-border/70 bg-muted/20 p-3">
+              <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                <span>A. Chi phí cố định mỗi tháng</span>
+                <span className="text-primary font-extrabold text-sm">
+                  {formatVND(estimatedMonthlyTotal)}
                 </span>
               </div>
-              <span className="font-bold text-foreground">
-                {formatVND(initialPayment.deposit)}
-              </span>
+              <div className="space-y-1 pt-1 text-[11px]">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Tiền thuê nhà:</span>
+                  <span className="font-semibold text-foreground">
+                    {formatVND(effectiveMonthlyRent)}
+                  </span>
+                </div>
+                {estimate?.predictableCharges && estimate.predictableCharges.length > 0 ? (
+                  estimate.predictableCharges.map((c, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-muted-foreground">
+                      <span>{c.displayName}:</span>
+                      <span className="font-semibold text-foreground">
+                        {c.amount > 0 ? formatVND(c.amount) : (c.includedInRent ? "Đã bao gồm" : "Miễn phí")}
+                        {c.note ? ` (${c.note})` : ""}
+                      </span>
+                    </div>
+                  ))
+                ) : null}
+              </div>
             </div>
-            <div className="pt-2 border-t border-primary/20 flex items-center justify-between text-xs font-bold">
-              <div>
-                <span className="text-foreground block">
-                  Tổng chi phí dự kiến ban đầu:
-                </span>
-                <span className="text-[10px] text-muted-foreground font-normal">
-                  (Giá thuê tháng đầu + Tiền đặt cọc)
+
+            {/* B. Chi phí cần chuẩn bị ban đầu */}
+            <div className="space-y-1.5 rounded-xl border border-primary/20 bg-primary/5 p-3">
+              <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                <span>B. Cần chuẩn bị ban đầu</span>
+                <span className="text-primary font-extrabold text-sm">
+                  {formatVND(estimatedInitialTotal)}
                 </span>
               </div>
-              <span className="text-sm font-extrabold text-primary">
-                {formatVND(initialPayment.total)}
-              </span>
+              <div className="space-y-1 pt-1 text-[11px]">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Chi phí cố định tháng đầu:</span>
+                  <span className="font-semibold text-foreground">
+                    {formatVND(estimatedMonthlyTotal)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <span>Tiền đặt cọc:</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded border border-border bg-background text-foreground">
+                      {depositInfo.badge}
+                    </span>
+                  </div>
+                  <span className="font-semibold text-foreground">
+                    {formatVND(depositAmount)}
+                  </span>
+                </div>
+              </div>
             </div>
+
+            {/* C. Ước tính phần cố định trong toàn thời hạn thuê */}
+            <div className="space-y-1 rounded-xl border border-border/70 bg-muted/10 p-3 text-[11px]">
+              <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                <span>C. Phần cố định toàn hạn ({leaseMonths} tháng)</span>
+                <span className="font-extrabold text-foreground">
+                  {formatVND(estimatedLeaseTotal)}
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground italic">
+                * Chỉ bao gồm các khoản chi phí cố định có thể dự kiến trước trong toàn bộ thời hạn thuê {leaseMonths} tháng + tiền cọc.
+              </p>
+            </div>
+
+            {/* D. Chưa bao gồm */}
+            {estimate?.excludedCharges && estimate.excludedCharges.length > 0 && (
+              <div className="space-y-1.5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-[11px]">
+                <span className="font-bold text-amber-800 dark:text-amber-300 block text-xs">
+                  D. Chưa bao gồm trong các tổng trên:
+                </span>
+                <ul className="space-y-1 text-muted-foreground list-disc list-inside">
+                  {estimate.excludedCharges.map((exc, idx) => (
+                    <li key={idx} className="leading-relaxed">
+                      <span className="font-medium text-foreground">{exc.displayName}:</span>{" "}
+                      <span>{exc.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
-          {/* 8. LỜI NHẮN GỬI CHỦ NHÀ */}
+          {/* 9. LỜI NHẮN GỬI CHỦ NHÀ */}
           <div className="space-y-1">
             <div className="flex items-center justify-between text-xs">
               <label className="font-semibold text-foreground">
@@ -851,7 +1177,7 @@ export default function RentalRequestModal({
             />
           </div>
 
-          {/* 9. FOOTER ACTIONS */}
+          {/* 10. FOOTER ACTIONS */}
           <div className="pt-3 border-t border-border flex items-center justify-end gap-2.5">
             <button
               type="button"
@@ -863,7 +1189,7 @@ export default function RentalRequestModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || loadingEstimate}
               className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
             >
               <Sparkles className="w-3.5 h-3.5" />

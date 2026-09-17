@@ -21,6 +21,19 @@ const rentalRequestService = {
   },
 
   /**
+   * Ước tính chi phí thuê nhà và kiểm tra chỗ đỗ xe
+   */
+  async estimateRentalCost(
+    payload: import("@/types/rental-request.type").RentalEstimatePayload
+  ): Promise<import("@/types/rental-request.type").RentalEstimateResponse> {
+    const response = await axiosClient.post<ApiResponse<import("@/types/rental-request.type").RentalEstimateResponse>>(
+      "/api/v1/rental-requests/estimate",
+      payload
+    );
+    return response.data.result!;
+  },
+
+  /**
    * Khách hàng lấy danh sách yêu cầu thuê của mình
    */
   async getMyRequests(params?: {

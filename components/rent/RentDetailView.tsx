@@ -13,7 +13,6 @@ import {
   ChevronRight,
   ImageIcon,
   MapPin,
-  MessageCircle,
   MessageSquare,
   Phone,
   ShieldCheck,
@@ -25,8 +24,8 @@ import {
   User,
   Edit,
   Layers,
-  Zap,
   Handshake,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/useAuth";
@@ -39,6 +38,7 @@ import appointmentService from "@/services/appointment.service";
 import RentalRequestModal from "@/components/rental-request/RentalRequestModal";
 import rentalRequestService from "@/services/rental-request.service";
 import type { RentalRequestResponse } from "@/types/rental-request.type";
+import type { DepositType } from "@/types/listing.type";
 import { useChatDemo } from "@/components/chat/ChatDemoProvider";
 import type { RelatedListing } from "@/types/chat.type";
 import { chatConversationUrl } from "@/lib/chat-demo-state";
@@ -138,7 +138,7 @@ export default function RentDetailView({
     authenticated &&
     Boolean(
       currentUserId &&
-        (currentUserId === property.ownerId || currentUserId === property.landlord?.id)
+      (currentUserId === property.ownerId || currentUserId === property.landlord?.id)
     );
 
   const pricing = (property.details?.pricing as Record<string, unknown> | undefined) ?? undefined;
@@ -157,11 +157,11 @@ export default function RentDetailView({
     if (authenticated && property?.id) {
       appointmentService.getMyBookingByListing(property.id).then((b) => {
         setHasActiveBooking(Boolean(b && ["PENDING", "CONFIRMED"].includes(b.status)));
-      }).catch(() => {});
+      }).catch(() => { });
 
       rentalRequestService.getMyRequestByListing(property.id).then((r) => {
         setActiveRentalRequest(r);
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [authenticated, property?.id]);
 
@@ -248,8 +248,8 @@ export default function RentDetailView({
     Array.isArray(property.details?.furnishings)
       ? property.details.furnishings
       : Array.isArray(property.details?.roomFeatures)
-      ? property.details.roomFeatures
-      : []
+        ? property.details.roomFeatures
+        : []
   ).filter((item): item is string => typeof item === "string");
 
   const viewingDays = Array.isArray(property.details?.viewingDays)
@@ -334,12 +334,11 @@ export default function RentDetailView({
               <DetailMetric
                 icon={Bath}
                 label="Phòng tắm / WC"
-                value={`${
-                  property.baths ||
+                value={`${property.baths ||
                   (property.details?.bathroomCount as number) ||
                   (property.details?.restroomCount as number) ||
                   (property.details?.restroomType === "PRIVATE" ? "Khép kín" : property.details?.restroomType === "SHARED" ? "Chung" : 1)
-                } WC`}
+                  } WC`}
               />
             </div>
           </section>
@@ -501,29 +500,51 @@ export default function RentDetailView({
 
                 {/* 1. Nút Yêu cầu thuê nhà (Hành động chính - Nổi bật nhất) */}
                 {activeRentalRequest?.status === "PENDING" ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      toast.info("Yêu cầu thuê nhà của bạn đang chờ chủ nhà xác nhận.");
-                    }}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 py-3.5 px-4 text-sm font-bold text-amber-700 dark:text-amber-300 shadow-xs hover:bg-amber-500/20 transition-all cursor-pointer active:scale-[0.98]"
-                    title="Yêu cầu thuê nhà đang chờ duyệt"
-                  >
-                    <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
-                    <span>Đã gửi yêu cầu thuê (Chờ duyệt)</span>
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        router.push("/dashboard/rental-requests/my-requests");
+                      }}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 py-3.5 px-4 text-sm font-bold text-amber-700 dark:text-amber-300 shadow-xs hover:bg-amber-500/20 transition-all cursor-pointer active:scale-[0.98]"
+                      title="Xem yêu cầu thuê đang chờ duyệt của bạn"
+                    >
+                      <Clock className="w-4 h-4 text-amber-500 animate-pulse shrink-0" />
+                      <span>Đã gửi yêu cầu thuê (Chờ duyệt)</span>
+                    </button>
+                    <div className="text-center">
+                      <Link
+                        href="/dashboard/rental-requests/my-requests"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                      >
+                        <span>Xem yêu cầu của tôi</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
                 ) : activeRentalRequest?.status === "ACCEPTED" ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      toast.success(`Yêu cầu thuê đã được duyệt và bất động sản đang được giữ chỗ trong ${RENTAL_HOLD_DURATION_LABEL}!`);
-                    }}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 py-3.5 px-4 text-sm font-bold text-emerald-700 dark:text-emerald-300 shadow-xs hover:bg-emerald-500/20 transition-all cursor-pointer active:scale-[0.98]"
-                    title="Yêu cầu thuê đã được chấp thuận"
-                  >
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Yêu cầu được duyệt (Đang giữ chỗ)</span>
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        router.push("/dashboard/rental-requests/my-requests");
+                      }}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 py-3.5 px-4 text-sm font-bold text-emerald-700 dark:text-emerald-300 shadow-xs hover:bg-emerald-500/20 transition-all cursor-pointer active:scale-[0.98]"
+                      title={`Yêu cầu thuê đã được duyệt và đang giữ chỗ trong ${RENTAL_HOLD_DURATION_LABEL}! Bấm để xem chi tiết`}
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Yêu cầu được duyệt (Đang giữ chỗ)</span>
+                    </button>
+                    <div className="text-center">
+                      <Link
+                        href="/dashboard/rental-requests/my-requests"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                      >
+                        <span>Xem yêu cầu của tôi</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
                 ) : property.status === "RESERVED" ? (
                   <button
                     type="button"
@@ -581,11 +602,10 @@ export default function RentDetailView({
                         onAllowed: () => setIsBookingModalOpen(true),
                       });
                     }}
-                    className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-[0.98] ${
-                      hasActiveBooking
-                        ? "bg-emerald-500/10 border border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
-                        : "border border-border bg-card hover:bg-muted text-foreground hover:border-primary/40"
-                    }`}
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-[0.98] ${hasActiveBooking
+                      ? "bg-emerald-500/10 border border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
+                      : "border border-border bg-card hover:bg-muted text-foreground hover:border-primary/40"
+                      }`}
                     title="Đặt lịch hẹn gặp trực tiếp chủ nhà tại bất động sản"
                   >
                     {hasActiveBooking ? (
@@ -708,11 +728,10 @@ export default function RentDetailView({
                     <button
                       type="submit"
                       disabled={!quickMessage.trim()}
-                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all ${
-                        quickMessage.trim()
-                          ? "bg-primary text-primary-foreground shadow-2xs cursor-pointer hover:bg-primary/90"
-                          : "bg-muted text-muted-foreground/60 cursor-not-allowed"
-                      }`}
+                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all ${quickMessage.trim()
+                        ? "bg-primary text-primary-foreground shadow-2xs cursor-pointer hover:bg-primary/90"
+                        : "bg-muted text-muted-foreground/60 cursor-not-allowed"
+                        }`}
                     >
                       Gửi
                     </button>
@@ -735,7 +754,7 @@ export default function RentDetailView({
                       onClick={() => {
                         const random =
                           QUICK_SUGGESTIONS[
-                            Math.floor(Math.random() * QUICK_SUGGESTIONS.length)
+                          Math.floor(Math.random() * QUICK_SUGGESTIONS.length)
                           ];
                         setQuickMessage(random);
                       }}
@@ -772,7 +791,7 @@ export default function RentDetailView({
           if (authenticated && property?.id) {
             appointmentService.getMyBookingByListing(property.id).then((b) => {
               setHasActiveBooking(Boolean(b && ["PENDING", "CONFIRMED"].includes(b.status)));
-            }).catch(() => {});
+            }).catch(() => { });
           }
         }}
         listingId={property.id}
@@ -791,16 +810,32 @@ export default function RentDetailView({
           if (authenticated && property?.id) {
             rentalRequestService.getMyRequestByListing(property.id).then((r) => {
               setActiveRentalRequest(r);
-            }).catch(() => {});
+            }).catch(() => { });
           }
         }}
         listingId={property.id}
         listingTitle={property.title}
         listingAddress={property.location}
         listingPrice={property.priceMillion * 1_000_000}
-        depositType={property.depositType || (property.details?.depositType as any) || (property.details?.pricing as any)?.depositType}
-        listingDepositAmount={property.depositAmount ?? (property.details?.depositAmount as any) ?? (property.details?.pricing as any)?.depositAmount}
-        depositMonths={property.depositMonths ?? (property.details?.depositMonths as any) ?? (property.details?.pricing as any)?.depositMonths}
+        depositType={
+          (property.depositType as DepositType | undefined) ||
+          (property.details?.depositType as DepositType | undefined) ||
+          (pricing?.depositType as DepositType | undefined)
+        }
+        listingDepositAmount={
+          property.depositAmount ??
+          (typeof property.details?.depositAmount === "number"
+            ? property.details.depositAmount
+            : undefined) ??
+          (typeof pricing?.depositAmount === "number" ? pricing.depositAmount : undefined)
+        }
+        depositMonths={
+          property.depositMonths ??
+          (typeof property.details?.depositMonths === "number"
+            ? property.details.depositMonths
+            : undefined) ??
+          (typeof pricing?.depositMonths === "number" ? pricing.depositMonths : undefined)
+        }
         listingThumbnail={property.images?.[0] || null}
         minimumLeaseMonths={Number(property.details?.minimumLeaseMonths) || 6}
         onSuccess={(req) => {

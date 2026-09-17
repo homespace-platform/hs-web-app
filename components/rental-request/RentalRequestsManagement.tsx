@@ -29,6 +29,7 @@ import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
 import ListingPreviewModal from "@/components/listing/ListingPreviewModal";
 import CreateContractFromRequestModal from "@/components/contract/CreateContractFromRequestModal";
+import RentalRequestDetailModal from "./RentalRequestDetailModal";
 import { contractService } from "@/services/contract.service";
 import type { ContractResponse } from "@/types/contract.type";
 import type {
@@ -149,6 +150,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const [contractTarget, setContractTarget] = useState<RentalRequestResponse | null>(null);
   const [contractsByRequest, setContractsByRequest] = useState<Record<string, ContractResponse | null>>({});
   const [openingContractId, setOpeningContractId] = useState<string | null>(null);
+  const [detailRequestId, setDetailRequestId] = useState<string | null>(null);
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -574,6 +576,17 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                       </button>
                     )}
 
+                    {/* Nút Xem chi tiết yêu cầu */}
+                    <button
+                      type="button"
+                      onClick={() => setDetailRequestId(req.id)}
+                      className="px-3 py-1.5 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary text-xs font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5"
+                      title="Xem chi tiết đầy đủ yêu cầu thuê"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Xem chi tiết</span>
+                    </button>
+
                     {/* Nút xem tin đăng */}
                     <button
                       type="button"
@@ -724,6 +737,70 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                 <p className="text-xs text-muted-foreground">
                   Bạn đang chấp thuận yêu cầu thuê của khách hàng <strong>{acceptTarget.renterName}</strong>.
                 </p>
+              </div>
+            </div>
+
+            {/* Tóm tắt điều kiện và tài chính yêu cầu thuê */}
+            <div className="p-3.5 rounded-xl bg-muted/40 border border-border space-y-2 text-xs">
+              <span className="font-bold text-foreground block text-[11px] uppercase tracking-wider">
+                Tóm tắt yêu cầu thuê
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div>
+                  <span className="text-muted-foreground block">Khách thuê:</span>
+                  <span className="font-semibold text-foreground">{acceptTarget.renterName}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block">Ngày vào ở:</span>
+                  <span className="font-semibold text-foreground">
+                    {acceptTarget.moveInDate ? format(new Date(acceptTarget.moveInDate), "dd/MM/yyyy") : "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block">Thời hạn:</span>
+                  <span className="font-semibold text-foreground">{acceptTarget.leaseMonths} tháng</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block">Số người ở:</span>
+                  <span className="font-semibold text-foreground">{acceptTarget.occupantCount || 1} người</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block">Xe máy:</span>
+                  <span className="font-semibold text-foreground">
+                    {acceptTarget.motorbikeCount ? `${acceptTarget.motorbikeCount} xe máy` : "Không đăng ký"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block">Ô tô:</span>
+                  <span className="font-semibold text-foreground">
+                    {acceptTarget.carCount ? `${acceptTarget.carCount} ô tô` : "Không đăng ký"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-border/60 space-y-1 text-[11px]">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Đóng trước mỗi tháng:</span>
+                  <span className="font-semibold text-foreground">
+                    {formatVND(acceptTarget.estimatedMonthlyTotal ?? acceptTarget.effectiveMonthlyRent ?? acceptTarget.monthlyRentPrice)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Tiền đặt cọc:</span>
+                  <span className="font-semibold text-foreground">
+                    {acceptTarget.depositAmount != null ? formatVND(acceptTarget.depositAmount) : "Theo tin đăng"}
+                  </span>
+                </div>
+                <div className="flex justify-between pt-1 border-t border-border/40 font-bold">
+                  <span className="text-foreground">Tổng thanh toán khi ký:</span>
+                  <span className="text-primary font-extrabold">
+                    {formatVND(
+                      acceptTarget.estimatedInitialTotal ??
+                        (acceptTarget.estimatedMonthlyTotal ?? acceptTarget.effectiveMonthlyRent ?? acceptTarget.monthlyRentPrice) +
+                          (acceptTarget.depositAmount ?? 0)
+                    )}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -885,6 +962,37 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
           onClose={handleCloseContractModal}
         />
       )}
+
+      {/* Modal Xem Chi Tiết Yêu Cầu Thuê */}
+      <RentalRequestDetailModal
+        requestId={detailRequestId}
+        isOpen={Boolean(detailRequestId)}
+        onClose={() => setDetailRequestId(null)}
+        mode={mode}
+        linkedContract={detailRequestId ? contractsByRequest[detailRequestId] : null}
+        isProcessingAction={isProcessing}
+        onViewListing={(listingId) => setPreviewListingId(listingId)}
+        onAccept={(req) => {
+          setDetailRequestId(null);
+          setAcceptTarget(req);
+        }}
+        onReject={(req) => {
+          setDetailRequestId(null);
+          setRejectTarget(req);
+        }}
+        onCancel={(req) => {
+          setDetailRequestId(null);
+          setCancelTarget(req);
+        }}
+        onCreateContract={(req) => {
+          setDetailRequestId(null);
+          setContractTarget(req);
+        }}
+        onOpenContract={(contractId) => {
+          setDetailRequestId(null);
+          router.push(`/dashboard/contracts/${contractId}`);
+        }}
+      />
     </div>
   );
 }

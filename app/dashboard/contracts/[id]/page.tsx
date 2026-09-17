@@ -459,8 +459,30 @@ export default function ContractDetailPage() {
           <FieldRow label="CCCD" value={tenant.idNumber} />
           <FieldRow label="Địa chỉ" value={tenant.permanentAddress} />
           <FieldRow label="SĐT" value={tenant.phone} />
-          <FieldRow label="Email" value={tenant.email} />
-          <FieldRow label="Số người ở" value={tenant.occupantCount} />
+          <FieldRow
+            label="Số người ở"
+            value={tenant.occupantCount ? `${tenant.occupantCount} người` : undefined}
+          />
+          <FieldRow
+            label="Xe máy đăng ký"
+            value={
+              tenant.motorbikeCount != null
+                ? Number(tenant.motorbikeCount) > 0
+                  ? `${tenant.motorbikeCount} xe`
+                  : "Không đăng ký"
+                : "Không đăng ký"
+            }
+          />
+          <FieldRow
+            label="Ô tô đăng ký"
+            value={
+              tenant.carCount != null
+                ? Number(tenant.carCount) > 0
+                  ? `${tenant.carCount} xe`
+                  : "Không đăng ký"
+                : "Không đăng ký"
+            }
+          />
         </section>
 
         <section className="rounded-2xl border border-border bg-card p-4 space-y-1 shadow-2xs">

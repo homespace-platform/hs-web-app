@@ -124,6 +124,7 @@ export function toRentProperty(
     furnishings: (detail?.furnishings ?? []).map((f: any) =>
       f.quantity > 1 ? `${f.assetName} (x${f.quantity})` : f.assetName
     ),
+    furnishingList: detail?.furnishings ?? [],
     viewingDays: detail?.viewingDays ?? [],
     viewingSlots: detail?.viewingSlots ?? [],
     availableFrom: detail?.availableFrom,

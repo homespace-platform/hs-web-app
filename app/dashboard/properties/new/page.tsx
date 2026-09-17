@@ -539,9 +539,9 @@ function CreatePropertyListingContent() {
         }
 
         // 3. Amenities & bảng trang thiết bị bàn giao
-        if (res.amenities && res.amenities.length > 0) {
-          setSelectedAmenities(res.amenities.map((a) => a.code || a.name));
-        }
+        const standardCodes = (res.amenities || []).map((a) => a.code).filter(Boolean);
+        const customItems = res.customAmenities || [];
+        setSelectedAmenities([...standardCodes, ...customItems]);
 
         setFurnishingAssets(
           (res.furnishings || []).map((f) => ({
@@ -991,6 +991,7 @@ function CreatePropertyListingContent() {
         roomDetails,
         furnishingAssets,
         selectedAmenities,
+        catalogAmenityCodes: listingOptions.amenities.map((item) => item.code),
         monthlyExpenses,
         pricing,
         addressMode,

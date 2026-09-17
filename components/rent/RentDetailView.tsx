@@ -244,6 +244,19 @@ export default function RentDetailView({
     ...(Array.isArray(property.details?.amenities) ? property.details.amenities : []),
     ...(Array.isArray(property.details?.customAmenities) ? property.details.customAmenities : []),
   ].filter((item): item is string => typeof item === "string");
+  const rawFurnishings = (
+    Array.isArray(property.details?.furnishingList)
+      ? (property.details.furnishingList as Array<{
+          index?: number;
+          assetName?: string;
+          quantity?: number;
+          handoverCondition?: string;
+          conditionText?: string;
+          conditionNote?: string;
+        }>)
+      : []
+  ).filter((item) => Boolean(item && item.assetName));
+
   const roomFeatures = (
     Array.isArray(property.details?.furnishings)
       ? property.details.furnishings
@@ -383,10 +396,39 @@ export default function RentDetailView({
             </section>
           )}
 
-          {/* Room Furnishings */}
-          {roomFeatures.length > 0 && (
+          {/* Trang thiết bị / Nội thất bàn giao */}
+          {rawFurnishings.length > 0 ? (
             <section className="space-y-4">
-              <h2 className="font-heading text-lg font-bold">Trang bị sẵn có</h2>
+              <h2 className="font-heading text-lg font-bold">Trang thiết bị / Nội thất bàn giao</h2>
+              <div className="overflow-x-auto rounded-xl border border-border">
+                <table className="w-full min-w-105 border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-muted/50 text-left font-semibold text-muted-foreground">
+                      <th className="w-10 px-3 py-2.5">STT</th>
+                      <th className="px-3 py-2.5">Tên tài sản / Trang thiết bị</th>
+                      <th className="w-20 px-3 py-2.5">Số lượng</th>
+                      <th className="px-3 py-2.5">Hiện trạng bàn giao</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rawFurnishings.map((item, idx) => (
+                      <tr key={idx} className="border-t border-border/60">
+                        <td className="px-3 py-2.5 text-muted-foreground">{item.index ?? idx + 1}</td>
+                        <td className="px-3 py-2.5 font-medium text-foreground">{item.assetName}</td>
+                        <td className="px-3 py-2.5 text-foreground">{item.quantity ?? 1}</td>
+                        <td className="px-3 py-2.5 text-muted-foreground">
+                          {item.conditionText || item.handoverCondition || "Bình thường"}
+                          {item.conditionNote ? ` (${item.conditionNote})` : ""}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : roomFeatures.length > 0 ? (
+            <section className="space-y-4">
+              <h2 className="font-heading text-lg font-bold">Trang thiết bị / Nội thất bàn giao</h2>
               <div className="flex flex-wrap gap-2">
                 {roomFeatures.map((item, idx) => (
                   <span key={idx} className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground">
@@ -396,7 +438,7 @@ export default function RentDetailView({
                 ))}
               </div>
             </section>
-          )}
+          ) : null}
 
           {/* Viewing Schedule */}
           {(viewingDays.length > 0 || viewingSlots.length > 0) && (

@@ -35,6 +35,7 @@ export interface BuildPayloadParams {
   roomDetails: RoomDetailsData;
   furnishingAssets: FurnishingAssetRow[];
   selectedAmenities: string[];
+  catalogAmenityCodes?: string[];
   monthlyExpenses: MonthlyExpensesData;
   pricing: PricingData;
   addressMode: "saved" | "new";
@@ -433,8 +434,12 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
     apartmentDetail,
     houseDetail,
     roomDetail,
-    amenityCodes: selectedAmenities,
-    customAmenities: [],
+    amenityCodes: params.catalogAmenityCodes && params.catalogAmenityCodes.length > 0
+      ? selectedAmenities.filter((item) => params.catalogAmenityCodes!.includes(item))
+      : selectedAmenities,
+    customAmenities: params.catalogAmenityCodes && params.catalogAmenityCodes.length > 0
+      ? selectedAmenities.filter((item) => !params.catalogAmenityCodes!.includes(item))
+      : [],
     furnishings: furnishingAssets.map((row) => ({
       itemCode: row.itemCode || null,
       assetName: row.assetName.trim(),

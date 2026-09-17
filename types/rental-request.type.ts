@@ -53,6 +53,7 @@ export interface RentalRequestResponse {
   rejectReason: string | null;
   acceptedAt: string | null;
   holdExpiresAt: string | null;
+  initialPayment?: import("./rental-payment.type").InitialPaymentSummary | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -23,7 +23,7 @@ interface RentalCostSummaryProps {
   loading: boolean;
   error: string | null;
   depositBadge: string;
-  occupantCount: number;
+  occupantCount?: number;
 }
 
 export function RentalCostSummary({
@@ -31,7 +31,6 @@ export function RentalCostSummary({
   loading,
   error,
   depositBadge,
-  occupantCount,
 }: RentalCostSummaryProps) {
   // Trạng thái 1: Đang tải lần đầu và chưa có dữ liệu estimate
   if (!estimate && loading) {
@@ -132,13 +131,6 @@ export function RentalCostSummary({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <span className="font-medium text-foreground block">Tiền thuê nhà</span>
-              {occupantCount > 1 &&
-                estimate.effectiveMonthlyRent % occupantCount === 0 &&
-                estimate.effectiveMonthlyRent / occupantCount >= 100000 && (
-                  <span className="text-[11px] text-muted-foreground block">
-                    {formatVND(estimate.effectiveMonthlyRent / occupantCount)} × {occupantCount} người
-                  </span>
-                )}
             </div>
             <div className="text-right shrink-0">
               <span className="font-semibold text-foreground">
@@ -287,12 +279,12 @@ export function RentalCostSummary({
         </div>
       )}
 
-      {/* 4. THANH TOÁN KHI KÝ HỢP ĐỒNG (Đặt ở cuối cùng theo dòng suy nghĩ của người thuê) */}
+      {/* 4. THANH TOÁN BAN ĐẦU (Đặt ở cuối cùng theo dòng suy nghĩ của người thuê) */}
       <div className="rounded-xl border-2 border-primary/40 bg-primary/5 dark:border-primary/50 dark:bg-primary/10 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
             <ShieldCheck className="w-4 h-4 shrink-0" />
-            <span>Thanh toán khi ký hợp đồng</span>
+            <span>Thanh toán ban đầu</span>
           </div>
           <span className="text-[11px] px-2 py-0.5 rounded-md border border-primary/30 bg-background text-primary font-semibold shrink-0">
             {depositBadge}
@@ -322,7 +314,7 @@ export function RentalCostSummary({
 
         {/* Ghi chú về thời điểm thanh toán nằm trước divider và trước dòng tổng */}
         <p className="text-[10px] text-muted-foreground italic pt-1 border-t border-primary/10">
-          * Số tiền dự kiến thanh toán khi ký hợp đồng hoặc trước khi bàn giao nhà.
+          * Số tiền được thanh toán để tiếp tục giữ chỗ sau khi chủ nhà chấp thuận yêu cầu. Hệ thống tạm giữ khoản thanh toán này cho đến khi hợp đồng được hoàn tất.
         </p>
 
         {/* Dòng “Tổng cần thanh toán” là dòng cuối cùng trong khối dự toán */}

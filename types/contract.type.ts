@@ -106,6 +106,7 @@ export interface ContractResponse {
   currentRevisionId?: string | null;
   status: ContractStatus;
   paymentStatus: ContractPaymentStatus;
+  rentalPaymentId?: string | null;
   paidAt?: string | null;
   signedAt?: string | null;
   createdAt: string;

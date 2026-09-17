@@ -29,7 +29,9 @@ const STATUS_BADGE: Record<ContractStatus, string> = {
 
 function contractStatusLabel(contract: ContractResponse): string {
   if (contract.status === "PENDING_REVIEW") {
-    return contract.paymentStatus === "PAID_MOCK" ? "Chờ ký hợp đồng" : "Chờ thanh toán/ký";
+    return Boolean(contract.rentalPaymentId) || contract.paymentStatus === "PAID_MOCK"
+      ? "Chờ ký hợp đồng"
+      : "Chờ thanh toán/ký";
   }
   return STATUS_LABEL[contract.status];
 }

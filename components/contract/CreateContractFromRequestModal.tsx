@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Loader2, Shield, User, X, Check, FileCheck } from "lucide-react";
+import { FileText, Loader2, Shield, User, X, Check, FileCheck, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { contractService } from "@/services/contract.service";
+import { rentalPaymentService } from "@/services/rental-payment.service";
 import type { ContractTemplateResponse } from "@/types/contract.type";
 import { CATEGORY_NAMES } from "@/types/contract.type";
 import type { RentalRequestResponse } from "@/types/rental-request.type";
@@ -24,6 +25,9 @@ export default function CreateContractFromRequestModal({ request, onClose }: Pro
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("SYSTEM");
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(
+    request.initialPayment?.status ?? null
+  );
 
   const onCloseRef = useRef(onClose);
   useEffect(() => {
@@ -40,6 +44,16 @@ export default function CreateContractFromRequestModal({ request, onClose }: Pro
     (async () => {
       setLoading(true);
       try {
+        // 1. Kiểm tra trạng thái thanh toán ban đầu của yêu cầu thuê
+        try {
+          const payment = await rentalPaymentService.getInitialPayment(request.id);
+          if (!cancelled && payment?.status) {
+            setPaymentStatus(payment.status);
+          }
+        } catch {
+          // fallback to request.initialPayment
+        }
+
         const existing = await contractService.getByRentalRequest(request.id);
         if (cancelled) return;
         if (existing?.id) {
@@ -82,7 +96,16 @@ export default function CreateContractFromRequestModal({ request, onClose }: Pro
     return landlordTemplates;
   }, [activeTab, systemTemplates, landlordTemplates]);
 
+  const isPaymentPaid = paymentStatus === "PAID_MOCK" || paymentStatus === "PAID";
+
   async function handleCreate() {
+    if (!isPaymentPaid) {
+      toast.error(
+        "Chưa thể tạo hợp đồng: Khách thuê chưa hoàn tất thanh toán ban đầu. Bạn chỉ có thể tạo hợp đồng sau khi khách đã thanh toán."
+      );
+      return;
+    }
+
     const selected = templates.find((t) => t.id === selectedId);
     if (!selected?.latestPublishedVersionId) {
       toast.error("Vui lòng chọn mẫu hợp đồng đã xuất bản.");
@@ -150,6 +173,19 @@ export default function CreateContractFromRequestModal({ request, onClose }: Pro
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* CẢNH BÁO CHƯA THANH TOÁN */}
+        {!loading && !isPaymentPaid && (
+          <div className="mx-6 mt-4 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold">Khách thuê chưa hoàn tất thanh toán ban đầu</p>
+              <p className="opacity-90 leading-relaxed">
+                Theo quy trình mới, chủ nhà chỉ có thể tạo hợp đồng sau khi khách thuê đã thanh toán khoản giữ chỗ ban đầu. Vui lòng chờ khách thanh toán.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* TABS HEADER (Đã đưa Mẫu hệ thống lên trước) */}
         {!loading && templates.length > 0 && (
@@ -337,8 +373,13 @@ export default function CreateContractFromRequestModal({ request, onClose }: Pro
             </button>
             <button
               type="button"
-              disabled={submitting || loading || !selectedId}
+              disabled={submitting || loading || !selectedId || !isPaymentPaid}
               onClick={handleCreate}
+              title={
+                !isPaymentPaid
+                  ? "Chỉ có thể tạo hợp đồng sau khi khách thanh toán ban đầu."
+                  : undefined
+              }
               className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-xs hover:bg-primary/90 disabled:opacity-50 transition-all cursor-pointer inline-flex items-center gap-2"
             >
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}

@@ -18,6 +18,7 @@ import {
   PenLine,
 } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
 import { contractService } from "@/services/contract.service";
 import type {
   ContractCompletenessResponse,
@@ -297,9 +298,17 @@ export default function ContractDetailPage() {
   const lease = revision.lease || {};
   const financial = revision.financial || {};
   const charges = revision.charges || [];
+  const isNewFlowContract = Boolean(contract.rentalPaymentId);
+  const isPaidContract =
+    isNewFlowContract ||
+    payment?.paymentStatus === "PAID_MOCK" ||
+    contract.paymentStatus === "PAID_MOCK";
+
   const currentStatusLabel =
-    contract.status === "PENDING_REVIEW" && payment?.paymentStatus === "PAID_MOCK"
-      ? "Chờ ký hợp đồng"
+    contract.status === "PENDING_REVIEW"
+      ? isPaidContract
+        ? "Chờ ký hợp đồng"
+        : "Chờ thanh toán/ký"
       : STATUS_LABEL[contract.status];
 
   return (
@@ -426,11 +435,11 @@ export default function ContractDetailPage() {
           <Send className="w-4 h-4 mt-0.5 shrink-0" />
           <span>
             {isLandlord
-              ? payment?.paymentStatus === "PAID_MOCK"
-                ? "Người thuê đã thanh toán. Đang chờ người thuê xác nhận và ký hợp đồng."
+              ? isPaidContract
+                ? "Hợp đồng đã được gửi. Đang chờ người thuê kiểm tra và ký."
                 : "Hợp đồng đã được gửi. Đang chờ người thuê thanh toán và ký."
-              : payment?.paymentStatus === "PAID_MOCK"
-                ? "Bạn đã thanh toán. Hãy kiểm tra nội dung, xác nhận đồng ý và ký hợp đồng."
+              : isPaidContract
+                ? "Bạn đã thanh toán. Hãy kiểm tra nội dung và ký hợp đồng."
                 : "Chủ nhà đã gửi hợp đồng. Bạn có thể xem file và thực hiện thanh toán tháng đầu."}
           </span>
         </div>
@@ -600,20 +609,24 @@ export default function ContractDetailPage() {
             <div className="flex items-start gap-2.5">
               <CreditCard className="w-4 h-4 text-primary mt-0.5 shrink-0" />
               <div>
-                <h2 className="text-sm font-bold text-foreground">Thanh toán tháng đầu</h2>
+                <h2 className="text-sm font-bold text-foreground">
+                  {isNewFlowContract ? "Thanh toán ban đầu" : "Thanh toán tháng đầu"}
+                </h2>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {payment.paymentStatus === "PAID_MOCK"
-                    ? "Đã thanh toán trên môi trường giả lập."
-                    : "Chưa thanh toán."}
+                  {isNewFlowContract
+                    ? "Đã thanh toán trước khi tạo hợp đồng."
+                    : payment.paymentStatus === "PAID_MOCK"
+                      ? "Đã thanh toán trên môi trường giả lập."
+                      : "Chưa thanh toán."}
                 </p>
               </div>
             </div>
             <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border self-start ${
-              payment.paymentStatus === "PAID_MOCK"
+              isPaidContract
                 ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
                 : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
             }`}>
-              {payment.paymentStatus === "PAID_MOCK" ? "Đã thanh toán" : "Chưa thanh toán"}
+              {isPaidContract ? "Đã thanh toán" : "Chưa thanh toán"}
             </span>
           </div>
 
@@ -627,6 +640,12 @@ export default function ContractDetailPage() {
                 value={formatMonthlyAmount(charge.amount)}
               />
             ))}
+            {contract.paidAt && (
+              <FieldRow
+                label="Thời điểm thanh toán"
+                value={format(new Date(contract.paidAt), "HH:mm:ss, dd/MM/yyyy")}
+              />
+            )}
             <div className="flex items-center justify-between gap-3 py-3 text-sm">
               <span className="font-bold text-foreground">Tổng thanh toán</span>
               <span className="font-extrabold text-primary text-right">
@@ -641,7 +660,8 @@ export default function ContractDetailPage() {
             </p>
           )}
 
-          {isTenant && contract.status === "PENDING_REVIEW" && payment.paymentStatus === "UNPAID" && (
+          {/* Nhánh thanh toán legacy: Chỉ hiển thị cho hợp đồng luồng cũ chưa có rentalPaymentId */}
+          {!isNewFlowContract && isTenant && contract.status === "PENDING_REVIEW" && payment.paymentStatus === "UNPAID" && (
             <div className="mt-4 flex justify-end">
               <button
                 type="button"
@@ -655,7 +675,8 @@ export default function ContractDetailPage() {
             </div>
           )}
 
-          {isTenant && contract.status === "PENDING_REVIEW" && payment.paymentStatus === "PAID_MOCK" && (
+          {/* Người thuê ký hợp đồng: Áp dụng cho cả hợp đồng mới (đã thanh toán ban đầu) hoặc hợp đồng legacy đã PAID_MOCK */}
+          {isTenant && contract.status === "PENDING_REVIEW" && isPaidContract && (
             <div className="mt-4 border-t border-border pt-4 space-y-3">
               <label className="flex items-start gap-2.5 text-xs text-foreground cursor-pointer">
                 <input
@@ -683,8 +704,8 @@ export default function ContractDetailPage() {
 
           {isLandlord && contract.status === "PENDING_REVIEW" && (
             <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
-              {payment.paymentStatus === "PAID_MOCK"
-                ? "Người thuê đã thanh toán. Đang chờ người thuê xác nhận và ký hợp đồng."
+              {isPaidContract
+                ? "Người thuê đã thanh toán. Đang chờ người thuê kiểm tra và ký hợp đồng."
                 : "Đang chờ người thuê thanh toán và ký hợp đồng."}
             </p>
           )}
@@ -696,7 +717,9 @@ export default function ContractDetailPage() {
           ? "Kiểm tra dữ liệu, kết xuất file rồi gửi hợp đồng cho người thuê."
           : contract.status === "ACTIVE"
             ? "Hợp đồng đã có hiệu lực. Tin đăng đã chuyển sang trạng thái đã cho thuê."
-            : "Hai bên có thể xem và tải tài liệu hợp đồng; người thuê hoàn tất thanh toán và ký tại trang này."}
+            : isNewFlowContract
+              ? "Hai bên có thể xem và tải tài liệu hợp đồng; người thuê đã thanh toán ban đầu và ký tại trang này."
+              : "Hai bên có thể xem và tải tài liệu hợp đồng; người thuê hoàn tất thanh toán và ký tại trang này."}
         {(isLandlord || isTenant) && (
           <>
             {" "}

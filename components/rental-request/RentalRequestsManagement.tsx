@@ -30,6 +30,7 @@ import rentalRequestService from "@/services/rental-request.service";
 import ListingPreviewModal from "@/components/listing/ListingPreviewModal";
 import CreateContractFromRequestModal from "@/components/contract/CreateContractFromRequestModal";
 import RentalRequestDetailModal from "./RentalRequestDetailModal";
+import RentalPaymentModal from "./RentalPaymentModal";
 import { contractService } from "@/services/contract.service";
 import type { ContractResponse } from "@/types/contract.type";
 import type {
@@ -113,7 +114,7 @@ const STATUS_FILTER_TABS: Array<{
 }> = [
   { key: "ALL", label: "Tất cả" },
   { key: "PENDING", label: "Chờ duyệt" },
-  { key: "ACCEPTED", label: `Đang giữ chỗ ${RENTAL_HOLD_DURATION_SHORT}` },
+  { key: "ACCEPTED", label: "Đang xử lý thuê" },
   { key: "COMPLETED", label: "Đã thuê" },
   { key: "REJECTED", label: "Bị từ chối" },
   { key: "EXPIRED", label: "Hết hạn" },
@@ -151,6 +152,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const [contractsByRequest, setContractsByRequest] = useState<Record<string, ContractResponse | null>>({});
   const [openingContractId, setOpeningContractId] = useState<string | null>(null);
   const [detailRequestId, setDetailRequestId] = useState<string | null>(null);
+  const [paymentTarget, setPaymentTarget] = useState<RentalRequestResponse | null>(null);
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -391,8 +393,22 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
             const linkedContract = contractsByRequest[req.id];
             const isContractPending = linkedContract?.status === "PENDING_REVIEW";
             const isContractActive = linkedContract?.status === "ACTIVE";
-            const isContractPaid = linkedContract?.paymentStatus === "PAID_MOCK";
+            const isContractDraft = linkedContract?.status === "DRAFT";
+            const isContractPaid =
+              linkedContract?.paymentStatus === "PAID_MOCK" ||
+              Boolean(linkedContract?.rentalPaymentId);
             const hasExecutionContract = isContractPending || isContractActive;
+
+            const initialPayment = req.initialPayment;
+            const isPaymentPaid =
+              initialPayment?.status === "PAID_MOCK" ||
+              initialPayment?.status === "PAID" ||
+              isContractPaid;
+            const isPaymentPending =
+              req.status === "ACCEPTED" &&
+              !hasExecutionContract &&
+              !isPaymentPaid;
+
             const statusInfo = isContractActive
               ? {
                   label: "Đã thuê thành công",
@@ -402,18 +418,41 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                 }
               : isContractPending
               ? {
-                  label: isContractPaid ? "Chờ ký hợp đồng" : "Chờ thanh toán/ký",
+                  label: "Chờ ký hợp đồng",
                   badgeClass:
                     "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
-                  icon: isContractPaid ? FileText : CreditCard,
+                  icon: FileText,
                 }
+              : isContractDraft
+              ? {
+                  label: "Chủ nhà đang soạn hợp đồng",
+                  badgeClass:
+                    "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800",
+                  icon: FileText,
+                }
+              : req.status === "ACCEPTED"
+              ? isPaymentPaid
+                ? {
+                    label: "Đã thanh toán — chờ hợp đồng",
+                    badgeClass:
+                      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
+                    icon: CheckCircle2,
+                  }
+                : mode === "SENT"
+                ? {
+                    label: "Chờ bạn thanh toán",
+                    badgeClass:
+                      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+                    icon: Clock,
+                  }
+                : {
+                    label: "Chờ khách thanh toán",
+                    badgeClass:
+                      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+                    icon: Clock,
+                  }
               : STATUS_CONFIG[req.status] || STATUS_CONFIG.PENDING;
             const StatusIcon = statusInfo.icon;
-            const isHoldActive =
-              req.status === "ACCEPTED" &&
-              !hasExecutionContract &&
-              req.holdExpiresAt &&
-              !isPast(new Date(req.holdExpiresAt));
 
             return (
               <div
@@ -576,6 +615,18 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                       </button>
                     )}
 
+                    {/* Khách thuê thanh toán khi ACCEPTED và PENDING thanh toán */}
+                    {mode === "SENT" && req.status === "ACCEPTED" && isPaymentPending && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentTarget(req)}
+                        className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        <span>Thanh toán</span>
+                      </button>
+                    )}
+
                     {/* Nút Xem chi tiết yêu cầu */}
                     <button
                       type="button"
@@ -598,50 +649,135 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                   </div>
                 </div>
 
-                {/* Khối Thông Báo Đếm Ngược Giữ Chỗ (Khi ACCEPTED) */}
-                {isHoldActive && (
-                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-2.5 text-xs text-emerald-800 dark:text-emerald-300">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Clock className="w-4 h-4 text-emerald-600 animate-pulse shrink-0" />
-                        <span>
-                          Thời hạn giữ chỗ độc quyền:{" "}
-                          <strong>còn {formatHoldRemaining(req.holdExpiresAt!, nowMs)}</strong>{" "}
-                          (hết hạn lúc {format(new Date(req.holdExpiresAt!), "HH:mm:ss, dd/MM/yyyy")})
-                        </span>
+                {/* Khối Thông Báo Đếm Ngược Giữ Chỗ & Thanh Toán (Khi ACCEPTED và chưa có hợp đồng đã gửi/ký) */}
+                {req.status === "ACCEPTED" && !hasExecutionContract && (
+                  <>
+                    {/* TRƯỜNG HỢP 1: Chờ thanh toán ban đầu */}
+                    {isPaymentPending && (
+                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2.5 text-xs text-amber-900 dark:text-amber-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-pulse shrink-0" />
+                            <span>
+                              {mode === "SENT"
+                                ? "Chờ bạn thanh toán ban đầu: "
+                                : "Chờ khách thanh toán ban đầu: "}
+                              <strong className="text-foreground">
+                                {formatVND(initialPayment?.totalAmount ?? req.estimatedInitialTotal ?? 0)}
+                              </strong>
+                              {req.holdExpiresAt && (
+                                <>
+                                  {" "}· Thời hạn còn lại:{" "}
+                                  <strong>{formatHoldRemaining(initialPayment?.expiresAt ?? req.holdExpiresAt, nowMs)}</strong>
+                                </>
+                              )}
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-bold uppercase tracking-wider bg-amber-600 text-white px-2.5 py-0.5 rounded-md shrink-0 self-start sm:self-auto">
+                            Chờ thanh toán
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                          {mode === "SENT" ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setPaymentTarget(req)}
+                                className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
+                              >
+                                <CreditCard className="w-3.5 h-3.5" />
+                                <span>Thanh toán ban đầu</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDetailRequestId(req.id)}
+                                className="px-3.5 py-2 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold text-foreground transition-all cursor-pointer inline-flex items-center gap-1.5"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>Xem chi tiết dự toán</span>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                disabled
+                                title="Chỉ có thể tạo hợp đồng sau khi khách thanh toán ban đầu."
+                                className="px-3.5 py-1.5 rounded-xl bg-muted text-muted-foreground border border-border text-xs font-semibold cursor-not-allowed inline-flex items-center gap-1.5 opacity-60"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>Tạo hợp đồng</span>
+                              </button>
+                              <span className="text-[11px] text-muted-foreground italic">
+                                * Chỉ có thể tạo hợp đồng sau khi khách thanh toán ban đầu.
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider bg-emerald-600 text-white px-2 py-0.5 rounded-md shrink-0">
-                        Giữ chỗ {RENTAL_HOLD_DURATION_SHORT}
-                      </span>
-                    </div>
-                    {mode === "RECEIVED" && (
-                      <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                        {linkedContract ? (
-                          <button
-                            type="button"
-                            disabled={openingContractId === req.id}
-                            onClick={() => {
-                              setOpeningContractId(req.id);
-                              router.push(`/dashboard/contracts/${linkedContract.id}`);
-                            }}
-                            className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            Xem / tiếp tục hợp đồng
-                          </button>
+                    )}
+
+                    {/* TRƯỜNG HỢP 2: Khách đã thanh toán ban đầu -> Chờ chủ nhà tạo/gửi hợp đồng */}
+                    {isPaymentPaid && (
+                      <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-2.5 text-xs text-emerald-800 dark:text-emerald-300">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span>
+                              {mode === "SENT"
+                                ? "Đã thanh toán — chờ chủ nhà tạo hợp đồng. "
+                                : "Khách đã thanh toán ban đầu: "}
+                              <strong className="text-foreground">
+                                {formatVND(initialPayment?.totalAmount ?? req.estimatedInitialTotal ?? 0)}
+                              </strong>
+                              {initialPayment?.paidAt && (
+                                <> (lúc {format(new Date(initialPayment.paidAt), "HH:mm:ss, dd/MM/yyyy")})</>
+                              )}
+                              {mode === "RECEIVED" && initialPayment?.contractDueAt && (
+                                <> · Hạn tạo hợp đồng: <strong>còn {formatHoldRemaining(initialPayment.contractDueAt, nowMs)}</strong></>
+                              )}
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-bold uppercase tracking-wider bg-emerald-600 text-white px-2.5 py-0.5 rounded-md shrink-0 self-start sm:self-auto">
+                            Đã thanh toán
+                          </span>
+                        </div>
+
+                        {mode === "RECEIVED" ? (
+                          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                            {linkedContract ? (
+                              <button
+                                type="button"
+                                disabled={openingContractId === req.id}
+                                onClick={() => {
+                                  setOpeningContractId(req.id);
+                                  router.push(`/dashboard/contracts/${linkedContract.id}`);
+                                }}
+                                className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                Xem / tiếp tục hợp đồng
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setContractTarget(req)}
+                                className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                Tạo hợp đồng
+                              </button>
+                            )}
+                          </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => setContractTarget(req)}
-                            className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            Tạo hợp đồng
-                          </button>
+                          <p className="text-[11px] opacity-90 leading-relaxed">
+                            Yêu cầu thuê đã được giữ chỗ độc quyền và bảo vệ. Chủ nhà đang tiến hành chuẩn bị hợp đồng thuê cho bạn.
+                          </p>
                         )}
                       </div>
                     )}
-                  </div>
+                  </>
                 )}
 
                 {hasExecutionContract && linkedContract && (
@@ -658,11 +794,11 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                         {isContractActive
                           ? "Hợp đồng đã có hiệu lực, giao dịch thuê đã hoàn tất."
                           : mode === "RECEIVED"
-                            ? isContractPaid
-                              ? "Người thuê đã thanh toán, đang chờ ký hợp đồng."
+                            ? isPaymentPaid
+                              ? "Người thuê đã thanh toán ban đầu. Đang chờ người thuê kiểm tra và ký hợp đồng."
                               : "Đang chờ người thuê thanh toán và ký hợp đồng."
-                            : isContractPaid
-                              ? "Bạn đã thanh toán, hãy mở hợp đồng để ký."
+                            : isPaymentPaid
+                              ? "Bạn đã thanh toán ban đầu. Hãy mở hợp đồng để kiểm tra và ký."
                               : "Hợp đồng đang chờ bạn thanh toán và ký."}
                       </span>
                     </div>
@@ -963,6 +1099,19 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         />
       )}
 
+      {/* Modal Thanh Toán Ban Đầu */}
+      {paymentTarget && (
+        <RentalPaymentModal
+          request={paymentTarget}
+          isOpen={Boolean(paymentTarget)}
+          onClose={() => setPaymentTarget(null)}
+          onPaymentSuccess={() => {
+            setPaymentTarget(null);
+            void fetchRequests();
+          }}
+        />
+      )}
+
       {/* Modal Xem Chi Tiết Yêu Cầu Thuê */}
       <RentalRequestDetailModal
         requestId={detailRequestId}
@@ -983,6 +1132,10 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         onCancel={(req) => {
           setDetailRequestId(null);
           setCancelTarget(req);
+        }}
+        onPayMock={(req) => {
+          setDetailRequestId(null);
+          setPaymentTarget(req);
         }}
         onCreateContract={(req) => {
           setDetailRequestId(null);

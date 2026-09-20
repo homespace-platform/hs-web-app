@@ -118,6 +118,18 @@ const storageService = {
       sizeBytes: file.size,
     };
   },
+
+  async uploadPaymentProof(file: File, paymentRequestId: string): Promise<string> {
+    return uploadFile(file, {
+      fileName: file.name,
+      contentType: file.type || "image/jpeg",
+      size: file.size,
+      purpose: "GENERAL",
+      visibility: "AUTHENTICATED",
+      referenceType: "USER",
+      referenceId: paymentRequestId,
+    });
+  },
 };
 
 export default storageService;

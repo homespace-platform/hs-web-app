@@ -1,6 +1,7 @@
 import {
   User,
   Shield,
+  Landmark,
   Lock,
   Paintbrush,
   Bell,
@@ -11,6 +12,7 @@ import {
 export const SETTINGS_SECTIONS = [
   { id: "profile", label: "Thông tin cá nhân", icon: User },
   { id: "account-security", label: "Tài khoản và bảo mật", icon: Shield },
+  { id: "bank-accounts", label: "Tài khoản ngân hàng", icon: Landmark },
   { id: "appearance", label: "Giao diện", icon: Paintbrush },
   { id: "privacy", label: "Quyền riêng tư", icon: Lock },
   { id: "notifications", label: "Thông báo", icon: Bell },

@@ -314,7 +314,7 @@ export function RentalCostSummary({
 
         {/* Ghi chú về thời điểm thanh toán nằm trước divider và trước dòng tổng */}
         <p className="text-[10px] text-muted-foreground italic pt-1 border-t border-primary/10">
-          * Số tiền được thanh toán để tiếp tục giữ chỗ sau khi chủ nhà chấp thuận yêu cầu. Hệ thống tạm giữ khoản thanh toán này cho đến khi hợp đồng được hoàn tất.
+          * Số tiền được chuyển khoản trực tiếp vào tài khoản ngân hàng của chủ nhà để giữ chỗ sau khi chủ nhà chấp thuận yêu cầu. HomeSpace không nhận tiền và không giữ tiền.
         </p>
 
         {/* Dòng “Tổng cần thanh toán” là dòng cuối cùng trong khối dự toán */}

@@ -98,6 +98,13 @@ const userService = {
       request,
     );
   },
+
+  async getOnboardingStatus(): Promise<import("@/types/user.type").OnboardingStatusResponse> {
+    const response = await axiosClient.get<ApiResponse<import("@/types/user.type").OnboardingStatusResponse>>(
+      "/api/v1/users/me/onboarding-status"
+    );
+    return response.data.result;
+  },
 };
 
 export default userService;

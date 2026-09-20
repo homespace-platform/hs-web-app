@@ -5,39 +5,37 @@ import { useRouter } from "next/navigation";
 import { FileText, Loader2, Shield, User, X, Check, FileCheck, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { contractService } from "@/services/contract.service";
-import { rentalPaymentService } from "@/services/rental-payment.service";
-import type { ContractTemplateResponse } from "@/types/contract.type";
-import { CATEGORY_NAMES } from "@/types/contract.type";
+import paymentRequestService from "@/services/payment-request.service";
+import type { RentalPaymentStatus } from "@/types/rental-payment.type";
 import type { RentalRequestResponse } from "@/types/rental-request.type";
+import { type ContractTemplateResponse, CATEGORY_NAMES } from "@/types/contract.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 
-type Props = {
+interface CreateContractFromRequestModalProps {
   request: RentalRequestResponse;
   onClose: () => void;
-};
+}
 
-type TabType = "SYSTEM" | "LANDLORD";
-
-export default function CreateContractFromRequestModal({ request, onClose }: Props) {
+export default function CreateContractFromRequestModal({
+  request,
+  onClose,
+}: CreateContractFromRequestModalProps) {
   const router = useRouter();
-  const [templates, setTemplates] = useState<ContractTemplateResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>("SYSTEM");
-  const [paymentStatus, setPaymentStatus] = useState<string | null>(
+  const [templates, setTemplates] = useState<ContractTemplateResponse[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"SYSTEM" | "LANDLORD">("SYSTEM");
+  const [paymentStatus, setPaymentStatus] = useState<RentalPaymentStatus | null>(
     request.initialPayment?.status ?? null
   );
 
+  const routerRef = useRef(router);
   const onCloseRef = useRef(onClose);
   useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
-  const routerRef = useRef(router);
-  useEffect(() => {
     routerRef.current = router;
-  }, [router]);
+    onCloseRef.current = onClose;
+  }, [router, onClose]);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,9 +44,9 @@ export default function CreateContractFromRequestModal({ request, onClose }: Pro
       try {
         // 1. Kiểm tra trạng thái thanh toán ban đầu của yêu cầu thuê
         try {
-          const payment = await rentalPaymentService.getInitialPayment(request.id);
+          const payment = await paymentRequestService.getInitialPaymentByRentalRequestId(request.id);
           if (!cancelled && payment?.status) {
-            setPaymentStatus(payment.status);
+            setPaymentStatus(payment.status as RentalPaymentStatus);
           }
         } catch {
           // fallback to request.initialPayment
@@ -96,12 +94,15 @@ export default function CreateContractFromRequestModal({ request, onClose }: Pro
     return landlordTemplates;
   }, [activeTab, systemTemplates, landlordTemplates]);
 
-  const isPaymentPaid = paymentStatus === "PAID_MOCK" || paymentStatus === "PAID";
+  const isPaymentPaid =
+    paymentStatus === "CONFIRMED" ||
+    paymentStatus === "PAID_MOCK" ||
+    paymentStatus === "PAID";
 
   async function handleCreate() {
     if (!isPaymentPaid) {
       toast.error(
-        "Chưa thể tạo hợp đồng: Khách thuê chưa hoàn tất thanh toán ban đầu. Bạn chỉ có thể tạo hợp đồng sau khi khách đã thanh toán."
+        "Chưa thể tạo hợp đồng: Bạn chỉ có thể tạo hợp đồng sau khi đã xác nhận nhận đủ tiền chuyển khoản trực tiếp từ khách thuê."
       );
       return;
     }

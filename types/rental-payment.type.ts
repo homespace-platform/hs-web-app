@@ -2,6 +2,11 @@ export type RentalPaymentType = "INITIAL_PAYMENT";
 
 export type RentalPaymentStatus =
   | "PENDING"
+  | "AWAITING_TRANSFER"
+  | "TRANSFER_REPORTED"
+  | "CONFIRMED"
+  | "REJECTED"
+  | "DISPUTED"
   | "PAID_MOCK"
   | "PAID"
   | "FAILED"
@@ -13,8 +18,13 @@ export interface InitialPaymentSummary {
   id: string;
   status: RentalPaymentStatus;
   totalAmount: number;
+  transferReference?: string | null;
+  payerReportedAt?: string | null;
+  bankTransactionReference?: string | null;
+  dueAt?: string | null;
   expiresAt?: string | null;
   paidAt?: string | null;
+  confirmedAt?: string | null;
   contractDueAt?: string | null;
 }
 

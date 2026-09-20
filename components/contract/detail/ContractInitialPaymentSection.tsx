@@ -73,7 +73,7 @@ export default function ContractInitialPaymentSection({
                 {formatMoney(monthlyRent)}
               </td>
               <td className="py-2.5 px-3 text-emerald-600 dark:text-emerald-400 font-medium">
-                Đã thanh toán qua HomeSpace
+                Đã chuyển khoản trực tiếp
               </td>
             </tr>
             <tr>
@@ -84,7 +84,7 @@ export default function ContractInitialPaymentSection({
                 {formatMoney(fixedCharges)}
               </td>
               <td className="py-2.5 px-3 text-emerald-600 dark:text-emerald-400 font-medium">
-                Đã thanh toán qua HomeSpace
+                Đã chuyển khoản trực tiếp
               </td>
             </tr>
             <tr>
@@ -95,7 +95,7 @@ export default function ContractInitialPaymentSection({
                 {formatMoney(deposit)}
               </td>
               <td className="py-2.5 px-3 text-emerald-600 dark:text-emerald-400 font-medium">
-                Đã giữ trên nền tảng HomeSpace
+                Đã chuyển khoản trực tiếp cho chủ nhà
               </td>
             </tr>
             <tr className="bg-primary/5 font-bold">

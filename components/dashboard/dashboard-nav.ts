@@ -7,9 +7,8 @@ import {
   Send,
   FileCheck,
   Calendar,
-  Wallet,
-  Banknote,
   CreditCard,
+  Landmark,
   type LucideIcon,
 } from "lucide-react";
 import type { DashboardRole } from "@/lib/dashboard-role";
@@ -68,11 +67,10 @@ export const LANDLORD_NAV: DashboardNavGroup[] = [
     ],
   },
   {
-    groupTitle: "TÀI CHÍNH",
+    groupTitle: "TÀI CHÍNH & CHUYỂN KHOẢN",
     items: [
-      { title: "Nạp tiền", path: "/dashboard/deposit", icon: Wallet },
-      { title: "Rút tiền", path: "/dashboard/withdraw", icon: Banknote },
-      { title: "Thanh toán", path: "/dashboard/payments", icon: CreditCard },
+      { title: "Yêu cầu chuyển khoản", path: "/dashboard/payments", icon: CreditCard },
+      { title: "Tài khoản ngân hàng", path: "/settings/bank-accounts", icon: Landmark },
     ],
   },
 ];
@@ -104,11 +102,10 @@ export const TENANT_NAV: DashboardNavGroup[] = [
     ],
   },
   {
-    groupTitle: "TÀI CHÍNH",
+    groupTitle: "TÀI CHÍNH & CHUYỂN KHOẢN",
     items: [
-      { title: "Nạp tiền", path: "/dashboard/deposit", icon: Wallet },
-      { title: "Rút tiền", path: "/dashboard/withdraw", icon: Banknote },
-      { title: "Thanh toán", path: "/dashboard/payments", icon: CreditCard },
+      { title: "Yêu cầu chuyển khoản", path: "/dashboard/payments", icon: CreditCard },
+      { title: "Tài khoản ngân hàng", path: "/settings/bank-accounts", icon: Landmark },
     ],
   },
 ];

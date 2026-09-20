@@ -83,3 +83,12 @@ export type UpdatePasswordRequest = {
 export type UpdateUserAvatarRequest = {
   storageId: string;
 };
+
+export type OnboardingStatusResponse = {
+  completed: boolean;
+  version: number;
+  requiredSteps: string[];
+  completedSteps: string[];
+  nextStep: "PROFILE" | "ADDRESS" | "PASSWORD" | "BANK_ACCOUNT" | "COMPLETED";
+};
+

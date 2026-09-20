@@ -40,7 +40,7 @@ export default function LandlordCta() {
           {/* Subtitle */}
           <p className="text-sm sm:text-base text-slate-200 mb-8 max-w-2xl mx-auto leading-relaxed">
             Tiếp cận hàng ngàn khách thuê tiềm năng đã xác thực danh tính. Quản lý
-            hợp đồng tự động, nhận thanh toán cọc an toàn và minh bạch qua Ví điện tử.
+            hợp đồng tự động, nhận chuyển khoản tiền thuê và tiền cọc trực tiếp qua VietQR 24/7.
           </p>
 
           {/* Action Buttons */}

@@ -30,6 +30,9 @@ import {
 import { format, formatDistanceToNow, isPast } from "date-fns";
 import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
+import paymentRequestService from "@/services/payment-request.service";
+import { toast } from "sonner";
+import { getApiErrorMessage } from "@/utils/apiError";
 import type {
   RentalRequestResponse,
   RentalRequestStatus,
@@ -160,6 +163,10 @@ export default function RentalRequestDetailModal({
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [confirmingReceipt, setConfirmingReceipt] = useState(false);
+  const [rejectingReceipt, setRejectingReceipt] = useState(false);
+  const [showRejectReceiptPrompt, setShowRejectReceiptPrompt] = useState(false);
+  const [receiptRejectReason, setReceiptRejectReason] = useState("");
 
   // Fetch fresh request detail when modal opens or requestId changes
   useEffect(() => {
@@ -240,13 +247,54 @@ export default function RentalRequestDetailModal({
 
   const initialPayment = detail?.initialPayment;
   const isPaymentPaid =
+    initialPayment?.status === "CONFIRMED" ||
     initialPayment?.status === "PAID_MOCK" ||
     initialPayment?.status === "PAID" ||
     isContractPaid;
+  const isPaymentReported = initialPayment?.status === "TRANSFER_REPORTED";
   const isPaymentPending =
     detail?.status === "ACCEPTED" &&
     !hasExecutionContract &&
     !isPaymentPaid;
+
+  async function handleConfirmReceipt() {
+    if (!initialPayment?.id || confirmingReceipt) return;
+    setConfirmingReceipt(true);
+    try {
+      await paymentRequestService.confirmReceipt(initialPayment.id);
+      toast.success("Xác nhận đã nhận đủ tiền thành công! Bạn có thể tạo hợp đồng ngay.");
+      if (requestId) {
+        const fresh = await rentalRequestService.getRequestById(requestId);
+        setDetail(fresh);
+      }
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Xác nhận nhận tiền thất bại."));
+    } finally {
+      setConfirmingReceipt(false);
+    }
+  }
+
+  async function handleRejectReceipt() {
+    if (!initialPayment?.id || !receiptRejectReason.trim() || rejectingReceipt) {
+      toast.error("Vui lòng nhập lý do từ chối.");
+      return;
+    }
+    setRejectingReceipt(true);
+    try {
+      await paymentRequestService.rejectReceipt(initialPayment.id, { reason: receiptRejectReason.trim() });
+      toast.success("Đã gửi phản hồi từ chối xác nhận chuyển khoản cho khách thuê.");
+      setShowRejectReceiptPrompt(false);
+      setReceiptRejectReason("");
+      if (requestId) {
+        const fresh = await rentalRequestService.getRequestById(requestId);
+        setDetail(fresh);
+      }
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Từ chối xác nhận thất bại."));
+    } finally {
+      setRejectingReceipt(false);
+    }
+  }
 
   const statusInfo = isContractActive
     ? {
@@ -774,7 +822,7 @@ export default function RentalRequestDetailModal({
                   </div>
 
                   <p className="text-[10px] text-muted-foreground italic pt-1 border-t border-primary/10">
-                    * Số tiền được thanh toán để tiếp tục giữ chỗ sau khi chủ nhà chấp thuận yêu cầu. Hệ thống tạm giữ khoản thanh toán này cho đến khi hợp đồng được hoàn tất.
+                    * Số tiền được chuyển khoản trực tiếp vào tài khoản ngân hàng của chủ nhà để giữ chỗ sau khi chủ nhà chấp thuận yêu cầu. HomeSpace không nhận tiền và không giữ tiền.
                   </p>
 
                   <div className="border-t border-primary/20 pt-2.5 flex items-baseline justify-between gap-2">
@@ -834,37 +882,124 @@ export default function RentalRequestDetailModal({
                   {/* Trạng thái thanh toán và giữ chỗ */}
                   {detail.status === "ACCEPTED" && !hasExecutionContract && (
                     <>
-                      {isPaymentPending && (
+                      {/* Báo chuyển khoản chờ xác nhận */}
+                      {isPaymentReported && (
+                        <div className="p-3.5 rounded-2xl border-2 border-primary/30 bg-primary/5 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-primary flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 animate-pulse" />
+                              <span>{mode === "RECEIVED" ? "Người thuê đã báo chuyển khoản trực tiếp" : "Đã báo chuyển khoản — chờ chủ nhà xác nhận"}</span>
+                            </span>
+                            <span className="font-extrabold text-sm text-primary">
+                              {formatVND(initialPayment?.totalAmount ?? detail.estimatedInitialTotal ?? 0)}
+                            </span>
+                          </div>
+
+                          <div className="text-[11px] text-muted-foreground space-y-1 bg-background/60 p-2.5 rounded-xl border border-border/50">
+                            {initialPayment?.transferReference && (
+                              <p>Mã tham chiếu CK: <strong className="text-foreground font-mono">{initialPayment.transferReference}</strong></p>
+                            )}
+                            {initialPayment?.bankTransactionReference && (
+                              <p>Mã giao dịch ngân hàng: <strong className="text-foreground font-mono">{initialPayment.bankTransactionReference}</strong></p>
+                            )}
+                            {initialPayment?.payerReportedAt && (
+                              <p>Thời điểm báo: <span className="text-foreground">{format(new Date(initialPayment.payerReportedAt), "HH:mm:ss, dd/MM/yyyy")}</span></p>
+                            )}
+                          </div>
+
+                          {mode === "RECEIVED" && (
+                            <div className="pt-2 border-t border-primary/20 space-y-2">
+                              <p className="text-[11px] text-muted-foreground">
+                                Vui lòng kiểm tra tài khoản ngân hàng thụ hưởng của bạn. Sau khi thấy tiền đã vào tài khoản, bấm <strong>Xác nhận đã nhận đủ tiền</strong> để mở khóa tạo hợp đồng.
+                              </p>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  disabled={confirmingReceipt || rejectingReceipt}
+                                  onClick={handleConfirmReceipt}
+                                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>{confirmingReceipt ? "Đang xác nhận..." : "Xác nhận đã nhận đủ tiền"}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={confirmingReceipt || rejectingReceipt}
+                                  onClick={() => setShowRejectReceiptPrompt(true)}
+                                  className="px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-background hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-semibold transition-all disabled:opacity-50"
+                                >
+                                  Chưa nhận được / Không khớp
+                                </button>
+                              </div>
+
+                              {showRejectReceiptPrompt && (
+                                <div className="p-3 rounded-xl border border-rose-200 bg-rose-50/70 dark:border-rose-900/50 dark:bg-rose-950/30 space-y-2 mt-2">
+                                  <label className="block text-xs font-semibold text-rose-900 dark:text-rose-200">
+                                    Lý do từ chối xác nhận (sẽ hiển thị cho khách thuê):
+                                  </label>
+                                  <input
+                                    value={receiptRejectReason}
+                                    onChange={(e) => setReceiptRejectReason(e.target.value)}
+                                    placeholder="Ví dụ: Chưa thấy biến động số dư / Số tiền không khớp..."
+                                    className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-xs outline-none focus:border-rose-500"
+                                  />
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowRejectReceiptPrompt(false)}
+                                      className="px-2.5 py-1 rounded-lg border border-border text-xs text-muted-foreground"
+                                    >
+                                      Hủy
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={rejectingReceipt}
+                                      onClick={handleRejectReceipt}
+                                      className="px-3 py-1 rounded-lg bg-rose-600 text-white text-xs font-bold disabled:opacity-50"
+                                    >
+                                      {rejectingReceipt ? "Đang gửi..." : "Gửi từ chối"}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Chờ chuyển khoản */}
+                      {!isPaymentReported && isPaymentPending && (
                         <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 space-y-1.5">
                           <div className="flex items-center justify-between">
                             <span className="font-bold flex items-center gap-1.5">
                               <Clock className="w-3.5 h-3.5 animate-pulse text-amber-600 dark:text-amber-400" />
-                              <span>{mode === "SENT" ? "Chờ bạn thanh toán ban đầu" : "Chờ khách thanh toán ban đầu"}:</span>
+                              <span>{mode === "SENT" ? "Chờ bạn chuyển khoản trực tiếp" : "Chờ khách chuyển khoản trực tiếp"}:</span>
                             </span>
                             <span className="font-extrabold text-sm text-amber-600 dark:text-amber-400">
                               {detail.holdExpiresAt ? `còn ${formatHoldRemaining(initialPayment?.expiresAt ?? detail.holdExpiresAt, nowMs)}` : "Đang giữ chỗ"}
                             </span>
                           </div>
                           <p className="text-[11px] opacity-90">
-                            Tổng cần thanh toán: <strong className="text-foreground">{formatVND(initialPayment?.totalAmount ?? detail.estimatedInitialTotal ?? 0)}</strong>
+                            Tổng cần chuyển: <strong className="text-foreground">{formatVND(initialPayment?.totalAmount ?? detail.estimatedInitialTotal ?? 0)}</strong>
                             {detail.holdExpiresAt && ` (hết hạn lúc ${format(new Date(initialPayment?.expiresAt ?? detail.holdExpiresAt), "HH:mm:ss, dd/MM/yyyy")})`}
                           </p>
                         </div>
                       )}
 
+                      {/* Đã xác nhận */}
                       {isPaymentPaid && (
                         <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 space-y-1.5">
                           <div className="flex items-center justify-between">
                             <span className="font-bold flex items-center gap-1.5">
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              <span>{mode === "SENT" ? "Đã thanh toán ban đầu — chờ hợp đồng" : "Khách đã thanh toán ban đầu"}:</span>
+                              <span>{mode === "SENT" ? "Đã xác nhận chuyển khoản — chờ hợp đồng" : "Đã xác nhận nhận đủ tiền chuyển khoản"}:</span>
                             </span>
                             <span className="font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
                               {formatVND(initialPayment?.totalAmount ?? detail.estimatedInitialTotal ?? 0)}
                             </span>
                           </div>
                           <p className="text-[11px] opacity-90">
-                            {initialPayment?.paidAt && `Thanh toán thành công vào lúc ${format(new Date(initialPayment.paidAt), "HH:mm:ss, dd/MM/yyyy")}. `}
+                            {initialPayment?.confirmedAt && `Xác nhận nhận tiền lúc ${format(new Date(initialPayment.confirmedAt), "HH:mm:ss, dd/MM/yyyy")}. `}
                             {mode === "RECEIVED" && initialPayment?.contractDueAt && (
                               <span>Thời hạn tạo hợp đồng: <strong>còn {formatHoldRemaining(initialPayment.contractDueAt, nowMs)}</strong></span>
                             )}
@@ -948,7 +1083,7 @@ export default function RentalRequestDetailModal({
                 </button>
               )}
 
-              {/* Khách thuê ACCEPTED và PENDING thanh toán -> Nút Thanh toán ban đầu */}
+              {/* Khách thuê ACCEPTED và PENDING thanh toán -> Nút Chuyển khoản giữ chỗ */}
               {mode === "SENT" && detail.status === "ACCEPTED" && isPaymentPending && (
                 <button
                   type="button"
@@ -957,7 +1092,7 @@ export default function RentalRequestDetailModal({
                   className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-40"
                 >
                   <CreditCard className="w-3.5 h-3.5" />
-                  <span>Thanh toán ban đầu</span>
+                  <span>{isPaymentReported ? "Xem chi tiết chuyển khoản" : "Chuyển khoản giữ chỗ"}</span>
                 </button>
               )}
 
@@ -990,14 +1125,14 @@ export default function RentalRequestDetailModal({
                         <button
                           type="button"
                           disabled
-                          title="Chỉ có thể tạo hợp đồng sau khi khách thanh toán ban đầu."
+                          title="Chỉ có thể tạo hợp đồng sau khi xác nhận nhận đủ tiền chuyển khoản."
                           className="px-4 py-2 rounded-xl bg-muted text-muted-foreground border border-border text-xs font-semibold cursor-not-allowed inline-flex items-center gap-1.5 opacity-60"
                         >
                           <FileText className="w-3.5 h-3.5" />
                           <span>Tạo hợp đồng</span>
                         </button>
                         <span className="text-[11px] text-muted-foreground italic hidden sm:inline">
-                          * Chỉ tạo hợp đồng sau khi khách thanh toán.
+                          * Chỉ tạo hợp đồng sau khi xác nhận nhận đủ tiền chuyển khoản.
                         </span>
                       </div>
                     )

@@ -250,7 +250,7 @@ export default function LocationSection({
                 id="field-province"
                 label="Tỉnh / Thành phố"
                 required
-                error={errors.province}
+                error={isBranchSelected ? undefined : errors.province}
               >
                 <SearchableLocationDropdown
                   name="provinceName"
@@ -277,7 +277,7 @@ export default function LocationSection({
                 id="field-ward"
                 label="Phường / Xã"
                 required
-                error={errors.ward}
+                error={isBranchSelected ? undefined : errors.ward}
               >
                 <SearchableLocationDropdown
                   name="wardCode"
@@ -308,7 +308,7 @@ export default function LocationSection({
                 id="field-street-line"
                 label="Địa chỉ cụ thể (Số nhà, tên đường)"
                 required
-                error={errors.streetLine}
+                error={isBranchSelected ? undefined : errors.streetLine}
                 className="sm:col-span-2"
               >
                 <input
@@ -318,7 +318,7 @@ export default function LocationSection({
                   onChange={(e) => onStreetLineChange(e.target.value)}
                   placeholder="Ví dụ: 12 Nguyễn Huệ hoặc 208 Nguyễn Hữu Cảnh..."
                   className={`${inputClass} ${
-                    errors.streetLine ? "border-destructive focus:border-destructive" : ""
+                    errors.streetLine && !isBranchSelected ? "border-destructive focus:border-destructive" : ""
                   } ${isBranchSelected ? "opacity-75 bg-muted cursor-not-allowed" : ""}`}
                 />
               </FormField>

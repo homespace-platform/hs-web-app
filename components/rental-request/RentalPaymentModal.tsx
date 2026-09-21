@@ -79,12 +79,6 @@ export default function RentalPaymentModal({
   const libraryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // Form state
-  const [bankTxRef, setBankTxRef] = useState("");
-  const [payerLast4, setPayerLast4] = useState("");
-  const [transferTime, setTransferTime] = useState("");
-  const [note, setNote] = useState("");
-
   // Proof source mode: LOCAL (tệp trên máy này) | MOBILE_QR (tải từ điện thoại)
   const [proofSource, setProofSource] = useState<"LOCAL" | "MOBILE_QR">("LOCAL");
 
@@ -98,6 +92,7 @@ export default function RentalPaymentModal({
   // Mobile QR handoff upload session state
   const [mobileSessionId, setMobileSessionId] = useState<string | null>(null);
   const [mobileQrDataUrl, setMobileQrDataUrl] = useState<string | null>(null);
+  const [mobileUploadPageUrl, setMobileUploadPageUrl] = useState<string | null>(null);
   const [mobileSessionExpiresAt, setMobileSessionExpiresAt] = useState<string | null>(null);
   const [mobileCountdown, setMobileCountdown] = useState<number | null>(null);
   const [mobileStatus, setMobileStatus] = useState<"IDLE" | "CREATING" | "AWAITING_UPLOAD" | "UPLOADED" | "EXPIRED" | "ERROR">("IDLE");
@@ -123,19 +118,12 @@ export default function RentalPaymentModal({
     setUploadError(null);
     setMobileSessionId(null);
     setMobileQrDataUrl(null);
+    setMobileUploadPageUrl(null);
     setMobileSessionExpiresAt(null);
     setMobileCountdown(null);
     setMobileStatus("IDLE");
     setMobileEvidence(null);
     setMobileError(null);
-    setBankTxRef("");
-    setPayerLast4("");
-    setNote("");
-
-    // Default transfer time to local ISO string without timezone offset
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    setTransferTime(now.toISOString().slice(0, 16));
 
     async function loadPayment() {
       try {
@@ -202,7 +190,21 @@ export default function RentalPaymentModal({
         );
         if (!isPolling) return;
 
-        if (res.status === "UPLOADED") {
+        if (res.status === "CONSUMED") {
+          // Mobile đã upload và gửi trực tiếp cho chủ nhà!
+          const updated = await paymentRequestService.getInitialPaymentByRentalRequestId(request.id);
+          if (!isPolling) return;
+          setPayment(updated);
+          setShowReportForm(false);
+          setMobileStatus("IDLE");
+          setMobileSessionId(null);
+          setMobileQrDataUrl(null);
+          setMobileUploadPageUrl(null);
+          setMobileEvidence(null);
+          toast.success("Chứng từ đã được gửi cho chủ nhà xác nhận từ điện thoại.");
+          onPaymentSuccess?.(updated);
+          return;
+        } else if (res.status === "UPLOADED") {
           setMobileStatus("UPLOADED");
           setMobileEvidence(res.evidence || null);
           toast.success("Đã nhận chứng từ từ điện thoại.");
@@ -222,7 +224,7 @@ export default function RentalPaymentModal({
       isPolling = false;
       clearInterval(pollInterval);
     };
-  }, [isOpen, showReportForm, proofSource, mobileStatus, mobileSessionId, payment]);
+  }, [isOpen, showReportForm, proofSource, mobileStatus, mobileSessionId, payment, request.id, onPaymentSuccess]);
 
   if (!isOpen) return null;
 
@@ -341,6 +343,7 @@ export default function RentalPaymentModal({
     setMobileStatus("CREATING");
     setMobileError(null);
     setMobileEvidence(null);
+    setMobileUploadPageUrl(null);
     try {
       const res = await paymentRequestService.createProofUploadSession(payment.id);
       const qrDataUrl = await QRCode.toDataURL(res.uploadPageUrl, {
@@ -350,6 +353,7 @@ export default function RentalPaymentModal({
       });
       setMobileSessionId(res.sessionId);
       setMobileQrDataUrl(qrDataUrl);
+      setMobileUploadPageUrl(res.uploadPageUrl);
       setMobileSessionExpiresAt(res.expiresAt);
       const remainingSecs = Math.max(
         0,
@@ -357,11 +361,20 @@ export default function RentalPaymentModal({
       );
       setMobileCountdown(remainingSecs);
       setMobileStatus("AWAITING_UPLOAD");
-    } catch (err) {
+    } catch (err: unknown) {
       setMobileStatus("ERROR");
-      const msg = getApiErrorMessage(err, "Không thể tạo phiên tải chứng từ từ điện thoại.");
+      let msg = getApiErrorMessage(err, "Không thể tạo phiên tải chứng từ từ điện thoại.");
+      const errorCode = (err as { response?: { data?: { code?: number } } })?.response?.data?.code;
+      if (errorCode === 7021) {
+        msg = "Chưa cấu hình địa chỉ tải chứng từ từ điện thoại.";
+        toast.error("Chưa cấu hình URL công khai cho tải chứng từ. Vui lòng kiểm tra PAYMENT_PROOF_UPLOAD_PUBLIC_BASE_URL.");
+      } else if (errorCode === 7022) {
+        msg = "PAYMENT_PROOF_UPLOAD_PUBLIC_BASE_URL không hợp lệ.";
+        toast.error("PAYMENT_PROOF_UPLOAD_PUBLIC_BASE_URL không hợp lệ.");
+      } else {
+        toast.error(msg);
+      }
       setMobileError(msg);
-      toast.error(msg);
     }
   }
 
@@ -398,11 +411,7 @@ export default function RentalPaymentModal({
       setSubmitting(true);
       try {
         const payload: ReportTransferPayload = {
-          declaredTransferTime: transferTime ? new Date(transferTime).toISOString() : new Date().toISOString(),
-          bankTransactionReference: bankTxRef.trim() || undefined,
-          payerAccountLast4: payerLast4.trim() || undefined,
           proofStorageId: finalStorageId,
-          note: note.trim() || undefined,
         };
 
         const updated = await paymentRequestService.reportTransfer(payment.id, payload);
@@ -426,11 +435,7 @@ export default function RentalPaymentModal({
       setSubmitting(true);
       try {
         const payload: ReportTransferPayload = {
-          declaredTransferTime: transferTime ? new Date(transferTime).toISOString() : new Date().toISOString(),
-          bankTransactionReference: bankTxRef.trim() || undefined,
-          payerAccountLast4: payerLast4.trim() || undefined,
           evidenceUploadSessionId: mobileSessionId,
-          note: note.trim() || undefined,
         };
 
         const updated = await paymentRequestService.reportTransfer(payment.id, payload);
@@ -438,6 +443,7 @@ export default function RentalPaymentModal({
         setShowReportForm(false);
         setMobileStatus("IDLE");
         setMobileSessionId(null);
+        setMobileUploadPageUrl(null);
         setMobileEvidence(null);
         toast.success("Đã gửi chứng từ cho chủ nhà xác nhận.");
         onPaymentSuccess?.(updated);
@@ -951,13 +957,28 @@ export default function RentalPaymentModal({
                         {mobileStatus === "AWAITING_UPLOAD" && mobileQrDataUrl && (
                           <div className="flex flex-col md:flex-row items-center gap-5 sm:gap-7">
                             {/* QR Code container */}
-                            <div className="p-3 bg-white rounded-2xl border-2 border-primary/20 shadow-md shrink-0 flex flex-col items-center justify-center">
+                            <div className="p-3 bg-white rounded-2xl border-2 border-primary/20 shadow-md shrink-0 flex flex-col items-center justify-center gap-2">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={mobileQrDataUrl}
                                 alt="Mã QR tải chứng từ từ điện thoại"
                                 className="w-48 h-48 sm:w-52 sm:h-52 object-contain"
                               />
+                              {mobileUploadPageUrl && (
+                                <div className="max-w-[200px] sm:max-w-[220px] w-full flex flex-col items-center gap-1.5 pt-1.5 border-t border-slate-100">
+                                  <span className="text-[11px] text-slate-500 truncate w-full text-center" title={mobileUploadPageUrl}>
+                                    Trang tải chứng từ: {mobileUploadPageUrl}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(mobileUploadPageUrl, "liên kết tải chứng từ")}
+                                    className="px-2.5 py-1 rounded-md border border-border bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                    <span>Sao chép liên kết</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
 
                             {/* Instructions & Status */}
@@ -1106,89 +1127,40 @@ export default function RentalPaymentModal({
                     )}
                   </div>
 
-                  {/* Mã giao dịch ngân hàng & 4 số cuối */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-xs sm:text-sm font-semibold text-foreground mb-1">
-                        Mã giao dịch ngân hàng (FT... / Ref...)
-                      </label>
-                      <input
-                        value={bankTxRef}
-                        onChange={(e) => setBankTxRef(e.target.value)}
-                        placeholder="Ví dụ: FT260920123456"
-                        className="h-10 w-full rounded-xl border border-border bg-background px-3.5 text-xs sm:text-sm outline-none focus:border-primary"
-                      />
+                  {/* Mô tả nghiệp vụ & Action Buttons */}
+                  <div className="space-y-3 pt-2.5 border-t border-primary/20">
+                    <p className="text-xs text-muted-foreground italic">
+                      * Chủ nhà sẽ kiểm tra chứng từ và đối chiếu với tài khoản ngân hàng trước khi xác nhận.
+                    </p>
+
+                    <div className="flex items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        disabled={submitting}
+                        onClick={() => setShowReportForm(false)}
+                        className="rounded-xl border border-border bg-card px-4 py-2 text-xs sm:text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={
+                          submitting ||
+                          (proofSource === "LOCAL" && (uploadStatus === "UPLOADING" || (!selectedFile && !uploadedStorageId))) ||
+                          (proofSource === "MOBILE_QR" && (mobileStatus !== "UPLOADED" || !mobileSessionId))
+                        }
+                        className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs sm:text-sm font-bold text-primary-foreground shadow-sm shadow-primary/20 hover:bg-primary/90 transition-all disabled:opacity-60 cursor-pointer"
+                      >
+                        {(submitting || (proofSource === "LOCAL" && uploadStatus === "UPLOADING")) && <Loader2 className="w-4 h-4 animate-spin" />}
+                        <span>
+                          {submitting
+                            ? "Đang gửi chứng từ..."
+                            : proofSource === "LOCAL" && uploadStatus === "UPLOADING"
+                            ? "Đang tải tệp lên..."
+                            : "Gửi chứng từ cho chủ nhà xác nhận"}
+                        </span>
+                      </button>
                     </div>
-
-                    <div>
-                      <label className="block text-xs sm:text-sm font-semibold text-foreground mb-1">
-                        4 số cuối tài khoản chuyển (tùy chọn)
-                      </label>
-                      <input
-                        value={payerLast4}
-                        maxLength={4}
-                        onChange={(e) => setPayerLast4(e.target.value.replace(/\D/g, ""))}
-                        placeholder="Ví dụ: 6789"
-                        className="h-10 w-full rounded-xl border border-border bg-background px-3.5 text-xs sm:text-sm font-mono outline-none focus:border-primary"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Thời điểm chuyển khoản */}
-                  <div>
-                    <label className="block text-xs sm:text-sm font-semibold text-foreground mb-1">
-                      Thời điểm chuyển khoản
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={transferTime}
-                      onChange={(e) => setTransferTime(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-border bg-background px-3.5 text-xs sm:text-sm outline-none focus:border-primary"
-                    />
-                  </div>
-
-                  {/* Ghi chú */}
-                  <div>
-                    <label className="block text-xs sm:text-sm font-semibold text-foreground mb-1">
-                      Ghi chú thêm cho chủ nhà (tùy chọn)
-                    </label>
-                    <textarea
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      rows={2}
-                      placeholder="Lời nhắn cho chủ nhà..."
-                      className="w-full rounded-xl border border-border bg-background p-3 text-xs sm:text-sm outline-none focus:border-primary resize-none"
-                    />
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center justify-end gap-3 pt-2.5 border-t border-primary/20">
-                    <button
-                      type="button"
-                      disabled={submitting}
-                      onClick={() => setShowReportForm(false)}
-                      className="rounded-xl border border-border bg-card px-4 py-2 text-xs sm:text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
-                    >
-                      Hủy
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={
-                        submitting ||
-                        (proofSource === "LOCAL" && (uploadStatus === "UPLOADING" || (!selectedFile && !uploadedStorageId))) ||
-                        (proofSource === "MOBILE_QR" && (mobileStatus !== "UPLOADED" || !mobileSessionId))
-                      }
-                      className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs sm:text-sm font-bold text-primary-foreground shadow-sm shadow-primary/20 hover:bg-primary/90 transition-all disabled:opacity-60 cursor-pointer"
-                    >
-                      {(submitting || (proofSource === "LOCAL" && uploadStatus === "UPLOADING")) && <Loader2 className="w-4 h-4 animate-spin" />}
-                      <span>
-                        {submitting
-                          ? "Đang gửi chứng từ..."
-                          : proofSource === "LOCAL" && uploadStatus === "UPLOADING"
-                          ? "Đang tải tệp lên..."
-                          : "Gửi chứng từ cho chủ nhà xác nhận"}
-                      </span>
-                    </button>
                   </div>
                 </form>
               )}
@@ -1214,13 +1186,6 @@ export default function RentalPaymentModal({
                     <Clock className="w-4 h-4" />
                     <span>Đang chờ chủ nhà xác nhận</span>
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowReportForm(true)}
-                    className="px-4 py-2 rounded-xl border border-border bg-card hover:bg-muted text-xs sm:text-sm font-semibold text-foreground transition-colors cursor-pointer"
-                  >
-                    Gửi lại chứng từ
-                  </button>
                 </div>
               ) : (
                 <button
@@ -1229,7 +1194,7 @@ export default function RentalPaymentModal({
                   className="px-6 py-3 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm sm:text-base font-bold shadow-lg shadow-primary/25 transition-all cursor-pointer inline-flex items-center gap-2.5"
                 >
                   <UploadCloud className="w-5 h-5" />
-                  <span>Tôi đã chuyển khoản</span>
+                  <span>{isRejected ? "Gửi lại chứng từ" : "Tôi đã chuyển khoản"}</span>
                 </button>
               )}
             </div>

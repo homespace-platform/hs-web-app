@@ -192,6 +192,11 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     setContractTarget(null);
   }, []);
 
+  const handlePaymentSuccess = useCallback(() => {
+    setPaymentTarget(null);
+    void fetchRequests();
+  }, [fetchRequests]);
+
   // Tra cứu hợp đồng trong suốt vòng đời giữ chỗ và sau khi thuê thành công.
   useEffect(() => {
     const contractRequests = requests.filter(
@@ -645,7 +650,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                       </button>
                     )}
 
-                    {/* Khách thuê thanh toán khi ACCEPTED và PENDING thanh toán */}
+                    {/* Khách thuê mở phiếu thanh toán/chứng từ khi yêu cầu đã được chấp thuận */}
                     {mode === "SENT" && req.status === "ACCEPTED" && isPaymentPending && (
                       <button
                         type="button"
@@ -682,14 +687,57 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                 {/* Khối Thông Báo Đếm Ngược Giữ Chỗ & Thanh Toán (Khi ACCEPTED và chưa có hợp đồng đã gửi/ký) */}
                 {req.status === "ACCEPTED" && !hasExecutionContract && (
                   <>
-                    {/* TRƯỜNG HỢP 1: Chờ thanh toán ban đầu */}
-                    {isPaymentPending && (
+                    {/* Khách đã gửi chứng từ: khóa CTA thanh toán và chờ chủ nhà đối soát */}
+                    {isPaymentReported && (
+                      <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-2.5 text-xs text-blue-900 dark:text-blue-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                            <span>
+                              {mode === "SENT"
+                                ? "Chứng từ đã được gửi thành công. Đang chờ chủ nhà kiểm tra tài khoản và xác nhận số tiền "
+                                : "Khách thuê đã gửi chứng từ chuyển khoản. Vui lòng kiểm tra tài khoản ngân hàng và xác nhận số tiền "}
+                              <strong className="text-foreground">
+                                {formatVND(initialPayment?.totalAmount ?? req.estimatedInitialTotal ?? 0)}
+                              </strong>
+                              .
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-bold uppercase tracking-wider bg-blue-600 text-white px-2.5 py-0.5 rounded-md shrink-0 self-start sm:self-auto">
+                            {mode === "SENT" ? "Chờ chủ nhà xác nhận" : "Cần xác nhận"}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => mode === "SENT" ? setPaymentTarget(req) : setDetailRequestId(req.id)}
+                            className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>{mode === "SENT" ? "Xem chứng từ đã gửi" : "Xem chứng từ & xác nhận"}</span>
+                          </button>
+                          {mode === "RECEIVED" && (
+                            <span className="text-[11px] text-muted-foreground italic">
+                              Xác nhận sau khi tiền thực tế đã vào tài khoản của bạn.
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Chưa gửi chứng từ hoặc chứng từ đã bị từ chối */}
+                    {isPaymentPending && !isPaymentReported && (
                       <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2.5 text-xs text-amber-900 dark:text-amber-200">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0">
                             <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-pulse shrink-0" />
                             <span>
-                              {mode === "SENT"
+                              {isPaymentRejected
+                                ? mode === "SENT"
+                                  ? "Chủ nhà chưa xác nhận chứng từ. Vui lòng kiểm tra và gửi lại: "
+                                  : "Đã yêu cầu khách kiểm tra và gửi lại chứng từ: "
+                                : mode === "SENT"
                                 ? "Chờ bạn thanh toán ban đầu: "
                                 : "Chờ khách thanh toán ban đầu: "}
                               <strong className="text-foreground">
@@ -704,7 +752,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                             </span>
                           </div>
                           <span className="text-[11px] font-bold uppercase tracking-wider bg-amber-600 text-white px-2.5 py-0.5 rounded-md shrink-0 self-start sm:self-auto">
-                            Chờ thanh toán
+                            {isPaymentRejected ? "Cần gửi lại chứng từ" : "Chờ thanh toán"}
                           </span>
                         </div>
 
@@ -717,7 +765,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                                 className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
                               >
                                 <CreditCard className="w-3.5 h-3.5" />
-                                <span>Thanh toán ban đầu</span>
+                                <span>{isPaymentRejected ? "Gửi lại chứng từ" : "Thanh toán ban đầu"}</span>
                               </button>
                               <button
                                 type="button"
@@ -733,14 +781,18 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                               <button
                                 type="button"
                                 disabled
-                                title="Chỉ có thể tạo hợp đồng sau khi khách thanh toán ban đầu."
+                                title={isPaymentRejected
+                                  ? "Đang chờ khách gửi lại chứng từ hợp lệ."
+                                  : "Chỉ có thể tạo hợp đồng sau khi khách thanh toán ban đầu và chủ nhà xác nhận đã nhận tiền."}
                                 className="px-3.5 py-1.5 rounded-xl bg-muted text-muted-foreground border border-border text-xs font-semibold cursor-not-allowed inline-flex items-center gap-1.5 opacity-60"
                               >
                                 <FileText className="w-3.5 h-3.5" />
                                 <span>Tạo hợp đồng</span>
                               </button>
                               <span className="text-[11px] text-muted-foreground italic">
-                                * Chỉ có thể tạo hợp đồng sau khi khách thanh toán ban đầu.
+                                {isPaymentRejected
+                                  ? "* Đang chờ khách gửi lại chứng từ hợp lệ."
+                                  : "* Chỉ có thể tạo hợp đồng sau khi khách chuyển khoản và chủ nhà xác nhận đã nhận tiền."}
                               </span>
                             </>
                           )}
@@ -1135,10 +1187,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
           request={paymentTarget}
           isOpen={Boolean(paymentTarget)}
           onClose={() => setPaymentTarget(null)}
-          onPaymentSuccess={() => {
-            setPaymentTarget(null);
-            void fetchRequests();
-          }}
+          onPaymentSuccess={handlePaymentSuccess}
         />
       )}
 
@@ -1151,6 +1200,9 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         linkedContract={detailRequestId ? contractsByRequest[detailRequestId] : null}
         isProcessingAction={isProcessing}
         onViewListing={(listingId) => setPreviewListingId(listingId)}
+        onPaymentStatusChange={() => {
+          void fetchRequests();
+        }}
         onAccept={(req) => {
           setDetailRequestId(null);
           setAcceptTarget(req);

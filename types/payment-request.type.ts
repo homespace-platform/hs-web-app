@@ -68,19 +68,24 @@ export interface PaymentRequest {
   currency: string;
   totalAmount: number;
   transferReference: string;
-  payerAccount: BankAccountSnapshot;
-  payeeAccount: BankAccountSnapshot;
+  payerBankAccountSnapshot?: BankAccountSnapshot;
+  payeeBankAccountSnapshot: BankAccountSnapshot;
+  payerAccount?: BankAccountSnapshot;
+  payeeAccount?: BankAccountSnapshot;
   qrImageUrl: string;
   qrProvider: string;
   payerReportedAt?: string;
   payeeConfirmedAt?: string;
   confirmedAt?: string;
+  rejectedAt?: string;
+  rejectedReason?: string;
   dueAt?: string;
   confirmationDueAt?: string;
   contractDueAt?: string;
   bankTransactionReference?: string;
   lineItems: PaymentLineItem[];
-  evidenceList: PaymentEvidence[];
+  evidences: PaymentEvidence[];
+  evidenceList?: PaymentEvidence[];
   createdAt: string;
   updatedAt: string;
 }
@@ -90,7 +95,39 @@ export interface ReportTransferPayload {
   bankTransactionReference?: string;
   payerAccountLast4?: string;
   proofStorageId?: string;
+  evidenceUploadSessionId?: string;
   note?: string;
+}
+
+export type UploadSessionStatus =
+  | "CREATED"
+  | "UPLOADING"
+  | "UPLOADED"
+  | "CONSUMED"
+  | "EXPIRED"
+  | "CANCELLED";
+
+export interface ProofUploadSessionCreateResponse {
+  sessionId: string;
+  uploadPath: string;
+  uploadPageUrl: string;
+  expiresAt: string;
+  status: UploadSessionStatus;
+}
+
+export interface ProofUploadSessionEvidence {
+  storageId: string;
+  originalFileName: string;
+  contentType: string;
+  fileSize: number;
+  previewUrl?: string;
+}
+
+export interface ProofUploadSessionStatusResponse {
+  sessionId: string;
+  status: UploadSessionStatus;
+  expiresAt: string;
+  evidence?: ProofUploadSessionEvidence;
 }
 
 export interface RejectReceiptPayload {

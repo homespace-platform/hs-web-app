@@ -260,7 +260,20 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
       setAcceptTarget(null);
       fetchRequests();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, "Duyệt yêu cầu thất bại."));
+      const errObj = err as { response?: { data?: { code?: number; message?: string } } } | undefined;
+      const code = errObj?.response?.data?.code;
+      const msg = String(errObj?.response?.data?.message || "");
+      if (code === 7009 || msg.includes("defaultIncoming") || msg.toLowerCase().includes("tài khoản nhận tiền") || msg.toLowerCase().includes("ngân hàng")) {
+        toast.error("Bạn cần thiết lập tài khoản nhận tiền mặc định trước khi chấp nhận yêu cầu thuê.", {
+          action: {
+            label: "Cài đặt tài khoản",
+            onClick: () => router.push("/settings/bank-accounts"),
+          },
+          duration: 7000,
+        });
+      } else {
+        toast.error(getApiErrorMessage(err, "Duyệt yêu cầu thất bại."));
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -401,9 +414,12 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
 
             const initialPayment = req.initialPayment;
             const isPaymentPaid =
+              initialPayment?.status === "CONFIRMED" ||
               initialPayment?.status === "PAID_MOCK" ||
               initialPayment?.status === "PAID" ||
               isContractPaid;
+            const isPaymentReported = initialPayment?.status === "TRANSFER_REPORTED";
+            const isPaymentRejected = initialPayment?.status === "REJECTED";
             const isPaymentPending =
               req.status === "ACCEPTED" &&
               !hasExecutionContract &&
@@ -437,6 +453,20 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                     badgeClass:
                       "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
                     icon: CheckCircle2,
+                  }
+                : isPaymentReported
+                ? {
+                    label: mode === "SENT" ? "Đã gửi chứng từ — chờ xác nhận" : "Khách đã báo chuyển khoản",
+                    badgeClass:
+                      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+                    icon: Clock,
+                  }
+                : isPaymentRejected
+                ? {
+                    label: mode === "SENT" ? "Chứng từ bị từ chối" : "Đã từ chối chứng từ",
+                    badgeClass:
+                      "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800",
+                    icon: XCircle,
                   }
                 : mode === "SENT"
                 ? {
@@ -623,7 +653,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                         className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
                       >
                         <CreditCard className="w-3.5 h-3.5" />
-                        <span>Thanh toán</span>
+                        <span>{isPaymentReported ? "Xem chuyển khoản" : isPaymentRejected ? "Gửi lại chứng từ" : "Thanh toán"}</span>
                       </button>
                     )}
 

@@ -3,6 +3,7 @@ export type StoragePurpose =
   | "CONTRACT_DOCUMENT"
   | "IDENTITY_DOCUMENT"
   | "CHAT_ATTACHMENT"
+  | "PAYMENT_PROOF"
   | "GENERAL";
 
 export type StorageVisibility = "PUBLIC" | "PRIVATE" | "AUTHENTICATED";

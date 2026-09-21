@@ -124,9 +124,9 @@ const storageService = {
       fileName: file.name,
       contentType: file.type || "image/jpeg",
       size: file.size,
-      purpose: "GENERAL",
-      visibility: "AUTHENTICATED",
-      referenceType: "USER",
+      purpose: "PAYMENT_PROOF",
+      visibility: "PRIVATE",
+      referenceType: "PAYMENT_REQUEST",
       referenceId: paymentRequestId,
     });
   },

@@ -179,12 +179,19 @@ export default function PaymentsPage() {
                   </div>
                   <div>
                     <span className="text-muted-foreground block">Tài khoản thụ hưởng:</span>
-                    <span className="font-semibold text-foreground block truncate">
-                      {p.payeeAccount ? `${p.payeeAccount.bankCode} • ${p.payeeAccount.accountNumber}` : "—"}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground block truncate">
-                      {p.payeeAccount?.accountHolderName}
-                    </span>
+                    {(() => {
+                      const payee = p.payeeBankAccountSnapshot || p.payeeAccount;
+                      return (
+                        <>
+                          <span className="font-semibold text-foreground block truncate">
+                            {payee ? `${payee.bankCode} • ${payee.accountNumber}` : "—"}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground block truncate">
+                            {payee?.accountHolderName}
+                          </span>
+                        </>
+                      );
+                    })()}
                   </div>
                   <div>
                     <span className="text-muted-foreground block">Thời gian:</span>

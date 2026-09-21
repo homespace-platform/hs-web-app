@@ -8,6 +8,23 @@ import type {
   DisputePaymentPayload,
 } from "@/types/payment-request.type";
 
+function normalizePaymentRequest(data: unknown): PaymentRequest {
+  if (!data || typeof data !== "object") return data as unknown as PaymentRequest;
+  const raw = data as Record<string, unknown>;
+  const payeeAccount = (raw.payeeBankAccountSnapshot || raw.payeeAccount) as PaymentRequest["payeeBankAccountSnapshot"];
+  const payerAccount = (raw.payerBankAccountSnapshot || raw.payerAccount) as PaymentRequest["payerBankAccountSnapshot"];
+  const evidenceList = (raw.evidences || raw.evidenceList || []) as PaymentRequest["evidences"];
+  return {
+    ...(raw as unknown as PaymentRequest),
+    payeeBankAccountSnapshot: payeeAccount,
+    payerBankAccountSnapshot: payerAccount,
+    payeeAccount,
+    payerAccount,
+    evidences: evidenceList,
+    evidenceList,
+  };
+}
+
 export const paymentRequestService = {
   /**
    * Lấy thông tin chi tiết của một PaymentRequest
@@ -16,7 +33,7 @@ export const paymentRequestService = {
     const response = await axiosClient.get<ApiResponse<PaymentRequest>>(
       `/api/v1/payment-requests/${id}`
     );
-    return response.data.result!;
+    return normalizePaymentRequest(response.data.result);
   },
 
   /**
@@ -28,7 +45,7 @@ export const paymentRequestService = {
     const response = await axiosClient.get<ApiResponse<PaymentRequest>>(
       `/api/v1/rental-requests/${rentalRequestId}/initial-payment`
     );
-    return response.data.result!;
+    return normalizePaymentRequest(response.data.result);
   },
 
   /**
@@ -38,7 +55,8 @@ export const paymentRequestService = {
     const response = await axiosClient.get<ApiResponse<PaymentRequest[]>>(
       "/api/v1/payment-requests/mine"
     );
-    return response.data.result || [];
+    const list = response.data.result || [];
+    return list.map(normalizePaymentRequest);
   },
 
   /**
@@ -52,7 +70,7 @@ export const paymentRequestService = {
       `/api/v1/payment-requests/${id}/report-transfer`,
       payload
     );
-    return response.data.result!;
+    return normalizePaymentRequest(response.data.result);
   },
 
   /**
@@ -62,7 +80,7 @@ export const paymentRequestService = {
     const response = await axiosClient.post<ApiResponse<PaymentRequest>>(
       `/api/v1/payment-requests/${id}/confirm-receipt`
     );
-    return response.data.result!;
+    return normalizePaymentRequest(response.data.result);
   },
 
   /**
@@ -76,7 +94,7 @@ export const paymentRequestService = {
       `/api/v1/payment-requests/${id}/reject-receipt`,
       payload
     );
-    return response.data.result!;
+    return normalizePaymentRequest(response.data.result);
   },
 
   /**
@@ -90,7 +108,7 @@ export const paymentRequestService = {
       `/api/v1/payment-requests/${id}/dispute`,
       payload
     );
-    return response.data.result!;
+    return normalizePaymentRequest(response.data.result);
   },
 
   /**
@@ -101,6 +119,33 @@ export const paymentRequestService = {
       `/api/v1/payment-requests/${id}/events`
     );
     return response.data.result || [];
+  },
+
+  /**
+   * Tạo phiên tải chứng từ từ điện thoại (Mobile QR handoff)
+   */
+  async createProofUploadSession(
+    paymentRequestId: string
+  ): Promise<import("@/types/payment-request.type").ProofUploadSessionCreateResponse> {
+    const response = await axiosClient.post<
+      ApiResponse<import("@/types/payment-request.type").ProofUploadSessionCreateResponse>
+    >(`/api/v1/payment-requests/${paymentRequestId}/proof-upload-sessions`);
+    return response.data.result;
+  },
+
+  /**
+   * Kiểm tra trạng thái của phiên tải chứng từ mobile
+   */
+  async getProofUploadSessionStatus(
+    paymentRequestId: string,
+    sessionId: string
+  ): Promise<import("@/types/payment-request.type").ProofUploadSessionStatusResponse> {
+    const response = await axiosClient.get<
+      ApiResponse<import("@/types/payment-request.type").ProofUploadSessionStatusResponse>
+    >(
+      `/api/v1/payment-requests/${paymentRequestId}/proof-upload-sessions/${sessionId}`
+    );
+    return response.data.result;
   },
 };
 

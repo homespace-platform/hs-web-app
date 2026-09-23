@@ -61,7 +61,7 @@ export default function ContractDocumentSection({
                       {doc.documentType}
                     </span>
                     <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-muted text-muted-foreground">
-                      {doc.purpose === "OFFICIAL" ? "Chính thức" : "Bản xem trước"}
+                      {doc.purpose === "SIGNED_FINAL" ? "Đã ký đủ hai bên" : doc.purpose === "SIGNED_LANDLORD" ? "Chủ nhà đã ký" : doc.purpose === "OFFICIAL" ? "Chính thức" : "Bản xem trước"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-muted-foreground">

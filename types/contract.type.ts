@@ -66,6 +66,8 @@ export interface CreateTemplateVersionRequest {
 export type ContractStatus =
   | "DRAFT"
   | "PENDING_REVIEW"
+  | "LANDLORD_SIGNATURE_PENDING"
+  | "TENANT_SIGNATURE_PENDING"
   | "ACTIVE"
   | "TERMINATED"
   | "CANCELLED";
@@ -78,7 +80,42 @@ export type ContractPaymentStatus =
   | "FAILED";
 
 export type ContractDocumentType = "DOCX" | "PDF";
-export type DocumentPurpose = "PREVIEW" | "OFFICIAL";
+export type DocumentPurpose = "PREVIEW" | "OFFICIAL" | "SIGNED_LANDLORD" | "SIGNED_FINAL";
+
+export type SignatureRequestStatus =
+  | "CREATED" | "PENDING_USER_CONFIRMATION" | "PROVIDER_SIGNED" | "EMBEDDING"
+  | "SIGNED" | "REJECTED" | "EXPIRED" | "FAILED" | "CANCELLED";
+
+export interface SignatureRequestResponse {
+  id: string;
+  contractId: string;
+  revisionId: string;
+  signerRole: "LANDLORD" | "TENANT";
+  status: SignatureRequestStatus;
+  docId?: string | null;
+  signedDocumentId?: string | null;
+  certificateSerial?: string | null;
+  certificateSubject?: string | null;
+  initiatedAt?: string | null;
+  confirmedAt?: string | null;
+  expiresAt?: string | null;
+  failureReason?: string | null;
+}
+
+export interface SignatureStateResponse {
+  signatureMode: "INTERNAL" | "SMARTCA";
+  smartCaEnabled: boolean;
+  activeRequest?: SignatureRequestResponse | null;
+  allRequests: SignatureRequestResponse[];
+}
+
+export interface CertificateOptionResponse {
+  serialNumber: string;
+  subject: string;
+  issuer?: string | null;
+  validFrom?: string | null;
+  validTo?: string | null;
+}
 export type DocumentGenerationStatus = "GENERATING" | "READY" | "FAILED" | "STALE";
 
 export interface CreateContractDraftRequest {

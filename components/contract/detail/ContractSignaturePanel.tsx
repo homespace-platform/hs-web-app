@@ -6,11 +6,8 @@ import {
   Send,
   Loader2,
   CheckCircle2,
-  AlertTriangle,
   FileCheck,
-  KeyRound,
 } from "lucide-react";
-import { isContractESignatureEnabled } from "@/lib/contract-feature-flags";
 import type { ContractResponse } from "@/types/contract.type";
 import { str } from "./utils";
 
@@ -38,7 +35,6 @@ export default function ContractSignaturePanel({
   const [agreedLandlord, setAgreedLandlord] = useState(false);
   const [agreedTenant, setAgreedTenant] = useState(false);
 
-  const eSignatureEnabled = isContractESignatureEnabled;
   const isDraft = contract.status === "DRAFT";
   const isPending = contract.status === "PENDING_REVIEW";
   const isActive = contract.status === "ACTIVE";
@@ -85,34 +81,7 @@ export default function ContractSignaturePanel({
     );
   }
 
-  // CASE 2: E-SIGNATURE FEATURE FLAG IS ENABLED (PLACEHOLDER)
-  if (eSignatureEnabled) {
-    return (
-      <section className="rounded-2xl border border-sky-200 bg-sky-50/50 dark:border-sky-900 dark:bg-sky-950/20 p-5 space-y-3">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
-            <KeyRound className="w-5 h-5" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-sm font-bold text-sky-950 dark:text-sky-200">
-              Cổng tích hợp chữ ký điện tử (Digital Signature Provider)
-            </h3>
-            <p className="text-xs text-sky-900/80 dark:text-sky-300/80">
-              Hệ thống đã kích hoạt chế độ chữ ký điện tử chính thức (VNPT-CA / Viettel-CA / FPT-CA).
-            </p>
-            <div className="mt-2 p-2.5 rounded-lg border border-amber-300 bg-amber-50 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 inline-flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>
-                Chưa cấu hình nhà cung cấp chữ ký điện tử trên môi trường này. Vui lòng liên hệ quản trị viên để hoàn tất thiết lập nhà cung cấp chứng thư số.
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  // CASE 3: INTERNAL CONFIRMATION MODE (FEATURE FLAG = false)
+  // Internal confirmation mode. SmartCA has its own server-driven panel.
 
   // 3A. LANDLORD FLOW (IN DRAFT)
   if (isLandlord && isDraft) {

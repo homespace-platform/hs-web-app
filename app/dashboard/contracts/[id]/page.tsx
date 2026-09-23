@@ -15,6 +15,7 @@ import type {
   ContractPaymentBreakdownResponse,
   ContractResponse,
   ContractRevisionResponse,
+  SignatureStateResponse,
 } from "@/types/contract.type";
 import { useAuth } from "@/features/auth/useAuth";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -32,6 +33,7 @@ import ContractPoliciesSection from "@/components/contract/detail/ContractPolici
 import ContractHandoverSection from "@/components/contract/detail/ContractHandoverSection";
 import ContractDocumentSection from "@/components/contract/detail/ContractDocumentSection";
 import ContractSignaturePanel from "@/components/contract/detail/ContractSignaturePanel";
+import SmartCaSignaturePanel from "@/components/contract/detail/SmartCaSignaturePanel";
 
 export default function ContractDetailPage() {
   const params = useParams();
@@ -44,6 +46,7 @@ export default function ContractDetailPage() {
   const [completeness, setCompleteness] = useState<ContractCompletenessResponse | null>(null);
   const [documents, setDocuments] = useState<ContractDocumentResponse[]>([]);
   const [payment, setPayment] = useState<ContractPaymentBreakdownResponse | null>(null);
+  const [signatureState, setSignatureState] = useState<SignatureStateResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [rendering, setRendering] = useState(false);
@@ -66,11 +69,12 @@ export default function ContractDetailPage() {
     setLoading(true);
     try {
       const c = await contractService.getContract(contractId);
-      const [rev, comp, docs, paymentBreakdown] = await Promise.all([
+      const [rev, comp, docs, paymentBreakdown, sigState] = await Promise.all([
         contractService.getRevision(contractId),
         contractService.getCompleteness(contractId),
         contractService.getDocuments(contractId),
         contractService.getPaymentBreakdown(contractId),
+        contractService.getSignatureState(contractId),
       ]);
       setContract(c);
       setRevision(rev);
@@ -79,6 +83,7 @@ export default function ContractDetailPage() {
       setCompleteness(comp);
       setDocuments(docs);
       setPayment(paymentBreakdown);
+      setSignatureState(sigState);
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Không thể tải dữ liệu hợp đồng."));
       router.replace("/dashboard/contracts");
@@ -86,6 +91,18 @@ export default function ContractDetailPage() {
       setLoading(false);
     }
   }, [contractId, router]);
+
+  const refreshSignedState = useCallback(async () => {
+    if (!contractId) return;
+    const [updatedContract, docs, state] = await Promise.all([
+      contractService.getContract(contractId),
+      contractService.getDocuments(contractId),
+      contractService.getSignatureState(contractId),
+    ]);
+    setContract(updatedContract);
+    setDocuments(docs);
+    setSignatureState(state);
+  }, [contractId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -96,7 +113,9 @@ export default function ContractDetailPage() {
     const ready = documents.filter(
       (d) => d.status === "READY" && (d.viewUrl || d.downloadUrl)
     );
-    return ready[0] ?? documents[0] ?? null;
+    const preferred = ["SIGNED_FINAL", "SIGNED_LANDLORD", "OFFICIAL", "PREVIEW"];
+    return ready.sort((a, b) => preferred.indexOf(a.purpose) - preferred.indexOf(b.purpose))[0]
+      ?? documents[0] ?? null;
   }, [documents]);
 
   const hasReadyCurrentDocument = useMemo(
@@ -260,6 +279,7 @@ export default function ContractDetailPage() {
         sending={sending}
         onRender={handleRender}
         onSend={handleSendToTenant}
+        smartCaMode={signatureState?.signatureMode === "SMARTCA"}
       />
 
       {/* 2. WARNING BANNER: INCOMPLETE FIELDS FOR TEMPLATE */}
@@ -301,7 +321,14 @@ export default function ContractDetailPage() {
       )}
 
       {/* 3. SIGNATURE & CONFIRMATION PANEL (PROMINENT AT TOP / BOTTOM) */}
-      <ContractSignaturePanel
+      {signatureState?.signatureMode === "SMARTCA" ? <SmartCaSignaturePanel
+        contract={contract}
+        state={signatureState}
+        isLandlord={isLandlord}
+        isTenant={isTenant}
+        hasReadyPdf={Boolean(revision && documents.some(d => d.revisionId === revision.id && d.documentType === "PDF" && d.status === "READY"))}
+        onUpdated={refreshSignedState}
+      /> : <ContractSignaturePanel
         contract={contract}
         isLandlord={isLandlord}
         isTenant={isTenant}
@@ -310,7 +337,7 @@ export default function ContractDetailPage() {
         signing={signing}
         onSend={handleSendToTenant}
         onSign={handleSign}
-      />
+      />}
 
       {/* 4. MAIN CONTRACT SECTIONS */}
       <div className="space-y-6">

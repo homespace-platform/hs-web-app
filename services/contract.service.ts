@@ -15,10 +15,41 @@ import type {
   CreateTemplateVersionRequest,
   TemplateFieldDefinition,
   UpdateContractRevisionRequest,
+  SignatureStateResponse,
+  SignatureRequestResponse,
+  CertificateOptionResponse,
 } from "@/types/contract.type";
 import type { ListingCategory } from "@/types/listing.type";
 
 export const contractService = {
+  async getSignatureState(contractId: string): Promise<SignatureStateResponse> {
+    const response = await axiosClient.get<ApiResponse<SignatureStateResponse>>(
+      `/api/v1/contracts/${contractId}/signatures/state`
+    );
+    return response.data.result;
+  },
+
+  async getSigningCertificates(contractId: string): Promise<CertificateOptionResponse[]> {
+    const response = await axiosClient.get<ApiResponse<CertificateOptionResponse[]>>(
+      `/api/v1/contracts/${contractId}/signatures/certificates`
+    );
+    return response.data.result || [];
+  },
+
+  async initiateSmartCaSignature(contractId: string, certificateSerial: string): Promise<SignatureRequestResponse> {
+    const response = await axiosClient.post<ApiResponse<SignatureRequestResponse>>(
+      `/api/v1/contracts/${contractId}/signatures/initiate`,
+      { certificateSerial, consent: true }
+    );
+    return response.data.result;
+  },
+
+  async refreshSmartCaSignature(contractId: string, requestId: string): Promise<SignatureRequestResponse> {
+    const response = await axiosClient.post<ApiResponse<SignatureRequestResponse>>(
+      `/api/v1/contracts/${contractId}/signatures/${requestId}/refresh`
+    );
+    return response.data.result;
+  },
   async getCatalogFields(): Promise<TemplateFieldDefinition[]> {
     const response = await axiosClient.get<ApiResponse<TemplateFieldDefinition[]>>(
       "/api/v1/contracts/template-fields"

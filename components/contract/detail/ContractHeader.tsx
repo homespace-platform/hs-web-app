@@ -39,6 +39,12 @@ const STATUS_CONFIG: Record<
     border: "border-sky-200 dark:border-sky-800",
     bg: "bg-sky-50 dark:bg-sky-950/40",
   },
+  LANDLORD_SIGNATURE_PENDING: {
+    label: "Chờ chủ nhà ký SmartCA", color: "text-sky-700", border: "border-sky-200", bg: "bg-sky-50",
+  },
+  TENANT_SIGNATURE_PENDING: {
+    label: "Chờ người thuê ký SmartCA", color: "text-sky-700", border: "border-sky-200", bg: "bg-sky-50",
+  },
   ACTIVE: {
     label: "Đang có hiệu lực",
     color: "text-emerald-700 dark:text-emerald-300",
@@ -71,6 +77,7 @@ interface ContractHeaderProps {
   sending: boolean;
   onRender: () => Promise<void>;
   onSend: () => Promise<void>;
+  smartCaMode?: boolean;
 }
 
 export default function ContractHeader({
@@ -85,6 +92,7 @@ export default function ContractHeader({
   sending,
   onRender,
   onSend,
+  smartCaMode = false,
 }: ContractHeaderProps) {
   const router = useRouter();
 
@@ -189,7 +197,7 @@ export default function ContractHeader({
               )}
               Kết xuất lại file
             </button>
-            <button
+            {!smartCaMode && <button
               type="button"
               disabled={sending || !completeness?.complete || !hasReadyDoc}
               onClick={onSend}
@@ -208,7 +216,7 @@ export default function ContractHeader({
                 <Send className="w-3.5 h-3.5" />
               )}
               {sending ? "Đang gửi..." : "Gửi cho người thuê"}
-            </button>
+            </button>}
           </>
         )}
 

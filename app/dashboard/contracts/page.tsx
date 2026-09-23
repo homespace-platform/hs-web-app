@@ -14,6 +14,8 @@ import { useAuth } from "@/features/auth/useAuth";
 const STATUS_LABEL: Record<ContractStatus, string> = {
   DRAFT: "Bản nháp",
   PENDING_REVIEW: "Chờ người thuê",
+  LANDLORD_SIGNATURE_PENDING: "Chờ chủ nhà ký SmartCA",
+  TENANT_SIGNATURE_PENDING: "Chờ người thuê ký SmartCA",
   ACTIVE: "Hiệu lực",
   TERMINATED: "Đã chấm dứt",
   CANCELLED: "Đã hủy",
@@ -22,6 +24,8 @@ const STATUS_LABEL: Record<ContractStatus, string> = {
 const STATUS_BADGE: Record<ContractStatus, string> = {
   DRAFT: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300",
   PENDING_REVIEW: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300",
+  LANDLORD_SIGNATURE_PENDING: "bg-sky-50 text-sky-700 border-sky-200",
+  TENANT_SIGNATURE_PENDING: "bg-sky-50 text-sky-700 border-sky-200",
   ACTIVE: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300",
   TERMINATED: "bg-zinc-100 text-zinc-600 border-zinc-200",
   CANCELLED: "bg-rose-50 text-rose-700 border-rose-200",
@@ -90,7 +94,7 @@ export default function ContractsPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(["ALL", "DRAFT", "PENDING_REVIEW", "ACTIVE", "CANCELLED"] as const).map((key) => (
+        {(["ALL", "DRAFT", "LANDLORD_SIGNATURE_PENDING", "TENANT_SIGNATURE_PENDING", "PENDING_REVIEW", "ACTIVE", "CANCELLED"] as const).map((key) => (
           <button
             key={key}
             type="button"

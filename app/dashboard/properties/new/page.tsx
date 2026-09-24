@@ -754,10 +754,7 @@ function CreatePropertyListingContent() {
   }, [
     addressMode,
     savedUserAddress,
-    selectedBranch?.fullAddress,
-    selectedBranch?.streetLine,
-    selectedBranch?.wardName,
-    selectedBranch?.provinceName,
+    selectedBranch,
     streetLine,
     selectedWard?.name,
     wardQuery,

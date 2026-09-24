@@ -54,7 +54,7 @@ export default function PrivacySection() {
         <div className="bg-card rounded-2xl border border-border p-4 space-y-4 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-xs sm:text-sm font-medium text-foreground">
-              Hiện trạng thái "Đã xem"
+              Hiện trạng thái &quot;Đã xem&quot;
             </span>
             <Switch
               checked={showSeenStatus}

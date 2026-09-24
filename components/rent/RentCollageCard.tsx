@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   MapPin,
   Clock,
@@ -34,6 +35,7 @@ export default function RentCollageCard({
   onFavoriteChange,
 }: RentCollageCardProps) {
   const { authenticated, login } = useAuth();
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const isFavoritedInStore = useAppSelector((state) =>
     state.favorite.ids.includes(property.id)
@@ -279,7 +281,7 @@ export default function RentCollageCard({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  window.location.href = "/chat";
+                  router.push("/chat");
                 }}
                 title="Nhắn tin cho chủ nhà"
                 className="w-8 h-8 rounded-full border border-border bg-card hover:bg-muted text-muted-foreground hover:text-primary flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
@@ -402,7 +404,7 @@ export default function RentCollageCard({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  window.location.href = "/chat";
+                  router.push("/chat");
                 }}
                 title="Nhắn tin cho chủ nhà"
                 className="w-7 h-7 rounded-full border border-border bg-card hover:bg-muted text-muted-foreground hover:text-primary flex items-center justify-center transition-colors cursor-pointer shadow-2xs"

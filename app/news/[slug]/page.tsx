@@ -184,6 +184,7 @@ export default function NewsDetailPage({ params }: NewsDetailProps) {
           <div className="prose dark:prose-invert max-w-none text-muted-foreground text-sm sm:text-base leading-relaxed space-y-5">
             {article.contentBlocks?.map((block, index) => block.type === "IMAGE" ? (
               <figure key={index} className="space-y-2">
+                {/* eslint-disable-next-line @next/next/no-img-element -- News media URLs are supplied dynamically by the CMS. */}
                 <img src={block.storageObjectId ? article.media?.find((media) => media.storageObjectId === block.storageObjectId)?.url || "" : ""} alt="Ảnh trong bài viết" className="w-full rounded-2xl object-contain" />
                 {block.caption && <figcaption className="text-center text-xs italic text-muted-foreground">{block.caption}</figcaption>}
               </figure>

@@ -430,6 +430,7 @@ export default function DepositPage() {
 
               {/* QR Image Container */}
               <div className="w-64 h-64 bg-white rounded-2xl p-3 border border-slate-200 shadow-sm flex items-center justify-center relative overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element -- VietQR is a generated external image. */}
                 <img
                   src={`https://api.vietqr.io/image/970436-${activeTx.accountNumber}-compact2.jpg?amount=${activeTx.amount}&addInfo=${encodeURIComponent(activeTx.description)}&accountName=${encodeURIComponent(activeTx.accountName)}`}
                   alt="VietQR Vietcombank"

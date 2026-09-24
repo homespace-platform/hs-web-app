@@ -184,7 +184,6 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   }, [mode, statusFilter, page, pageSize]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchRequests();
   }, [fetchRequests]);
 

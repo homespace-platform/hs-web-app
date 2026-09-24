@@ -208,7 +208,6 @@ export default function RentalRequestDetailModal({
   // Fetch fresh request detail when modal opens or requestId changes
   useEffect(() => {
     if (!isOpen || !requestId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDetail(null);
       setDetailedPayment(null);
       setProofViewUrl(null);

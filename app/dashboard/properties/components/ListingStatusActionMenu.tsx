@@ -67,7 +67,9 @@ export default function ListingStatusActionMenu({
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && !submitting) {
-        closeModal();
+        setModalOpen(false);
+        setPendingAction(null);
+        setNote("");
       }
     }
 

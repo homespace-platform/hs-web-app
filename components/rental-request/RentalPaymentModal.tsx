@@ -105,7 +105,6 @@ export default function RentalPaymentModal({
     if (!isOpen) return;
 
     let isMounted = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setQrLoading(true);
     setQrError(false);

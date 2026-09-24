@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useCallback, useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -53,7 +53,7 @@ export default function FavoritesPage() {
   const listingsSectionRef = useRef<HTMLDivElement>(null);
 
   // Fetch real favorites from backend
-  const fetchFavorites = async () => {
+  const fetchFavorites = useCallback(async () => {
     if (!authenticated) return;
     setIsLoading(true);
     try {
@@ -66,7 +66,7 @@ export default function FavoritesPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [authenticated, dispatch]);
 
   useEffect(() => {
     if (initialized && authenticated) {
@@ -74,7 +74,7 @@ export default function FavoritesPage() {
     } else if (initialized && !authenticated) {
       setFavorites([]);
     }
-  }, [initialized, authenticated]);
+  }, [initialized, authenticated, fetchFavorites]);
 
   // Filter & Sort Logic
   const filteredAndSortedFavorites = useMemo(() => {

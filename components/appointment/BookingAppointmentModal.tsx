@@ -179,7 +179,7 @@ export default function BookingAppointmentModal({
     }
 
     loadData();
-  }, [isOpen, listingId, formattedDateStr, authenticated]);
+  }, [isOpen, listingId, formattedDateStr, authenticated, selectedDate]);
 
   // Nhóm các slot trong ngày được chọn theo Ca (Sáng / Chiều / Tối)
   const groupedSlots = useMemo(() => {
@@ -188,7 +188,7 @@ export default function BookingAppointmentModal({
     const afternoon = availability.slots.filter((s) => s.slotType === "AFTERNOON");
     const evening = availability.slots.filter((s) => s.slotType === "EVENING");
     return { morning, afternoon, evening };
-  }, [availability?.slots]);
+  }, [availability]);
 
   // Xử lý gửi Đặt lịch mới
   async function handleBookAppointment(e: React.FormEvent) {

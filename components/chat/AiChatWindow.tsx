@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
 import {
   ArrowLeft,
@@ -40,7 +40,7 @@ export default function AiChatWindow({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const messages = session?.messages || [];
+  const messages = useMemo(() => session?.messages || [], [session?.messages]);
   const isNewSession = messages.length === 0;
 
   useEffect(() => {

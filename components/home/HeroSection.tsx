@@ -32,7 +32,7 @@ export default function HeroSection() {
   const [current, setCurrent] = React.useState(0);
   const [count, setCount] = React.useState(0);
 
-  const plugin = React.useRef(
+  const [plugin] = React.useState(() =>
     Autoplay({ delay: 4500, stopOnInteraction: false, stopOnMouseEnter: true })
   );
 
@@ -53,7 +53,7 @@ export default function HeroSection() {
       <div className="w-full relative group">
         <Carousel
           setApi={setApi}
-          plugins={[plugin.current]}
+          plugins={[plugin]}
           opts={{
             loop: true,
             align: "start",

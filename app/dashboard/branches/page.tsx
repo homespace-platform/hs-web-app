@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Building2,
   Plus,
@@ -252,12 +252,7 @@ export default function BranchesPage() {
       });
   }, [provinceCode]);
 
-  useEffect(() => {
-    loadBranches();
-    loadListings();
-  }, []);
-
-  const loadBranches = async () => {
+  const loadBranches = useCallback(async () => {
     setLoading(true);
     try {
       const data = await branchService.getMyBranches();
@@ -267,9 +262,9 @@ export default function BranchesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadListings = async () => {
+  const loadListings = useCallback(async () => {
     setLoadingListings(true);
     try {
       const res = await listingService.getMyListings({ page: 1 });
@@ -279,7 +274,12 @@ export default function BranchesPage() {
     } finally {
       setLoadingListings(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadBranches();
+    loadListings();
+  }, [loadBranches, loadListings]);
 
   const handleOpenCreateModal = () => {
     setEditingBranch(null);

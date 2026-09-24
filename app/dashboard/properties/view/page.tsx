@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useCallback, useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -27,7 +27,7 @@ function DashboardPropertyViewContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDetail = () => {
+  const fetchDetail = useCallback(() => {
     if (!id) {
       setError("Không tìm thấy mã bài đăng.");
       setLoading(false);
@@ -61,11 +61,11 @@ function DashboardPropertyViewContent() {
       .finally(() => {
         setLoading(false);
       });
-  };
+  }, [id]);
 
   useEffect(() => {
     fetchDetail();
-  }, [id]);
+  }, [fetchDetail]);
 
   if (loading) {
     return (

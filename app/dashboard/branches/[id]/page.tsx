@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -71,17 +71,7 @@ export default function BranchDetailPage() {
   const [loadingBranch, setLoadingBranch] = useState(true);
   const [loadingListings, setLoadingListings] = useState(true);
 
-  useEffect(() => {
-    if (!branchId) return;
-    loadBranchData();
-  }, [branchId]);
-
-  useEffect(() => {
-    if (!branchId) return;
-    loadBranchListings();
-  }, [branchId, branch?.name]);
-
-  const loadBranchData = async () => {
+  const loadBranchData = useCallback(async () => {
     setLoadingBranch(true);
     try {
       const data = await branchService.getBranchById(branchId);
@@ -92,16 +82,16 @@ export default function BranchDetailPage() {
     } finally {
       setLoadingBranch(false);
     }
-  };
+  }, [branchId, router]);
 
-  const loadBranchListings = async () => {
+  const loadBranchListings = useCallback(async () => {
     setLoadingListings(true);
     try {
       const res = await listingService.getMyListings({
         branchId,
         size: 100,
       });
-      let fetched = res.result || [];
+      const fetched = res.result || [];
       let matched = fetched.filter(
         (l) =>
           l.branchId === branchId ||
@@ -137,7 +127,17 @@ export default function BranchDetailPage() {
     } finally {
       setLoadingListings(false);
     }
-  };
+  }, [branch, branchId]);
+
+  useEffect(() => {
+    if (!branchId) return;
+    loadBranchData();
+  }, [branchId, loadBranchData]);
+
+  useEffect(() => {
+    if (!branchId) return;
+    loadBranchListings();
+  }, [branchId, loadBranchListings]);
 
   const handleDeleteBranch = async () => {
     if (displayUnitsCount > 0) {
@@ -297,7 +297,7 @@ export default function BranchDetailPage() {
               Chi nhánh này chưa có phòng/căn nào
             </h3>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-              Hãy tạo phòng đầu tiên cho chi nhánh "{branch.name}" để quản lý tin đăng và hợp đồng thuê.
+              Hãy tạo phòng đầu tiên cho chi nhánh &quot;{branch.name}&quot; để quản lý tin đăng và hợp đồng thuê.
             </p>
             <Link
               href={`/dashboard/properties/new?branchId=${branch.id}`}

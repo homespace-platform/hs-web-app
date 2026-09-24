@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useCallback, useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -49,7 +49,7 @@ export default function HistoryPage() {
   const listingsSectionRef = useRef<HTMLDivElement>(null);
 
   // Fetch view history from backend API
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     if (!authenticated) {
       setHistoryList([]);
       setIsLoading(false);
@@ -67,7 +67,7 @@ export default function HistoryPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [authenticated, dispatch]);
 
   useEffect(() => {
     if (initialized && authenticated) {
@@ -76,7 +76,7 @@ export default function HistoryPage() {
       setHistoryList([]);
       setIsLoading(false);
     }
-  }, [initialized, authenticated]);
+  }, [initialized, authenticated, fetchHistory]);
 
   // Filter & Sort Logic
   const filteredAndSortedList = useMemo(() => {

@@ -4,13 +4,16 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
 import {
   ArrowLeft,
-  Send,
-  Plus,
-  Copy,
+  BookOpen,
   Check,
-  Sparkles,
+  Copy,
+  ExternalLink,
   PanelLeftClose,
   PanelLeftOpen,
+  Plus,
+  Send,
+  Sparkles,
+  X,
 } from "lucide-react";
 import { AiChatSession, ChatMessage } from "@/types/chat.type";
 import { AI_QUICK_TOPICS } from "@/data/mock-chat-data";
@@ -22,6 +25,7 @@ interface AiChatWindowProps {
   onSendMessage: (sessionId: string, text: string) => void;
   onNewSession: () => void;
   onSelectTopic: (prompt: string) => void;
+  isSending?: boolean;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
 }
@@ -32,11 +36,13 @@ export default function AiChatWindow({
   onSendMessage,
   onNewSession,
   onSelectTopic,
+  isSending = false,
   isSidebarCollapsed,
   onToggleSidebar,
 }: AiChatWindowProps) {
   const [inputText, setInputText] = useState("");
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [activeCitation, setActiveCitation] = useState<import("@/types/ai.type").AiCitation | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -50,7 +56,7 @@ export default function AiChatWindow({
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = inputText.trim();
-    if (!trimmed) return;
+    if (!trimmed || isSending) return;
 
     const targetSessionId = session?.id || `session-${Date.now()}`;
     onSendMessage(targetSessionId, trimmed);
@@ -133,7 +139,7 @@ export default function AiChatWindow({
             </div>
             <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Trực tuyến 24/7
+              Tra cứu tài liệu HomeSpace
             </span>
           </div>
         </div>
@@ -172,7 +178,7 @@ export default function AiChatWindow({
               Tôi có thể giúp gì cho bạn hôm nay?
             </h2>
             <p className="text-xs sm:text-sm text-muted-foreground max-w-md mb-6">
-              Hỗ trợ tìm kiếm nhà và phòng cho thuê chính chủ, khảo sát mức giá thị trường và bảo vệ tiền cọc On-chain.
+              Tôi có thể giải thích tính năng, quy trình và chính sách HomeSpace dựa trên tài liệu đã được duyệt. Tôi chưa tra cứu tin đăng hoặc dữ liệu cá nhân theo thời gian thực.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">
@@ -181,6 +187,7 @@ export default function AiChatWindow({
                   key={topic.id}
                   type="button"
                   onClick={() => onSelectTopic(topic.prompt)}
+                  disabled={isSending}
                   className="p-3.5 rounded-2xl border border-border bg-card hover:bg-primary/5 hover:border-primary/40 transition-all text-left group cursor-pointer shadow-2xs"
                 >
                   <p className="text-xs font-bold text-foreground group-hover:text-primary transition-colors mb-1">
@@ -229,6 +236,35 @@ export default function AiChatWindow({
                     <div className="whitespace-pre-wrap leading-relaxed text-xs sm:text-sm">
                       {msg.content}
                     </div>
+                    {!isUser && msg.aiStatus && (
+                      <div className="mt-2 text-[11px] text-muted-foreground">
+                        {msg.aiStatus === "NO_EVIDENCE" && "Chưa tìm thấy tài liệu phù hợp."}
+                        {msg.aiStatus === "OUT_OF_SCOPE" && "Câu hỏi cần dữ liệu ngoài kho kiến thức tĩnh."}
+                        {msg.aiStatus === "GENERATION_UNAVAILABLE" && "Model trả lời đang tạm gián đoạn."}
+                        {msg.aiCitations && msg.aiCitations.length > 0 && (
+                          <div className="mt-2 space-y-1.5 border-t border-border pt-2">
+                            <span className="font-semibold text-foreground/85">Nguồn tham khảo:</span>
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                              {msg.aiCitations.map((source) => (
+                                <button
+                                  key={source.chunkId}
+                                  type="button"
+                                  onClick={() => setActiveCitation(source)}
+                                  className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-muted/50 px-2 py-1 text-[11px] text-foreground hover:bg-muted hover:border-primary/50 transition-colors cursor-pointer text-left"
+                                  title="Bấm để xem đoạn trích tài liệu"
+                                >
+                                  <BookOpen className="w-3 h-3 text-primary shrink-0" />
+                                  <span className="font-medium line-clamp-1 max-w-[260px]">
+                                    {source.title} · {source.heading}
+                                  </span>
+                                  <ExternalLink className="w-2.5 h-2.5 text-muted-foreground ml-0.5 shrink-0" />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div
                       className={`flex items-center gap-2 mt-2 pt-1.5 text-[10px] ${
@@ -264,6 +300,7 @@ export default function AiChatWindow({
               );
             })}
             <div ref={messagesEndRef} />
+            {isSending && <p className="text-xs text-muted-foreground pl-11">HomeSpace AI đang tìm tài liệu và trả lời...</p>}
           </div>
         )}
       </div>
@@ -278,6 +315,7 @@ export default function AiChatWindow({
             key={topic.id}
             type="button"
             onClick={() => onSelectTopic(topic.prompt)}
+            disabled={isSending}
             className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 text-foreground border border-border/60 font-medium transition-all cursor-pointer shadow-2xs"
             title={topic.prompt}
           >
@@ -294,17 +332,18 @@ export default function AiChatWindow({
               ref={inputRef}
               type="text"
               value={inputText}
+              maxLength={500}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Nhắn tin cho HomeSpace AI..."
+              placeholder="Hỏi về tính năng, quy trình hoặc chính sách HomeSpace..."
               className="flex-1 bg-transparent text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none py-1.5"
             />
 
             <button
               type="submit"
-              disabled={!inputText.trim()}
+              disabled={!inputText.trim() || isSending}
               className={`p-2 rounded-xl font-semibold transition-all flex items-center justify-center cursor-pointer ${
-                inputText.trim()
+                inputText.trim() && !isSending
                   ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30 hover:scale-105 active:scale-95"
                   : "text-muted-foreground/40 cursor-not-allowed"
               }`}
@@ -316,11 +355,56 @@ export default function AiChatWindow({
 
           <div className="flex items-center justify-end px-1">
             <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">
-              Enter để gửi • Shift + Enter xuống dòng
+              Chỉ trả lời theo tài liệu được duyệt • Hội thoại chưa được lưu
             </span>
           </div>
         </form>
       </div>
-    </div>
+    
+      {/* Citation Snippet Modal */}
+      {activeCitation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-5 shadow-xl animate-in fade-in zoom-in-95">
+            <div className="flex items-start justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                  <BookOpen className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-foreground leading-snug">{activeCitation.title}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Mục: <span className="font-medium text-foreground">{activeCitation.heading}</span> (v{activeCitation.version})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveCitation(null)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <div className="text-xs font-semibold text-muted-foreground mb-1.5">Đoạn trích dẫn từ tài liệu:</div>
+              <div className="rounded-xl bg-muted/40 p-4 text-xs leading-relaxed border border-border/80 font-mono text-foreground/90 whitespace-pre-wrap max-h-60 overflow-y-auto">
+                {activeCitation.snippet || "Đoạn trích từ tài liệu này được AI sử dụng làm cơ sở để tổng hợp câu trả lời."}
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setActiveCitation(null)}
+                className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+</div>
   );
 }

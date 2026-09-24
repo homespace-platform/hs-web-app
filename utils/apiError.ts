@@ -22,6 +22,7 @@ export function getApiErrorMessage(
       code?: string | number;
       message?: string;
       errors?: ApiValidationErrorItem[];
+      detail?: string | Array<{ msg?: string }>;
     };
 
     // 1. Check response.data.errors
@@ -37,6 +38,11 @@ export function getApiErrorMessage(
     // 2. Check response.data.message
     if (data.message && typeof data.message === "string" && data.message.trim()) {
       return data.message.trim();
+    }
+    if (typeof data.detail === "string" && data.detail.trim()) return data.detail.trim();
+    if (Array.isArray(data.detail)) {
+      const details = data.detail.map((item) => item.msg).filter(Boolean);
+      if (details.length) return details.join("; ");
     }
   }
 

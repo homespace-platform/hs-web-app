@@ -6,7 +6,8 @@ import ChatSidebar from "@/components/chat/ChatSidebar";
 import ChatWindow from "@/components/chat/ChatWindow";
 import AiChatWindow from "@/components/chat/AiChatWindow";
 import ChatEmptyState from "@/components/chat/ChatEmptyState";
-import { MOCK_AI_SESSIONS } from "@/data/mock-chat-data";
+import { aiService } from "@/services/ai.service";
+import { getApiErrorMessage } from "@/utils/apiError";
 import {
   ChatFilterTab,
   ChatMessage,
@@ -45,8 +46,8 @@ export default function ChatPage() {
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   // Multi-session AI State (Mới vào mở trang landing rỗng chuẩn Ảnh 2)
-  const [aiSessions, setAiSessions] =
-    useState<AiChatSession[]>(MOCK_AI_SESSIONS);
+  const [aiSessions, setAiSessions] = useState<AiChatSession[]>([]);
+  const [pendingAiSessionId, setPendingAiSessionId] = useState<string | null>(null);
   const [activeAiSessionId, setActiveAiSessionId] = useState<string | null>(
     null
   );
@@ -153,7 +154,9 @@ export default function ChatPage() {
     setActiveAiSessionId(newSessionId);
   };
 
-  const handleSendAiMessage = (sessionId: string, text: string) => {
+  const handleSendAiMessage = async (sessionId: string, text: string) => {
+    if (pendingAiSessionId) return;
+    setPendingAiSessionId(sessionId);
     const now = new Date();
     const timeString = `${now.getHours().toString().padStart(2, "0")}:${now
       .getMinutes()
@@ -207,45 +210,8 @@ export default function ChatPage() {
       );
     }
 
-    // AI Response Simulation
-    setTimeout(() => {
-      let replyContent = "";
-      const lower = text.toLowerCase();
-
-      if (
-        lower.includes("15") ||
-        lower.includes("2pn") ||
-        lower.includes("tìm căn") ||
-        lower.includes("tìm phòng") ||
-        lower.includes("phòng trọ") ||
-        lower.includes("thuê")
-      ) {
-        replyContent = `Dựa trên dữ liệu xác thực thị trường TP.HCM:\n\n1. **Căn hộ 2PN Vinhomes Central Park (Bình Thạnh)**\n- Giá: 16.5 triệu/tháng | Diện tích: 75 m²\n- View sông thoáng, full nội thất cao cấp.\n\n2. **Căn hộ 2PN Masteri Thảo Điền (TP. Thủ Đức)**\n- Giá: 18.0 triệu/tháng | Diện tích: 72 m²\n- Nhà chính chủ, hỗ trợ đăng ký tạm trú đầy đủ.\n\n3. **Căn hộ Studio Bến Nghé (Quận 1)**\n- Giá: 9.5 triệu/tháng | Diện tích: 40 m²\n- Ban công thoáng mát, ngay trung tâm.\n\nBạn có muốn tôi kết nối với chủ nhà để hẹn lịch xem thực tế không?`;
-      } else if (
-        lower.includes("cọc") ||
-        lower.includes("on-chain") ||
-        lower.includes("an toàn") ||
-        lower.includes("tiền cọc")
-      ) {
-        replyContent = `Cơ chế bảo vệ tiền cọc On-chain của HomeSpace:\n\n1. **Ký quỹ độc lập:** Tiền cọc được bảo lưu trong Smart Contract cho đến khi hai bên hoàn tất nhận bàn giao nhà.\n2. **Kiểm tra hiện trạng:** Khách thuê xác nhận nhận phòng thực tế đúng mô tả trước khi hợp đồng giải ngân.\n3. **Bảo vệ rủi ro:** Hoàn cọc 100% tự động nếu chủ nhà vi phạm điều khoản hoặc hủy lịch bất ngờ.`;
-      } else if (
-        lower.includes("quận 7") ||
-        lower.includes("bình thạnh") ||
-        lower.includes("so sánh") ||
-        lower.includes("quận 1")
-      ) {
-        replyContent = `So sánh giá thuê căn hộ trung bình tháng này:\n\n- **Quận 7 (Phú Mỹ Hưng / Tân Hưng):**\n  • 1PN / Studio: 7.5 - 11 triệu/tháng\n  • 2PN: 13.0 - 18 triệu/tháng\n\n- **Bình Thạnh (Vinhomes / Hàng Xanh):**\n  • 1PN / Studio: 8.0 - 12 triệu/tháng\n  • 2PN: 14.5 - 22 triệu/tháng\n\nKhu vực Quận 7 phù hợp không gian yên tĩnh nhiều cây xanh, Bình Thạnh thuận tiện di chuyển nhanh vào Quận 1.`;
-      } else if (
-        lower.includes("hợp đồng") ||
-        lower.includes("pháp lý") ||
-        lower.includes("lưu ý") ||
-        lower.includes("điều khoản")
-      ) {
-        replyContent = `3 lưu ý pháp lý quan trọng khi ký hợp đồng thuê:\n\n1. **Xác minh quyền sở hữu:** Đối chiếu CCCD và sổ hồng của chủ nhà với thông tin hiển thị trên tin đăng đã xác thực.\n2. **Điều khoản hoàn cọc:** Quy định rõ thời gian hoàn cọc sau khi kết thúc hợp đồng (thường từ 1-3 ngày).\n3. **Biên bản bàn giao thiết bị:** Chụp ảnh ghi nhận hiện trạng ban đầu của căn nhà và chỉ số điện nước.`;
-      } else {
-        replyContent = `Tôi đã ghi nhận câu hỏi: "${text}".\n\nHomeSpace AI hỗ trợ tra cứu thông tin nhà và phòng cho thuê, khảo sát mức giá thị trường và tư vấn điều khoản đặt cọc an toàn.`;
-      }
-
+    try {
+      const reply = await aiService.ask(text, sessionId);
       const replyTime = new Date();
       const replyTimeString = `${replyTime
         .getHours()
@@ -258,10 +224,12 @@ export default function ChatPage() {
       const aiReplyMsg: ChatMessage = {
         id: `msg-ai-${Date.now()}`,
         sender: "them",
-        content: replyContent,
+        content: reply.answer,
         timestamp: replyTimeString,
         dateGroup: "Hôm nay",
         status: "read",
+        aiStatus: reply.status,
+        aiCitations: reply.citations,
       };
 
       setAiSessions((prev) =>
@@ -275,7 +243,33 @@ export default function ChatPage() {
           return s;
         })
       );
-    }, 600);
+    } catch (error) {
+      const errorMessage = getApiErrorMessage(
+        error,
+        "Không thể kết nối trợ lý AI. Vui lòng thử lại sau.",
+      );
+      setAiSessions((prev) =>
+        prev.map((session) =>
+          session.id === sessionId
+            ? {
+                ...session,
+                messages: [
+                  ...session.messages,
+                  {
+                    id: `msg-ai-error-${Date.now()}`,
+                    sender: "them" as const,
+                    content: errorMessage,
+                    timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+                    status: "read" as const,
+                  },
+                ],
+              }
+            : session,
+        ),
+      );
+    } finally {
+      setPendingAiSessionId(null);
+    }
   };
 
   const handleDeleteAiSession = (sessionId: string) => {
@@ -379,6 +373,7 @@ export default function ChatPage() {
                 onSendMessage={handleSendAiMessage}
                 onNewSession={handleNewAiSession}
                 onSelectTopic={handleSelectAiTopic}
+                isSending={pendingAiSessionId === activeAiSessionId}
                 isSidebarCollapsed={isSidebarCollapsed}
                 onToggleSidebar={toggleSidebar}
               />

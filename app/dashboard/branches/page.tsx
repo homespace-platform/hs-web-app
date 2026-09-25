@@ -28,10 +28,6 @@ import AddressMapPreview from "@/components/address/AddressMapPreview";
 import { PROPERTY_CATEGORIES } from "../properties/new/constants";
 import type { PropertyCategoryKey } from "../properties/new/types";
 
-const BRANCH_PROPERTY_CATEGORIES = PROPERTY_CATEGORIES.filter(
-  ({ key }) => key !== "house",
-);
-
 interface LocationOption {
   code: string | number;
   name: string;
@@ -202,8 +198,7 @@ export default function BranchesPage() {
 
   // Form State
   const [name, setName] = useState("");
-  const [category, setCategory] =
-    useState<PropertyCategoryKey>("apartment");
+  const [category, setCategory] = useState<PropertyCategoryKey>("house");
 
   // Location States
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -289,7 +284,7 @@ export default function BranchesPage() {
   const handleOpenCreateModal = () => {
     setEditingBranch(null);
     setName("");
-    setCategory("apartment");
+    setCategory("house");
     setProvinceCode("79");
     const foundP = provinces.find((p) => String(p.code) === "79");
     setProvinceQuery(foundP ? foundP.name : "Thành phố Hồ Chí Minh");
@@ -692,10 +687,7 @@ export default function BranchesPage() {
                     }
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    {(editingBranch?.category === "house"
-                      ? PROPERTY_CATEGORIES
-                      : BRANCH_PROPERTY_CATEGORIES
-                    ).map((c) => (
+                    {PROPERTY_CATEGORIES.map((c) => (
                       <option key={c.key} value={c.key}>
                         {c.label}
                       </option>

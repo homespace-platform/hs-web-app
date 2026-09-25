@@ -145,3 +145,5 @@ export const LEGAL_STATUS_OPTIONS = [
 
 export const MAX_IMAGES = 6;
 export const MAX_VIDEOS = 3;
+export const MAX_VIDEO_SIZE_BYTES = 500 * 1024 * 1024;
+export const MAX_VIDEO_DURATION_SECONDS = 2 * 60;

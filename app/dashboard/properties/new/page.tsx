@@ -1013,37 +1013,33 @@ function CreatePropertyListingContent() {
       // 1. Upload media files if new
       const uploadedMediaList: { storageObjectId: string; mediaType: "IMAGE" | "VIDEO" }[] = [];
 
-      for (const img of basicInfo.images) {
-        if (img.storageObjectId && !img.file) {
+      for (const [index, img] of basicInfo.images.entries()) {
+        if (img.storageObjectId) {
           uploadedMediaList.push({ storageObjectId: img.storageObjectId, mediaType: "IMAGE" });
         } else if (img.file) {
-          try {
-            const storageId = await storageService.uploadListingMedia(img.file);
-            uploadedMediaList.push({ storageObjectId: storageId, mediaType: "IMAGE" });
-          } catch (uploadErr) {
-            console.warn("Storage upload fallback:", uploadErr);
-            uploadedMediaList.push({
-              storageObjectId: crypto.randomUUID(),
-              mediaType: "IMAGE",
-            });
-          }
+          const storageId = await storageService.uploadListingMedia(img.file);
+          uploadedMediaList.push({ storageObjectId: storageId, mediaType: "IMAGE" });
+          setBasicInfo((current) => ({
+            ...current,
+            images: current.images.map((item, itemIndex) =>
+              itemIndex === index ? { ...item, storageObjectId: storageId } : item,
+            ),
+          }));
         }
       }
 
-      for (const vid of basicInfo.videos) {
-        if (vid.storageObjectId && !vid.file) {
+      for (const [index, vid] of basicInfo.videos.entries()) {
+        if (vid.storageObjectId) {
           uploadedMediaList.push({ storageObjectId: vid.storageObjectId, mediaType: "VIDEO" });
         } else if (vid.file) {
-          try {
-            const storageId = await storageService.uploadListingMedia(vid.file);
-            uploadedMediaList.push({ storageObjectId: storageId, mediaType: "VIDEO" });
-          } catch (uploadErr) {
-            console.warn("Storage upload fallback:", uploadErr);
-            uploadedMediaList.push({
-              storageObjectId: crypto.randomUUID(),
-              mediaType: "VIDEO",
-            });
-          }
+          const storageId = await storageService.uploadListingMedia(vid.file);
+          uploadedMediaList.push({ storageObjectId: storageId, mediaType: "VIDEO" });
+          setBasicInfo((current) => ({
+            ...current,
+            videos: current.videos.map((item, itemIndex) =>
+              itemIndex === index ? { ...item, storageObjectId: storageId } : item,
+            ),
+          }));
         }
       }
 

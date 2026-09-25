@@ -11,19 +11,45 @@ const USER_AVATAR_REFERENCE_TYPE = "USER";
 const USER_AVATAR_PURPOSE = "USER_AVATAR";
 const READY_STATUS = "READY";
 
+const CONTENT_TYPE_BY_EXTENSION: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};
+
+function resolveContentType(file: File): string {
+  const reportedType = file.type.trim().toLowerCase();
+  if (reportedType && reportedType !== "application/octet-stream") {
+    return reportedType;
+  }
+
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return CONTENT_TYPE_BY_EXTENSION[extension] ?? "application/octet-stream";
+}
+
 async function uploadFile(file: File, request: CreateStorageUploadRequest): Promise<string> {
+  const contentType = resolveContentType(file);
   const upload = await axiosClient.post<
     ApiResponse<CreateStorageUploadResponse>
-  >("/api/v1/storage/uploads", request);
+  >("/api/v1/storage/uploads", { ...request, contentType });
   const { storageId, uploadUrl } = upload.data.result;
 
   const s3Response = await fetch(uploadUrl, {
     method: "PUT",
-    headers: { "Content-Type": file.type },
+    headers: { "Content-Type": contentType },
     body: file,
   });
   if (!s3Response.ok) {
-    throw new Error(`Không thể tải ảnh lên S3 (${s3Response.status}).`);
+    throw new Error(
+      `Không thể tải tệp ${file.name} lên kho lưu trữ (${s3Response.status}).`,
+    );
   }
 
   await axiosClient.post<ApiResponse<unknown>>(

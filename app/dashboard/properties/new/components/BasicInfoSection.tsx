@@ -1,12 +1,15 @@
 import React, { ChangeEvent } from "react";
 import Image from "next/image";
 import { ImagePlus, Video as VideoIcon, X, Lock } from "lucide-react";
+import { toast } from "sonner";
 import FormField, { inputClass, selectClass } from "./FormField";
 import FormSectionWrapper from "./FormSectionWrapper";
 import {
   PROPERTY_CATEGORIES,
   MAX_IMAGES,
   MAX_VIDEOS,
+  MAX_VIDEO_SIZE_BYTES,
+  MAX_VIDEO_DURATION_SECONDS,
 } from "../constants";
 import type {
   BasicInfoData,
@@ -35,6 +38,27 @@ function readFileAsDataUrl(file: File): Promise<string> {
       typeof reader.result === "string" ? resolve(reader.result) : reject();
     reader.onerror = reject;
     reader.readAsDataURL(file);
+  });
+}
+
+function readVideoDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    const objectUrl = URL.createObjectURL(file);
+    const cleanup = () => URL.revokeObjectURL(objectUrl);
+
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      const { duration } = video;
+      cleanup();
+      if (Number.isFinite(duration)) resolve(duration);
+      else reject(new Error("Invalid video duration"));
+    };
+    video.onerror = () => {
+      cleanup();
+      reject(new Error("Cannot read video metadata"));
+    };
+    video.src = objectUrl;
   });
 }
 
@@ -73,17 +97,35 @@ export default function BasicInfoSection({
     });
   }
 
-  function handleVideoUpload(e: ChangeEvent<HTMLInputElement>) {
+  async function handleVideoUpload(e: ChangeEvent<HTMLInputElement>) {
     const remainingSlots = MAX_VIDEOS - data.videos.length;
     const files = Array.from(e.target.files ?? []).slice(0, remainingSlots);
     e.target.value = "";
 
     if (!files.length) return;
 
-    const newVideos: SelectedMediaVideo[] = files.map((file) => ({
-      name: file.name,
-      file,
-    }));
+    const newVideos: SelectedMediaVideo[] = [];
+    for (const file of files) {
+      if (file.size > MAX_VIDEO_SIZE_BYTES) {
+        toast.error(`${file.name} vượt quá giới hạn 500MB.`);
+        continue;
+      }
+
+      try {
+        const duration = await readVideoDuration(file);
+        if (duration > MAX_VIDEO_DURATION_SECONDS) {
+          toast.error(`${file.name} dài quá 2 phút.`);
+          continue;
+        }
+      } catch {
+        toast.error(`Không thể đọc video ${file.name}.`);
+        continue;
+      }
+
+      newVideos.push({ name: file.name, file });
+    }
+
+    if (!newVideos.length) return;
     onChange({ videos: [...data.videos, ...newVideos] });
   }
 
@@ -242,7 +284,7 @@ export default function BasicInfoSection({
                 className="sr-only"
               />
               <span className="text-xs text-muted-foreground">
-                Hỗ trợ MP4, WebM, MOV (tối đa 50MB/video)
+                Hỗ trợ MP4, WebM, MOV (tối đa 500MB và 2 phút/video)
               </span>
             </div>
 

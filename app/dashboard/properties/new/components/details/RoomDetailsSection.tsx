@@ -47,19 +47,25 @@ export default function RoomDetailsSection({
           />
         </FormField>
 
-        {/* Mã phòng / Số phòng */}
+        {/* Mã phòng / Số phòng (bắt buộc) */}
         <FormField
           id="field-room-code"
           label="Mã phòng / Tên phòng"
+          required
           error={errors.roomCode}
-          hint="Mã định danh phòng (nếu có)"
+          hint="Nhập mã hoặc tên để nhận diện phòng này."
         >
           <input
             type="text"
+            required
+            maxLength={255}
+            aria-invalid={Boolean(errors.roomCode)}
             value={data.roomCode ?? ""}
             onChange={(e) => onChange({ roomCode: e.target.value })}
             placeholder="Ví dụ: P.202, Phòng A3"
-            className={inputClass}
+            className={`${inputClass} ${
+              errors.roomCode ? "border-destructive focus:border-destructive" : ""
+            }`}
           />
         </FormField>
 

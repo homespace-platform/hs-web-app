@@ -112,21 +112,6 @@ const storageService = {
     });
   },
 
-  async uploadContractDocx(file: File): Promise<string> {
-    const contentType =
-      file.type ||
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    return uploadFile(file, {
-      fileName: file.name,
-      contentType,
-      size: file.size,
-      purpose: "CONTRACT_DOCUMENT",
-      visibility: "PRIVATE",
-      referenceType: "CONTRACT_TEMPLATE",
-      referenceId: "draft",
-    });
-  },
-
   async uploadChatAttachment(file: File, conversationId: string) {
     const storageId = await uploadFile(file, {
       fileName: file.name,

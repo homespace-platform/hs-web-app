@@ -774,6 +774,9 @@ function CreatePropertyListingContent() {
       if (!roomDetails.areaM2 || Number(roomDetails.areaM2) <= 0) {
         addError("field-room-area", "areaM2", "Diện tích phòng phải lớn hơn 0.");
       }
+      if (!roomDetails.roomCode?.trim()) {
+        addError("field-room-code", "roomCode", "Vui lòng nhập mã phòng / tên phòng.");
+      }
       if (!roomDetails.maxOccupants || Number(roomDetails.maxOccupants) <= 0) {
         addError("field-room-occupants", "maxOccupants", "Số người ở tối đa phải lớn hơn 0.");
       }

@@ -120,7 +120,6 @@ export type DocumentGenerationStatus = "GENERATING" | "READY" | "FAILED" | "STAL
 
 export interface CreateContractDraftRequest {
   rentalRequestId: string;
-  templateVersionId: string;
 }
 
 export interface InitialPaymentSnapshot {

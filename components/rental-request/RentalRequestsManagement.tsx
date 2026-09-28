@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -28,7 +28,6 @@ import { format, formatDistanceToNow, isPast } from "date-fns";
 import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
 import ListingPreviewModal from "@/components/listing/ListingPreviewModal";
-import CreateContractFromRequestModal from "@/components/contract/CreateContractFromRequestModal";
 import RentalRequestDetailModal from "./RentalRequestDetailModal";
 import RentalPaymentModal from "./RentalPaymentModal";
 import { contractService } from "@/services/contract.service";
@@ -148,7 +147,8 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [previewListingId, setPreviewListingId] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [contractTarget, setContractTarget] = useState<RentalRequestResponse | null>(null);
+  const [creatingContractRequestId, setCreatingContractRequestId] = useState<string | null>(null);
+  const creatingContractRef = useRef<string | null>(null);
   const [contractsByRequest, setContractsByRequest] = useState<Record<string, ContractResponse | null>>({});
   const [openingContractId, setOpeningContractId] = useState<string | null>(null);
   const [detailRequestId, setDetailRequestId] = useState<string | null>(null);
@@ -187,14 +187,40 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     void fetchRequests();
   }, [fetchRequests]);
 
-  const handleCloseContractModal = useCallback(() => {
-    setContractTarget(null);
-  }, []);
+  const handleCreateContract = async (request: RentalRequestResponse) => {
+    if (creatingContractRef.current) return;
+    creatingContractRef.current = request.id;
+    setCreatingContractRequestId(request.id);
+    try {
+      // The backend chooses the published SYSTEM template for this listing category.
+      const draft = await contractService.createDraft({ rentalRequestId: request.id });
+      setContractsByRequest((previous) => ({ ...previous, [request.id]: draft }));
+      try {
+        const completeness = await contractService.getCompleteness(draft.id);
+        if (completeness.complete) {
+          await contractService.triggerPreview(draft.id);
+          toast.success("Đã tạo hợp đồng từ mẫu chuẩn HomeSpace.");
+        } else {
+          toast.warning(`Đã tạo bản nháp. Cần bổ sung ${completeness.missingFields.length} trường trước khi kết xuất.`);
+        }
+      } catch {
+        toast.warning("Đã tạo bản nháp. Mở hợp đồng để kiểm tra dữ liệu trước khi kết xuất.");
+      }
+      router.push(`/dashboard/contracts/${draft.id}`);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không thể tạo hợp đồng. Nếu chưa có mẫu phù hợp, vui lòng liên hệ quản trị viên."), {
+        duration: 8000,
+      });
+    } finally {
+      creatingContractRef.current = null;
+      setCreatingContractRequestId(null);
+    }
+  };
 
-  const handlePaymentSuccess = useCallback(() => {
+  const handlePaymentSuccess = () => {
     setPaymentTarget(null);
     void fetchRequests();
-  }, [fetchRequests]);
+  };
 
   // Tra cứu hợp đồng trong suốt vòng đời giữ chỗ và sau khi thuê thành công.
   useEffect(() => {
@@ -843,11 +869,12 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                             ) : (
                               <button
                                 type="button"
-                                onClick={() => setContractTarget(req)}
+                                disabled={creatingContractRequestId !== null}
+                                onClick={() => void handleCreateContract(req)}
                                 className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
                               >
                                 <FileText className="w-3.5 h-3.5" />
-                                Tạo hợp đồng
+                                {creatingContractRequestId === req.id ? "Đang tạo hợp đồng..." : "Tạo hợp đồng"}
                               </button>
                             )}
                           </div>
@@ -1173,13 +1200,6 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         onClose={() => setPreviewListingId(null)}
       />
 
-      {contractTarget && (
-        <CreateContractFromRequestModal
-          request={contractTarget}
-          onClose={handleCloseContractModal}
-        />
-      )}
-
       {/* Modal Thanh Toán Ban Đầu */}
       {paymentTarget && (
         <RentalPaymentModal
@@ -1197,7 +1217,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         onClose={() => setDetailRequestId(null)}
         mode={mode}
         linkedContract={detailRequestId ? contractsByRequest[detailRequestId] : null}
-        isProcessingAction={isProcessing}
+        isProcessingAction={isProcessing || creatingContractRequestId !== null}
         onViewListing={(listingId) => setPreviewListingId(listingId)}
         onPaymentStatusChange={() => {
           void fetchRequests();
@@ -1220,7 +1240,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         }}
         onCreateContract={(req) => {
           setDetailRequestId(null);
-          setContractTarget(req);
+          void handleCreateContract(req);
         }}
         onOpenContract={(contractId) => {
           setDetailRequestId(null);

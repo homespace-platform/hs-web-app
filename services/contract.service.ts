@@ -7,15 +7,12 @@ import type {
   ContractResponse,
   ContractRevisionResponse,
   ContractStatus,
-  ContractTemplateResponse,
   CreateContractDraftRequest,
-  TemplateFieldDefinition,
   UpdateContractRevisionRequest,
   SignatureStateResponse,
   SignatureRequestResponse,
   CertificateOptionResponse,
 } from "@/types/contract.type";
-import type { ListingCategory } from "@/types/listing.type";
 
 export const contractService = {
   async getSignatureState(contractId: string): Promise<SignatureStateResponse> {
@@ -46,33 +43,7 @@ export const contractService = {
     );
     return response.data.result;
   },
-  async getCatalogFields(): Promise<TemplateFieldDefinition[]> {
-    const response = await axiosClient.get<ApiResponse<TemplateFieldDefinition[]>>(
-      "/api/v1/contracts/template-fields"
-    );
-    return response.data.result || [];
-  },
-
-  async listSystemTemplates(category?: ListingCategory): Promise<ContractTemplateResponse[]> {
-    const response = await axiosClient.get<ApiResponse<ContractTemplateResponse[]>>(
-      "/api/v1/contracts/templates/system",
-      { params: category ? { category } : undefined }
-    );
-    return response.data.result || [];
-  },
-
   // --- Hợp đồng ---
-
-  /** Mẫu đã publish dùng được cho tin đăng của yêu cầu thuê này (lọc theo loại hình). */
-  async getApplicableTemplates(
-    rentalRequestId: string
-  ): Promise<ContractTemplateResponse[]> {
-    const response = await axiosClient.get<ApiResponse<ContractTemplateResponse[]>>(
-      "/api/v1/contracts/applicable-templates",
-      { params: { rentalRequestId } }
-    );
-    return response.data.result || [];
-  },
 
   async getByRentalRequest(
     rentalRequestId: string

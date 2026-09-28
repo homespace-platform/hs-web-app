@@ -13,16 +13,10 @@ import {
 } from "lucide-react";
 import type { DashboardRole } from "@/lib/dashboard-role";
 
-export interface DashboardSubNavItem {
-  title: string;
-  path: string;
-}
-
 export interface DashboardNavItem {
   title: string;
-  path?: string;
+  path: string;
   icon: LucideIcon;
-  children?: DashboardSubNavItem[];
 }
 
 export interface DashboardNavGroup {
@@ -65,12 +59,8 @@ export const LANDLORD_NAV: DashboardNavGroup[] = [
       },
       {
         title: "Hợp đồng",
+        path: "/dashboard/contracts",
         icon: FileCheck,
-        children: [
-          { title: "Từ điển mã trường", path: "/dashboard/contracts/fields" },
-          { title: "Mẫu hợp đồng", path: "/dashboard/contracts/templates" },
-          { title: "Hợp đồng của tôi", path: "/dashboard/contracts" },
-        ],
       },
     ],
   },

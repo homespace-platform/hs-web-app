@@ -54,14 +54,6 @@ const BREADCRUMB_MAP: Record<string, BreadcrumbItem> = {
     parent: { title: "Hợp đồng", path: "/dashboard/contracts" },
     title: "Hợp đồng của tôi",
   },
-  "/dashboard/contracts/fields": {
-    parent: { title: "Hợp đồng", path: "/dashboard/contracts" },
-    title: "Từ điển mã trường",
-  },
-  "/dashboard/contracts/templates": {
-    parent: { title: "Hợp đồng", path: "/dashboard/contracts" },
-    title: "Mẫu hợp đồng",
-  },
   "/dashboard/deposit": {
     parent: { title: "Tài chính", path: "/dashboard/deposit" },
     title: "Nạp tiền",
@@ -90,16 +82,11 @@ export default function DashboardLayout({
 
   const currentBreadcrumb =
     BREADCRUMB_MAP[pathname] ||
-    (pathname.startsWith("/dashboard/contracts/templates/")
+    (pathname.match(/^\/dashboard\/contracts\/[^/]+$/)
       ? {
-          parent: { title: "Mẫu hợp đồng", path: "/dashboard/contracts/templates" },
-          title: "Chi tiết mẫu",
+          parent: { title: "Hợp đồng của tôi", path: "/dashboard/contracts" },
+          title: "Chi tiết hợp đồng",
         }
-      : pathname.match(/^\/dashboard\/contracts\/[^/]+$/) && pathname !== "/dashboard/contracts"
-        ? {
-            parent: { title: "Hợp đồng của tôi", path: "/dashboard/contracts" },
-            title: "Chi tiết hợp đồng",
-          }
       : { title: "Bảng điều khiển" });
 
   return (

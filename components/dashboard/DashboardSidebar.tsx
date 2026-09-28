@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   PanelLeftClose,
   PanelLeftOpen,
-  ChevronDown,
   Building2,
   KeyRound,
 } from "lucide-react";
@@ -19,13 +18,6 @@ interface DashboardSidebarProps {
   onToggleCollapse: () => void;
 }
 
-function isPathActive(pathname: string, path: string): boolean {
-  if (pathname === path) return true;
-  // Exact-ish: avoid /dashboard/contracts matching /dashboard/contracts/templates sibling wrongly
-  // Prefer longest prefix among siblings is handled by callers for children.
-  return pathname.startsWith(path + "/");
-}
-
 export default function DashboardSidebar({
   collapsed,
   onToggleCollapse,
@@ -33,35 +25,6 @@ export default function DashboardSidebar({
   const pathname = usePathname();
   const { role, selectRole, openRolePicker } = useDashboardRole();
   const navGroups = getNavForRole(role);
-
-  const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {};
-    for (const group of navGroups) {
-      for (const item of group.items) {
-        if (item.children) {
-          initial[item.title] = item.children.some((c) => isPathActive(pathname, c.path));
-        }
-      }
-    }
-    return initial;
-  });
-
-  useEffect(() => {
-    for (const group of navGroups) {
-      for (const item of group.items) {
-        if (item.children) {
-          const hasActiveChild = item.children.some((c) => isPathActive(pathname, c.path));
-          if (hasActiveChild) {
-            setOpenSubmenus((prev) => ({ ...prev, [item.title]: true }));
-          }
-        }
-      }
-    }
-  }, [pathname, navGroups]);
-
-  const toggleSubmenu = (title: string) => {
-    setOpenSubmenus((prev) => ({ ...prev, [title]: !prev[title] }));
-  };
 
   const switchRole = (next: DashboardRole) => {
     if (next === role) return;
@@ -161,109 +124,15 @@ export default function DashboardSidebar({
               {group.items.map((item) => {
                 const Icon = item.icon;
 
-                if (item.children) {
-                  const isAnyChildActive = item.children.some((c) =>
-                    isPathActive(pathname, c.path)
-                  );
-                  const isOpen = !!openSubmenus[item.title];
-
-                  if (collapsed) {
-                    return (
-                      <Link
-                        key={item.title}
-                        href={item.children[0].path}
-                        className={`flex items-center justify-center p-2.5 rounded-xl transition-all duration-150 ${
-                          isAnyChildActive
-                            ? "bg-primary/10 text-primary font-bold shadow-2xs"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
-                        }`}
-                        title={item.title}
-                      >
-                        <Icon
-                          className={`w-4 h-4 shrink-0 ${
-                            isAnyChildActive ? "text-primary" : "text-muted-foreground"
-                          }`}
-                        />
-                      </Link>
-                    );
-                  }
-
-                  return (
-                    <div key={item.title} className="space-y-1">
-                      <button
-                        type="button"
-                        onClick={() => toggleSubmenu(item.title)}
-                        className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
-                          isAnyChildActive
-                            ? "text-primary font-bold bg-primary/5"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Icon
-                            className={`w-4 h-4 shrink-0 ${
-                              isAnyChildActive ? "text-primary" : "text-muted-foreground"
-                            }`}
-                          />
-                          <span className="truncate">{item.title}</span>
-                        </div>
-                        <ChevronDown
-                          className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${
-                            isOpen ? "rotate-180 text-primary" : ""
-                          }`}
-                        />
-                      </button>
-
-                      {isOpen && (
-                        <div className="pl-9 pr-1 space-y-1 pt-0.5 animate-in slide-in-from-top-1 duration-150">
-                          {item.children.map((sub) => {
-                            const siblings = item.children || [];
-                            const isSubActive =
-                              pathname === sub.path ||
-                              (pathname.startsWith(sub.path + "/") &&
-                                !siblings.some(
-                                  (other) =>
-                                    other.path !== sub.path &&
-                                    other.path.length > sub.path.length &&
-                                    (pathname === other.path ||
-                                      pathname.startsWith(other.path + "/"))
-                                ));
-                            return (
-                              <Link
-                                key={sub.path}
-                                href={sub.path}
-                                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all duration-150 ${
-                                  isSubActive
-                                    ? "bg-primary/10 text-primary font-bold shadow-2xs"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60 font-medium"
-                                }`}
-                              >
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full ${
-                                    isSubActive ? "bg-primary" : "bg-muted-foreground/50"
-                                  }`}
-                                />
-                                <span className="truncate">{sub.title}</span>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-
-                const isActive = item.path
-                  ? pathname === item.path ||
-                    (item.path !== "/dashboard/landlord" &&
-                      item.path !== "/dashboard/tenant" &&
-                      pathname.startsWith(item.path + "/"))
-                  : false;
+                const isActive = pathname === item.path ||
+                  (item.path !== "/dashboard/landlord" &&
+                    item.path !== "/dashboard/tenant" &&
+                    pathname.startsWith(item.path + "/"));
 
                 return (
                   <Link
                     key={item.title}
-                    href={item.path!}
+                    href={item.path}
                     className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
                       isActive
                         ? "bg-primary/10 text-primary font-bold shadow-2xs"

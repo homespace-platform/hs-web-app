@@ -427,8 +427,13 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
     submissionAction: params.submissionAction,
     title: basicInfo.title.trim(),
     description: basicInfo.description.trim(),
+    availableFrom:
+      basicInfo.availableDate ||
+      (() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      })(),
     category,
-    availableFrom: basicInfo.availableDate || new Date().toISOString().split("T")[0],
     areaM2,
     pricing: pricingPayload,
     apartmentDetail,

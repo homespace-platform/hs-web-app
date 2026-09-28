@@ -4,6 +4,7 @@ export type StoragePurpose =
   | "IDENTITY_DOCUMENT"
   | "CHAT_ATTACHMENT"
   | "PAYMENT_PROOF"
+  | "BRANCH_COVER_IMAGE"
   | "GENERAL";
 
 export type StorageVisibility = "PUBLIC" | "PRIVATE" | "AUTHENTICATED";

@@ -156,6 +156,20 @@ const storageService = {
       referenceId: paymentRequestId,
     });
   },
+
+  async uploadBranchCoverImage(file: File, branchId = "branch"): Promise<string> {
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    const contentType = file.type || (ext ? CONTENT_TYPE_BY_EXTENSION[ext] : "image/jpeg") || "image/jpeg";
+    return uploadFile(file, {
+      fileName: file.name,
+      contentType,
+      size: file.size,
+      purpose: "BRANCH_COVER_IMAGE",
+      visibility: "PUBLIC",
+      referenceType: "BRANCH",
+      referenceId: branchId,
+    });
+  },
 };
 
 export default storageService;

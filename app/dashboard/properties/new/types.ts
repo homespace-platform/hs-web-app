@@ -154,7 +154,7 @@ export interface MonthlyExpensesData {
   managementFee?: number | string;
   internetType: "MONTHLY" | "INCLUDED" | "SELF_PAY";
   internetFee?: number | string;
-  garbageFeeType: "MONTHLY" | "INCLUDED";
+  garbageFeeType: "MONTHLY" | "INCLUDED" | "NONE";
   garbageFee?: number | string;
   motorbikeParkingType: "PER_VEHICLE" | "INCLUDED" | "NONE";
   motorbikeParkingFee?: number | string;

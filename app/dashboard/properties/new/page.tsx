@@ -50,18 +50,33 @@ import type {
   SelectedMediaVideo,
 } from "./types";
 
+function getTodayDateString(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function CreatePropertyListingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
+  const branchIdParam = searchParams.get("branchId");
   const { profile } = useAuth();
 
   const [isLoadingDetail, setIsLoadingDetail] = useState(Boolean(editId));
   const [branches, setBranches] = useState<PropertyBranch[]>([]);
 
   useEffect(() => {
-    branchService.getMyBranches().then(setBranches).catch(() => {});
-  }, []);
+    branchService.getMyBranches().then((list) => {
+      setBranches(list);
+      if (branchIdParam && !editId) {
+        handleSelectBranch(branchIdParam, list);
+      }
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchIdParam, editId]);
 
   // Section 1: Basic Info
   const [basicInfo, setBasicInfo] = useState<BasicInfoData>({
@@ -69,7 +84,7 @@ function CreatePropertyListingContent() {
     images: [],
     videos: [],
     category: "apartment",
-    availableDate: new Date().toISOString().split("T")[0],
+    availableDate: getTodayDateString(),
     description: "",
   });
 
@@ -208,14 +223,31 @@ function CreatePropertyListingContent() {
     requireKyc(profile, { router, redirect: true });
   }, [profile, router]);
 
-  function handleSelectBranch(branchId: string) {
+  function handleSelectBranch(branchId: string, branchList = branches) {
     if (!branchId) {
       setBasicInfo((prev) => ({ ...prev, branchId: "" }));
+      setMonthlyExpenses({
+        electricityType: "KWH",
+        electricityPrice: "3500",
+        waterType: "M3",
+        waterPrice: "25000",
+        managementFeeType: "NONE",
+        managementFee: "",
+        internetType: "SELF_PAY",
+        internetFee: "",
+        garbageFeeType: "INCLUDED",
+        garbageFee: "",
+        motorbikeParkingType: "NONE",
+        motorbikeParkingFee: "",
+        carParkingType: "NONE",
+        carParkingFee: "",
+        customFees: [],
+      });
       toast.info("Đã chuyển sang Bất động sản độc lập (bạn có thể tự nhập thủ công tất cả thông tin).");
       return;
     }
 
-    const branch = branches.find((b) => b.id === branchId);
+    const branch = branchList.find((b) => b.id === branchId);
     if (!branch) return;
 
     if (branch.category) {
@@ -241,7 +273,6 @@ function CreatePropertyListingContent() {
         setProvinceCode(pCodeStr);
         const foundP = provinces.find((p) => String(p.code) === pCodeStr);
         setProvinceQuery(branch.provinceName || (foundP ? foundP.name : ""));
-        // Đảm bảo nạp danh sách phường/xã theo tỉnh của chi nhánh
         provinceService
           .getCurrentWardsByProvince(pCodeStr)
           .then((data) => {
@@ -260,7 +291,6 @@ function CreatePropertyListingContent() {
       }
       if (branch.streetLine) setStreetLine(branch.streetLine);
 
-      // Xóa lỗi validation địa chỉ cũ nếu đã phát sinh trước đó
       setErrors((prev) => {
         const next = { ...prev };
         delete next.province;
@@ -270,9 +300,27 @@ function CreatePropertyListingContent() {
       });
     }
 
-    if (branch.defaultCharges && branch.defaultCharges.length > 0) {
-      const newExpenses: Partial<MonthlyExpensesData> = {};
+    // Initialize clean expenses state for branch (no lingering custom fees from other branches!)
+    const isApartment = (branch.category ? branch.category.toLowerCase() : basicInfo.category) === "apartment";
+    const newExpenses: MonthlyExpensesData = {
+      electricityType: "KWH",
+      electricityPrice: "3500",
+      waterType: "M3",
+      waterPrice: "25000",
+      managementFeeType: "NONE",
+      managementFee: "",
+      internetType: "SELF_PAY",
+      internetFee: "",
+      garbageFeeType: "INCLUDED",
+      garbageFee: "",
+      motorbikeParkingType: "NONE",
+      motorbikeParkingFee: "",
+      carParkingType: "NONE",
+      carParkingFee: "",
+      customFees: [],
+    };
 
+    if (branch.defaultCharges && branch.defaultCharges.length > 0) {
       const elec = branch.defaultCharges.find((c) => c.chargeType === "ELECTRICITY");
       if (elec) {
         newExpenses.electricityPrice = elec.amount ? String(elec.amount) : "";
@@ -289,7 +337,6 @@ function CreatePropertyListingContent() {
         else newExpenses.waterType = "M3";
       }
 
-      const isApartment = basicInfo.category === "apartment";
       const mgmt = branch.defaultCharges.find((c) => c.chargeType === "MANAGEMENT");
       if (isApartment && mgmt) {
         newExpenses.managementFee = mgmt.amount ? String(mgmt.amount) : "";
@@ -297,7 +344,7 @@ function CreatePropertyListingContent() {
         else if (mgmt.billingMethod === "PER_M2_MONTH") newExpenses.managementFeeType = "PER_M2";
         else if (mgmt.billingMethod === "NOT_APPLICABLE" || mgmt.billingMethod === "FREE") newExpenses.managementFeeType = "NONE";
         else newExpenses.managementFeeType = "MONTHLY";
-      } else if (!isApartment) {
+      } else {
         newExpenses.managementFeeType = "NONE";
         newExpenses.managementFee = "";
       }
@@ -311,11 +358,12 @@ function CreatePropertyListingContent() {
       }
 
       const garb = branch.defaultCharges.find(
-        (c) => c.chargeType === "SERVICE_OR_GARBAGE" || c.chargeType === "GARBAGE"
+        (c) => c.chargeType === "SERVICE_OR_GARBAGE" || c.chargeType === "GARBAGE" || c.chargeType === "CLEANING"
       );
       if (garb) {
         newExpenses.garbageFee = garb.amount ? String(garb.amount) : "";
         if (garb.includedInRent || garb.billingMethod === "INCLUDED") newExpenses.garbageFeeType = "INCLUDED";
+        else if (garb.billingMethod === "NOT_APPLICABLE") newExpenses.garbageFeeType = "NONE";
         else newExpenses.garbageFeeType = "MONTHLY";
       }
 
@@ -345,12 +393,10 @@ function CreatePropertyListingContent() {
           amount: c.amount ? String(c.amount) : "",
           unit: c.unit || "tháng",
         }));
-      if (customOthers.length > 0) {
-        newExpenses.customFees = customOthers;
-      }
-
-      setMonthlyExpenses((prev) => ({ ...prev, ...newExpenses }));
+      newExpenses.customFees = customOthers;
     }
+
+    setMonthlyExpenses(newExpenses);
 
     if (branch.buildingRules && !basicInfo.description) {
       setBasicInfo((prev) => ({
@@ -359,7 +405,13 @@ function CreatePropertyListingContent() {
       }));
     }
 
-    toast.info(`Đã áp dụng thông tin địa chỉ & biểu phí từ chi nhánh "${branch.name}"`);
+    if (branch.isComplete === false || (branch.missingCharges && branch.missingCharges.length > 0)) {
+      toast.warning(
+        `Chi nhánh "${branch.name}" chưa hoàn thiện biểu phí (${branch.missingCharges?.join(", ")}). Vui lòng cập nhật biểu phí chi nhánh trước khi đăng tin.`
+      );
+    } else {
+      toast.info(`Đã áp dụng thông tin địa chỉ & biểu phí từ chi nhánh "${branch.name}"`);
+    }
   }
 
   // Fetch provinces
@@ -470,7 +522,10 @@ function CreatePropertyListingContent() {
           images: existingImages,
           videos: existingVideos,
           category: cat,
-          availableDate: res.availableFrom || new Date().toISOString().split("T")[0],
+          availableDate:
+            res.availableFrom && res.availableFrom >= getTodayDateString()
+              ? res.availableFrom
+              : getTodayDateString(),
           description: res.description || "",
         });
 
@@ -859,6 +914,21 @@ function CreatePropertyListingContent() {
       addError("field-images", "images", "Vui lòng tải lên ít nhất 1 hình ảnh thực tế.");
     }
 
+    const todayStr = getTodayDateString();
+    if (!basicInfo.availableDate) {
+      addError(
+        "field-available-date",
+        "availableDate",
+        "Vui lòng chọn ngày có thể vào thuê / bàn giao."
+      );
+    } else if (basicInfo.availableDate < todayStr) {
+      addError(
+        "field-available-date",
+        "availableDate",
+        "Ngày có thể vào thuê / bàn giao không được ở trong quá khứ."
+      );
+    }
+
     // 2. Category specific
     if (basicInfo.category === "apartment") {
       if (!apartmentDetails.projectName.trim()) {
@@ -998,6 +1068,13 @@ function CreatePropertyListingContent() {
 
     const isValid = validateAllFields();
     if (!isValid) return;
+
+    if (selectedBranch && (selectedBranch.isComplete === false || (selectedBranch.missingCharges && selectedBranch.missingCharges.length > 0))) {
+      toast.error(
+        `Không thể gửi hoặc lưu tin đăng vì biểu phí của chi nhánh "${selectedBranch.name}" chưa hoàn thiện (còn thiếu: ${selectedBranch.missingCharges?.join(", ")}). Vui lòng cập nhật biểu phí chi nhánh trước.`
+      );
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -1204,6 +1281,7 @@ function CreatePropertyListingContent() {
           data={monthlyExpenses}
           errors={errors}
           isBranchSelected={Boolean(basicInfo.branchId)}
+          selectedBranch={selectedBranch}
           onChange={(updates) =>
             setMonthlyExpenses((prev) => ({ ...prev, ...updates }))
           }

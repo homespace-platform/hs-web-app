@@ -34,6 +34,11 @@ export interface PropertyBranch {
   carParkingCapacity?: number;
   defaultCharges?: BranchCharge[];
   buildingAmenityCodes?: string[];
+  coverImageId?: string | null;
+  coverImageUrl?: string | null;
+  isComplete?: boolean;
+  missingCharges?: string[];
+  activeListingsCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -54,6 +59,7 @@ export interface CreatePropertyBranchPayload {
   carParkingCapacity?: number;
   defaultCharges?: BranchCharge[];
   buildingAmenityCodes?: string[];
+  coverImageId?: string | null;
 }
 
 function formatBranchPayload(payload: CreatePropertyBranchPayload) {

@@ -373,24 +373,31 @@ export default function BasicInfoSection({
         </div>
 
         {/* Ngày có thể vào thuê / bàn giao */}
-        <FormField
-          id="field-available-date"
-          label="Ngày có thể vào thuê / bàn giao"
-          required
-          error={errors.availableDate}
-          hint="Thời điểm người thuê có thể nhận nhà/phòng/mặt bằng"
-        >
-          <div className="relative">
-            <input
-              type="date"
-              value={data.availableDate}
-              onChange={(e) => onChange({ availableDate: e.target.value })}
-              className={`${inputClass} ${
-                errors.availableDate ? "border-destructive focus:border-destructive" : ""
-              }`}
-            />
-          </div>
-        </FormField>
+        {(() => {
+          const d = new Date();
+          const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+          return (
+            <FormField
+              id="field-available-date"
+              label="Ngày có thể vào thuê / bàn giao"
+              required
+              error={errors.availableDate}
+              hint="Thời điểm người thuê có thể nhận nhà/phòng/mặt bằng (từ hôm nay trở đi)"
+            >
+              <div className="relative">
+                <input
+                  type="date"
+                  min={todayStr}
+                  value={data.availableDate}
+                  onChange={(e) => onChange({ availableDate: e.target.value })}
+                  className={`${inputClass} ${
+                    errors.availableDate ? "border-destructive focus:border-destructive" : ""
+                  }`}
+                />
+              </div>
+            </FormField>
+          );
+        })()}
       </div>
     </FormSectionWrapper>
   );

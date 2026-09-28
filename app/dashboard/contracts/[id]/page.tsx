@@ -56,6 +56,8 @@ export default function ContractDetailPage() {
   // Meter states for draft editing
   const [electricityInitial, setElectricityInitial] = useState("");
   const [waterInitial, setWaterInitial] = useState("");
+  const [savingMeters, setSavingMeters] = useState(false);
+  const [meterErrors, setMeterErrors] = useState<{ electricity?: string; water?: string }>({});
 
   const isLandlord = Boolean(
     profile?.id && contract?.landlordId && profile.id === contract.landlordId
@@ -131,17 +133,90 @@ export default function ContractDetailPage() {
     [documents, revision]
   );
 
-  const isWaterPerPerson = useMemo(() => {
-    return (revision?.charges || []).some(
-      (charge) =>
-        charge.chargeType === "WATER" &&
-        charge.billingMethod === "PER_PERSON_MONTH"
-    );
-  }, [revision?.charges]);
+  const electricityRequired = useMemo(() =>
+    (revision?.charges || []).some((charge) =>
+      charge.chargeType === "ELECTRICITY" && charge.billingMethod === "PER_KWH"
+    ), [revision?.charges]);
+
+  const waterRequired = useMemo(() =>
+    (revision?.charges || []).some((charge) =>
+      charge.chargeType === "WATER" && ["PER_M3", "STATE_WATER_RATE"].includes(String(charge.billingMethod))
+    ), [revision?.charges]);
+
+  const isWaterPerPerson = useMemo(() =>
+    !waterRequired && (revision?.charges || []).some((charge) =>
+      charge.chargeType === "WATER" && charge.billingMethod === "PER_PERSON_MONTH"
+    ), [revision?.charges, waterRequired]);
+
+  const metersDirty = Boolean(revision && (
+    electricityInitial.trim() !== String(revision.meters?.electricityInitial ?? "").trim() ||
+    (!isWaterPerPerson && waterInitial.trim() !== String(revision.meters?.waterInitial ?? "").trim())
+  ));
+
+  function validateMeterReading(value: string, required: boolean, label: string): string | undefined {
+    const reading = value.trim();
+    if (!reading) return required ? `Vui lòng nhập ${label}.` : undefined;
+    if (!/^\d+(\.\d+)?$/.test(reading)) return `${label} phải là số không âm (ví dụ: 0 hoặc 1250.5).`;
+    return undefined;
+  }
+
+  async function handleSaveMeters() {
+    if (!contractId || !revision) return;
+    const errors = {
+      electricity: validateMeterReading(electricityInitial, electricityRequired, "chỉ số điện ban đầu"),
+      water: isWaterPerPerson ? undefined : validateMeterReading(waterInitial, waterRequired, "chỉ số nước ban đầu"),
+    };
+    setMeterErrors(errors);
+    if (errors.electricity || errors.water) return;
+
+    setSavingMeters(true);
+    try {
+      const updated = await contractService.updateRevision(contractId, {
+        landlord: revision.landlord || {},
+        tenant: revision.tenant || {},
+        property: revision.property || {},
+        lease: revision.lease || {},
+        financial: revision.financial || {},
+        initialPayment: revision.initialPayment || undefined,
+        amenities: revision.amenities || undefined,
+        charges: revision.charges || [],
+        equipments: revision.equipments || [],
+        policies: revision.policies || undefined,
+        meters: {
+          ...(revision.meters || {}),
+          electricityInitial: electricityInitial.trim(),
+          waterInitial: isWaterPerPerson
+            ? String(revision.meters?.waterInitial ?? "")
+            : waterInitial.trim(),
+        },
+        specialTerms: revision.specialTerms,
+        revisionNote: "Cập nhật chỉ số điện nước ban đầu.",
+      });
+      setRevision(updated);
+      setElectricityInitial(String(updated.meters?.electricityInitial ?? ""));
+      setWaterInitial(String(updated.meters?.waterInitial ?? ""));
+      const [comp, docs] = await Promise.all([
+        contractService.getCompleteness(contractId),
+        contractService.getDocuments(contractId),
+      ]);
+      setCompleteness(comp);
+      setDocuments(docs);
+      toast.success("Đã lưu chỉ số ban đầu. Vui lòng kết xuất lại hợp đồng.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không thể lưu chỉ số ban đầu."));
+    } finally {
+      setSavingMeters(false);
+    }
+  }
 
   // ACTION: TRIGGER PREVIEW
   async function handleRender() {
     if (!contractId || !revision) return;
+    if (metersDirty) {
+      toast.warning("Vui lòng lưu chỉ số điện nước trước khi kết xuất hợp đồng.");
+      document.getElementById("contract-handover")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     setRendering(true);
     try {
       const doc = await contractService.triggerPreview(contractId);
@@ -177,13 +252,7 @@ export default function ContractDetailPage() {
         charges: revision.charges || [],
         equipments: revision.equipments || [],
         policies: revision.policies || undefined,
-        meters: {
-          ...(revision.meters || {}),
-          electricityInitial: electricityInitial.trim(),
-          waterInitial: isWaterPerPerson
-            ? "Không áp dụng đồng hồ nước"
-            : waterInitial.trim(),
-        },
+        meters: revision.meters || {},
         specialTerms: terms,
         revisionNote: "Cập nhật điều khoản thỏa thuận riêng.",
       });
@@ -199,6 +268,11 @@ export default function ContractDetailPage() {
   // ACTION: SEND TO TENANT
   async function handleSendToTenant() {
     if (!contractId) return;
+    if (metersDirty) {
+      toast.warning("Vui lòng lưu chỉ số điện nước và kết xuất lại hợp đồng trước khi gửi.");
+      document.getElementById("contract-handover")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     if (!hasReadyCurrentDocument) {
       toast.warning(
         "Dữ liệu đã thay đổi hoặc chưa có file kết xuất. Vui lòng kết xuất file xem trước trước khi gửi."
@@ -288,10 +362,10 @@ export default function ContractDetailPage() {
             <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="min-w-0 space-y-1">
               <p className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                Mẫu Word còn {completeness.missingFields.length} trường bắt buộc chưa có dữ liệu
+                Hợp đồng còn {completeness.missingFields.length} thông tin bắt buộc chưa có dữ liệu
               </p>
               <p className="text-xs text-amber-800/90 dark:text-amber-300/90">
-                Đã điền {completeness.filledFields}/{completeness.totalFields} trường. Vui lòng rà soát hồ sơ hoặc bổ sung trước khi xuất bản hợp đồng.
+                Đã điền {completeness.filledFields}/{completeness.totalFields} trường. Vui lòng bổ sung trước khi kết xuất và gửi hợp đồng.
               </p>
               <ul className="text-[11px] text-amber-900 dark:text-amber-200 list-disc pl-4 space-y-0.5 pt-1">
                 {completeness.missingFields.slice(0, 6).map((f) => (
@@ -377,15 +451,21 @@ export default function ContractDetailPage() {
           onSaveSpecialTerms={handleSaveSpecialTerms}
         />
 
-        {/* CHỈ SỐ BÀN GIAO CÔNG TƠ (TÙY CHỌN) */}
+        {/* CHỈ SỐ BAN ĐẦU ĐƯA VÀO HỢP ĐỒNG */}
         <ContractHandoverSection
           electricityInitial={electricityInitial}
           waterInitial={waterInitial}
           isWaterPerPerson={isWaterPerPerson}
+          electricityRequired={electricityRequired}
+          waterRequired={waterRequired}
           isDraft={isDraft}
           isLandlord={isLandlord}
-          onElectricityChange={setElectricityInitial}
-          onWaterChange={setWaterInitial}
+          isDirty={metersDirty}
+          saving={savingMeters}
+          errors={meterErrors}
+          onElectricityChange={(value) => { setElectricityInitial(value); setMeterErrors((prev) => ({ ...prev, electricity: undefined })); }}
+          onWaterChange={(value) => { setWaterInitial(value); setMeterErrors((prev) => ({ ...prev, water: undefined })); }}
+          onSave={handleSaveMeters}
         />
 
         {/* DANH SÁCH FILE VĂN BẢN KẾT XUẤT */}

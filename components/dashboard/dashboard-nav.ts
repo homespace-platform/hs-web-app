@@ -36,15 +36,23 @@ export const LANDLORD_NAV: DashboardNavGroup[] = [
     groupTitle: "BẢNG ĐIỀU KHIỂN",
     items: [
       { title: "Dashboard", path: "/dashboard/landlord", icon: Gauge },
-      { title: "Phân tích & Báo cáo", path: "/dashboard/analytics", icon: BarChart2 },
+      {
+        title: "Phân tích & Báo cáo",
+        path: "/dashboard/analytics",
+        icon: BarChart2,
+      },
     ],
   },
   {
     groupTitle: "QUẢN LÝ",
     items: [
       { title: "Khách hàng", path: "/dashboard/customers", icon: Users },
-      { title: "Chi nhánh / Tòa nhà", path: "/dashboard/branches", icon: Building2 },
       { title: "Tin đăng", path: "/dashboard/properties", icon: FileText },
+      {
+        title: "Chi nhánh / Tòa nhà",
+        path: "/dashboard/branches",
+        icon: Building2,
+      },
       {
         title: "Lịch xem nhà",
         path: "/dashboard/viewing-schedules",
@@ -69,8 +77,16 @@ export const LANDLORD_NAV: DashboardNavGroup[] = [
   {
     groupTitle: "TÀI CHÍNH & CHUYỂN KHOẢN",
     items: [
-      { title: "Yêu cầu chuyển khoản", path: "/dashboard/payments", icon: CreditCard },
-      { title: "Tài khoản ngân hàng", path: "/settings/bank-accounts", icon: Landmark },
+      {
+        title: "Yêu cầu chuyển khoản",
+        path: "/dashboard/payments",
+        icon: CreditCard,
+      },
+      {
+        title: "Tài khoản ngân hàng",
+        path: "/settings/bank-accounts",
+        icon: Landmark,
+      },
     ],
   },
 ];
@@ -104,8 +120,16 @@ export const TENANT_NAV: DashboardNavGroup[] = [
   {
     groupTitle: "TÀI CHÍNH & CHUYỂN KHOẢN",
     items: [
-      { title: "Yêu cầu chuyển khoản", path: "/dashboard/payments", icon: CreditCard },
-      { title: "Tài khoản ngân hàng", path: "/settings/bank-accounts", icon: Landmark },
+      {
+        title: "Yêu cầu chuyển khoản",
+        path: "/dashboard/payments",
+        icon: CreditCard,
+      },
+      {
+        title: "Tài khoản ngân hàng",
+        path: "/settings/bank-accounts",
+        icon: Landmark,
+      },
     ],
   },
 ];

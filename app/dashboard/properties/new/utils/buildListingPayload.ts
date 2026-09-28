@@ -28,6 +28,7 @@ import type {
 
 export interface BuildPayloadParams {
   id?: string | null;
+  duplicateSourceListingId?: string | null;
   submissionAction: ListingSubmissionAction;
   basicInfo: BasicInfoData;
   apartmentDetails: ApartmentDetailsData;
@@ -46,7 +47,7 @@ export interface BuildPayloadParams {
   wardName: string;
   streetLine: string;
   fullAddress: string;
-  uploadedMediaList: { storageObjectId: string; mediaType: "IMAGE" | "VIDEO" }[];
+  uploadedMediaList: { storageObjectId?: string; sourceMediaId?: string; mediaType: "IMAGE" | "VIDEO" }[];
   selectedViewingDays?: string[];
   selectedViewingSlots?: string[];
 }
@@ -397,6 +398,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
   // Build Media
   const media: ListingMediaRequest[] = uploadedMediaList.map((item, idx) => ({
     storageObjectId: item.storageObjectId,
+    sourceMediaId: item.sourceMediaId,
     mediaType: item.mediaType,
     sortOrder: idx,
     cover: idx === 0,
@@ -423,6 +425,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
 
   return {
     id: params.id || null,
+    duplicateSourceListingId: params.duplicateSourceListingId || undefined,
     branchId: basicInfo.branchId || null,
     submissionAction: params.submissionAction,
     title: basicInfo.title.trim(),

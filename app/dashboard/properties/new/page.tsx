@@ -3,20 +3,21 @@
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Copy, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/features/auth/useAuth";
 import provinceService from "@/services/province.service";
 import listingService from "@/services/listing.service";
 import storageService from "@/services/storage.service";
 import branchService, { type PropertyBranch } from "@/services/branch.service";
 import type { Province, Ward } from "@/types/province.type";
-import type { ListingOptionsResponse, ListingSubmissionAction } from "@/types/listing.type";
+import type { ListingOptionsResponse, ListingSubmissionAction, ListingDetailResponse } from "@/types/listing.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { isKycSatisfied, requireKyc } from "@/lib/kyc-gate";
 import {
   buildCreateListingPayload,
   furnishingStatusToFormValue,
 } from "./utils/buildListingPayload";
+import { mapListingDetailToFormState } from "./utils/mapListingDetailToFormState";
 
 import BasicInfoSection from "./components/BasicInfoSection";
 import ApartmentDetailsSection from "./components/details/ApartmentDetailsSection";
@@ -62,21 +63,18 @@ function CreatePropertyListingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
+  const duplicateFrom = searchParams.get("duplicateFrom");
   const branchIdParam = searchParams.get("branchId");
+  const isDuplicateMode = Boolean(duplicateFrom);
+  const isEditMode = Boolean(editId && !duplicateFrom);
+  const targetListingId = duplicateFrom || editId;
+
   const { profile } = useAuth();
 
-  const [isLoadingDetail, setIsLoadingDetail] = useState(Boolean(editId));
+  const [sourceListingTitle, setSourceListingTitle] = useState<string>("");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(Boolean(targetListingId));
   const [branches, setBranches] = useState<PropertyBranch[]>([]);
-
-  useEffect(() => {
-    branchService.getMyBranches().then((list) => {
-      setBranches(list);
-      if (branchIdParam && !editId) {
-        handleSelectBranch(branchIdParam, list);
-      }
-    }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchIdParam, editId]);
 
   // Section 1: Basic Info
   const [basicInfo, setBasicInfo] = useState<BasicInfoData>({
@@ -483,271 +481,96 @@ function CreatePropertyListingContent() {
     };
   }, [provinceCode]);
 
-  // Load existing listing data if editing
+  // Load existing listing data (for edit or duplicate mode) or branch
   useEffect(() => {
-    if (!editId) return;
-
     let active = true;
 
-    listingService
-      .getMyListingById(editId)
-      .catch(() => listingService.getById(editId))
-      .then((res) => {
+    async function loadData() {
+      setIsLoadingDetail(Boolean(targetListingId));
+      setLoadError(null);
+
+      try {
+        let branchList: PropertyBranch[] = [];
+        try {
+          branchList = await branchService.getMyBranches();
+          if (active) setBranches(branchList);
+        } catch (e) {
+          console.warn("Could not load branches:", e);
+        }
+
+        if (targetListingId) {
+          let detail: ListingDetailResponse;
+          if (isDuplicateMode) {
+            // Strictly fetch owner's listing - DO NOT fallback to public getById!
+            detail = await listingService.getMyListingById(duplicateFrom!);
+          } else {
+            try {
+              detail = await listingService.getMyListingById(editId!);
+            } catch {
+              detail = await listingService.getById(editId!);
+            }
+          }
+
+          if (!active) return;
+
+          if (isDuplicateMode) {
+            setSourceListingTitle(detail.title || "Tin gốc");
+          }
+
+          const formState = mapListingDetailToFormState(
+            detail,
+            isDuplicateMode ? "duplicate" : "edit",
+            branchList,
+            getTodayDateString()
+          );
+
+          setBasicInfo(formState.basicInfo);
+          setApartmentDetails(formState.apartmentDetails);
+          setHouseDetails(formState.houseDetails);
+          setRoomDetails(formState.roomDetails);
+          setFurnishingAssets(formState.furnishingAssets);
+          setSelectedAmenities(formState.selectedAmenities);
+          setMonthlyExpenses(formState.monthlyExpenses);
+          setPricing(formState.pricing);
+          setAddressMode(formState.addressMode);
+          setStreetLine(formState.streetLine);
+          setProvinceCode(formState.provinceCode);
+          setProvinceQuery(formState.provinceQuery);
+          setWardCode(formState.wardCode);
+          setWardQuery(formState.wardQuery);
+          setSelectedViewingDays(formState.selectedViewingDays);
+          setSelectedViewingSlots(formState.selectedViewingSlots);
+
+          if (formState.notice) {
+            if (formState.notice.type === "warning") toast.warning(formState.notice.message);
+            else if (formState.notice.type === "error") toast.error(formState.notice.message);
+            else toast.info(formState.notice.message);
+          }
+        } else if (branchIdParam) {
+          handleSelectBranch(branchIdParam, branchList);
+        }
+      } catch (err) {
         if (!active) return;
-
-        // 1. Basic Info
-        let cat: PropertyCategoryKey = "apartment";
-        if (res.category === "HOUSE") cat = "house";
-        else if (res.category === "ROOM") cat = "room";
-
-        const existingImages: SelectedMediaImage[] = (res.media || [])
-          .filter((m) => m.mediaType === "IMAGE")
-          .map((m) => ({
-            name: m.id || "image",
-            dataUrl: m.url || "/area/hcm-1.jpg",
-            storageObjectId: m.storageObjectId,
-          }));
-
-        const existingVideos: SelectedMediaVideo[] = (res.media || [])
-          .filter((m) => m.mediaType === "VIDEO")
-          .map((m) => ({
-            name: m.id || "video",
-            url: m.url || undefined,
-            storageObjectId: m.storageObjectId,
-          }));
-
-        setBasicInfo({
-          branchId: res.branchId || "",
-          title: res.title || "",
-          images: existingImages,
-          videos: existingVideos,
-          category: cat,
-          availableDate:
-            res.availableFrom && res.availableFrom >= getTodayDateString()
-              ? res.availableFrom
-              : getTodayDateString(),
-          description: res.description || "",
-        });
-
-        // 2. Details
-        if (res.apartmentDetail) {
-          setApartmentDetails({
-            projectName: res.apartmentDetail.projectName || "",
-            buildingBlock: res.apartmentDetail.buildingBlock || "",
-            unitNumber: res.apartmentDetail.unitCode || "",
-            areaM2: String(res.areaM2 || ""),
-            bedrooms: String(res.apartmentDetail.bedroomCount ?? "2"),
-            bathrooms: String(res.apartmentDetail.bathroomCount ?? "2"),
-            livingRooms: String(res.apartmentDetail.livingRoomCount ?? "1"),
-            kitchens: String(res.apartmentDetail.kitchenCount ?? "1"),
-            floor: String(res.apartmentDetail.floorNumber ?? ""),
-            totalFloors: String(res.apartmentDetail.buildingTotalFloors ?? ""),
-            furnishing: furnishingStatusToFormValue(res.apartmentDetail.furnishingStatus),
-            doorOrientation: res.apartmentDetail.mainDoorDirection || "",
-            balconyOrientation: res.apartmentDetail.balconyDirection || "",
-            view: res.apartmentDetail.viewDescription || "",
-            maxOccupants: String(res.apartmentDetail.maxOccupants ?? "4"),
-            legalStatus: res.apartmentDetail.legalStatus || "PINK_BOOK",
-          });
+        console.error("Failed to load listing for new/edit/duplicate:", err);
+        if (isDuplicateMode) {
+          setLoadError(
+            "Không thể nhân bản tin đăng này. Tin đăng không tồn tại hoặc bạn không có quyền sở hữu."
+          );
+        } else {
+          setLoadError("Không tìm thấy tin đăng hoặc bạn không có quyền chỉnh sửa.");
         }
-
-        if (res.houseDetail) {
-          setHouseDetails({
-            landAreaM2: String(res.houseDetail.landAreaM2 ?? ""),
-            totalUsableAreaM2: String(res.areaM2 || ""),
-            facadeWidthM: String(res.houseDetail.frontageWidthM ?? ""),
-            lengthM: String(res.houseDetail.lengthM ?? ""),
-            streetWidthM: String(res.houseDetail.accessRoadWidthM ?? ""),
-            frontageCount: String(res.houseDetail.frontageCount ?? "1"),
-            bedrooms: String(res.houseDetail.bedroomCount ?? "3"),
-            bathrooms: String(res.houseDetail.bathroomCount ?? "3"),
-            livingRooms: String(res.houseDetail.livingRoomCount ?? "1"),
-            kitchens: String(res.houseDetail.kitchenCount ?? "1"),
-            totalFloors: String(res.houseDetail.totalFloors ?? "2"),
-            hasRooftopTerrace: Boolean(res.houseDetail.hasRooftop),
-            privateEntrance: res.houseDetail.accessType || "PRIVATE",
-            hasGarage: Boolean(res.houseDetail.hasGarage),
-            maxOccupants: String(res.houseDetail.maxOccupants ?? "6"),
-            maxVehicles: String(res.houseDetail.maxVehicles ?? "4"),
-            furnishing: furnishingStatusToFormValue(res.houseDetail.furnishingStatus),
-            legalStatus: res.houseDetail.legalStatus || "PINK_BOOK",
-          });
-        }
-
-        if (res.roomDetail) {
-          setRoomDetails({
-            roomCode: res.roomDetail.roomCode || "",
-            areaM2: String(res.areaM2 || ""),
-            roomFloor: String(res.roomDetail.floorNumber ?? "2"),
-            toiletType: res.roomDetail.restroomType === "SHARED" ? "SHARED" : "PRIVATE",
-            kitchenType:
-              res.roomDetail.kitchenType === "SHARED"
-                ? "SHARED"
-                : res.roomDetail.kitchenType === "NONE"
-                ? "NONE"
-                : "PRIVATE",
-            hasWindow: res.roomDetail.hasWindow ? "YES" : "NO",
-            hasBalcony: (() => {
-              const t = res.roomDetail.balconyType;
-              if (t === "SHARED" || t === "PRIVATE" || t === "NONE") return t;
-              // Legacy fallback nếu API cũ chỉ trả boolean
-              if ((res.roomDetail as { hasBalcony?: boolean }).hasBalcony === true) return "PRIVATE";
-              if ((res.roomDetail as { hasBalcony?: boolean }).hasBalcony === false) return "NONE";
-              return "NONE";
-            })(),
-            hasLoft: Boolean(res.roomDetail.hasMezzanine),
-            furnishing: furnishingStatusToFormValue(res.roomDetail.furnishingStatus),
-            entranceType: res.roomDetail.accessType === "SHARED" ? "SHARED" : "PRIVATE",
-            curfewType: res.roomDetail.accessHoursType === "CURFEW" ? "CURFEW" : "FREE",
-            electricityMeter: res.roomDetail.electricMeterType === "SHARED" ? "SHARED" : "PRIVATE",
-            waterMeter: res.roomDetail.waterMeterType === "SHARED" ? "SHARED" : "PRIVATE",
-            maxOccupants: String(res.roomDetail.maxOccupants ?? "2"),
-            maxVehicles: String(res.roomDetail.maxVehicles ?? "2"),
-            parkingPolicy:
-              res.roomDetail.parkingPolicy === "PAID"
-                ? "PAID"
-                : res.roomDetail.parkingPolicy === "NONE"
-                ? "NONE"
-                : "FREE",
-          });
-        }
-
-        // 3. Amenities & bảng trang thiết bị bàn giao
-        const standardCodes = (res.amenities || []).map((a) => a.code).filter(Boolean);
-        const customItems = res.customAmenities || [];
-        setSelectedAmenities([...standardCodes, ...customItems]);
-
-        setFurnishingAssets(
-          (res.furnishings || []).map((f) => ({
-            itemCode: f.itemCode ?? null,
-            assetName: f.assetName || "",
-            quantity: f.quantity ?? 1,
-            handoverCondition: f.handoverCondition || "GOOD",
-            conditionNote: f.conditionNote || "",
-          }))
-        );
-
-        // 4. Monthly Expenses
-        if (res.charges) {
-          const elec = res.charges.find((c) => c.chargeType === "ELECTRICITY");
-          const water = res.charges.find((c) => c.chargeType === "WATER");
-          const mgmt = res.charges.find((c) => c.chargeType === "MANAGEMENT");
-          const net = res.charges.find((c) => c.chargeType === "INTERNET");
-          const garb = res.charges.find((c) => c.chargeType === "SERVICE_OR_GARBAGE");
-          const moto = res.charges.find((c) => c.chargeType === "MOTORBIKE_PARKING");
-          const car = res.charges.find((c) => c.chargeType === "CAR_PARKING");
-          const customs = res.charges.filter((c) => c.chargeType === "OTHER");
-
-          setMonthlyExpenses({
-            electricityType: elec?.includedInRent || elec?.billingMethod === "INCLUDED"
-              ? "INCLUDED"
-              : "KWH",
-            electricityPrice: elec?.amount != null ? String(elec.amount) : "3500",
-            waterType: water?.includedInRent
-              ? "INCLUDED"
-              : water?.billingMethod === "PER_PERSON_MONTH"
-              ? "PER_PERSON"
-              : water?.billingMethod === "PER_MONTH"
-              ? "FLAT_ROOM"
-              : "M3",
-            waterPrice: water?.amount != null ? String(water.amount) : "25000",
-            managementFeeType:
-              cat !== "apartment" || !mgmt || mgmt.billingMethod === "NOT_APPLICABLE" || mgmt.billingMethod === "FREE"
-                ? "NONE"
-                : mgmt.includedInRent || mgmt.billingMethod === "INCLUDED"
-                ? "INCLUDED"
-                : mgmt.billingMethod === "PER_M2_MONTH"
-                ? "PER_M2"
-                : mgmt.billingMethod === "PER_MONTH" || mgmt.amount != null
-                ? "MONTHLY"
-                : "NONE",
-            managementFee: cat === "apartment" && mgmt?.amount != null ? String(mgmt.amount) : "",
-            internetType: net?.includedInRent ? "INCLUDED" : net?.amount != null ? "MONTHLY" : "SELF_PAY",
-            internetFee: net?.amount != null ? String(net.amount) : "",
-            garbageFeeType: garb?.includedInRent ? "INCLUDED" : "MONTHLY",
-            garbageFee: garb?.amount != null ? String(garb.amount) : "",
-            motorbikeParkingType: moto?.includedInRent
-              ? "INCLUDED"
-              : moto?.amount != null
-              ? "PER_VEHICLE"
-              : "NONE",
-            motorbikeParkingFee: moto?.amount != null ? String(moto.amount) : "",
-            carParkingType: car?.includedInRent
-              ? "INCLUDED"
-              : car?.amount != null
-              ? "PER_VEHICLE"
-              : "NONE",
-            carParkingFee: car?.amount != null ? String(car.amount) : "",
-            customFees: customs.map((c, i) => ({
-              id: `custom-${i}`,
-              name: c.customName || "",
-              amount: c.amount != null ? String(c.amount) : "",
-              unit: "tháng",
-            })),
-          });
-        }
-
-        // 5. Pricing
-        if (res.pricing) {
-          setPricing({
-            priceMonthly: String(res.pricing.amount ?? ""),
-            priceUnit:
-              res.pricing.unit === "M2_MONTH"
-                ? "VND_M2_MONTH"
-                : res.pricing.unit === "ROOM_MONTH"
-                ? "VND_ROOM_MONTH"
-                : res.pricing.unit === "PERSON_MONTH"
-                ? "VND_PERSON_MONTH"
-                : res.pricing.unit === "SEAT_MONTH"
-                ? "VND_SEAT_MONTH"
-                : "VND_MONTH",
-            isNegotiable: Boolean(res.pricing.negotiable),
-            depositType:
-              res.pricing.depositType === "FIXED_AMOUNT"
-                ? "AMOUNT"
-                : res.pricing.depositType === "MONTH_COUNT"
-                ? "MONTHS"
-                : "NONE",
-            depositAmount: String(res.pricing.depositAmount ?? ""),
-            depositMonths: String(res.pricing.depositMonths ?? ""),
-            paymentCycle: "MONTHLY",
-            minimumLeaseMonths: String(res.pricing.minimumLeaseMonths ?? "6"),
-            includeManagementFee: false,
-            includeVat: Boolean(res.pricing.vatIncluded),
-          });
-        }
-
-        // 6. Location
-        if (res.address) {
-          setAddressMode("new");
-          setStreetLine(res.address.streetLine || "");
-          setProvinceCode(res.address.provinceCode || "79");
-          setProvinceQuery(res.address.provinceName || "");
-          setWardCode(res.address.wardCode || "");
-          setWardQuery(res.address.wardName || "");
-        }
-
-        // 7. Viewing Schedule
-        if (res.viewingDays && res.viewingDays.length > 0) {
-          setSelectedViewingDays(res.viewingDays);
-        }
-        if (res.viewingSlots && res.viewingSlots.length > 0) {
-          setSelectedViewingSlots(res.viewingSlots);
-        }
-      })
-      .catch((err) => {
-        if (!active) return;
-        console.error("Failed to load listing for edit:", err);
-        toast.error("Không tìm thấy tin đăng hoặc bạn không có quyền chỉnh sửa.");
-      })
-      .finally(() => {
+      } finally {
         if (active) setIsLoadingDetail(false);
-      });
+      }
+    }
+
+    loadData();
 
     return () => {
       active = false;
     };
-  }, [editId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetListingId, isDuplicateMode, editId, duplicateFrom, branchIdParam]);
 
   const selectedBranch = useMemo(
     () => branches.find((b) => b.id === basicInfo.branchId) ?? null,
@@ -1064,6 +887,7 @@ function CreatePropertyListingContent() {
   const [submittingAction, setSubmittingAction] = useState<ListingSubmissionAction | null>(null);
 
   async function handleSaveListing(action: ListingSubmissionAction) {
+    if (isSubmitting) return;
     if (!requireKyc(profile, { router, redirect: true })) return;
 
     const isValid = validateAllFields();
@@ -1081,17 +905,26 @@ function CreatePropertyListingContent() {
       setSubmittingAction(action);
       const loadingText =
         action === "SAVE_DRAFT"
-          ? "Đang lưu tin nháp..."
-          : editId
+          ? (isDuplicateMode ? "Đang lưu bản sao dưới dạng nháp..." : "Đang lưu tin nháp...")
+          : isDuplicateMode
+          ? "Đang nhân bản tin và gửi duyệt..."
+          : isEditMode
           ? "Đang cập nhật và gửi duyệt..."
           : "Đang xử lý tải hình ảnh và gửi duyệt...";
       toast.loading(loadingText, { id: "submit-listing" });
 
       // 1. Upload media files if new
-      const uploadedMediaList: { storageObjectId: string; mediaType: "IMAGE" | "VIDEO" }[] = [];
+      const uploadedMediaList: {
+        storageObjectId?: string;
+        sourceMediaId?: string;
+        mediaType: "IMAGE" | "VIDEO";
+      }[] = [];
 
       for (const [index, img] of basicInfo.images.entries()) {
-        if (img.storageObjectId) {
+        if (img.sourceMediaId) {
+          // Keep source media reference for duplicate mode
+          uploadedMediaList.push({ sourceMediaId: img.sourceMediaId, mediaType: "IMAGE" });
+        } else if (img.storageObjectId) {
           uploadedMediaList.push({ storageObjectId: img.storageObjectId, mediaType: "IMAGE" });
         } else if (img.file) {
           const storageId = await storageService.uploadListingMedia(img.file);
@@ -1106,7 +939,10 @@ function CreatePropertyListingContent() {
       }
 
       for (const [index, vid] of basicInfo.videos.entries()) {
-        if (vid.storageObjectId) {
+        if (vid.sourceMediaId) {
+          // Keep source media reference for duplicate mode
+          uploadedMediaList.push({ sourceMediaId: vid.sourceMediaId, mediaType: "VIDEO" });
+        } else if (vid.storageObjectId) {
           uploadedMediaList.push({ storageObjectId: vid.storageObjectId, mediaType: "VIDEO" });
         } else if (vid.file) {
           const storageId = await storageService.uploadListingMedia(vid.file);
@@ -1120,9 +956,10 @@ function CreatePropertyListingContent() {
         }
       }
 
-      // 2. Build payload (upsert with id if editing)
+      // 2. Build payload (upsert with id if editing; duplicate mode ALWAYS has id = null)
       const payload = buildCreateListingPayload({
-        id: editId || null,
+        id: isDuplicateMode ? null : (editId || null),
+        duplicateSourceListingId: isDuplicateMode ? duplicateFrom : null,
         submissionAction: action,
         basicInfo,
         apartmentDetails,
@@ -1151,7 +988,11 @@ function CreatePropertyListingContent() {
 
       const successMessage =
         action === "SAVE_DRAFT"
-          ? "Đã lưu tin nháp"
+          ? (isDuplicateMode ? "Đã lưu bản sao dưới dạng tin nháp" : "Đã lưu tin nháp")
+          : isDuplicateMode
+          ? "Bản sao tin đăng đã được tạo và gửi chờ duyệt"
+          : isEditMode
+          ? "Tin đăng đã được cập nhật và gửi duyệt"
           : "Tin đã được gửi chờ duyệt";
       toast.success(successMessage, { id: "submit-listing" });
       router.push("/dashboard/properties");
@@ -1229,12 +1070,37 @@ function CreatePropertyListingContent() {
     }
   }
 
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-xl py-16 text-center space-y-4">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400">
+          <AlertTriangle className="h-7 w-7" />
+        </div>
+        <h2 className="text-lg font-bold text-foreground">Không thể tải dữ liệu tin đăng</h2>
+        <p className="text-sm text-muted-foreground">{loadError}</p>
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/properties")}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-xs hover:bg-primary/90"
+          >
+            Quay lại danh sách tin đăng
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoadingDetail) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
         <Loader2 className="h-9 w-9 animate-spin text-primary mb-3" />
-        <p className="text-sm font-medium">Đang tải thông tin tin đăng để chỉnh sửa...</p>
-            </div>
+        <p className="text-sm font-medium">
+          {isDuplicateMode
+            ? "Đang nạp dữ liệu từ tin đăng gốc để nhân bản..."
+            : "Đang tải thông tin tin đăng để chỉnh sửa..."}
+        </p>
+      </div>
     );
   }
 
@@ -1243,14 +1109,39 @@ function CreatePropertyListingContent() {
       {/* Page Header */}
       <div className="space-y-1">
         <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-          {editId ? "Chỉnh sửa tin đăng" : "Đăng tin cho thuê"}
+          {isDuplicateMode
+            ? "Nhân bản tin đăng"
+            : isEditMode
+            ? "Chỉnh sửa tin đăng"
+            : "Đăng tin cho thuê"}
         </h1>
         <p className="text-xs text-muted-foreground sm:text-sm">
-          {editId
+          {isDuplicateMode
+            ? "Xem lại và điều chỉnh thông tin cần thiết (mã phòng, tầng, giá, ảnh...) để tạo tin mới nhanh chóng."
+            : isEditMode
             ? "Cập nhật lại các thông tin của tin đăng để đảm bảo tính chính xác và thu hút khách thuê."
             : "Nhập đầy đủ thông tin để tạo tin đăng cho thuê chuyên nghiệp và tiếp cận hàng ngàn khách hàng tiềm năng."}
         </p>
+      </div>
+
+      {/* Duplicate Mode Banner */}
+      {isDuplicateMode && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 text-blue-900 shadow-2xs dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl bg-blue-100 p-2 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 shrink-0">
+              <Copy className="h-5 w-5" />
             </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold">
+                Đang tạo tin mới từ &quot;{sourceListingTitle || "Tin gốc"}&quot;
+              </h3>
+              <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                Tin gốc sẽ không thay đổi. Tin mới chỉ được tạo khi bạn bấm &quot;Lưu nháp&quot; hoặc &quot;Gửi duyệt&quot;.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={(e) => e.preventDefault()} noValidate className="space-y-6">
         {/* Section 1: Thông tin cơ bản */}
@@ -1357,7 +1248,7 @@ function CreatePropertyListingContent() {
           onSubmitForReview={() => handleSaveListing("SUBMIT_FOR_REVIEW")}
           isSubmitting={isSubmitting}
           submittingAction={submittingAction}
-          isEditing={Boolean(editId)}
+          isEditing={isEditMode}
         />
       </form>
 

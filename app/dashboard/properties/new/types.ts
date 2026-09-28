@@ -5,6 +5,7 @@ export type SelectedMediaImage = {
   dataUrl: string;
   file?: File;
   storageObjectId?: string;
+  sourceMediaId?: string;
 };
 
 export type SelectedMediaVideo = {
@@ -12,6 +13,7 @@ export type SelectedMediaVideo = {
   file?: File;
   url?: string;
   storageObjectId?: string;
+  sourceMediaId?: string;
 };
 
 export type DepositType = "NONE" | "AMOUNT" | "MONTHS";

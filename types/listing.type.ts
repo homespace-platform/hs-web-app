@@ -305,7 +305,8 @@ export type ListingAddressSourceRequest = {
 };
 
 export type ListingMediaRequest = {
-  storageObjectId: string;
+  storageObjectId?: string;
+  sourceMediaId?: string;
   mediaType: ListingMediaType;
   sortOrder: number;
   cover: boolean;
@@ -313,6 +314,7 @@ export type ListingMediaRequest = {
 
 export type CreateListingRequest = {
   id?: string | null;
+  duplicateSourceListingId?: string | null;
   branchId?: string | null;
   submissionAction: ListingSubmissionAction;
   title: string;

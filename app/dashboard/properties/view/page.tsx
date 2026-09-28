@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   AlertTriangle,
   Edit,
+  Copy,
   Loader2,
 } from "lucide-react";
 import RentDetailView from "@/components/rent/RentDetailView";
@@ -98,7 +99,11 @@ function DashboardPropertyViewContent() {
   }
 
   const statusConfig = getListingStatusConfig(rawListing.status);
-  const canEdit = rawListing.status !== "VIOLATION";
+  const isRented = String(rawListing.status || "").trim().toUpperCase() === "RENTED";
+  const isRentedExternally = String(rawListing.status || "").trim().toUpperCase() === "RENTED_EXTERNALLY";
+  const isViolation = String(rawListing.status || "").trim().toUpperCase() === "VIOLATION";
+  const canEdit = !isViolation && !isRented && !isRentedExternally;
+  const canDuplicate = !isViolation;
 
   // Top Bar with Breadcrumbs, Status Pill and Landlord Actions
   const topBar = (
@@ -152,6 +157,18 @@ function DashboardPropertyViewContent() {
           onChanged={() => fetchDetail()}
           size="md"
         />
+
+        {/* Duplicate Button */}
+        {canDuplicate && (
+          <Link
+            href={`/dashboard/properties/new?duplicateFrom=${rawListing.id}`}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-muted shadow-2xs transition-all"
+            title="Nhân bản tin đăng này"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            <span>Nhân bản</span>
+          </Link>
+        )}
 
         {/* Edit Button */}
         {canEdit && (

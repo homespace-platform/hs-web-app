@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Suspense, useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Copy, AlertTriangle } from "lucide-react";
@@ -75,6 +76,8 @@ function CreatePropertyListingContent() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(Boolean(targetListingId));
   const [branches, setBranches] = useState<PropertyBranch[]>([]);
+  const [rentedLockListing, setRentedLockListing] = useState<{ id: string; title: string } | null>(null);
+  const [loadedListingStatus, setLoadedListingStatus] = useState<string | null>(null);
 
   // Section 1: Basic Info
   const [basicInfo, setBasicInfo] = useState<BasicInfoData>({
@@ -504,14 +507,22 @@ function CreatePropertyListingContent() {
             // Strictly fetch owner's listing - DO NOT fallback to public getById!
             detail = await listingService.getMyListingById(duplicateFrom!);
           } else {
-            try {
+            // Strictly fetch owner's listing for edit mode - DO NOT fallback to public getById!
               detail = await listingService.getMyListingById(editId!);
-            } catch {
-              detail = await listingService.getById(editId!);
-            }
+            // (no fallback)
+            // public fallback removed
+            // (end)
           }
 
           if (!active) return;
+
+          setLoadedListingStatus(detail.status);
+
+          if (isEditMode && String(detail.status || "").trim().toUpperCase() === "RENTED") {
+            setRentedLockListing({ id: detail.id, title: detail.title });
+            setIsLoadingDetail(false);
+            return;
+          }
 
           if (isDuplicateMode) {
             setSourceListingTitle(detail.title || "Tin gốc");
@@ -892,6 +903,13 @@ function CreatePropertyListingContent() {
   async function handleSaveListing(action: ListingSubmissionAction) {
     if (isSubmitting) return;
     if (!requireKyc(profile, { router, redirect: true })) return;
+    if (
+      isEditMode &&
+      (String(loadedListingStatus || "").trim().toUpperCase() === "RENTED" || rentedLockListing)
+    ) {
+      toast.error("Tin đã cho thuê qua HomeSpace, không thể chỉnh sửa hoặc gửi duyệt lại.");
+      return;
+    }
 
     const isValid = validateAllFields();
     if (!isValid) return;
@@ -1006,6 +1024,11 @@ function CreatePropertyListingContent() {
         "Thao tác thất bại. Vui lòng kiểm tra lại kết nối và thử lại."
       );
       toast.error(serverMessage, { id: "submit-listing" });
+
+      if (isEditMode && axios.isAxiosError(error) && error.response?.status === 409) {
+        setLoadedListingStatus("RENTED");
+        setRentedLockListing({ id: editId!, title: basicInfo.title || "Tin đăng" });
+      }
     } finally {
       setIsSubmitting(false);
       setSubmittingAction(null);
@@ -1071,6 +1094,48 @@ function CreatePropertyListingContent() {
       default:
         return null;
     }
+  }
+
+  if (rentedLockListing) {
+    return (
+      <div className="mx-auto max-w-xl py-16 text-center space-y-5 animate-in fade-in-50 duration-200">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
+          <AlertTriangle className="h-8 w-8" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold text-foreground">
+            Tin đăng đã cho thuê qua HomeSpace
+          </h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Tin đăng <span className="font-semibold text-foreground">&quot;{rentedLockListing.title}&quot;</span> đã cho thuê và đang gắn liền với hợp đồng thuê trên hệ thống HomeSpace nên không thể chỉnh sửa nội dung, lưu nháp hoặc gửi duyệt lại.
+          </p>
+        </div>
+        <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/properties")}
+            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-foreground shadow-2xs hover:bg-muted transition-all"
+          >
+            Quay lại danh sách tin
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push(`/dashboard/properties/view?id=${rentedLockListing.id}`)}
+            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-foreground shadow-2xs hover:bg-muted transition-all"
+          >
+            Xem chi tiết tin
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push(`/dashboard/properties/new?duplicateFrom=${rentedLockListing.id}`)}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all"
+          >
+            <Copy className="h-4 w-4" />
+            Nhân bản thành tin mới
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (loadError) {

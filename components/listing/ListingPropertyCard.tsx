@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Calendar,
   Layers,
+  Copy,
 } from "lucide-react";
 import type { ListingCategory, MyListingSummaryResponse } from "@/types/listing.type";
 import { getListingStatusConfig } from "@/config/listing-status.config";
@@ -69,7 +70,11 @@ export default function ListingPropertyCard({
 }: ListingPropertyCardProps) {
   const router = useRouter();
   const statusConfig = getListingStatusConfig(item.status);
-  const canEdit = item.status !== "VIOLATION";
+  const isRented = String(item.status || "").trim().toUpperCase() === "RENTED";
+  const isRentedExternally = String(item.status || "").trim().toUpperCase() === "RENTED_EXTERNALLY";
+  const isViolation = String(item.status || "").trim().toUpperCase() === "VIOLATION";
+  const canEdit = !isViolation && !isRented && !isRentedExternally;
+  const canDuplicate = !isViolation;
 
   const handleOpenDetail = () => {
     router.push(`/rent/${item.id}`);
@@ -77,6 +82,10 @@ export default function ListingPropertyCard({
 
   const handleEditListing = () => {
     router.push(`/dashboard/properties/new?id=${item.id}`);
+  };
+
+  const handleDuplicateListing = () => {
+    router.push(`/dashboard/properties/new?duplicateFrom=${item.id}`);
   };
 
   return (
@@ -212,7 +221,7 @@ export default function ListingPropertyCard({
               <span>Xem</span>
             </button>
 
-            {/* Chỉnh sửa (nếu không phải VIOLATION) */}
+            {/* Chỉnh sửa (nếu không phải VIOLATION hoặc RENTED) */}
             {canEdit && (
               <button
                 type="button"
@@ -221,6 +230,20 @@ export default function ListingPropertyCard({
               >
                 <Edit className="h-3.5 w-3.5" />
                 <span>Sửa</span>
+              </button>
+            )}
+
+            {/* Nhân bản (nếu không phải VIOLATION) */}
+            {canDuplicate && (
+              <button
+                type="button"
+                onClick={handleDuplicateListing}
+                className="inline-flex items-center gap-1 rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+                title="Nhân bản tin đăng này"
+                aria-label={`Nhân bản tin đăng ${item.title}`}
+              >
+                <Copy className="h-3.5 w-3.5" />
+                <span>Nhân bản</span>
               </button>
             )}
 

@@ -74,8 +74,11 @@ export default function ListingItemCard({
 }: ListingItemCardProps) {
   const router = useRouter();
   const statusConfig = getListingStatusConfig(item.status);
-  const canEdit = item.status !== "VIOLATION";
-  const canDuplicate = item.status !== "VIOLATION";
+  const isRented = String(item.status || "").trim().toUpperCase() === "RENTED";
+  const isRentedExternally = String(item.status || "").trim().toUpperCase() === "RENTED_EXTERNALLY";
+  const isViolation = String(item.status || "").trim().toUpperCase() === "VIOLATION";
+  const canEdit = !isViolation && !isRented && !isRentedExternally;
+  const canDuplicate = !isViolation;
 
   const handleOpenDetail = () => {
     router.push(`/rent/${item.id}`);

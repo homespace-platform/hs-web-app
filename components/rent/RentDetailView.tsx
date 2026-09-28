@@ -23,6 +23,7 @@ import {
   Home,
   User,
   Edit,
+  Copy,
   Layers,
   Handshake,
   ExternalLink,
@@ -515,13 +516,25 @@ export default function RentDetailView({
               {sidebarActions}
 
               <div className="pt-2 space-y-2">
-                <Link
-                  href={`/dashboard/properties/new?id=${property.id}`}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all active:scale-[0.98]"
-                >
-                  <Edit className="w-4 h-4" />
-                  <span>Chỉnh sửa bài đăng</span>
-                </Link>
+                {String(property.status || "").trim().toUpperCase() !== "RENTED" &&
+                  String(property.status || "").trim().toUpperCase() !== "VIOLATION" && (
+                  <Link
+                    href={`/dashboard/properties/new?id=${property.id}`}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all active:scale-[0.98]"
+                  >
+                    <Edit className="w-4 h-4" />
+                    <span>Chỉnh sửa bài đăng</span>
+                  </Link>
+                )}
+                {String(property.status || "").trim().toUpperCase() !== "VIOLATION" && (
+                  <Link
+                    href={`/dashboard/properties/new?duplicateFrom=${property.id}`}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-xs font-bold text-foreground hover:bg-muted transition-all active:scale-[0.98]"
+                  >
+                    <Copy className="w-4 h-4" />
+                    <span>Nhân bản bài đăng</span>
+                  </Link>
+                )}
                 <Link
                   href="/dashboard/properties"
                   className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-xs font-bold text-foreground hover:bg-muted transition-all active:scale-[0.98]"

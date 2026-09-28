@@ -517,6 +517,7 @@ export default function RentDetailView({
 
               <div className="pt-2 space-y-2">
                 {String(property.status || "").trim().toUpperCase() !== "RENTED" &&
+                  String(property.status || "").trim().toUpperCase() !== "RENTED_EXTERNALLY" &&
                   String(property.status || "").trim().toUpperCase() !== "VIOLATION" && (
                   <Link
                     href={`/dashboard/properties/new?id=${property.id}`}

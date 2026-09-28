@@ -76,7 +76,7 @@ function CreatePropertyListingContent() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(Boolean(targetListingId));
   const [branches, setBranches] = useState<PropertyBranch[]>([]);
-  const [rentedLockListing, setRentedLockListing] = useState<{ id: string; title: string } | null>(null);
+  const [rentedLockListing, setRentedLockListing] = useState<{ id: string; title: string; isExternal?: boolean } | null>(null);
   const [loadedListingStatus, setLoadedListingStatus] = useState<string | null>(null);
 
   // Section 1: Basic Info
@@ -518,11 +518,21 @@ function CreatePropertyListingContent() {
 
           setLoadedListingStatus(detail.status);
 
-          if (isEditMode && String(detail.status || "").trim().toUpperCase() === "RENTED") {
-            setRentedLockListing({ id: detail.id, title: detail.title });
+          const normalizedStatus = String(detail.status || "").trim().toUpperCase();
+          if (isEditMode && (normalizedStatus === "RENTED" || normalizedStatus === "RENTED_EXTERNALLY")) {
+            setRentedLockListing({
+              id: detail.id,
+              title: detail.title,
+              isExternal: normalizedStatus === "RENTED_EXTERNALLY",
+            });
             setIsLoadingDetail(false);
             return;
           }
+          // old check removed
+            // (removed)
+            // (removed)
+            // (removed)
+          // (end)
 
           if (isDuplicateMode) {
             setSourceListingTitle(detail.title || "Tin gốc");
@@ -905,9 +915,10 @@ function CreatePropertyListingContent() {
     if (!requireKyc(profile, { router, redirect: true })) return;
     if (
       isEditMode &&
-      (String(loadedListingStatus || "").trim().toUpperCase() === "RENTED" || rentedLockListing)
+      (String(loadedListingStatus || "").trim().toUpperCase() === "RENTED" || String(loadedListingStatus || "").trim().toUpperCase() === "RENTED_EXTERNALLY" || rentedLockListing)
     ) {
-      toast.error("Tin đã cho thuê qua HomeSpace, không thể chỉnh sửa hoặc gửi duyệt lại.");
+      const isExt = rentedLockListing?.isExternal || String(loadedListingStatus || "").trim().toUpperCase() === "RENTED_EXTERNALLY";
+      toast.error(isExt ? "Tin đã cho thuê ngoài hệ thống, không thể chỉnh sửa hoặc gửi duyệt lại." : "Tin đã cho thuê qua HomeSpace, không thể chỉnh sửa hoặc gửi duyệt lại.");
       return;
     }
 
@@ -1104,10 +1115,20 @@ function CreatePropertyListingContent() {
         </div>
         <div className="space-y-2">
           <h2 className="text-xl font-bold text-foreground">
-            Tin đăng đã cho thuê qua HomeSpace
+            {rentedLockListing.isExternal
+              ? "Tin đăng đã cho thuê ngoài hệ thống"
+              : "Tin đăng đã cho thuê qua HomeSpace"}
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Tin đăng <span className="font-semibold text-foreground">&quot;{rentedLockListing.title}&quot;</span> đã cho thuê và đang gắn liền với hợp đồng thuê trên hệ thống HomeSpace nên không thể chỉnh sửa nội dung, lưu nháp hoặc gửi duyệt lại.
+            {rentedLockListing.isExternal ? (
+              <>
+                Tin đăng <span className="font-semibold text-foreground">&quot;{rentedLockListing.title}&quot;</span> đã được đánh dấu là cho thuê ngoài hệ thống nên không thể chỉnh sửa nội dung, lưu nháp hoặc gửi duyệt lại.
+              </>
+            ) : (
+              <>
+                Tin đăng <span className="font-semibold text-foreground">&quot;{rentedLockListing.title}&quot;</span> đã cho thuê và đang gắn liền với hợp đồng thuê trên hệ thống HomeSpace nên không thể chỉnh sửa nội dung, lưu nháp hoặc gửi duyệt lại.
+              </>
+            )}
           </p>
         </div>
         <div className="pt-2 flex flex-wrap items-center justify-center gap-3">

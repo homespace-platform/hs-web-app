@@ -59,6 +59,13 @@ export const paymentRequestService = {
     return list.map(normalizePaymentRequest);
   },
 
+  async getContractPayments(contractId: string): Promise<PaymentRequest[]> {
+    const response = await axiosClient.get<ApiResponse<PaymentRequest[]>>(
+      `/api/v1/payment-requests/contracts/${contractId}`
+    );
+    return (response.data.result || []).map(normalizePaymentRequest);
+  },
+
   /**
    * Người thuê khai báo đã chuyển khoản trực tiếp
    */

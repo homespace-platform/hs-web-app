@@ -5,13 +5,17 @@ export type PaymentStatus =
   | "REJECTED"
   | "DISPUTED"
   | "CANCELLED"
-  | "REFUNDED";
+  | "OVERDUE"
+  | "EXPIRED";
 
 export type PaymentType =
   | "INITIAL"
   | "MONTHLY_RENT"
+  | "UTILITY"
+  | "OTHER_CHARGE"
+  | "INITIAL_PAYMENT_REFUND"
   | "DEPOSIT_REFUND"
-  | "COMPENSATION";
+  ;
 
 export type PaymentDirection = "TENANT_TO_LANDLORD" | "LANDLORD_TO_TENANT";
 
@@ -59,6 +63,8 @@ export interface PaymentEvent {
 export interface PaymentRequest {
   id: string;
   rentalRequestId: string;
+  contractId?: string;
+  invoiceId?: string;
   listingId: string;
   payerId: string;
   payeeId: string;

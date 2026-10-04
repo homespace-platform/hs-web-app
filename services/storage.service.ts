@@ -60,6 +60,12 @@ async function uploadFile(file: File, request: CreateStorageUploadRequest): Prom
 }
 
 const storageService = {
+  async getPaymentProofViewUrl(storageId: string): Promise<string> {
+    const response = await axiosClient.get<ApiResponse<StorageUrlResponse>>(
+      `/api/v1/storage/${storageId}/view-url`
+    );
+    return response.data.result.url;
+  },
   async uploadUserAvatar(file: File, userId: string): Promise<string> {
     return uploadFile(file, {
       fileName: file.name,

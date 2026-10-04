@@ -1024,9 +1024,9 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
 
               <div className="pt-2 border-t border-border/60 space-y-1 text-[11px]">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Đóng trước mỗi tháng:</span>
+                  <span className="text-muted-foreground">Tiền thuê kỳ đầu:</span>
                   <span className="font-semibold text-foreground">
-                    {formatVND(acceptTarget.estimatedMonthlyTotal ?? acceptTarget.effectiveMonthlyRent ?? acceptTarget.monthlyRentPrice)}
+                    {formatVND(acceptTarget.effectiveMonthlyRent ?? acceptTarget.monthlyRentPrice)}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -1036,12 +1036,11 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                   </span>
                 </div>
                 <div className="flex justify-between pt-1 border-t border-border/40 font-bold">
-                  <span className="text-foreground">Tổng thanh toán khi ký:</span>
+                  <span className="text-foreground">Tổng cần thanh toán ban đầu:</span>
                   <span className="text-primary font-extrabold">
                     {formatVND(
-                      acceptTarget.estimatedInitialTotal ??
-                        (acceptTarget.estimatedMonthlyTotal ?? acceptTarget.effectiveMonthlyRent ?? acceptTarget.monthlyRentPrice) +
-                          (acceptTarget.depositAmount ?? 0)
+                      (acceptTarget.effectiveMonthlyRent ?? acceptTarget.monthlyRentPrice) +
+                        (acceptTarget.depositAmount ?? 0)
                     )}
                   </span>
                 </div>

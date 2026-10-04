@@ -227,7 +227,8 @@ export default function RentalPaymentModal({
 
   if (!isOpen) return null;
 
-  const totalAmount = payment?.totalAmount ?? request.estimatedInitialTotal ?? 0;
+  const totalAmount = payment?.totalAmount
+    ?? (request.effectiveMonthlyRent ?? request.monthlyRentPrice ?? 0) + (request.depositAmount ?? 0);
   const payee = payment?.payeeBankAccountSnapshot || payment?.payeeAccount;
   const isConfirmed = payment?.status === "CONFIRMED";
   const isReported = payment?.status === "TRANSFER_REPORTED";
@@ -596,7 +597,7 @@ export default function RentalPaymentModal({
                 </div>
 
                 <p className="text-xs text-muted-foreground italic pt-1.5 border-t border-border/40">
-                  * Các chi phí biến đổi theo đồng hồ thực tế (điện, nước) sẽ tính theo chỉ số phát sinh thực tế trong quá trình thuê.
+                  * Phí dịch vụ cố định, điện/nước theo thực tế và khoản phát sinh được quyết toán vào cuối kỳ thuê, không thu trong khoản ban đầu.
                 </p>
 
                 <div className="pt-3 border-t border-border/70 flex items-baseline justify-between">

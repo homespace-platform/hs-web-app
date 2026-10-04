@@ -133,12 +133,9 @@ export default function ContractsPage() {
             const role =
               profile?.id === c.landlordId ? "Chủ nhà (Bên A)" : profile?.id === c.tenantId ? "Người thuê (Bên B)" : "—";
             return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => router.push(`/dashboard/contracts/${c.id}`)}
-                className="w-full text-left rounded-2xl border border-border bg-card p-4 hover:bg-muted/30 transition-colors cursor-pointer shadow-2xs"
-              >
+              <div key={c.id} className="rounded-2xl border border-border bg-card p-4 shadow-2xs">
+                <button type="button" onClick={() => router.push(`/dashboard/contracts/${c.id}`)}
+                  className="w-full text-left hover:bg-muted/30 transition-colors cursor-pointer">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-foreground truncate">{c.contractNumber}</p>
@@ -152,7 +149,12 @@ export default function ContractsPage() {
                     {contractStatusLabel(c)}
                   </span>
                 </div>
-              </button>
+                </button>
+                {c.status === "ACTIVE" && <Link href={`/dashboard/contracts/${c.id}#monthly-invoices`}
+                  className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline">
+                  Xem hóa đơn tháng →
+                </Link>}
+              </div>
             );
           })}
 

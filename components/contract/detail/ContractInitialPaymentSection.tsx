@@ -24,10 +24,9 @@ export default function ContractInitialPaymentSection({
     initialPayment?.monthlyRent ?? paymentBreakdown?.monthlyRent ?? 0;
   const deposit =
     initialPayment?.depositAmount ?? paymentBreakdown?.deposit ?? 0;
-  const fixedCharges =
-    initialPayment?.monthlyCharges ?? paymentBreakdown?.chargesTotal ?? 0;
   const totalAmount =
     initialPayment?.totalAmount ?? paymentBreakdown?.totalAmount ?? 0;
+  const prepaidFees = Math.max(0, totalAmount - monthlyRent - deposit);
   const transactionCode = initialPayment?.transactionCode || "HS-TXN-COMPLETED";
   const displayPaidAt = initialPayment?.paidAt || paidAt;
 
@@ -76,17 +75,13 @@ export default function ContractInitialPaymentSection({
                 Đã chuyển khoản trực tiếp
               </td>
             </tr>
-            <tr>
-              <td className="py-2.5 px-3 font-medium text-foreground">
-                Chi phí cố định kỳ đầu tiên
-              </td>
-              <td className="py-2.5 px-3 text-right font-semibold text-foreground">
-                {formatMoney(fixedCharges)}
-              </td>
-              <td className="py-2.5 px-3 text-emerald-600 dark:text-emerald-400 font-medium">
-                Đã chuyển khoản trực tiếp
-              </td>
-            </tr>
+            {prepaidFees > 0 && (
+              <tr>
+                <td className="py-2.5 px-3 font-medium text-foreground">Phí đã trả trước (hợp đồng cũ)</td>
+                <td className="py-2.5 px-3 text-right font-semibold text-foreground">{formatMoney(prepaidFees)}</td>
+                <td className="py-2.5 px-3 text-emerald-600 dark:text-emerald-400 font-medium">Đã chuyển khoản trực tiếp</td>
+              </tr>
+            )}
             <tr>
               <td className="py-2.5 px-3 font-medium text-foreground">
                 Tiền đặt cọc bảo đảm
@@ -120,7 +115,7 @@ export default function ContractInitialPaymentSection({
         </div>
         <div className="inline-flex items-center gap-1.5 text-[11px] text-amber-700 dark:text-amber-300">
           <Info className="w-3.5 h-3.5 shrink-0" />
-          <span>Chi phí điện/nước theo công tơ thực tế chưa tính trong đợt này.</span>
+          <span>Phí dịch vụ, điện/nước và khoản phát sinh được quyết toán cuối kỳ (trừ khoản đã trả trước).</span>
         </div>
       </div>
     </section>

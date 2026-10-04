@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import {
   X,
@@ -18,8 +18,6 @@ import {
   CheckCircle2,
   XCircle,
   Ban,
-  Wallet,
-  Sparkles,
   AlertCircle,
   FileText,
   CreditCard,
@@ -42,10 +40,6 @@ import type { PaymentRequest } from "@/types/payment-request.type";
 import type { ContractResponse } from "@/types/contract.type";
 import {
   formatVND,
-  partitionPredictableCharges,
-  partitionExcludedCharges,
-  formatChargeDisplay,
-  formatExcludedChargeValue,
   getDepositBadge,
 } from "./rental-request.helper";
 import {
@@ -56,6 +50,7 @@ import {
   formatCarCount,
   calculateEstimatedEndDate,
 } from "./rental-request-snapshot.helper";
+import { EndOfPeriodCharges } from "./EndOfPeriodCharges";
 import {
   RENTAL_HOLD_DURATION_SHORT,
 } from "@/config/rental-hold.config";
@@ -260,23 +255,6 @@ export default function RentalRequestDetailModal({
     return () => window.clearInterval(interval);
   }, [detail?.holdExpiresAt, detail?.status]);
 
-  // Parse snapshots safely
-  const predictableCharges = useMemo(() => {
-    return parseCostBreakdownSnapshot(detail?.costBreakdownSnapshot);
-  }, [detail?.costBreakdownSnapshot]);
-
-  const excludedCharges = useMemo(() => {
-    return parseExcludedChargesSnapshot(detail?.excludedChargesSnapshot);
-  }, [detail?.excludedChargesSnapshot]);
-
-  const { payableCharges, includedCharges, freeCharges } = useMemo(() => {
-    return partitionPredictableCharges(predictableCharges);
-  }, [predictableCharges]);
-
-  const { meteredCharges, negotiableOrCustomCharges } = useMemo(() => {
-    return partitionExcludedCharges(excludedCharges);
-  }, [excludedCharges]);
-
   if (!isOpen) return null;
 
   // Compute status presentation (consistent with card)
@@ -417,6 +395,11 @@ export default function RentalRequestDetailModal({
     detail?.effectiveMonthlyRent != null && detail.effectiveMonthlyRent > 0
       ? detail.effectiveMonthlyRent
       : detail?.monthlyRentPrice ?? 0;
+  const upfrontTotal = detailedPayment?.totalAmount ?? initialPayment?.totalAmount
+    ?? rentPriceToDisplay + (detail?.depositAmount ?? 0);
+  const prepaidFees = Math.max(0, upfrontTotal - rentPriceToDisplay - (detail?.depositAmount ?? 0));
+  const predictableCharges = parseCostBreakdownSnapshot(detail?.costBreakdownSnapshot);
+  const excludedCharges = parseExcludedChargesSnapshot(detail?.excludedChargesSnapshot);
 
   const depositBadge = getDepositBadge(undefined, undefined, false);
 
@@ -671,183 +654,18 @@ export default function RentalRequestDetailModal({
                 </div>
               </div>
 
-              {/* 4. DỰ TOÁN TÀI CHÍNH TẠI THỜI ĐIỂM GỬI (SNAPSHOT) */}
+              {/* 4. KHOẢN CẦN THANH TOÁN BAN ĐẦU */}
               <div className="rounded-2xl border border-border bg-card p-4 space-y-3.5 shadow-xs">
-                {/* Header Dự Toán */}
                 <div className="border-b border-border pb-2 space-y-0.5">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                    <span>Dự toán tại thời điểm gửi yêu cầu</span>
+                    <ShieldCheck className="w-4 h-4 text-primary" />
+                    <span>Khoản thanh toán ban đầu</span>
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-relaxed">
-                    Các khoản dưới đây được lưu tại thời điểm khách gửi yêu cầu và không tự thay đổi khi bài đăng được chỉnh sửa.
+                    Chỉ gồm tiền thuê kỳ đầu và tiền cọc (nếu có); thanh toán sau khi chủ nhà chấp thuận.
                   </p>
                 </div>
-
-                {/* A. Đóng trước mỗi tháng */}
-                <div className="rounded-xl border border-border bg-muted/20 p-3.5 space-y-2.5">
-                  <div className="flex items-baseline justify-between text-xs font-bold text-foreground border-b border-border/60 pb-2">
-                    <div className="flex items-center gap-1.5">
-                      <Wallet className="w-3.5 h-3.5 text-foreground/80" />
-                      <span>Đóng trước mỗi tháng</span>
-                    </div>
-                    <span className="text-sm font-extrabold text-foreground">
-                      {formatVND(detail.estimatedMonthlyTotal ?? rentPriceToDisplay)}
-                    </span>
-                  </div>
-
-                  <div className="space-y-2 pt-0.5 text-xs">
-                    {/* Tiền thuê nhà snapshot */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <span className="font-medium text-foreground block">Tiền thuê nhà</span>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="font-semibold text-foreground">
-                          {formatVND(rentPriceToDisplay)}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground block">/tháng</span>
-                      </div>
-                    </div>
-
-                    {/* Các khoản phí cố định hàng tháng */}
-                    {payableCharges.map((c, idx) => {
-                      const info = formatChargeDisplay(c);
-                      return (
-                        <div key={idx} className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <span className="font-medium text-foreground block truncate">
-                              {c.displayName}
-                            </span>
-                            {info.subText && (
-                              <span className="text-[11px] text-muted-foreground block">
-                                {info.subText}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-right shrink-0">
-                            {info.isUnregisteredVehicle ? (
-                              <span className="text-[11px] px-2 py-0.5 rounded-md border border-border bg-background text-muted-foreground font-medium">
-                                {info.mainText}
-                              </span>
-                            ) : (
-                              <>
-                                <span className="font-semibold text-foreground">
-                                  {info.mainText}
-                                </span>
-                                <span className="text-[11px] text-muted-foreground block">/tháng</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <p className="text-[10px] text-muted-foreground italic pt-1 border-t border-border/40">
-                    * Các khoản này được thanh toán vào đầu mỗi kỳ thuê.
-                  </p>
-                </div>
-
-                {/* B. Đã bao gồm hoặc miễn phí */}
-                {(includedCharges.length > 0 || freeCharges.length > 0) && (
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 space-y-2.5 text-xs">
-                    {includedCharges.length > 0 && (
-                      <div className="space-y-1.5">
-                        <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                          <span>Đã bao gồm trong tiền thuê</span>
-                        </span>
-                        <div className="flex flex-col gap-1.5 pl-5">
-                          {includedCharges.map((c, idx) => (
-                            <div key={idx} className="space-y-0.5">
-                              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border border-emerald-300/80 dark:border-emerald-800 bg-background text-foreground font-medium">
-                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">✓</span>
-                                <span>
-                                  {c.chargeType === "MANAGEMENT"
-                                    ? "Phí quản lý tòa nhà"
-                                    : c.displayName}
-                                </span>
-                              </span>
-                              {c.chargeType === "MANAGEMENT" && (
-                                <p className="text-[10px] text-muted-foreground pl-0.5">
-                                  Phí vận hành khu vực chung như bảo vệ, vệ sinh, thang máy và tiện ích chung của tòa nhà.
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {freeCharges.length > 0 && (
-                      <div className="space-y-1.5">
-                        <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                          <span>Miễn phí</span>
-                        </span>
-                        <div className="flex flex-wrap gap-1.5 pl-5">
-                          {freeCharges.map((c, idx) => (
-                            <span
-                              key={idx}
-                              className="text-[11px] px-2 py-0.5 rounded-md border border-emerald-300/80 dark:border-emerald-800 bg-background text-foreground font-medium flex items-center gap-1"
-                            >
-                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">✓</span>
-                              <span>{c.displayName}</span>
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* C. Chưa tính vào tổng */}
-                {(meteredCharges.length > 0 || negotiableOrCustomCharges.length > 0) && (
-                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-2.5 text-xs">
-                    <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
-                      <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                      <span>Chưa tính vào tổng</span>
-                    </div>
-
-                    {meteredCharges.length > 0 && (
-                      <div className="space-y-1.5 rounded-lg border border-amber-500/20 bg-background/70 p-2.5">
-                        <span className="text-[11px] font-bold text-foreground block">
-                          Tính sau theo sử dụng thực tế
-                        </span>
-                        <ul className="space-y-1 text-[11px] text-muted-foreground list-disc list-inside">
-                          {meteredCharges.map((c, idx) => (
-                            <li key={idx} className="leading-relaxed">
-                              <span className="font-semibold text-foreground">{c.displayName}:</span>{" "}
-                              <span>{formatExcludedChargeValue(c)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                        <p className="text-[10px] text-muted-foreground italic pt-0.5">
-                          * Các khoản này chưa nằm trong tổng dự kiến và sẽ được chốt theo số liệu sử dụng thực tế.
-                        </p>
-                      </div>
-                    )}
-
-                    {negotiableOrCustomCharges.length > 0 && (
-                      <div className="space-y-1.5 rounded-lg border border-border/60 bg-background/70 p-2.5">
-                        <span className="text-[11px] font-bold text-foreground block">
-                          Cần xác nhận hoặc tự thanh toán
-                        </span>
-                        <ul className="space-y-1 text-[11px] text-muted-foreground list-disc list-inside">
-                          {negotiableOrCustomCharges.map((c, idx) => (
-                            <li key={idx} className="leading-relaxed">
-                              <span className="font-semibold text-foreground">{c.displayName}:</span>{" "}
-                              <span>{c.reason}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* D. Thanh toán ban đầu */}
+                {/* Khoản phải trả trong luồng yêu cầu thuê */}
                 <div className="rounded-xl border-2 border-primary/40 bg-primary/5 dark:border-primary/50 dark:bg-primary/10 p-4 space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
@@ -861,9 +679,9 @@ export default function RentalRequestDetailModal({
 
                   <div className="space-y-2 text-xs">
                     <div className="flex items-center justify-between text-muted-foreground">
-                      <span>Chi phí tháng đầu</span>
+                      <span>Tiền thuê kỳ đầu</span>
                       <span className="font-semibold text-foreground">
-                        {formatVND(detail.estimatedMonthlyTotal ?? rentPriceToDisplay)}
+                        {formatVND(rentPriceToDisplay)}
                       </span>
                     </div>
 
@@ -878,6 +696,12 @@ export default function RentalRequestDetailModal({
                         Khoản bảo đảm, hoàn trả theo điều kiện hợp đồng.
                       </p>
                     </div>
+                    {prepaidFees > 0 && (
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span>Phí đã trả trước (yêu cầu cũ)</span>
+                        <span className="font-semibold text-foreground">{formatVND(prepaidFees)}</span>
+                      </div>
+                    )}
                   </div>
 
                   <p className="text-[10px] text-muted-foreground italic pt-1 border-t border-primary/10">
@@ -890,17 +714,19 @@ export default function RentalRequestDetailModal({
                         Tổng cần thanh toán
                       </span>
                       <span className="text-[10px] text-muted-foreground block truncate">
-                        Chi phí tháng đầu + Tiền đặt cọc
+                        Tiền thuê kỳ đầu + Tiền đặt cọc{prepaidFees > 0 ? " + Phí đã trả trước" : ""}
                       </span>
                     </div>
                     <span className="text-base sm:text-lg font-extrabold text-primary shrink-0">
-                      {formatVND(
-                        detail.estimatedInitialTotal ??
-                          (detail.estimatedMonthlyTotal ?? rentPriceToDisplay) + (detail.depositAmount ?? 0)
-                      )}
+                      {formatVND(upfrontTotal)}
                     </span>
                   </div>
                 </div>
+                <EndOfPeriodCharges
+                  predictableCharges={predictableCharges}
+                  excludedCharges={excludedCharges}
+                  prepaidFees={prepaidFees}
+                />
               </div>
 
               {/* 5. LỊCH SỬ & TRẠNG THÁI */}

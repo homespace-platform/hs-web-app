@@ -60,10 +60,15 @@ const STATUS_BADGES: Record<
     className: "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700",
     icon: Ban,
   },
-  REFUNDED: {
-    label: "Đã hoàn cọc",
-    className: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800",
-    icon: CheckCircle2,
+  OVERDUE: {
+    label: "Quá hạn — vẫn có thể thanh toán",
+    className: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800",
+    icon: AlertCircle,
+  },
+  EXPIRED: {
+    label: "Đã hết hạn",
+    className: "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700",
+    icon: Ban,
   },
 };
 
@@ -158,7 +163,7 @@ export default function PaymentsPage() {
                       Ref: {p.transferReference}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {p.type === "INITIAL" ? "Giữ chỗ ban đầu" : "Thanh toán định kỳ"}
+                      {p.type === "INITIAL" ? "Giữ chỗ ban đầu" : p.type === "MONTHLY_RENT" ? "Hóa đơn tháng" : "Khoản chuyển khoản khác"}
                     </span>
                   </div>
                   <span
@@ -216,7 +221,12 @@ export default function PaymentsPage() {
                       Sao chép nội dung CK
                     </button>
                   </div>
-                  {p.rentalRequestId && (
+                  {p.contractId ? (
+                    <Link href={`/dashboard/contracts/${p.contractId}#monthly-invoices`}
+                      className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
+                      <span>Xem hóa đơn trong hợp đồng</span><ExternalLink className="w-3 h-3" />
+                    </Link>
+                  ) : p.rentalRequestId && (
                     <Link
                       href={`/dashboard/rental-requests/my-requests`}
                       className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"

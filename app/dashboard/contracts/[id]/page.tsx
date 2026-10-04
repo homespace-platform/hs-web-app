@@ -34,6 +34,7 @@ import ContractHandoverSection from "@/components/contract/detail/ContractHandov
 import ContractDocumentSection from "@/components/contract/detail/ContractDocumentSection";
 import ContractSignaturePanel from "@/components/contract/detail/ContractSignaturePanel";
 import SmartCaSignaturePanel from "@/components/contract/detail/SmartCaSignaturePanel";
+import MonthlyInvoicesSection from "@/components/contract/detail/MonthlyInvoicesSection";
 
 export default function ContractDetailPage() {
   const params = useParams();
@@ -470,6 +471,16 @@ export default function ContractDetailPage() {
 
         {/* DANH SÁCH FILE VĂN BẢN KẾT XUẤT */}
         <ContractDocumentSection documents={documents} />
+        {contract.status === "ACTIVE" && <MonthlyInvoicesSection
+          contractId={contract.id}
+          isLandlord={isLandlord}
+          isTenant={isTenant}
+          electricityRequired={electricityRequired}
+          waterRequired={(revision?.charges || []).some((charge) => charge.billingMethod === "PER_M3")}
+          unsupportedWaterRate={(revision?.charges || []).some((charge) => charge.billingMethod === "STATE_WATER_RATE" && charge.includedInRent !== true)}
+          initialElectricity={revision?.meters?.electricityInitial == null ? undefined : String(revision.meters.electricityInitial)}
+          initialWater={revision?.meters?.waterInitial == null ? undefined : String(revision.meters.waterInitial)}
+        />}
       </div>
 
       {/* FOOTER NAVIGATION */}

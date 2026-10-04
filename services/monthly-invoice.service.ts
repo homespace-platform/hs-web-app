@@ -15,4 +15,10 @@ export const monthlyInvoiceService = {
     );
     return data.result;
   },
+  async prepare(id: string, payload: IssueMonthlyInvoicePayload): Promise<MonthlyInvoice> {
+    const { data } = await axiosClient.post<ApiResponse<MonthlyInvoice>>(
+      `/api/v1/monthly-invoices/${id}/prepare`, payload
+    );
+    return data.result;
+  },
 };

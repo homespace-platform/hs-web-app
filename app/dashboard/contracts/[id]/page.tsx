@@ -15,6 +15,7 @@ import type {
   ContractPaymentBreakdownResponse,
   ContractResponse,
   ContractRevisionResponse,
+  PolicySnapshot,
   SignatureStateResponse,
 } from "@/types/contract.type";
 import { useAuth } from "@/features/auth/useAuth";
@@ -266,6 +267,32 @@ export default function ContractDetailPage() {
     }
   }
 
+  async function handleSaveLateFee(policy: Pick<PolicySnapshot, "latePaymentFeeMode" | "latePaymentFeeAmount" | "latePaymentFeeGraceDays" | "latePaymentFeeCap">) {
+    if (!contractId || !revision) return;
+    try {
+      const updated = await contractService.updateRevision(contractId, {
+        landlord: revision.landlord || {}, tenant: revision.tenant || {},
+        property: revision.property || {}, lease: revision.lease || {},
+        financial: revision.financial || {}, initialPayment: revision.initialPayment || undefined,
+        amenities: revision.amenities || undefined, charges: revision.charges || [],
+        equipments: revision.equipments || [], meters: revision.meters || {},
+        policies: { ...(revision.policies || {}), ...policy },
+        specialTerms: revision.specialTerms,
+        revisionNote: "Cập nhật điều khoản phí chậm thanh toán.",
+      });
+      setRevision(updated);
+      const [comp, docs] = await Promise.all([
+        contractService.getCompleteness(contractId), contractService.getDocuments(contractId),
+      ]);
+      setCompleteness(comp);
+      setDocuments(docs);
+      toast.success("Đã lưu phí chậm thanh toán. Vui lòng kết xuất lại hợp đồng trước khi ký.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không thể lưu phí chậm thanh toán."));
+      throw err;
+    }
+  }
+
   // ACTION: SEND TO TENANT
   async function handleSendToTenant() {
     if (!contractId) return;
@@ -450,6 +477,7 @@ export default function ContractDetailPage() {
           isDraft={isDraft}
           isLandlord={isLandlord}
           onSaveSpecialTerms={handleSaveSpecialTerms}
+          onSaveLateFee={handleSaveLateFee}
         />
 
         {/* CHỈ SỐ BAN ĐẦU ĐƯA VÀO HỢP ĐỒNG */}

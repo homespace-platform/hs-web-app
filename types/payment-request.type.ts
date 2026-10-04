@@ -97,6 +97,7 @@ export interface PaymentRequest {
 }
 
 export interface ReportTransferPayload {
+  expectedAmount?: number;
   declaredTransferTime?: string;
   bankTransactionReference?: string;
   payerAccountLast4?: string;

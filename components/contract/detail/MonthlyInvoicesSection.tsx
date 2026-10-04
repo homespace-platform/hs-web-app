@@ -27,6 +27,7 @@ const money = (n: number) => new Intl.NumberFormat("vi-VN", {
   style: "currency", currency: "VND", maximumFractionDigits: 0,
 }).format(n);
 const date = (s?: string) => s ? new Date(s).toLocaleDateString("vi-VN") : "—";
+const dateTime = (s?: string) => s ? new Date(s).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 
 export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenant,
   electricityRequired, waterRequired, unsupportedWaterRate, initialElectricity, initialWater }: Props) {
@@ -42,11 +43,18 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
 
   const refresh = useCallback(async () => {
     try {
-      const [bills, paymentList] = await Promise.all([
-        monthlyInvoiceService.list(contractId), paymentRequestService.getContractPayments(contractId),
-      ]);
+      // Billing sync may increase a late fee and regenerate VietQR; fetch payments afterwards.
+      const bills = await monthlyInvoiceService.list(contractId);
+      const paymentList = await paymentRequestService.getContractPayments(contractId);
       setInvoices(bills);
       setPayments(paymentList);
+      setElectricity(Object.fromEntries(bills.filter((bill) => bill.status === "DRAFT" && bill.electricityEnd != null)
+        .map((bill) => [bill.id, String(bill.electricityEnd)])));
+      setWater(Object.fromEntries(bills.filter((bill) => bill.status === "DRAFT" && bill.waterEnd != null)
+        .map((bill) => [bill.id, String(bill.waterEnd)])));
+      setExtras(Object.fromEntries(bills.filter((bill) => bill.status === "DRAFT")
+        .map((bill) => [bill.id, (bill.draftExtraCharges || [])
+          .map((row) => ({ description: row.description, amount: String(row.amount) }))])));
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Không thể tải hóa đơn tháng."));
     } finally { setLoading(false); }
@@ -62,7 +70,7 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
   async function perform(id: string, action: () => Promise<unknown>, success: string) {
     setBusy(id);
     try { await action(); toast.success(success); await refresh(); }
-    catch (err) { toast.error(getApiErrorMessage(err, "Thao tác chưa thành công.")); }
+    catch (err) { toast.error(getApiErrorMessage(err, "Thao tác chưa thành công.")); await refresh(); }
     finally { setBusy(null); }
   }
 
@@ -72,39 +80,63 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
     return kind === "electricity" ? previous?.electricityEnd : previous?.waterEnd;
   }
 
-  async function issue(invoice: MonthlyInvoice) {
+  function payload(invoice: MonthlyInvoice) {
     const electricText = electricity[invoice.id]?.trim();
     const waterText = water[invoice.id]?.trim();
     if (electricityRequired && (!electricText || Number(electricText) < Number(previousEnd(invoice, "electricity")))) {
-      toast.error("Vui lòng nhập chỉ số điện cuối kỳ không thấp hơn đầu kỳ."); return;
+      toast.error("Vui lòng nhập chỉ số điện cuối kỳ không thấp hơn đầu kỳ."); return null;
     }
     if (waterRequired && (!waterText || Number(waterText) < Number(previousEnd(invoice, "water")))) {
-      toast.error("Vui lòng nhập chỉ số nước cuối kỳ không thấp hơn đầu kỳ."); return;
+      toast.error("Vui lòng nhập chỉ số nước cuối kỳ không thấp hơn đầu kỳ."); return null;
     }
     if (unsupportedWaterRate) {
-      toast.error("Biểu phí nước theo giá nhà nước chưa có đơn giá số đã chốt; vui lòng liên hệ quản trị viên."); return;
+      toast.error("Biểu phí nước theo giá nhà nước chưa có đơn giá số đã chốt; vui lòng liên hệ quản trị viên."); return null;
     }
     const extraCharges = (extras[invoice.id] || []).map((x) => ({
       description: x.description.trim(), amount: Number(x.amount),
     }));
     if (extraCharges.some((x) => !x.description || !Number.isFinite(x.amount) || x.amount <= 0)) {
-      toast.error("Mỗi khoản phát sinh cần tên và số tiền dương."); return;
+      toast.error("Mỗi khoản phát sinh cần tên và số tiền dương."); return null;
     }
-    if (!window.confirm("Xác nhận phát hành? Hãy kiểm tra kỹ chỉ số và các khoản phí; hóa đơn đã phát hành hiện chưa thể sửa.")) return;
-    await perform(invoice.id, () => monthlyInvoiceService.issue(invoice.id, {
+    return {
       electricityEnd: electricityRequired ? Number(electricText) : undefined,
       waterEnd: waterRequired ? Number(waterText) : undefined,
       extraCharges,
-    }), "Đã phát hành hóa đơn.");
+    };
+  }
+
+  async function prepare(invoice: MonthlyInvoice) {
+    const data = payload(invoice);
+    if (!data) return;
+    await perform(invoice.id, () => monthlyInvoiceService.prepare(invoice.id, data),
+      "Đã lưu chỉ số và phí phát sinh. Hệ thống sẽ tự phát hành hóa đơn khi đến hạn.");
+  }
+
+  async function issue(invoice: MonthlyInvoice) {
+    const data = payload(invoice);
+    if (!data) return;
+    if (!window.confirm("Xác nhận phát hành? Hãy kiểm tra kỹ chỉ số và các khoản phí; hóa đơn đã phát hành hiện chưa thể sửa.")) return;
+    await perform(invoice.id, () => monthlyInvoiceService.issue(invoice.id, data), "Đã phát hành hóa đơn.");
   }
 
   async function report(payment: PaymentRequest) {
     const file = proofs[payment.id];
     if (!file) { toast.error("Vui lòng chọn chứng từ chuyển khoản."); return; }
     if (file.size > 15 * 1024 * 1024) { toast.error("Chứng từ tối đa 15 MB."); return; }
+    try {
+      const current = await paymentRequestService.getPaymentRequest(payment.id);
+      if (current.totalAmount !== payment.totalAmount) {
+        toast.error("Số tiền hóa đơn đã thay đổi. Vui lòng kiểm tra lại QR và số tiền trước khi báo chuyển khoản.");
+        await refresh();
+        return;
+      }
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không thể kiểm tra số tiền mới nhất."));
+      return;
+    }
     await perform(payment.id, async () => {
       const storageId = await storageService.uploadPaymentProof(file, payment.id);
-      await paymentRequestService.reportTransfer(payment.id, { proofStorageId: storageId });
+      await paymentRequestService.reportTransfer(payment.id, { proofStorageId: storageId, expectedAmount: payment.totalAmount });
       setProofs((prev) => ({ ...prev, [payment.id]: null }));
     }, "Đã gửi chứng từ. Chờ chủ nhà xác nhận nhận tiền.");
   }
@@ -138,20 +170,36 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
     </div>}
     {loading ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Đang tải hóa đơn…</div>
       : invoices.length === 0 ? <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-        Chưa có kỳ đã kết thúc. Hóa đơn nháp sẽ xuất hiện khi hết kỳ thuê đầu tiên.
+        Chưa đến ngày cuối của kỳ thuê đầu tiên. Hóa đơn nháp sẽ xuất hiện để chủ nhà chốt chỉ số.
       </div> : invoices.map((invoice) => {
         const payment = payments.find((p) => p.invoiceId === invoice.id || p.id === invoice.paymentRequestId);
         const rows = extras[invoice.id] || [];
+        const canIssue = new Date(invoice.serverNow).getTime() >= new Date(`${invoice.periodEndExclusive}T00:00:00+07:00`).getTime();
+        const workflowMessage: Record<MonthlyInvoice["workflowState"], string> = {
+          UPCOMING: "Kỳ thuê chưa đến ngày chốt chỉ số.",
+          METER_REQUIRED: `Chủ nhà cần lưu chỉ số và phí phát sinh trước ${dateTime(invoice.meterDeadlineAt)}.`,
+          READY_FOR_ISSUE: `Đã lưu dữ liệu kỳ này. Hệ thống sẽ tự phát hành từ ${dateTime(invoice.meterDeadlineAt)}.`,
+          METER_DEADLINE_MISSED: "Đã qua hạn chốt chỉ số. Nếu chưa có dữ liệu hợp lệ, hệ thống không tự ước tính điện/nước; chủ nhà cần bổ sung và phát hành.",
+          UNPAID: "Hóa đơn đã phát hành, đang chờ người thuê thanh toán.",
+          PAYMENT_REMINDER: "Sắp đến hạn thanh toán. Người thuê vui lòng kiểm tra số tiền và chuyển khoản.",
+          OVERDUE: "Hóa đơn quá hạn. Khoản phạt (nếu có trong hợp đồng) sẽ được tính riêng và cập nhật trên QR.",
+          OVERDUE_ACTION_REQUIRED: "Quá hạn kéo dài: chủ nhà cần liên hệ người thuê và quyết định hướng xử lý; hệ thống không tự chấm dứt hợp đồng.",
+          UNDER_REVIEW: "Đã báo chuyển khoản hoặc đang đối soát; phí phạt tạm dừng tăng trong lúc chờ xử lý.",
+          PAID: "Đã xác nhận thanh toán.",
+        };
         return <article key={invoice.id} className="rounded-2xl border border-border bg-card p-4 sm:p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div><h3 className="font-semibold">Kỳ {invoice.periodIndex + 1}: {date(invoice.periodStart)} – {date(invoice.periodEndExclusive)} (không gồm ngày cuối)</h3>
-              <p className="text-xs text-muted-foreground">{invoice.status === "DRAFT" ? "Chủ nhà cần chốt chỉ số và phát hành" : `Hạn thanh toán: ${date(invoice.dueAt)}`}</p></div>
+              <p className="text-xs text-muted-foreground">{invoice.status === "DRAFT" ? "Chủ nhà cần chốt chỉ số và phát hành" : `Hạn thanh toán: ${dateTime(invoice.dueAt)}`}</p></div>
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${invoice.status === "PAID" ? "bg-emerald-50 text-emerald-700" : invoice.status === "OVERDUE" ? "bg-rose-50 text-rose-700" : "bg-blue-50 text-blue-700"}`}>
               {{ DRAFT: "Chờ phát hành", UNPAID: "Chưa thanh toán", OVERDUE: "Quá hạn", PAID: "Đã thanh toán" }[invoice.status]}
             </span>
           </div>
+          <p className={`rounded-lg px-3 py-2 text-xs ${["OVERDUE", "OVERDUE_ACTION_REQUIRED", "METER_DEADLINE_MISSED"].includes(invoice.workflowState) ? "bg-amber-50 text-amber-900" : "bg-blue-50 text-blue-800"}`}>
+            {workflowMessage[invoice.workflowState]}
+          </p>
           {invoice.status === "DRAFT" && isLandlord && <div className="space-y-3 rounded-xl bg-muted/40 p-3">
-            <p className="text-xs text-muted-foreground">Chốt chỉ số cuối kỳ; đơn giá lấy từ biểu phí đã chốt khi ký hợp đồng. Khoản phát sinh sẽ hiển thị riêng cho người thuê.</p>
+            <p className="text-xs text-muted-foreground">Lưu chỉ số và phí phát sinh để hệ thống tự phát hành sau 10:00 ngày kế tiếp. Đơn giá lấy từ hợp đồng đã ký.</p>
             {unsupportedWaterRate && <p className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">Biểu phí nước theo giá nhà nước chưa có đơn giá số cố định trong hợp đồng. Chưa thể phát hành tự động để tránh tính sai; vui lòng liên hệ quản trị viên.</p>}
             <div className="grid gap-3 sm:grid-cols-2">
               {electricityRequired && <label className="text-xs font-medium">Điện cuối kỳ (đầu kỳ: {String(previousEnd(invoice, "electricity") ?? "chưa có")})
@@ -176,8 +224,12 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
             <div className="flex flex-wrap justify-between gap-2">
               <button type="button" onClick={() => setExtras((s) => ({ ...s, [invoice.id]: [...rows, { description: "", amount: "" }] }))}
                 className="inline-flex items-center gap-1 text-xs font-semibold text-primary"><Plus className="h-4 w-4" />Thêm phí phát sinh</button>
-              <button type="button" disabled={busy === invoice.id || unsupportedWaterRate} onClick={() => void issue(invoice)}
-                className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">Phát hành hóa đơn</button>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" disabled={busy === invoice.id || unsupportedWaterRate} onClick={() => void prepare(invoice)}
+                  className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">Lưu để tự phát hành</button>
+                <button type="button" disabled={busy === invoice.id || unsupportedWaterRate || !canIssue} onClick={() => void issue(invoice)}
+                  className="rounded-lg border border-border px-4 py-2 text-xs font-semibold disabled:opacity-50">Phát hành ngay</button>
+              </div>
             </div>
           </div>}
           {invoice.status !== "DRAFT" && <>
@@ -186,6 +238,7 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
               <strong>{money(line.amount)}</strong></div>)}
               <div className="flex justify-between pt-3 font-bold"><span>Tổng hóa đơn</span><span>{money(invoice.totalAmount)}</span></div>
             </div>
+            {invoice.lateFeeAmount > 0 && <p className="text-xs text-rose-700">Trong tổng trên có {money(invoice.lateFeeAmount)} phí chậm thanh toán theo hợp đồng. Nếu đã chuyển tiền, hãy gửi chứng từ để tạm dừng tăng phí.</p>}
             {payment && invoice.status !== "PAID" && <div className="rounded-xl border border-border p-3 space-y-3 text-sm">
               <p className="font-semibold">Chuyển khoản trực tiếp cho chủ nhà</p>
               <p>Ngân hàng: {payment.payeeBankAccountSnapshot?.bankName || payment.payeeBankAccountSnapshot?.bankCode} • STK: <strong>{payment.payeeBankAccountSnapshot?.accountNumber}</strong></p>

@@ -25,6 +25,11 @@ export interface MonthlyInvoice {
   issuedAt?: string;
   dueAt?: string;
   paidAt?: string;
+  lateFeeAmount: number;
+  serverNow: string;
+  meterDeadlineAt: string;
+  workflowState: "UPCOMING" | "METER_REQUIRED" | "READY_FOR_ISSUE" | "METER_DEADLINE_MISSED" | "UNPAID" | "PAYMENT_REMINDER" | "OVERDUE" | "OVERDUE_ACTION_REQUIRED" | "UNDER_REVIEW" | "PAID";
+  draftExtraCharges: { description: string; amount: number }[];
 }
 
 export interface IssueMonthlyInvoicePayload {

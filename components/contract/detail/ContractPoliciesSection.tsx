@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FileCheck, Edit3, Check, Loader2 } from "lucide-react";
 import { FieldRow } from "./utils";
 import type { PolicySnapshot } from "@/types/contract.type";
@@ -11,6 +11,7 @@ interface ContractPoliciesSectionProps {
   isDraft: boolean;
   isLandlord: boolean;
   onSaveSpecialTerms?: (terms: string) => Promise<void>;
+  onSaveLateFee?: (policy: Pick<PolicySnapshot, "latePaymentFeeMode" | "latePaymentFeeAmount" | "latePaymentFeeGraceDays" | "latePaymentFeeCap">) => Promise<void>;
 }
 
 export default function ContractPoliciesSection({
@@ -19,10 +20,46 @@ export default function ContractPoliciesSection({
   isDraft,
   isLandlord,
   onSaveSpecialTerms,
+  onSaveLateFee,
 }: ContractPoliciesSectionProps) {
   const [editing, setEditing] = useState(false);
   const [termText, setTermText] = useState(specialTerms || "");
   const [saving, setSaving] = useState(false);
+  const [editingFee, setEditingFee] = useState(false);
+  const [feeMode, setFeeMode] = useState<NonNullable<PolicySnapshot["latePaymentFeeMode"]>>("NONE");
+  const [feeAmount, setFeeAmount] = useState("");
+  const [feeGrace, setFeeGrace] = useState("0");
+  const [feeCap, setFeeCap] = useState("");
+  const [feeError, setFeeError] = useState("");
+
+  useEffect(() => {
+    setFeeMode((policies?.latePaymentFeeMode as PolicySnapshot["latePaymentFeeMode"]) || "NONE");
+    setFeeAmount(String(policies?.latePaymentFeeAmount ?? ""));
+    setFeeGrace(String(policies?.latePaymentFeeGraceDays ?? 0));
+    setFeeCap(String(policies?.latePaymentFeeCap ?? ""));
+  }, [policies]);
+
+  async function saveFee() {
+    if (!onSaveLateFee) return;
+    const amount = Number(feeAmount);
+    const grace = Number(feeGrace);
+    const cap = feeCap.trim() ? Number(feeCap) : null;
+    if (feeMode !== "NONE" && (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1_000_000_000
+        || !Number.isInteger(grace) || grace < 0 || grace > 30
+        || (cap !== null && (!Number.isSafeInteger(cap) || cap < amount || cap > 10_000_000_000)))) {
+      setFeeError("Nhập số tiền nguyên dương, số ngày miễn phạt từ 0–30; mức trần (nếu có) không nhỏ hơn phí một lần.");
+      return;
+    }
+    setFeeError("");
+    setSaving(true);
+    try {
+      await onSaveLateFee({ latePaymentFeeMode: feeMode,
+        latePaymentFeeAmount: feeMode === "NONE" ? 0 : amount,
+        latePaymentFeeGraceDays: feeMode === "NONE" ? 0 : grace,
+        latePaymentFeeCap: feeMode === "NONE" ? null : cap });
+      setEditingFee(false);
+    } finally { setSaving(false); }
+  }
 
   async function handleSave() {
     if (!onSaveSpecialTerms) return;
@@ -37,7 +74,7 @@ export default function ContractPoliciesSection({
 
   const p = policies || {};
   const noticeDays = p.noticeDaysBeforeTermination ?? 30;
-  const latePaymentPenaltyDays = p.latePaymentPenaltyDays ?? 5;
+  const lateMode = p.latePaymentFeeMode || "NONE";
   const depositRefundDays = p.depositRefundDays ?? 15;
   const sublettingAllowed = p.sublettingAllowed === true;
   const petsAllowed = p.petsAllowed === true;
@@ -62,8 +99,8 @@ export default function ContractPoliciesSection({
           value={`Tối thiểu ${noticeDays} ngày`}
         />
         <FieldRow
-          label="Thời gian ân hạn thanh toán chậm"
-          value={`${latePaymentPenaltyDays} ngày`}
+          label="Phí chậm thanh toán"
+          value={lateMode === "NONE" ? "Không áp dụng" : `${lateMode === "FIXED_PER_DAY" ? "Mỗi ngày" : "Một lần"}: ${Number(p.latePaymentFeeAmount || 0).toLocaleString("vi-VN")} đ (sau ${p.latePaymentFeeGraceDays ?? 0} ngày miễn phạt)`}
         />
         <FieldRow
           label="Thời hạn hoàn trả tiền đặt cọc"
@@ -81,6 +118,38 @@ export default function ContractPoliciesSection({
           label="Quy định hút thuốc trong nhà"
           value={smokingAllowed ? "Khu vực cho phép" : "Nghiêm cấm hút thuốc"}
         />
+      </div>
+
+      <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider">Phí phạt đóng trễ</h4>
+          {isDraft && isLandlord && !editingFee && <button type="button" onClick={() => setEditingFee(true)}
+            className="text-xs font-semibold text-primary hover:underline">Chỉnh sửa</button>}
+        </div>
+        <p className="text-xs text-muted-foreground">Phí được ghi vào điều khoản hợp đồng trước khi ký. Hóa đơn quá hạn sẽ hiện riêng khoản phạt; không tự áp dụng cho hợp đồng cũ.</p>
+        {editingFee ? <div className="grid gap-3 sm:grid-cols-2 text-xs">
+          <label>Hình thức
+            <select value={feeMode} onChange={(e) => setFeeMode(e.target.value as typeof feeMode)}
+              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2">
+              <option value="NONE">Không phạt</option>
+              <option value="FIXED_ONCE">Phạt cố định một lần</option>
+              <option value="FIXED_PER_DAY">Phạt cố định mỗi ngày trễ</option>
+            </select>
+          </label>
+          {feeMode !== "NONE" && <>
+            <label>Số tiền (đ)<input type="number" min="1" step="1" value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2" /></label>
+            <label>Miễn phạt sau hạn (ngày)<input type="number" min="0" max="30" step="1" value={feeGrace} onChange={(e) => setFeeGrace(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2" /></label>
+            <label>Mức phạt tối đa (đ, tùy chọn)<input type="number" min="1" step="1" value={feeCap} onChange={(e) => setFeeCap(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2" /></label>
+          </>}
+          {feeError && <p className="sm:col-span-2 text-rose-600">{feeError}</p>}
+          <div className="sm:col-span-2 flex justify-end gap-2">
+            <button type="button" disabled={saving} onClick={() => setEditingFee(false)} className="rounded-lg border border-border px-3 py-2">Hủy</button>
+            <button type="button" disabled={saving} onClick={() => void saveFee()} className="rounded-lg bg-primary px-3 py-2 font-semibold text-primary-foreground">Lưu phí phạt</button>
+          </div>
+        </div> : lateMode !== "NONE" && <p className="text-xs">Mức trần: {p.latePaymentFeeCap ? `${Number(p.latePaymentFeeCap).toLocaleString("vi-VN")} đ` : "Không đặt"}.</p>}
       </div>
 
       {/* SPECIAL TERMS */}

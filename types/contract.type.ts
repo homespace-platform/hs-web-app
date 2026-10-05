@@ -87,6 +87,7 @@ export interface PolicySnapshot {
   latePaymentFeeAmount?: number;
   latePaymentFeeGraceDays?: number;
   latePaymentFeeCap?: number | null;
+  overdueLandlordTerminationAfterFiveDays?: boolean;
   depositRefundDays?: number;
   sublettingAllowed?: boolean;
   petsAllowed?: boolean;

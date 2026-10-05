@@ -10,6 +10,7 @@ import storageService from "@/services/storage.service";
 import type { MonthlyInvoice } from "@/types/monthly-invoice.type";
 import type { PaymentRequest } from "@/types/payment-request.type";
 import { getApiErrorMessage } from "@/utils/apiError";
+import OverdueActionsPanel from "./OverdueActionsPanel";
 
 type Extra = { description: string; amount: string };
 type Props = {
@@ -160,13 +161,13 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
     <div className="flex items-center justify-between gap-3">
       <div>
         <h2 className="text-lg font-bold flex items-center gap-2"><ReceiptText className="h-5 w-5 text-primary" />Hóa đơn hằng tháng</h2>
-        <p className="text-xs text-muted-foreground mt-1">Mỗi kỳ có một hóa đơn riêng. Kỳ đầu không thu lại tiền thuê đã trả trước; phí dịch vụ, điện/nước và khoản phát sinh được quyết toán cuối kỳ.</p>
+        <p className="text-xs text-muted-foreground mt-1">Mỗi hóa đơn gồm phí dịch vụ, điện/nước và khoản phát sinh của kỳ vừa kết thúc, cùng tiền thuê kỳ kế tiếp nếu hợp đồng còn hạn. Tiền thuê kỳ đầu đã trả trước nên không thu lại; kỳ cuối chỉ quyết toán chi phí.</p>
       </div>
       <button type="button" onClick={() => void refresh()} aria-label="Làm mới hóa đơn"
         className="rounded-lg border border-border p-2 hover:bg-muted"><RefreshCw className="h-4 w-4" /></button>
     </div>
     {outstanding > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-      Tổng chưa xác nhận thanh toán: <strong>{money(outstanding)}</strong>. Các kỳ vẫn được theo dõi riêng.
+      Tổng chưa xác nhận thanh toán: <strong>{money(outstanding)}</strong>. Khoản đã chuyển nợ chỉ tính trong hóa đơn mới.
     </div>}
     {loading ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Đang tải hóa đơn…</div>
       : invoices.length === 0 ? <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
@@ -185,16 +186,18 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
           UNPAID: "Hóa đơn đã phát hành, đang chờ người thuê thanh toán.",
           PAYMENT_REMINDER: "Sắp đến hạn thanh toán. Người thuê vui lòng kiểm tra số tiền và chuyển khoản.",
           OVERDUE: "Hóa đơn quá hạn. Khoản phạt (nếu có trong hợp đồng) sẽ được tính riêng và cập nhật trên QR.",
-          OVERDUE_ACTION_REQUIRED: "Quá hạn kéo dài: chủ nhà cần liên hệ người thuê và quyết định hướng xử lý; hệ thống không tự chấm dứt hợp đồng.",
+          OVERDUE_ACTION_REQUIRED: "Đã quá hạn 5 ngày: chủ nhà cần ghi nhận phương án xử lý bên dưới; hợp đồng, tiền cọc và tin đăng không tự thay đổi.",
           UNDER_REVIEW: "Đã báo chuyển khoản hoặc đang đối soát; phí phạt tạm dừng tăng trong lúc chờ xử lý.",
           PAID: "Đã xác nhận thanh toán.",
+          DEFERRED: "Chủ nhà đã cho phép cộng dồn khoản nợ này sang hóa đơn kỳ kế tiếp. Phí phạt đã dừng tăng; bạn vẫn có thể thanh toán hóa đơn này trước khi chuyển nợ.",
+          ROLLED_OVER: "Khoản nợ đã được cộng vào hóa đơn kỳ kế tiếp. QR của hóa đơn này đã hủy; vui lòng thanh toán theo hóa đơn mới.",
         };
         return <article key={invoice.id} className="rounded-2xl border border-border bg-card p-4 sm:p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div><h3 className="font-semibold">Kỳ {invoice.periodIndex + 1}: {date(invoice.periodStart)} – {date(invoice.periodEndExclusive)} (không gồm ngày cuối)</h3>
               <p className="text-xs text-muted-foreground">{invoice.status === "DRAFT" ? "Chỉ chủ nhà thấy bản nháp; người thuê sẽ thấy sau khi phát hành" : `Hạn thanh toán: ${dateTime(invoice.dueAt)}`}</p></div>
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${invoice.status === "PAID" ? "bg-emerald-50 text-emerald-700" : invoice.status === "OVERDUE" ? "bg-rose-50 text-rose-700" : "bg-blue-50 text-blue-700"}`}>
-              {{ DRAFT: "Chờ phát hành", UNPAID: "Chưa thanh toán", OVERDUE: "Quá hạn", PAID: "Đã thanh toán" }[invoice.status]}
+              {{ DRAFT: "Chờ phát hành", UNPAID: "Chưa thanh toán", OVERDUE: "Quá hạn", PAID: "Đã thanh toán", ROLLED_OVER: "Đã chuyển nợ" }[invoice.status]}
             </span>
           </div>
           <p className={`rounded-lg px-3 py-2 text-xs ${["OVERDUE", "OVERDUE_ACTION_REQUIRED", "METER_DEADLINE_MISSED"].includes(invoice.workflowState) ? "bg-amber-50 text-amber-900" : "bg-blue-50 text-blue-800"}`}>
@@ -238,10 +241,11 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
             <div className="divide-y divide-border text-sm">{invoice.lines.map((line, index) => <div key={index} className="flex justify-between gap-3 py-2">
               <span>{line.description} <small className="text-muted-foreground">({line.quantity} × {money(line.unitPrice)})</small></span>
               <strong>{money(line.amount)}</strong></div>)}
-              <div className="flex justify-between pt-3 font-bold"><span>Tổng hóa đơn</span><span>{money(invoice.totalAmount)}</span></div>
+              <div className="flex justify-between pt-3 font-bold"><span>{invoice.status === "ROLLED_OVER" ? "Đã chuyển sang kỳ sau" : "Tổng hóa đơn"}</span><span>{money(invoice.totalAmount)}</span></div>
             </div>
-            {invoice.lateFeeAmount > 0 && <p className="text-xs text-rose-700">Trong tổng trên có {money(invoice.lateFeeAmount)} phí chậm thanh toán theo hợp đồng. Nếu đã chuyển tiền, hãy gửi chứng từ để tạm dừng tăng phí.</p>}
-            {payment && invoice.status !== "PAID" && <div className="rounded-xl border border-border p-3 space-y-3 text-sm">
+            {invoice.lateFeeAmount > 0 && invoice.status !== "ROLLED_OVER" && <p className="text-xs text-rose-700">Trong tổng trên có {money(invoice.lateFeeAmount)} phí chậm thanh toán theo hợp đồng. Nếu đã chuyển tiền, hãy gửi chứng từ để tạm dừng tăng phí.</p>}
+            <OverdueActionsPanel invoice={invoice} isLandlord={isLandlord} isTenant={isTenant} refresh={refresh} />
+            {payment && invoice.status !== "PAID" && invoice.status !== "ROLLED_OVER" && <div className="rounded-xl border border-border p-3 space-y-3 text-sm">
               <p className="font-semibold">Chuyển khoản trực tiếp cho chủ nhà</p>
               <p>Ngân hàng: {payment.payeeBankAccountSnapshot?.bankName || payment.payeeBankAccountSnapshot?.bankCode} • STK: <strong>{payment.payeeBankAccountSnapshot?.accountNumber}</strong></p>
               <p>Người nhận: {payment.payeeBankAccountSnapshot?.accountHolderName}</p>

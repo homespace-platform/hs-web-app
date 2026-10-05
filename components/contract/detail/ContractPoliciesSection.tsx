@@ -180,6 +180,12 @@ export default function ContractPoliciesSection({
         )}
       </div>
 
+      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        {p.overdueLandlordTerminationAfterFiveDays
+          ? "Sau hơn 5 ngày quá hạn, chủ nhà có thể cho cộng nợ kỳ sau hoặc đề nghị chấm dứt. Nếu người thuê từ chối, chủ nhà có thể chọn chấm dứt theo điều khoản đã ký sau khi thông báo và thực tế nhận lại phòng; khi đó hệ thống ghi cọc cho chủ nhà và mở lại tin đăng. Hệ thống không tự chấm dứt."
+          : "Hợp đồng này không có điều khoản chấm dứt sau 5 ngày quá hạn theo cấu trúc hiện hành; hệ thống không tự chấm dứt hoặc thu cọc."}
+      </p>
+
       {/* SPECIAL TERMS */}
       <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-2">
         <div className="flex items-center justify-between">

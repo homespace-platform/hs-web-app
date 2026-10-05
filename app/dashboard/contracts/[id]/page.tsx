@@ -499,7 +499,7 @@ export default function ContractDetailPage() {
 
         {/* DANH SÁCH FILE VĂN BẢN KẾT XUẤT */}
         <ContractDocumentSection documents={documents} />
-        {contract.status === "ACTIVE" && <MonthlyInvoicesSection
+        {(contract.status === "ACTIVE" || contract.status === "TERMINATED") && <MonthlyInvoicesSection
           contractId={contract.id}
           isLandlord={isLandlord}
           isTenant={isTenant}

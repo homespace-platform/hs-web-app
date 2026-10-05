@@ -51,8 +51,18 @@ const BREADCRUMB_MAP: Record<string, BreadcrumbItem> = {
     title: "Yêu cầu đã gửi",
   },
   "/dashboard/contracts": {
-    parent: { title: "Hợp đồng", path: "/dashboard/contracts" },
-    title: "Hợp đồng của tôi",
+    title: "Hợp đồng",
+  },
+  "/dashboard/landlord/contracts": {
+    parent: { title: "Quản lý", path: "/dashboard/landlord" },
+    title: "Hợp đồng cho thuê",
+  },
+  "/dashboard/tenant/contracts": {
+    parent: { title: "Thuê nhà", path: "/dashboard/tenant" },
+    title: "Hợp đồng đi thuê",
+  },
+  "/dashboard/invoices": {
+    title: "Hóa đơn",
   },
   "/dashboard/deposit": {
     parent: { title: "Tài chính", path: "/dashboard/deposit" },
@@ -82,11 +92,13 @@ export default function DashboardLayout({
 
   const currentBreadcrumb =
     BREADCRUMB_MAP[pathname] ||
-    (pathname.match(/^\/dashboard\/contracts\/[^/]+$/)
+    (pathname.match(/^\/dashboard\/(landlord|tenant)\/contracts\/[^/]+$/)
       ? {
-          parent: { title: "Hợp đồng của tôi", path: "/dashboard/contracts" },
+          parent: { title: pathname.startsWith("/dashboard/landlord") ? "Hợp đồng cho thuê" : "Hợp đồng đi thuê", path: pathname.startsWith("/dashboard/landlord") ? "/dashboard/landlord/contracts" : "/dashboard/tenant/contracts" },
           title: "Chi tiết hợp đồng",
         }
+      : pathname.match(/^\/dashboard\/invoices\/[^/]+$/)
+      ? { parent: { title: "Hóa đơn", path: "/dashboard/invoices" }, title: "Chi tiết hóa đơn" }
       : { title: "Bảng điều khiển" });
 
   return (

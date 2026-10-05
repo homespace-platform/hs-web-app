@@ -73,6 +73,7 @@ const STATUS_CONFIG: Record<
 };
 
 interface ContractHeaderProps {
+  backPath: string;
   contract: ContractResponse;
   revision: ContractRevisionResponse;
   completeness: ContractCompletenessResponse | null;
@@ -88,6 +89,7 @@ interface ContractHeaderProps {
 }
 
 export default function ContractHeader({
+  backPath,
   contract,
   revision,
   completeness,
@@ -117,7 +119,7 @@ export default function ContractHeader({
         <div className="space-y-2 min-w-0">
           <button
             type="button"
-            onClick={() => router.push("/dashboard/contracts")}
+            onClick={() => router.push(backPath)}
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />

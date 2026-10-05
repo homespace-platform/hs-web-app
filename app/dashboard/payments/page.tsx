@@ -222,9 +222,9 @@ export default function PaymentsPage() {
                     </button>
                   </div>
                   {p.contractId ? (
-                    <Link href={`/dashboard/contracts/${p.contractId}#monthly-invoices`}
+                    <Link href={`/dashboard/invoices/${p.contractId}`}
                       className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
-                      <span>Xem hóa đơn trong hợp đồng</span><ExternalLink className="w-3 h-3" />
+                      <span>Xem hóa đơn</span><ExternalLink className="w-3 h-3" />
                     </Link>
                   ) : p.rentalRequestId && (
                     <Link

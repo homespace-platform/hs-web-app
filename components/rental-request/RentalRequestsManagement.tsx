@@ -42,6 +42,7 @@ import {
 } from "@/config/rental-hold.config";
 import { useRouter } from "next/navigation";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { contractDetailPath } from "@/lib/contract-routes";
 interface RentalRequestsManagementProps {
   mode: "RECEIVED" | "SENT";
 }
@@ -206,7 +207,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
       } catch {
         toast.warning("Đã tạo bản nháp. Mở hợp đồng để kiểm tra dữ liệu trước khi kết xuất.");
       }
-      router.push(`/dashboard/contracts/${draft.id}`);
+      router.push(contractDetailPath("landlord", draft.id));
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Không thể tạo hợp đồng. Nếu chưa có mẫu phù hợp, vui lòng liên hệ quản trị viên."), {
         duration: 8000,
@@ -859,7 +860,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                                 disabled={openingContractId === req.id}
                                 onClick={() => {
                                   setOpeningContractId(req.id);
-                                  router.push(`/dashboard/contracts/${linkedContract.id}`);
+                                  router.push(contractDetailPath(mode === "RECEIVED" ? "landlord" : "tenant", linkedContract.id));
                                 }}
                                 className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
                               >
@@ -912,7 +913,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                     </div>
                     <button
                       type="button"
-                      onClick={() => router.push(`/dashboard/contracts/${linkedContract.id}`)}
+                      onClick={() => router.push(contractDetailPath(mode === "RECEIVED" ? "landlord" : "tenant", linkedContract.id))}
                       className="h-8 px-3 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                     >
                       <FileText className="w-3.5 h-3.5" />
@@ -1243,7 +1244,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         }}
         onOpenContract={(contractId) => {
           setDetailRequestId(null);
-          router.push(`/dashboard/contracts/${contractId}`);
+          router.push(contractDetailPath(mode === "RECEIVED" ? "landlord" : "tenant", contractId));
         }}
       />
     </div>

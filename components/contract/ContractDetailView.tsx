@@ -1,0 +1,546 @@
+"use client";
+
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import {
+  AlertTriangle,
+  Loader2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { contractService } from "@/services/contract.service";
+import type {
+  ContractCompletenessResponse,
+  ContractDocumentResponse,
+  ContractPaymentBreakdownResponse,
+  ContractResponse,
+  ContractRevisionResponse,
+  PolicySnapshot,
+  SignatureStateResponse,
+} from "@/types/contract.type";
+import { useAuth } from "@/features/auth/useAuth";
+import { getApiErrorMessage } from "@/utils/apiError";
+
+import ContractHeader from "@/components/contract/detail/ContractHeader";
+import ContractPartiesSection from "@/components/contract/detail/ContractPartiesSection";
+import ContractPropertySection from "@/components/contract/detail/ContractPropertySection";
+import ContractLeaseSection from "@/components/contract/detail/ContractLeaseSection";
+import ContractFinancialSection from "@/components/contract/detail/ContractFinancialSection";
+import ContractInitialPaymentSection from "@/components/contract/detail/ContractInitialPaymentSection";
+import ContractAmenitiesSection from "@/components/contract/detail/ContractAmenitiesSection";
+import ContractChargesSection from "@/components/contract/detail/ContractChargesSection";
+import ContractEquipmentSection from "@/components/contract/detail/ContractEquipmentSection";
+import ContractPoliciesSection from "@/components/contract/detail/ContractPoliciesSection";
+import ContractHandoverSection from "@/components/contract/detail/ContractHandoverSection";
+import ContractDocumentSection from "@/components/contract/detail/ContractDocumentSection";
+import ContractSignaturePanel from "@/components/contract/detail/ContractSignaturePanel";
+import SmartCaSignaturePanel from "@/components/contract/detail/SmartCaSignaturePanel";
+import { contractListPath, invoiceDetailPath } from "@/lib/contract-routes";
+
+export default function ContractDetailView({ perspective }: { perspective: "landlord" | "tenant" }) {
+  const params = useParams();
+  const router = useRouter();
+  const { profile } = useAuth();
+  const contractId = String(params?.id || "");
+
+  const [contract, setContract] = useState<ContractResponse | null>(null);
+  const [revision, setRevision] = useState<ContractRevisionResponse | null>(null);
+  const [completeness, setCompleteness] = useState<ContractCompletenessResponse | null>(null);
+  const [documents, setDocuments] = useState<ContractDocumentResponse[]>([]);
+  const [payment, setPayment] = useState<ContractPaymentBreakdownResponse | null>(null);
+  const [signatureState, setSignatureState] = useState<SignatureStateResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const [rendering, setRendering] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [signing, setSigning] = useState(false);
+
+  // Meter states for draft editing
+  const [electricityInitial, setElectricityInitial] = useState("");
+  const [waterInitial, setWaterInitial] = useState("");
+  const [savingMeters, setSavingMeters] = useState(false);
+  const [meterErrors, setMeterErrors] = useState<{ electricity?: string; water?: string }>({});
+
+  const isLandlord = Boolean(
+    perspective === "landlord" && profile?.id && contract?.landlordId && profile.id === contract.landlordId
+  );
+  const isTenant = Boolean(
+    perspective === "tenant" && profile?.id && contract?.tenantId && profile.id === contract.tenantId
+  );
+
+  const load = useCallback(async () => {
+    if (!contractId) return;
+    setLoading(true);
+    try {
+      const c = await contractService.getContract(contractId);
+      const [rev, comp, docs, paymentBreakdown, sigState] = await Promise.all([
+        contractService.getRevision(contractId),
+        contractService.getCompleteness(contractId),
+        contractService.getDocuments(contractId),
+        contractService.getPaymentBreakdown(contractId),
+        contractService.getSignatureState(contractId),
+      ]);
+      setContract(c);
+      setRevision(rev);
+      setElectricityInitial(String(rev.meters?.electricityInitial ?? ""));
+      setWaterInitial(String(rev.meters?.waterInitial ?? ""));
+      setCompleteness(comp);
+      setDocuments(docs);
+      setPayment(paymentBreakdown);
+      setSignatureState(sigState);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không thể tải dữ liệu hợp đồng."));
+      router.replace(contractListPath(perspective));
+    } finally {
+      setLoading(false);
+    }
+  }, [contractId, router, perspective]);
+
+  const refreshSignedState = useCallback(async () => {
+    if (!contractId) return;
+    const [updatedContract, docs, state] = await Promise.all([
+      contractService.getContract(contractId),
+      contractService.getDocuments(contractId),
+      contractService.getSignatureState(contractId),
+    ]);
+    setContract(updatedContract);
+    setDocuments(docs);
+    setSignatureState(state);
+  }, [contractId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const latestDoc = useMemo(() => {
+    const ready = documents.filter(
+      (d) => d.status === "READY" && (d.viewUrl || d.downloadUrl)
+    );
+    const preferred = ["SIGNED_FINAL", "SIGNED_LANDLORD", "OFFICIAL", "PREVIEW"];
+    return ready.sort((a, b) => preferred.indexOf(a.purpose) - preferred.indexOf(b.purpose))[0]
+      ?? documents[0] ?? null;
+  }, [documents]);
+
+  const hasReadyCurrentDocument = useMemo(
+    () =>
+      Boolean(
+        revision &&
+          documents.some(
+            (document) =>
+              document.revisionId === revision.id &&
+              document.status === "READY" &&
+              Boolean(document.storageObjectId)
+          )
+      ),
+    [documents, revision]
+  );
+
+  const electricityRequired = useMemo(() =>
+    (revision?.charges || []).some((charge) =>
+      charge.chargeType === "ELECTRICITY" && charge.billingMethod === "PER_KWH"
+    ), [revision?.charges]);
+
+  const waterRequired = useMemo(() =>
+    (revision?.charges || []).some((charge) =>
+      charge.chargeType === "WATER" && ["PER_M3", "STATE_WATER_RATE"].includes(String(charge.billingMethod))
+    ), [revision?.charges]);
+
+  const isWaterPerPerson = useMemo(() =>
+    !waterRequired && (revision?.charges || []).some((charge) =>
+      charge.chargeType === "WATER" && charge.billingMethod === "PER_PERSON_MONTH"
+    ), [revision?.charges, waterRequired]);
+
+  const metersDirty = Boolean(revision && (
+    electricityInitial.trim() !== String(revision.meters?.electricityInitial ?? "").trim() ||
+    (!isWaterPerPerson && waterInitial.trim() !== String(revision.meters?.waterInitial ?? "").trim())
+  ));
+
+  function validateMeterReading(value: string, required: boolean, label: string): string | undefined {
+    const reading = value.trim();
+    if (!reading) return required ? `Vui lòng nhập ${label}.` : undefined;
+    if (!/^\d+(\.\d+)?$/.test(reading)) return `${label} phải là số không âm (ví dụ: 0 hoặc 1250.5).`;
+    return undefined;
+  }
+
+  async function handleSaveMeters() {
+    if (!contractId || !revision) return;
+    const errors = {
+      electricity: validateMeterReading(electricityInitial, electricityRequired, "chỉ số điện ban đầu"),
+      water: isWaterPerPerson ? undefined : validateMeterReading(waterInitial, waterRequired, "chỉ số nước ban đầu"),
+    };
+    setMeterErrors(errors);
+    if (errors.electricity || errors.water) return;
+
+    setSavingMeters(true);
+    try {
+      const updated = await contractService.updateRevision(contractId, {
+        landlord: revision.landlord || {},
+        tenant: revision.tenant || {},
+        property: revision.property || {},
+        lease: revision.lease || {},
+        financial: revision.financial || {},
+        initialPayment: revision.initialPayment || undefined,
+        amenities: revision.amenities || undefined,
+        charges: revision.charges || [],
+        equipments: revision.equipments || [],
+        policies: revision.policies || undefined,
+        meters: {
+          ...(revision.meters || {}),
+          electricityInitial: electricityInitial.trim(),
+          waterInitial: isWaterPerPerson
+            ? String(revision.meters?.waterInitial ?? "")
+            : waterInitial.trim(),
+        },
+        specialTerms: revision.specialTerms,
+        revisionNote: "Cập nhật chỉ số điện nước ban đầu.",
+      });
+      setRevision(updated);
+      setElectricityInitial(String(updated.meters?.electricityInitial ?? ""));
+      setWaterInitial(String(updated.meters?.waterInitial ?? ""));
+      const [comp, docs] = await Promise.all([
+        contractService.getCompleteness(contractId),
+        contractService.getDocuments(contractId),
+      ]);
+      setCompleteness(comp);
+      setDocuments(docs);
+      toast.success("Đã lưu chỉ số ban đầu. Vui lòng kết xuất lại hợp đồng.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không thể lưu chỉ số ban đầu."));
+    } finally {
+      setSavingMeters(false);
+    }
+  }
+
+  // ACTION: TRIGGER PREVIEW
+  async function handleRender() {
+    if (!contractId || !revision) return;
+    if (metersDirty) {
+      toast.warning("Vui lòng lưu chỉ số điện nước trước khi kết xuất hợp đồng.");
+      document.getElementById("contract-handover")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setRendering(true);
+    try {
+      const doc = await contractService.triggerPreview(contractId);
+      toast.success(
+        `Đã kết xuất bản xem trước của bản sửa đổi số ${revision.revisionNumber}.`
+      );
+      setDocuments((prev) => [doc, ...prev.filter((d) => d.id !== doc.id)]);
+      const refreshedDocs = await contractService.getDocuments(contractId);
+      setDocuments(refreshedDocs);
+      const comp = await contractService.getCompleteness(contractId);
+      setCompleteness(comp);
+    } catch (err) {
+      toast.error(
+        getApiErrorMessage(err, "Không thể kết xuất bản xem trước hợp đồng.")
+      );
+    } finally {
+      setRendering(false);
+    }
+  }
+
+  // ACTION: SAVE SPECIAL TERMS
+  async function handleSaveSpecialTerms(terms: string) {
+    if (!contractId || !revision) return;
+    try {
+      const updated = await contractService.updateRevision(contractId, {
+        landlord: revision.landlord || {},
+        tenant: revision.tenant || {},
+        property: revision.property || {},
+        lease: revision.lease || {},
+        financial: revision.financial || {},
+        initialPayment: revision.initialPayment || undefined,
+        amenities: revision.amenities || undefined,
+        charges: revision.charges || [],
+        equipments: revision.equipments || [],
+        policies: revision.policies || undefined,
+        meters: revision.meters || {},
+        specialTerms: terms,
+        revisionNote: "Cập nhật điều khoản thỏa thuận riêng.",
+      });
+      setRevision(updated);
+      toast.success(`Đã lưu bản sửa đổi số ${updated.revisionNumber}.`);
+      const comp = await contractService.getCompleteness(contractId);
+      setCompleteness(comp);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không thể cập nhật điều khoản hợp đồng."));
+    }
+  }
+
+  async function handleSaveLateFee(policy: Pick<PolicySnapshot, "latePaymentFeeMode" | "latePaymentFeeAmount" | "latePaymentFeeGraceDays" | "latePaymentFeeCap">) {
+    if (!contractId || !revision) return;
+    try {
+      const updated = await contractService.updateRevision(contractId, {
+        landlord: revision.landlord || {}, tenant: revision.tenant || {},
+        property: revision.property || {}, lease: revision.lease || {},
+        financial: revision.financial || {}, initialPayment: revision.initialPayment || undefined,
+        amenities: revision.amenities || undefined, charges: revision.charges || [],
+        equipments: revision.equipments || [], meters: revision.meters || {},
+        policies: { ...(revision.policies || {}), ...policy },
+        specialTerms: revision.specialTerms,
+        revisionNote: "Cập nhật điều khoản phí chậm thanh toán.",
+      });
+      setRevision(updated);
+      const [comp, docs] = await Promise.all([
+        contractService.getCompleteness(contractId), contractService.getDocuments(contractId),
+      ]);
+      setCompleteness(comp);
+      setDocuments(docs);
+      toast.success("Đã lưu phí chậm thanh toán. Vui lòng kết xuất lại hợp đồng trước khi ký.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không thể lưu phí chậm thanh toán."));
+      throw err;
+    }
+  }
+
+  // ACTION: SEND TO TENANT
+  async function handleSendToTenant() {
+    if (!contractId) return;
+    if (metersDirty) {
+      toast.warning("Vui lòng lưu chỉ số điện nước và kết xuất lại hợp đồng trước khi gửi.");
+      document.getElementById("contract-handover")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (!hasReadyCurrentDocument) {
+      toast.warning(
+        "Dữ liệu đã thay đổi hoặc chưa có file kết xuất. Vui lòng kết xuất file xem trước trước khi gửi."
+      );
+      return;
+    }
+    setSending(true);
+    try {
+      const sent = await contractService.sendToTenant(contractId);
+      setContract(sent);
+      const refreshedDocs = await contractService.getDocuments(contractId);
+      setDocuments(refreshedDocs);
+      toast.success("Đã xác nhận nội dung và gửi hợp đồng cho người thuê.");
+    } catch (err) {
+      toast.error(
+        getApiErrorMessage(err, "Không thể gửi hợp đồng cho người thuê.")
+      );
+    } finally {
+      setSending(false);
+    }
+  }
+
+  // ACTION: TENANT CONFIRM / SIGN
+  async function handleSign() {
+    if (!contractId) return;
+    if (contract?.status !== "PENDING_REVIEW") {
+      toast.error("Bạn chưa thể xác nhận vì hợp đồng chưa ở trạng thái chờ ký.");
+      return;
+    }
+    setSigning(true);
+    try {
+      const signed = await contractService.sign(contractId);
+      setContract(signed);
+      toast.success("Đã xác nhận đồng ý hợp đồng. Hợp đồng đã có hiệu lực.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không thể xác nhận ký hợp đồng."));
+    } finally {
+      setSigning(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+        Đang tải thông tin hợp đồng...
+      </div>
+    );
+  }
+
+  if (!contract || !revision) return null;
+
+  if (!profile?.id) return <div className="flex items-center gap-2 text-sm text-muted-foreground">
+    <Loader2 className="h-4 w-4 animate-spin" />Đang xác thực tài khoản…
+  </div>;
+
+  if (profile?.id && !isLandlord && !isTenant) {
+    return <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+      Hợp đồng này không thuộc vai trò {perspective === "landlord" ? "cho thuê" : "đi thuê"} của bạn. {" "}
+      <Link href={contractListPath(perspective)} className="font-semibold underline">Về danh sách hợp đồng</Link>
+    </div>;
+  }
+
+  const isDraft = contract.status === "DRAFT";
+  const landlord = revision.landlord || {};
+  const tenant = revision.tenant || {};
+  const property = revision.property || {};
+  const lease = revision.lease || {};
+  const financial = revision.financial || {};
+  const initialPayment = revision.initialPayment;
+  const amenities = revision.amenities || [];
+  const charges = revision.charges || [];
+  const equipments = revision.equipments || [];
+  const policies = revision.policies;
+
+  return (
+    <div className="space-y-6 animate-in fade-in-50 duration-200 pb-12 max-w-6xl mx-auto">
+      <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm">
+        <p className="font-semibold">{perspective === "landlord" ? "Hợp đồng cho thuê" : "Hợp đồng đi thuê"}</p>
+        <p className="text-xs text-muted-foreground">{perspective === "landlord"
+          ? "Quản lý nội dung, tài liệu và chữ ký với tư cách bên cho thuê."
+          : "Xem nội dung, tài liệu và xác nhận ký với tư cách bên đi thuê."}</p>
+      </div>
+      {/* 1. CONTRACT HEADER */}
+      <ContractHeader
+        backPath={contractListPath(perspective)}
+        contract={contract}
+        revision={revision}
+        completeness={completeness}
+        latestDoc={latestDoc}
+        hasReadyDoc={hasReadyCurrentDocument}
+        isLandlord={isLandlord}
+        isTenant={isTenant}
+        rendering={rendering}
+        sending={sending}
+        onRender={handleRender}
+        onSend={handleSendToTenant}
+        smartCaMode={signatureState?.signatureMode === "SMARTCA"}
+      />
+
+      {/* 2. WARNING BANNER: INCOMPLETE FIELDS FOR TEMPLATE */}
+      {completeness && !completeness.complete && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/30">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                Hợp đồng còn {completeness.missingFields.length} thông tin bắt buộc chưa có dữ liệu
+              </p>
+              <p className="text-xs text-amber-800/90 dark:text-amber-300/90">
+                Đã điền {completeness.filledFields}/{completeness.totalFields} trường. Vui lòng bổ sung trước khi kết xuất và gửi hợp đồng.
+              </p>
+              <ul className="text-[11px] text-amber-900 dark:text-amber-200 list-disc pl-4 space-y-0.5 pt-1">
+                {completeness.missingFields.slice(0, 6).map((f) => (
+                  <li key={f.key}>
+                    {f.label} <span className="opacity-70">({f.key})</span>
+                  </li>
+                ))}
+                {completeness.missingFields.length > 6 && (
+                  <li>… và {completeness.missingFields.length - 6} trường khác</li>
+                )}
+              </ul>
+              {isLandlord &&
+                completeness.missingFields.some(
+                  (f) => f.key === "landlord.permanentAddress"
+                ) && (
+                  <Link
+                    href="/settings/profile"
+                    className="inline-flex text-xs font-semibold text-amber-900 underline underline-offset-2 dark:text-amber-200 pt-1"
+                  >
+                    Cập nhật nơi thường trú trong hồ sơ cá nhân
+                  </Link>
+                )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. SIGNATURE & CONFIRMATION PANEL (PROMINENT AT TOP / BOTTOM) */}
+      {signatureState?.signatureMode === "SMARTCA" ? <SmartCaSignaturePanel
+        contract={contract}
+        state={signatureState}
+        isLandlord={isLandlord}
+        isTenant={isTenant}
+        hasReadyPdf={Boolean(revision && documents.some(d => d.revisionId === revision.id && d.documentType === "PDF" && d.status === "READY"))}
+        onUpdated={refreshSignedState}
+      /> : <ContractSignaturePanel
+        contract={contract}
+        isLandlord={isLandlord}
+        isTenant={isTenant}
+        canSend={Boolean(completeness?.complete && hasReadyCurrentDocument)}
+        sending={sending}
+        signing={signing}
+        onSend={handleSendToTenant}
+        onSign={handleSign}
+      />}
+
+      {/* 4. MAIN CONTRACT SECTIONS */}
+      <div className="space-y-6">
+        {/* CHỦ THỂ BÊN A VÀ BÊN B */}
+        <ContractPartiesSection landlord={landlord} tenant={tenant} />
+
+        {/* THÔNG TIN BẤT ĐỘNG SẢN BÀN GIAO */}
+        <ContractPropertySection property={property} />
+
+        {/* THỜI HẠN THUÊ VÀ BÀN GIAO */}
+        <ContractLeaseSection lease={lease} />
+
+        {/* GIÁ THUÊ VÀ ĐẶT CỌC */}
+        <ContractFinancialSection financial={financial} />
+
+        {/* XÁC NHẬN THANH TOÁN BAN ĐẦU */}
+        <ContractInitialPaymentSection
+          initialPayment={initialPayment}
+          paymentBreakdown={payment}
+          paidAt={contract.paidAt}
+        />
+
+        {/* BẢNG TIỆN ÍCH DÙNG CHUNG VÀ CHÍNH SÁCH */}
+        <ContractAmenitiesSection amenities={amenities} />
+
+        {/* BẢNG PHÍ DỊCH VỤ VÀ ĐIỆN NƯỚC */}
+        <ContractChargesSection charges={charges} />
+
+        {/* BẢNG TRANG THIẾT BỊ VÀ NỘI THẤT */}
+        <ContractEquipmentSection equipments={equipments} />
+
+        {/* CHÍNH SÁCH VẬN HÀNH VÀ ĐIỀU KHOẢN THỎA THUẬN RIÊNG */}
+        <ContractPoliciesSection
+          policies={policies}
+          specialTerms={revision.specialTerms}
+          isDraft={isDraft}
+          isLandlord={isLandlord}
+          onSaveSpecialTerms={handleSaveSpecialTerms}
+          onSaveLateFee={handleSaveLateFee}
+        />
+
+        {/* CHỈ SỐ BAN ĐẦU ĐƯA VÀO HỢP ĐỒNG */}
+        <ContractHandoverSection
+          electricityInitial={electricityInitial}
+          waterInitial={waterInitial}
+          isWaterPerPerson={isWaterPerPerson}
+          electricityRequired={electricityRequired}
+          waterRequired={waterRequired}
+          isDraft={isDraft}
+          isLandlord={isLandlord}
+          isDirty={metersDirty}
+          saving={savingMeters}
+          errors={meterErrors}
+          onElectricityChange={(value) => { setElectricityInitial(value); setMeterErrors((prev) => ({ ...prev, electricity: undefined })); }}
+          onWaterChange={(value) => { setWaterInitial(value); setMeterErrors((prev) => ({ ...prev, water: undefined })); }}
+          onSave={handleSaveMeters}
+        />
+
+        {/* DANH SÁCH FILE VĂN BẢN KẾT XUẤT */}
+        <ContractDocumentSection documents={documents} />
+        {(contract.status === "ACTIVE" || contract.status === "TERMINATED") && <Link
+          href={invoiceDetailPath(contract.id)}
+          className="block rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm font-semibold text-primary hover:bg-primary/10"
+        >
+          Xem và quản lý hóa đơn của hợp đồng này →
+        </Link>}
+      </div>
+
+      {/* FOOTER NAVIGATION */}
+      <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <span>
+          Hệ thống HomeSpace quản lý hợp đồng thông qua snapshot thỏa thuận bất biến, đảm bảo toàn vẹn tính pháp lý và sự minh bạch cho cả hai bên.
+        </span>
+        <Link
+          href={
+            isLandlord
+              ? "/dashboard/rental-requests"
+              : "/dashboard/rental-requests/my-requests"
+          }
+          className="text-primary font-semibold hover:underline shrink-0"
+        >
+          Quay lại yêu cầu thuê →
+        </Link>
+      </div>
+    </div>
+  );
+}

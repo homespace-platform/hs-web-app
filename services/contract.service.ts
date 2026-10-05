@@ -64,6 +64,8 @@ export const contractService = {
 
   async listContracts(params?: {
     status?: ContractStatus;
+    role?: "LANDLORD" | "TENANT";
+    billableOnly?: boolean;
     page?: number;
     size?: number;
   }): Promise<PageResponse<ContractResponse>> {

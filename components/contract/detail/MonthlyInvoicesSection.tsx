@@ -109,13 +109,13 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
     const data = payload(invoice);
     if (!data) return;
     await perform(invoice.id, () => monthlyInvoiceService.prepare(invoice.id, data),
-      "Đã lưu chỉ số và phí phát sinh. Hệ thống sẽ tự phát hành hóa đơn khi đến hạn.");
+      "Đã lưu bản nháp. Người thuê chưa thấy hóa đơn; hãy chốt và phát hành khi chỉ số đã chính xác.");
   }
 
   async function issue(invoice: MonthlyInvoice) {
     const data = payload(invoice);
     if (!data) return;
-    if (!window.confirm("Xác nhận phát hành? Hãy kiểm tra kỹ chỉ số và các khoản phí; hóa đơn đã phát hành hiện chưa thể sửa.")) return;
+    if (!window.confirm("Chốt chỉ số và phát hành hóa đơn ngay cho người thuê? Hãy kiểm tra kỹ các khoản phí; hóa đơn đã phát hành hiện chưa thể sửa.")) return;
     await perform(invoice.id, () => monthlyInvoiceService.issue(invoice.id, data), "Đã phát hành hóa đơn.");
   }
 
@@ -170,15 +170,17 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
     </div>}
     {loading ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Đang tải hóa đơn…</div>
       : invoices.length === 0 ? <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-        Chưa đến ngày cuối của kỳ thuê đầu tiên. Hóa đơn nháp sẽ xuất hiện để chủ nhà chốt chỉ số.
+        {isTenant ? "Chưa có hóa đơn được phát hành. Sau khi chủ nhà chốt chỉ số và phát hành, bạn sẽ thấy số tiền và QR thanh toán tại đây."
+          : "Chưa đến ngày cuối của kỳ thuê đầu tiên. Hóa đơn nháp sẽ xuất hiện để chủ nhà chốt chỉ số."}
       </div> : invoices.map((invoice) => {
         const payment = payments.find((p) => p.invoiceId === invoice.id || p.id === invoice.paymentRequestId);
         const rows = extras[invoice.id] || [];
-        const canIssue = new Date(invoice.serverNow).getTime() >= new Date(`${invoice.periodEndExclusive}T00:00:00+07:00`).getTime();
+        const canIssue = new Date(invoice.serverNow).getTime() >=
+          new Date(`${invoice.periodEndExclusive}T00:00:00+07:00`).getTime() - 86_400_000;
         const workflowMessage: Record<MonthlyInvoice["workflowState"], string> = {
           UPCOMING: "Kỳ thuê chưa đến ngày chốt chỉ số.",
           METER_REQUIRED: `Chủ nhà cần lưu chỉ số và phí phát sinh trước ${dateTime(invoice.meterDeadlineAt)}.`,
-          READY_FOR_ISSUE: `Đã lưu dữ liệu kỳ này. Hệ thống sẽ tự phát hành từ ${dateTime(invoice.meterDeadlineAt)}.`,
+          READY_FOR_ISSUE: `Đã lưu bản nháp. Bạn có thể chốt và phát hành ngay; nếu không, hệ thống tự phát hành từ ${dateTime(invoice.meterDeadlineAt)}.`,
           METER_DEADLINE_MISSED: "Đã qua hạn chốt chỉ số. Nếu chưa có dữ liệu hợp lệ, hệ thống không tự ước tính điện/nước; chủ nhà cần bổ sung và phát hành.",
           UNPAID: "Hóa đơn đã phát hành, đang chờ người thuê thanh toán.",
           PAYMENT_REMINDER: "Sắp đến hạn thanh toán. Người thuê vui lòng kiểm tra số tiền và chuyển khoản.",
@@ -190,7 +192,7 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
         return <article key={invoice.id} className="rounded-2xl border border-border bg-card p-4 sm:p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div><h3 className="font-semibold">Kỳ {invoice.periodIndex + 1}: {date(invoice.periodStart)} – {date(invoice.periodEndExclusive)} (không gồm ngày cuối)</h3>
-              <p className="text-xs text-muted-foreground">{invoice.status === "DRAFT" ? "Chủ nhà cần chốt chỉ số và phát hành" : `Hạn thanh toán: ${dateTime(invoice.dueAt)}`}</p></div>
+              <p className="text-xs text-muted-foreground">{invoice.status === "DRAFT" ? "Chỉ chủ nhà thấy bản nháp; người thuê sẽ thấy sau khi phát hành" : `Hạn thanh toán: ${dateTime(invoice.dueAt)}`}</p></div>
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${invoice.status === "PAID" ? "bg-emerald-50 text-emerald-700" : invoice.status === "OVERDUE" ? "bg-rose-50 text-rose-700" : "bg-blue-50 text-blue-700"}`}>
               {{ DRAFT: "Chờ phát hành", UNPAID: "Chưa thanh toán", OVERDUE: "Quá hạn", PAID: "Đã thanh toán" }[invoice.status]}
             </span>
@@ -199,7 +201,7 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
             {workflowMessage[invoice.workflowState]}
           </p>
           {invoice.status === "DRAFT" && isLandlord && <div className="space-y-3 rounded-xl bg-muted/40 p-3">
-            <p className="text-xs text-muted-foreground">Lưu chỉ số và phí phát sinh để hệ thống tự phát hành sau 10:00 ngày kế tiếp. Đơn giá lấy từ hợp đồng đã ký.</p>
+            <p className="text-xs text-muted-foreground">Từ ngày cuối kỳ, chủ nhà có thể chốt chỉ số và phát hành ngay để người thuê xem, thanh toán. Chỉ lưu bản nháp thì người thuê chưa thấy hóa đơn; hệ thống tự phát hành sau 10:00 ngày kế tiếp nếu đủ dữ liệu. Đơn giá lấy từ hợp đồng đã ký.</p>
             {unsupportedWaterRate && <p className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">Biểu phí nước theo giá nhà nước chưa có đơn giá số cố định trong hợp đồng. Chưa thể phát hành tự động để tránh tính sai; vui lòng liên hệ quản trị viên.</p>}
             <div className="grid gap-3 sm:grid-cols-2">
               {electricityRequired && <label className="text-xs font-medium">Điện cuối kỳ (đầu kỳ: {String(previousEnd(invoice, "electricity") ?? "chưa có")})
@@ -225,10 +227,10 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
               <button type="button" onClick={() => setExtras((s) => ({ ...s, [invoice.id]: [...rows, { description: "", amount: "" }] }))}
                 className="inline-flex items-center gap-1 text-xs font-semibold text-primary"><Plus className="h-4 w-4" />Thêm phí phát sinh</button>
               <div className="flex flex-wrap gap-2">
-                <button type="button" disabled={busy === invoice.id || unsupportedWaterRate} onClick={() => void prepare(invoice)}
-                  className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">Lưu để tự phát hành</button>
                 <button type="button" disabled={busy === invoice.id || unsupportedWaterRate || !canIssue} onClick={() => void issue(invoice)}
-                  className="rounded-lg border border-border px-4 py-2 text-xs font-semibold disabled:opacity-50">Phát hành ngay</button>
+                  className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">Chốt và phát hành ngay</button>
+                <button type="button" disabled={busy === invoice.id || unsupportedWaterRate} onClick={() => void prepare(invoice)}
+                  className="rounded-lg border border-border px-4 py-2 text-xs font-semibold disabled:opacity-50">Lưu bản nháp</button>
               </div>
             </div>
           </div>}

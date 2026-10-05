@@ -18,7 +18,7 @@ import {
   Info,
 } from "lucide-react";
 import { toast } from "sonner";
-import { format, addMonths, addDays, isBefore, startOfDay } from "date-fns";
+import { format, addMonths, isBefore, startOfDay } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useAuth } from "@/features/auth/useAuth";
 import rentalRequestService from "@/services/rental-request.service";
@@ -79,9 +79,7 @@ export default function RentalRequestModal({
   const { profile, username } = useAuth();
 
   // Form states
-  const [moveInDate, setMoveInDate] = useState<Date>(() =>
-    addDays(new Date(), 3),
-  );
+  const [moveInDate, setMoveInDate] = useState<Date>(() => new Date());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [leaseMonths, setLeaseMonths] = useState<number>(() =>
     Math.max(minimumLeaseMonths || 6, 12),
@@ -162,7 +160,7 @@ export default function RentalRequestModal({
   useEffect(() => {
     if (isOpen) {
       queueMicrotask(() => {
-        setMoveInDate(addDays(new Date(), 3));
+        setMoveInDate(new Date());
         const min = Math.max(Number(minimumLeaseMonths) || 1, 1);
         const defaultLease = min > 12 ? min : 12;
         setLeaseMonths(defaultLease);

@@ -5,6 +5,8 @@ import { FileCheck, Edit3, Check, Loader2 } from "lucide-react";
 import { FieldRow } from "./utils";
 import type { PolicySnapshot } from "@/types/contract.type";
 
+const formatVnd = (amount: number) => `${amount.toLocaleString("vi-VN")} đ`;
+
 interface ContractPoliciesSectionProps {
   policies?: (PolicySnapshot | Record<string, unknown>) | null;
   specialTerms?: string | null;
@@ -28,26 +30,24 @@ export default function ContractPoliciesSection({
   const [editingFee, setEditingFee] = useState(false);
   const [feeMode, setFeeMode] = useState<NonNullable<PolicySnapshot["latePaymentFeeMode"]>>("NONE");
   const [feeAmount, setFeeAmount] = useState("");
-  const [feeGrace, setFeeGrace] = useState("0");
-  const [feeCap, setFeeCap] = useState("");
   const [feeError, setFeeError] = useState("");
 
   useEffect(() => {
     setFeeMode((policies?.latePaymentFeeMode as PolicySnapshot["latePaymentFeeMode"]) || "NONE");
     setFeeAmount(String(policies?.latePaymentFeeAmount ?? ""));
-    setFeeGrace(String(policies?.latePaymentFeeGraceDays ?? 0));
-    setFeeCap(String(policies?.latePaymentFeeCap ?? ""));
   }, [policies]);
+
+  function resetFeeForm() {
+    setFeeMode((policies?.latePaymentFeeMode as PolicySnapshot["latePaymentFeeMode"]) || "NONE");
+    setFeeAmount(String(policies?.latePaymentFeeAmount ?? ""));
+    setFeeError("");
+  }
 
   async function saveFee() {
     if (!onSaveLateFee) return;
     const amount = Number(feeAmount);
-    const grace = Number(feeGrace);
-    const cap = feeCap.trim() ? Number(feeCap) : null;
-    if (feeMode !== "NONE" && (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1_000_000_000
-        || !Number.isInteger(grace) || grace < 0 || grace > 30
-        || (cap !== null && (!Number.isSafeInteger(cap) || cap < amount || cap > 10_000_000_000)))) {
-      setFeeError("Nhập số tiền nguyên dương, số ngày miễn phạt từ 0–30; mức trần (nếu có) không nhỏ hơn phí một lần.");
+    if (feeMode !== "NONE" && (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1_000_000_000)) {
+      setFeeError("Nhập mức phạt là số tiền nguyên dương, tối đa 1 tỷ đồng.");
       return;
     }
     setFeeError("");
@@ -55,9 +55,11 @@ export default function ContractPoliciesSection({
     try {
       await onSaveLateFee({ latePaymentFeeMode: feeMode,
         latePaymentFeeAmount: feeMode === "NONE" ? 0 : amount,
-        latePaymentFeeGraceDays: feeMode === "NONE" ? 0 : grace,
-        latePaymentFeeCap: feeMode === "NONE" ? null : cap });
+        latePaymentFeeGraceDays: 0,
+        latePaymentFeeCap: null });
       setEditingFee(false);
+    } catch {
+      setFeeError("Không thể lưu phí phạt. Vui lòng kiểm tra thông báo lỗi và thử lại.");
     } finally { setSaving(false); }
   }
 
@@ -75,6 +77,16 @@ export default function ContractPoliciesSection({
   const p = policies || {};
   const noticeDays = p.noticeDaysBeforeTermination ?? 30;
   const lateMode = p.latePaymentFeeMode || "NONE";
+  const savedFeeAmount = Number(p.latePaymentFeeAmount || 0);
+  const savedGraceDays = Number(p.latePaymentFeeGraceDays || 0);
+  const savedFeeCap = Number(p.latePaymentFeeCap || 0);
+  const draftFeeAmount = Number(feeAmount);
+  const feeAfterDays = (lateDays: number) => {
+    const chargeableDays = Math.max(0, lateDays - savedGraceDays);
+    const fee = lateMode === "FIXED_PER_DAY" ? savedFeeAmount * chargeableDays
+      : chargeableDays > 0 ? savedFeeAmount : 0;
+    return savedFeeCap > 0 ? Math.min(fee, savedFeeCap) : fee;
+  };
   const depositRefundDays = p.depositRefundDays ?? 15;
   const sublettingAllowed = p.sublettingAllowed === true;
   const petsAllowed = p.petsAllowed === true;
@@ -99,10 +111,6 @@ export default function ContractPoliciesSection({
           value={`Tối thiểu ${noticeDays} ngày`}
         />
         <FieldRow
-          label="Phí chậm thanh toán"
-          value={lateMode === "NONE" ? "Không áp dụng" : `${lateMode === "FIXED_PER_DAY" ? "Mỗi ngày" : "Một lần"}: ${Number(p.latePaymentFeeAmount || 0).toLocaleString("vi-VN")} đ (sau ${p.latePaymentFeeGraceDays ?? 0} ngày miễn phạt)`}
-        />
-        <FieldRow
           label="Thời hạn hoàn trả tiền đặt cọc"
           value={`Trong vòng ${depositRefundDays} ngày sau khi bàn giao`}
         />
@@ -123,40 +131,60 @@ export default function ContractPoliciesSection({
       <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h4 className="text-xs font-bold uppercase tracking-wider">Phí phạt đóng trễ</h4>
-          {isDraft && isLandlord && !editingFee && <button type="button" onClick={() => setEditingFee(true)}
-            className="text-xs font-semibold text-primary hover:underline">Chỉnh sửa</button>}
+          {isDraft && isLandlord && !editingFee && <button type="button" onClick={() => { resetFeeForm(); setEditingFee(true); }}
+            className="text-xs font-semibold text-primary hover:underline">{lateMode === "NONE" ? "Thiết lập phí" : "Chỉnh sửa"}</button>}
         </div>
-        <p className="text-xs text-muted-foreground">Phí được ghi vào điều khoản hợp đồng trước khi ký. Hóa đơn quá hạn sẽ hiện riêng khoản phạt; không tự áp dụng cho hợp đồng cũ.</p>
-        {editingFee ? <div className="grid gap-3 sm:grid-cols-2 text-xs">
-          <label>Hình thức
+        {editingFee ? <div className="grid gap-3 text-xs">
+          <label>Cách tính phí
             <select value={feeMode} onChange={(e) => setFeeMode(e.target.value as typeof feeMode)}
               className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2">
               <option value="NONE">Không phạt</option>
-              <option value="FIXED_ONCE">Phạt cố định một lần</option>
-              <option value="FIXED_PER_DAY">Phạt cố định mỗi ngày trễ</option>
+              <option value="FIXED_ONCE">Phạt một lần sau hạn</option>
+              <option value="FIXED_PER_DAY">Phạt cho mỗi ngày trễ</option>
             </select>
           </label>
-          {feeMode !== "NONE" && <>
-            <label>Số tiền (đ)<input type="number" min="1" step="1" value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2" /></label>
-            <label>Miễn phạt sau hạn (ngày)<input type="number" min="0" max="30" step="1" value={feeGrace} onChange={(e) => setFeeGrace(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2" /></label>
-            <label>Mức phạt tối đa (đ, tùy chọn)<input type="number" min="1" step="1" value={feeCap} onChange={(e) => setFeeCap(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2" /></label>
-          </>}
-          {feeError && <p className="sm:col-span-2 text-rose-600">{feeError}</p>}
-          <div className="sm:col-span-2 flex justify-end gap-2">
-            <button type="button" disabled={saving} onClick={() => setEditingFee(false)} className="rounded-lg border border-border px-3 py-2">Hủy</button>
-            <button type="button" disabled={saving} onClick={() => void saveFee()} className="rounded-lg bg-primary px-3 py-2 font-semibold text-primary-foreground">Lưu phí phạt</button>
+          {feeMode !== "NONE" && <label>Mức phạt (đ)
+            <input type="text" inputMode="numeric" value={feeAmount ? Number(feeAmount).toLocaleString("vi-VN") : ""}
+              onChange={(e) => { setFeeAmount(e.target.value.replace(/\D/g, "")); setFeeError(""); }}
+              placeholder={feeMode === "FIXED_PER_DAY" ? "Ví dụ: 100.000 đ/ngày" : "Ví dụ: 100.000 đ/lần"}
+              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2" />
+          </label>}
+          <p className="text-muted-foreground">{feeMode === "FIXED_PER_DAY" && draftFeeAmount > 0
+            ? `Trễ 1 ngày: ${formatVnd(draftFeeAmount)} · Trễ 5 ngày: ${formatVnd(draftFeeAmount * 5)}.`
+            : feeMode === "FIXED_ONCE" && draftFeeAmount > 0 ? `Trễ 1 hay nhiều ngày: chỉ phạt một lần ${formatVnd(draftFeeAmount)}.`
+            : feeMode !== "NONE" ? "Nhập mức tiền để xem ví dụ tính phí."
+            : "Không cộng phí chậm thanh toán vào hóa đơn."}</p>
+          {feeError && <p className="text-rose-600">{feeError}</p>}
+          <div className="flex justify-end gap-2">
+            <button type="button" disabled={saving} onClick={() => { resetFeeForm(); setEditingFee(false); }} className="rounded-lg border border-border px-3 py-2">Hủy</button>
+            <button type="button" disabled={saving} onClick={() => void saveFee()} className="rounded-lg bg-primary px-3 py-2 font-semibold text-primary-foreground inline-flex items-center gap-1">
+              {saving && <Loader2 className="h-3 w-3 animate-spin" />}Lưu phí phạt
+            </button>
           </div>
-        </div> : lateMode !== "NONE" && <p className="text-xs">Mức trần: {p.latePaymentFeeCap ? `${Number(p.latePaymentFeeCap).toLocaleString("vi-VN")} đ` : "Không đặt"}.</p>}
+        </div> : lateMode === "NONE" ? (
+          <p className="text-xs text-muted-foreground">Không áp dụng phí phạt đóng trễ cho hợp đồng này.</p>
+        ) : (
+          <div className="space-y-2.5 text-xs">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <strong className="text-lg font-bold text-foreground">{formatVnd(savedFeeAmount)}</strong>
+              <span className="font-semibold text-foreground">{lateMode === "FIXED_PER_DAY" ? "/ mỗi ngày trễ" : "/ một lần duy nhất"}</span>
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">{isDraft ? "Đã lưu trong bản nháp" : "Điều khoản đã chốt"}</span>
+            </div>
+            <p className="text-foreground">Trễ 1 ngày: {formatVnd(feeAfterDays(1))} · Trễ 5 ngày: {formatVnd(feeAfterDays(5))}.</p>
+            <p className="text-muted-foreground">Bắt đầu tính {savedGraceDays > 0
+              ? `sau ${savedGraceDays} ngày ân hạn kể từ hạn thanh toán ghi trên hóa đơn`
+              : "từ ngày đầu tiên sau hạn thanh toán ghi trên hóa đơn"}. Sau 5 ngày quá hạn, hệ thống nhắc chủ nhà quyết định hướng xử lý.</p>
+            {savedFeeCap > 0 && <p className="text-muted-foreground">Mức phạt tối đa của điều khoản cũ: {formatVnd(savedFeeCap)}.</p>}
+            {isDraft && <p className="font-medium text-amber-700">Hãy kết xuất lại hợp đồng để điều khoản này xuất hiện trong bản ký.</p>}
+          </div>
+        )}
       </div>
 
       {/* SPECIAL TERMS */}
       <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-2">
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
-            Điều khoản thỏa thuận riêng (Special Terms)
+            Điều khoản thỏa thuận khác
           </h4>
           {isDraft && isLandlord && !editing && (
             <button
@@ -172,6 +200,7 @@ export default function ContractPoliciesSection({
 
         {editing ? (
           <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Chỉ nhập thỏa thuận khác giữa hai bên; phí phạt đóng trễ đã được quản lý riêng ở mục phía trên.</p>
             <textarea
               rows={3}
               value={termText}

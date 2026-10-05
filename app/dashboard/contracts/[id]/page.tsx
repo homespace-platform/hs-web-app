@@ -501,6 +501,7 @@ export default function ContractDetailPage() {
         <ContractDocumentSection documents={documents} />
         {(contract.status === "ACTIVE" || contract.status === "TERMINATED") && <MonthlyInvoicesSection
           contractId={contract.id}
+          contractActive={contract.status === "ACTIVE"}
           isLandlord={isLandlord}
           isTenant={isTenant}
           electricityRequired={electricityRequired}

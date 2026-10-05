@@ -206,7 +206,7 @@ export default function ContractPoliciesSection({
 
         {editing ? (
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">Chỉ nhập thỏa thuận khác giữa hai bên; phí phạt đóng trễ đã được quản lý riêng ở mục phía trên.</p>
+            <p className="text-xs text-muted-foreground">Phí phạt đóng trễ được quản lý riêng ở mục trên. Nếu xóa câu điều khoản chấm dứt sau 5 ngày quá hạn, nút xử lý theo điều khoản đó sẽ không áp dụng cho bản ký này.</p>
             <textarea
               rows={3}
               value={termText}

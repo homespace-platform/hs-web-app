@@ -15,6 +15,7 @@ import OverdueActionsPanel from "./OverdueActionsPanel";
 type Extra = { description: string; amount: string };
 type Props = {
   contractId: string;
+  contractActive: boolean;
   isLandlord: boolean;
   isTenant: boolean;
   electricityRequired: boolean;
@@ -30,7 +31,7 @@ const money = (n: number) => new Intl.NumberFormat("vi-VN", {
 const date = (s?: string) => s ? new Date(s).toLocaleDateString("vi-VN") : "—";
 const dateTime = (s?: string) => s ? new Date(s).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 
-export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenant,
+export default function MonthlyInvoicesSection({ contractId, contractActive, isLandlord, isTenant,
   electricityRequired, waterRequired, unsupportedWaterRate, initialElectricity, initialWater }: Props) {
   const [invoices, setInvoices] = useState<MonthlyInvoice[]>([]);
   const [payments, setPayments] = useState<PaymentRequest[]>([]);
@@ -244,7 +245,7 @@ export default function MonthlyInvoicesSection({ contractId, isLandlord, isTenan
               <div className="flex justify-between pt-3 font-bold"><span>{invoice.status === "ROLLED_OVER" ? "Đã chuyển sang kỳ sau" : "Tổng hóa đơn"}</span><span>{money(invoice.totalAmount)}</span></div>
             </div>
             {invoice.lateFeeAmount > 0 && invoice.status !== "ROLLED_OVER" && <p className="text-xs text-rose-700">Trong tổng trên có {money(invoice.lateFeeAmount)} phí chậm thanh toán theo hợp đồng. Nếu đã chuyển tiền, hãy gửi chứng từ để tạm dừng tăng phí.</p>}
-            <OverdueActionsPanel invoice={invoice} isLandlord={isLandlord} isTenant={isTenant} refresh={refresh} />
+            <OverdueActionsPanel invoice={invoice} contractActive={contractActive} isLandlord={isLandlord} isTenant={isTenant} refresh={refresh} />
             {payment && invoice.status !== "PAID" && invoice.status !== "ROLLED_OVER" && <div className="rounded-xl border border-border p-3 space-y-3 text-sm">
               <p className="font-semibold">Chuyển khoản trực tiếp cho chủ nhà</p>
               <p>Ngân hàng: {payment.payeeBankAccountSnapshot?.bankName || payment.payeeBankAccountSnapshot?.bankCode} • STK: <strong>{payment.payeeBankAccountSnapshot?.accountNumber}</strong></p>

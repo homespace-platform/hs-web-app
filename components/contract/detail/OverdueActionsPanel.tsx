@@ -15,8 +15,9 @@ const labels: Record<OverdueActionType, string> = {
 
 const dateTime = (value: string) => new Date(value).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
 
-export default function OverdueActionsPanel({ invoice, isLandlord, isTenant, refresh }: {
+export default function OverdueActionsPanel({ invoice, contractActive, isLandlord, isTenant, refresh }: {
   invoice: MonthlyInvoice;
+  contractActive: boolean;
   isLandlord: boolean;
   isTenant: boolean;
   refresh: () => Promise<void>;
@@ -28,7 +29,7 @@ export default function OverdueActionsPanel({ invoice, isLandlord, isTenant, ref
   const [forceAcknowledged, setForceAcknowledged] = useState(false);
   const [tenantNotified, setTenantNotified] = useState(false);
   const history = invoice.overdueActions || [];
-  const canRecord = isLandlord && invoice.workflowState === "OVERDUE_ACTION_REQUIRED" && !invoice.deferredAt
+  const canRecord = contractActive && isLandlord && invoice.workflowState === "OVERDUE_ACTION_REQUIRED" && !invoice.deferredAt
     && (!invoice.terminationProposedAt || !!invoice.terminationDeclinedAt || !!invoice.terminationCancelledAt);
   const isTerminationInvoice = invoice.terminationProposalInvoiceId === invoice.id;
   const canPropose = canRecord && (!isTerminationInvoice || !!invoice.terminationCancelledAt);
@@ -111,16 +112,16 @@ export default function OverdueActionsPanel({ invoice, isLandlord, isTenant, ref
       <p className="text-xs text-muted-foreground">Gửi lúc {dateTime(invoice.terminationProposedAt)}. Phòng và cọc chưa thay đổi. Công nợ đã phát hành vẫn được theo dõi.</p>
       {invoice.terminationDeclinedAt && <p className="text-xs text-rose-700">Người thuê đã từ chối lúc {dateTime(invoice.terminationDeclinedAt)}; hợp đồng vẫn hiệu lực, cọc và tin đăng chưa đổi. Chủ nhà có thể rút đề nghị hoặc xử lý theo điều khoản đã ký.</p>}
       {invoice.terminationCancelledAt && <p className="text-xs text-rose-700">Đề nghị đã rút hoặc hết hiệu lực lúc {dateTime(invoice.terminationCancelledAt)}; hợp đồng vẫn hiệu lực.</p>}
-      {isTenant && !invoice.terminationAcceptedAt && !invoice.terminationDeclinedAt && !invoice.terminationCancelledAt && <div className="space-y-2">
+      {contractActive && isTenant && !invoice.terminationAcceptedAt && !invoice.terminationDeclinedAt && !invoice.terminationCancelledAt && <div className="space-y-2">
         <label className="flex gap-2 text-xs"><input type="checkbox" checked={tenantConsent} onChange={(e) => setTenantConsent(e.target.checked)} />Tôi đồng ý chấm dứt sớm, đồng ý chủ nhà giữ toàn bộ cọc {Number(invoice.originalDepositAmount || 0).toLocaleString("vi-VN")} đ sau bàn giao và hiểu rằng công nợ hóa đơn chưa thanh toán vẫn cần quyết toán.</label>
         <div className="flex flex-wrap gap-2"><button type="button" disabled={busy || !tenantConsent} onClick={() => void terminationStep("accept")}
           className="rounded-lg border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 disabled:opacity-50">Đồng ý chấm dứt và xử lý cọc</button>
         <button type="button" disabled={busy} onClick={() => void terminationStep("decline")}
           className="rounded-lg border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50">Không đồng ý</button></div>
       </div>}
-      {isLandlord && !invoice.terminationAcceptedAt && !invoice.terminationCancelledAt && <button type="button" disabled={busy} onClick={() => void terminationStep("withdraw")}
+      {contractActive && isLandlord && !invoice.terminationAcceptedAt && !invoice.terminationCancelledAt && <button type="button" disabled={busy} onClick={() => void terminationStep("withdraw")}
         className="rounded-lg border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50">Rút đề nghị</button>}
-      {isLandlord && invoice.terminationDeclinedAt && !invoice.terminationCancelledAt && !invoice.deferredAt && <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 space-y-2">
+      {contractActive && isLandlord && invoice.terminationDeclinedAt && !invoice.terminationCancelledAt && !invoice.deferredAt && <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 space-y-2">
         <p className="font-semibold text-rose-900">Buộc chấm dứt do quá hạn</p>
         {!invoice.landlordTerminationClauseSigned ? <p className="text-xs text-rose-800">Bản hợp đồng đã ký không có điều khoản 5 ngày theo cấu trúc hiện hành; không thể áp dụng nhánh này cho hợp đồng cũ.</p> : <>
           <p className="text-xs text-rose-800">Chỉ thực hiện khi đã thông báo cho người thuê và thực tế lấy lại phòng. Không mở lại tin đăng nếu người thuê chưa bàn giao.</p>
@@ -132,7 +133,7 @@ export default function OverdueActionsPanel({ invoice, isLandlord, isTenant, ref
         </>}
       </div>}
       {invoice.terminationAcceptedAt && !invoice.terminationCancelledAt && <p className="text-xs text-emerald-800">Người thuê đã đồng ý lúc {dateTime(invoice.terminationAcceptedAt)}. Chờ bàn giao phòng.</p>}
-      {isLandlord && invoice.terminationAcceptedAt && !invoice.terminationCancelledAt && <div className="space-y-2">
+      {contractActive && isLandlord && invoice.terminationAcceptedAt && !invoice.terminationCancelledAt && <div className="space-y-2">
         <label className="flex gap-2 text-xs"><input type="checkbox" checked={handoverConfirmed} onChange={(e) => setHandoverConfirmed(e.target.checked)} />Tôi xác nhận phòng đã trống, đã nhận lại chìa khóa và tài sản cho thuê.</label>
         <button type="button" disabled={busy || !handoverConfirmed} onClick={() => void terminationStep("complete")}
           className="rounded-lg bg-rose-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Đã nhận bàn giao — hoàn tất chấm dứt</button>

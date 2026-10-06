@@ -91,7 +91,7 @@ export default function RentPage() {
     tab: "all",
     hasVideoOnly: false,
     sortBy: "newest",
-    viewMode: "collage",
+    viewMode: "grid",
     searchQuery: "",
   });
 
@@ -372,7 +372,7 @@ export default function RentPage() {
       tab: "all",
       hasVideoOnly: false,
       sortBy: "newest",
-      viewMode: "collage",
+      viewMode: "grid",
       searchQuery: "",
     });
     setCurrentPage(1);

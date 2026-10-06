@@ -30,7 +30,7 @@ interface RentCollageCardProps {
 
 export default function RentCollageCard({
   property,
-  viewMode = "collage",
+  viewMode = "grid",
   initialFavorited = false,
   onFavoriteChange,
 }: RentCollageCardProps) {

@@ -121,7 +121,7 @@ export default function ViewingSchedulesHostPage() {
     setActionLoading(true);
     try {
       await appointmentService.approveAppointment(activeDialog.apt.id, dialogInput.trim() || undefined);
-      toast.success("Đã chấp nhận lịch xem nhà! Khung giờ này đã được khóa lại.");
+      toast.success("Đã chấp nhận lịch xem nhà!");
       closeActionDialog();
       fetchAppointments();
     } catch (err: any) {
@@ -400,7 +400,7 @@ export default function ViewingSchedulesHostPage() {
 
             <p className="text-xs text-muted-foreground">
               {activeDialog.type === "APPROVE" &&
-                "Khung giờ này sẽ được khóa lại đối với các khách khác. Bạn có thể để lại lời dặn dò cho khách thuê nếu cần (chỗ để xe, người mở cửa...):"}
+                "Bạn có thể để lại lời dặn dò cho khách thuê nếu cần (chỗ để xe, người mở cửa...):"}
               {activeDialog.type === "REJECT" &&
                 "Vui lòng nhập lý do từ chối để khách thuê nắm được thông tin:"}
               {activeDialog.type === "CANCEL" &&

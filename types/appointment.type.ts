@@ -15,6 +15,7 @@ export interface AvailabilitySlot {
   endTime: string;
   slotType: ViewingSlot;
   status: "AVAILABLE" | "LOCKED" | "PENDING_YOU" | "CONFIRMED_YOU" | "UNAVAILABLE";
+  bookingCount?: number;
 }
 
 export interface ListingAvailabilityResponse {

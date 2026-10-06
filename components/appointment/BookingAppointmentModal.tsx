@@ -809,19 +809,17 @@ export default function BookingAppointmentModal({
   function renderSlotButton(slot: AvailabilitySlot) {
     const isSelected =
       selectedSlot?.startTime === slot.startTime && selectedSlot?.endTime === slot.endTime;
-    const isLocked = slot.status === "LOCKED";
     const isUnavailable = slot.status === "UNAVAILABLE";
     const isPendingYou = slot.status === "PENDING_YOU";
     const isConfirmedYou = slot.status === "CONFIRMED_YOU";
 
-    const disabled = isLocked || isUnavailable || isPendingYou || isConfirmedYou;
+    const disabled = isUnavailable || isPendingYou || isConfirmedYou;
 
-    let statusText = "Còn trống";
-    let badgeClass = "text-emerald-600 dark:text-emerald-400";
-    if (isLocked) {
-      statusText = "Đã có người đặt";
-      badgeClass = "text-destructive font-semibold";
-    } else if (isUnavailable) {
+    const count = slot.bookingCount ?? 0;
+    let statusText = count > 0 ? `${count} lượt đặt xem` : "Còn trống";
+    let badgeClass = count > 0 ? "text-primary/80 font-medium" : "text-emerald-600 dark:text-emerald-400";
+
+    if (isUnavailable) {
       statusText = "Không khả dụng";
       badgeClass = "text-muted-foreground";
     } else if (isPendingYou) {

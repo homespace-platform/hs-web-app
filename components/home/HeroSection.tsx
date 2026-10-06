@@ -104,7 +104,7 @@ export default function HeroSection() {
 
       {/* 2. Floating AI Search Bar (Gối 1/2 chiều cao lên banner) & Trust Badges */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full -mt-16 sm:-mt-20 md:-mt-24 lg:-mt-28 relative z-20 flex flex-col items-center mb-8">
-        <div className="w-full max-w-4xl shadow-2xl rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 p-2 sm:p-3 border border-slate-200/80 dark:border-slate-800">
+        <div className="w-full max-w-6xl shadow-2xl rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 p-2 sm:p-3 border border-slate-200/80 dark:border-slate-800">
           <AiSearchBar />
         </div>
 

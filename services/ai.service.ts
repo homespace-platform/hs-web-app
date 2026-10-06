@@ -36,10 +36,14 @@ export const aiService = {
     await axiosClient.delete(`/api/v1/ai/agent/conversations/${encodeURIComponent(id)}`);
   },
 
-  async ask(question: string, conversationId: string): Promise<AiAskResponse> {
+  async ask(
+    question: string,
+    conversationId: string,
+    searchContext?: { provinceCode: string; district?: string; category?: string },
+  ): Promise<AiAskResponse> {
     const response = await axiosClient.post<ApiResponse<AiAskResponse>>(
       "/api/v1/ai/agent/ask",
-      { question, conversationId },
+      { question, conversationId, ...(searchContext ? { searchContext } : {}) },
     );
     return response.data.result;
   },

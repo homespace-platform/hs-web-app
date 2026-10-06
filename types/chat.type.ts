@@ -56,6 +56,7 @@ export interface AiChatSession {
   createdAt: string;
   updatedAt?: string;
   isPinned?: boolean;
+  searchContext?: import("@/types/ai.type").AiPropertySearchContext | null;
   messages: ChatMessage[];
   messagesLoaded?: boolean;
 }

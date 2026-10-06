@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   MapPin,
@@ -13,22 +14,19 @@ import {
 import { Button } from "@/components/ui/button";
 import provinceService from "@/services/province.service";
 import { District } from "@/types/province.type";
-
-const QUICK_SEARCH_SUGGESTIONS = [
-  "Căn hộ studio Quận 1",
-  "Gần ĐH Bách Khoa",
-  "Smart-home Quận 7",
-  "Chung cư dưới 10 triệu",
-  "Vinhomes Central Park",
-  "Masteri Thảo Điền",
-];
+import { propertySearchService, type PlaceSuggestion } from "@/services/property-search.service";
 
 interface AiSearchBarProps {
   onSearch?: (query: { keyword: string; location: string; type: string }) => void;
 }
 
 export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
+  const router = useRouter();
   const [keyword, setKeyword] = useState("");
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+  const [suggestionsError, setSuggestionsError] = useState(false);
+  const [fallbackToProvince, setFallbackToProvince] = useState(false);
   const [propertyType, setPropertyType] = useState("");
   const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [isTypeOpen, setIsTypeOpen] = useState(false);
@@ -49,6 +47,26 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
     { value: "apartment", label: "Căn hộ chung cư" },
     { value: "room", label: "Phòng trọ" },
   ];
+
+  useEffect(() => {
+    let cancelled = false;
+    setSuggestionsLoading(true);
+    setSuggestionsError(false);
+    propertySearchService.suggestions(String(provinceCode), selectedDistrict || undefined)
+      .then((response) => {
+        if (cancelled) return;
+        setSuggestions(response.suggestions);
+        setFallbackToProvince(response.fallbackToProvince);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSuggestions([]);
+        setFallbackToProvince(false);
+        setSuggestionsError(true);
+      })
+      .finally(() => { if (!cancelled) setSuggestionsLoading(false); });
+    return () => { cancelled = true; };
+  }, [provinceCode, selectedDistrict]);
 
   // 1. Load initial province & district from localStorage and fetch districts
   useEffect(() => {
@@ -100,6 +118,7 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
         setProvinceCode(newCode);
         setProvinceName(newName);
         setSelectedDistrict("");
+        localStorage.removeItem("homespace_selected_district");
         loadDistricts(newCode);
       }
     };
@@ -137,38 +156,52 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
 
   const handleSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (onSearch) {
-      onSearch({
-        keyword,
-        location: selectedDistrict ? `${selectedDistrict}, ${provinceName}` : provinceName,
-        type: propertyType,
-      });
-    }
+    const query = keyword.trim();
+    if (!query) return;
+    // Keep the natural-language prompt clean; structured search context is sent separately.
+    const firstMessage = query;
+    onSearch?.({
+      keyword: query,
+      location: selectedDistrict ? `${selectedDistrict}, ${provinceName}` : provinceName,
+      type: propertyType,
+    });
+    const params = new URLSearchParams({
+      channel: "ai",
+      newSession: "1",
+      prompt: firstMessage,
+      searchListings: "1",
+      provinceCode: String(provinceCode),
+    });
+    if (selectedDistrict) params.set("district", selectedDistrict);
+    if (propertyType) params.set("category", propertyType.toUpperCase());
+    router.push(`/chat?${params.toString()}`);
   };
 
   const handleQuickSuggestion = (item: string) => {
     setKeyword(item);
+    if (fallbackToProvince) handleSelectDistrict("");
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
+    <div className="w-full mx-auto">
       {/* Main Search Bar Card */}
       <div className="bg-card text-card-foreground rounded-2xl shadow-xl shadow-primary-dark/5 border border-border p-2 sm:p-3 relative z-30">
-        <form onSubmit={handleSearch} className="flex flex-col md:flex-row items-stretch gap-2">
+        <form onSubmit={handleSearch} className="flex flex-col gap-2">
           {/* Keyword Search Input */}
-          <div className="flex-[1.5] flex items-center px-4 py-2.5 rounded-xl hover:bg-muted transition-colors">
-            <Search className="w-5 h-5 text-primary shrink-0 mr-3" />
-            <input
-              type="text"
+          <div className="flex items-start px-4 py-3 rounded-xl bg-muted/60 focus-within:ring-2 focus-within:ring-primary/30 transition-colors">
+            <Search className="w-5 h-5 text-primary shrink-0 mr-3 mt-1" />
+            <textarea
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              placeholder="Nhập yêu cầu: Căn hộ 2 phòng ngủ Quận 7 dưới 15tr..."
-              className="w-full bg-transparent border-none outline-none text-sm md:text-base text-foreground placeholder:text-muted-foreground focus:ring-0 p-0"
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSearch(); } }}
+              rows={2}
+              maxLength={500}
+              aria-label="Mô tả nhu cầu tìm phòng bằng ngôn ngữ tự nhiên"
+              placeholder="Ví dụ: Tôi là sinh viên, tìm phòng trọ có gác và ban công dưới 3 triệu tại Gò Vấp..."
+              className="w-full min-h-14 resize-none bg-transparent border-none outline-none text-sm md:text-base text-foreground placeholder:text-muted-foreground focus:ring-0 p-0"
             />
           </div>
-
-          {/* Divider */}
-          <div className="hidden md:block w-px bg-border my-2 self-stretch" />
+          <div className="flex flex-col sm:flex-row items-stretch gap-2">
 
           {/* District Location Selector Dropdown (Based on Header's Selected Province) */}
           <div className="relative flex-1">
@@ -254,7 +287,7 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
           </div>
 
           {/* Divider */}
-          <div className="hidden md:block w-px bg-border my-2 self-stretch" />
+          <div className="hidden sm:block w-px bg-border my-2 self-stretch" />
 
           {/* Property Type Dropdown */}
           <div className="relative flex-1">
@@ -307,10 +340,12 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
           {/* Action Submit Button */}
           <Button
             type="submit"
+            disabled={!keyword.trim()}
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-7 py-3 h-auto rounded-xl shadow-md shadow-primary/20 hover:shadow-lg transition-all shrink-0 flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>Tìm kiếm nhanh</span>
           </Button>
+          </div>
         </form>
       </div>
 
@@ -318,16 +353,24 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
       <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">
         <span className="text-muted-foreground font-medium flex items-center gap-1">
           <Sparkles className="w-3.5 h-3.5 text-accent-ai" />
-          Gợi ý tìm nhanh:
+          Địa điểm nổi bật:
         </span>
-        {QUICK_SEARCH_SUGGESTIONS.map((item, idx) => (
+        {suggestionsLoading && <span className="text-muted-foreground">Đang tìm địa điểm phù hợp...</span>}
+        {!suggestionsLoading && suggestionsError && <span className="text-destructive">Chưa tải được gợi ý. Vui lòng thử tải lại trang.</span>}
+        {!suggestionsLoading && !suggestionsError && fallbackToProvince && (
+          <span className="text-muted-foreground">Chưa có địa điểm gợi ý riêng cho {selectedDistrict}; xem thêm địa điểm nổi bật tại {provinceName}:</span>
+        )}
+        {!suggestionsLoading && !suggestionsError && suggestions.length === 0 && (
+          <span className="text-muted-foreground">Chưa có danh sách địa điểm nổi bật cho {provinceName}.</span>
+        )}
+        {suggestions.map((item, idx) => (
           <button
-            key={idx}
+            key={`${item.label}-${idx}`}
             type="button"
-            onClick={() => handleQuickSuggestion(item)}
+            onClick={() => handleQuickSuggestion(item.searchText)}
             className="bg-card/80 hover:bg-primary/10 text-foreground hover:text-primary border border-border px-3 py-1.5 rounded-full transition-all text-xs font-medium cursor-pointer"
           >
-            {item}
+            {item.label}
           </button>
         ))}
       </div>

@@ -11,6 +11,7 @@ import RentFilterSidebar, {
 import { RentPropertyItem } from "@/types/rent.type";
 import provinceService from "@/services/province.service";
 import listingService from "@/services/listing.service";
+import { propertySearchService, type PropertySearchIntent } from "@/services/property-search.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
 import { District } from "@/types/province.type";
 import type { ListingCategory } from "@/types/listing.type";
@@ -43,6 +44,9 @@ export default function RentPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState("");
+  const [aiQuery, setAiQuery] = useState("");
+  const [aiCategory, setAiCategory] = useState("");
+  const [aiIntent, setAiIntent] = useState<PropertySearchIntent | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const listContainerRef = useRef<HTMLDivElement>(null);
@@ -99,6 +103,27 @@ export default function RentPage() {
       setIsLoading(true);
       setApiError("");
       try {
+        if (aiQuery) {
+          const data = await propertySearchService.search({
+            query: aiQuery,
+            provinceCode: String(selectedProvinceCode),
+            district: filter.district !== "all" ? filter.district : undefined,
+            category: aiCategory || undefined,
+            page: currentPage,
+            size: ITEMS_PER_PAGE,
+            sort: filter.sortBy,
+            hasVideo: filter.hasVideoOnly,
+          });
+          const details = await Promise.all(data.listing_ids.map((id) => listingService.getById(id)));
+          if (!cancelled) {
+            setProperties(details.map(toRentProperty));
+            setTotalItems(data.total);
+            setTotalPages(Math.max(1, Math.ceil(data.total / ITEMS_PER_PAGE)));
+            setAiIntent(data.intent);
+          }
+          return;
+        }
+        setAiIntent(null);
         // Map category
         let apiCategory: ListingCategory | undefined = undefined;
         if (filter.category === "apartment") {
@@ -214,11 +239,13 @@ export default function RentPage() {
     return () => {
       cancelled = true;
     };
-  }, [filter, currentPage, selectedProvinceCode]);
+  }, [filter, currentPage, selectedProvinceCode, aiQuery, aiCategory]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setFilter((prev) => ({ ...prev, searchQuery: searchInput.trim() }));
+    setAiQuery(searchInput.trim());
+    setAiCategory("");
+    if (!searchInput.trim()) setFilter((prev) => ({ ...prev, searchQuery: "" }));
     setCurrentPage(1);
   };
 
@@ -243,9 +270,16 @@ export default function RentPage() {
     const urlProvinceCode = params.get("provinceCode");
     const urlProvinceName = params.get("provinceName");
     const urlWard = params.get("ward");
+    const urlDistrict = params.get("district");
+    const urlQuery = params.get("q")?.trim();
+    if (urlQuery) {
+      setSearchInput(urlQuery);
+      setAiQuery(urlQuery);
+      setAiCategory(params.get("category") || "");
+    }
     if (urlProvinceCode && urlProvinceName) {
       loadProvinceAndDistricts(urlProvinceCode, urlProvinceName);
-      startTransition(() => setFilter((prev) => ({ ...prev, district: urlWard || "all" })));
+      startTransition(() => setFilter((prev) => ({ ...prev, district: urlDistrict || urlWard || "all" })));
     }
 
     // 2. Initial read from localStorage
@@ -277,6 +311,7 @@ export default function RentPage() {
         );
         // Reset district selection when province changes
         setFilter((prev) => ({ ...prev, district: "all" }));
+        setAiQuery("");
         setCurrentPage(1);
       }
     };
@@ -314,6 +349,8 @@ export default function RentPage() {
   // Handle reset filter
   const handleReset = () => {
     setSearchInput("");
+    setAiQuery("");
+    setAiCategory("");
     setFilter({
       category: "all",
       minPrice: 0,
@@ -413,6 +450,7 @@ export default function RentPage() {
               <RentFilterSidebar
                 filter={filter}
                 onApply={(newFilter) => {
+                  setAiQuery("");
                   setFilter(newFilter);
                   setCurrentPage(1);
                 }}
@@ -432,7 +470,7 @@ export default function RentPage() {
                     type="text"
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
-                    placeholder="Tìm theo tên bài đăng, đường, phường, quận..."
+                    placeholder="Mô tả nhu cầu: phòng có gác, ban công dưới 3 triệu..."
                     className="h-11 pl-10 pr-28 text-xs sm:text-sm bg-muted/60 border-border rounded-2xl focus-visible:border-primary focus-visible:ring-primary/20"
                   />
                   <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -441,6 +479,7 @@ export default function RentPage() {
                         type="button"
                         onClick={() => {
                           setSearchInput("");
+                          setAiQuery("");
                           setFilter((prev) => ({ ...prev, searchQuery: "" }));
                           setCurrentPage(1);
                         }}
@@ -458,6 +497,22 @@ export default function RentPage() {
                     </Button>
                   </div>
                 </form>
+
+                {aiQuery && (
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs sm:text-sm text-foreground space-y-2" aria-live="polite">
+                    <div className="font-semibold text-primary">Tìm theo nhu cầu: “{aiQuery}”</div>
+                    {aiIntent && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {aiIntent.category && <span className="rounded-full bg-card border px-2 py-1">{aiIntent.category === "ROOM" ? "Phòng trọ" : aiIntent.category === "HOUSE" ? "Nhà nguyên căn" : "Căn hộ"}</span>}
+                        {aiIntent.price_max && <span className="rounded-full bg-card border px-2 py-1">Tối đa {new Intl.NumberFormat("vi-VN").format(aiIntent.price_max)} đ</span>}
+                        {aiIntent.has_mezzanine && <span className="rounded-full bg-card border px-2 py-1">Có gác</span>}
+                        {aiIntent.has_balcony && <span className="rounded-full bg-card border px-2 py-1">Có ban công</span>}
+                        {aiIntent.location && <span className="rounded-full bg-card border px-2 py-1">{aiIntent.location}</span>}
+                      </div>
+                    )}
+                    {aiIntent?.landmark && <p className="text-muted-foreground">Địa danh “{aiIntent.landmark}” chỉ được đối chiếu với địa chỉ/mô tả tin; chưa xác minh được khoảng cách thực tế.</p>}
+                  </div>
+                )}
 
                 {/* Sub-bar: Left Dropdown Huyện & Right Controls */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
@@ -654,7 +709,9 @@ export default function RentPage() {
                     Không tìm thấy nhà cho thuê phù hợp
                   </h3>
                   <p className="text-xs sm:text-sm max-w-md text-muted-foreground leading-relaxed">
-                    Hãy thử điều chỉnh lại mức giá, diện tích, quận huyện hoặc nhấn Đặt lại để xem tất cả tin cho thuê đang có sẵn.
+                    {aiQuery
+                      ? "Chưa có tin công khai đáp ứng đủ nhu cầu này tại khu vực đã chọn. Hãy thử bỏ bớt một tiêu chí hoặc đổi địa điểm; hệ thống không tự suy đoán khoảng cách đến trường/địa danh khi chưa có tọa độ."
+                      : "Hãy thử điều chỉnh lại mức giá, diện tích, quận huyện hoặc nhấn Đặt lại để xem tất cả tin cho thuê đang có sẵn."}
                   </p>
                   <Button
                     type="button"
@@ -781,6 +838,7 @@ export default function RentPage() {
               <RentFilterSidebar
                 filter={filter}
                 onApply={(newFilter) => {
+                  setAiQuery("");
                   setFilter(newFilter);
                   setCurrentPage(1);
                   setIsMobileFilterOpen(false);

@@ -15,6 +15,7 @@ import {
 import { AiChatSession, ChatMessage } from "@/types/chat.type";
 import { AI_QUICK_TOPICS } from "@/data/mock-chat-data";
 import { toast } from "sonner";
+import AiMarkdownMessage from "@/components/chat/AiMarkdownMessage";
 
 interface AiChatWindowProps {
   session: AiChatSession | null;
@@ -53,7 +54,7 @@ export default function AiChatWindow({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isSending]);
 
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -189,7 +190,17 @@ export default function AiChatWindow({
                 ? "Bạn có thể hỏi mình về HomeSpace hoặc các chủ đề khác. Câu trả lời về HomeSpace dựa trên tài liệu được duyệt; thông tin chung chưa được kiểm chứng theo thời gian thực."
                 : "Mình giúp bạn tìm hiểu cả việc cho thuê và đi thuê: tin đăng, yêu cầu thuê, hợp đồng, thanh toán và chính sách HomeSpace. Mình chưa xem được dữ liệu tài khoản theo thời gian thực."}
             </p>
-            {isSending && <p className="text-xs text-primary mb-4">Đang chuẩn bị cuộc trò chuyện...</p>}
+            {isSending && (
+              <div className="flex items-center gap-2 text-xs text-primary mb-4 px-3 py-1.5 rounded-full bg-primary/10">
+                <Sparkles className="w-3.5 h-3.5 animate-pulse shrink-0" />
+                <span className="font-medium">Đang chuẩn bị cuộc trò chuyện...</span>
+                <div className="flex items-center gap-1">
+                  <span className="ai-typing-dot" />
+                  <span className="ai-typing-dot" />
+                  <span className="ai-typing-dot" />
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">
               {AI_QUICK_TOPICS.map((topic) => (
@@ -243,8 +254,8 @@ export default function AiChatWindow({
                         : "bg-card border border-border text-foreground rounded-2xl rounded-tl-sm px-4 py-3 shadow-2xs text-sm"
                     }`}
                   >
-                    <div className="whitespace-pre-wrap leading-relaxed text-xs sm:text-sm">
-                      {msg.content}
+                    <div className={isUser ? "whitespace-pre-wrap leading-relaxed text-xs sm:text-sm" : "leading-relaxed text-xs sm:text-sm"}>
+                      {isUser ? msg.content : <AiMarkdownMessage content={msg.content} />}
                     </div>
                     {!isUser && msg.aiStatus && (
                       <div className="mt-2 text-[11px] text-muted-foreground">
@@ -288,8 +299,30 @@ export default function AiChatWindow({
                 </div>
               );
             })}
+
+            {isSending && (
+              <div className="flex gap-3 justify-start items-center">
+                <div className="w-8 h-8 rounded-full bg-white border border-primary/25 p-1 shrink-0 shadow-2xs flex items-center justify-center mt-0.5">
+                  <Image
+                    src="/logo/ai/homespace-ai-logo-removebg.png"
+                    alt="HomeSpace AI"
+                    width={24}
+                    height={24}
+                    className="w-full h-full object-contain"
+                    unoptimized
+                  />
+                </div>
+                <div className="bg-card border border-border text-foreground rounded-2xl rounded-tl-sm px-4 py-3 shadow-2xs flex items-center gap-2.5">
+                  <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse shrink-0" />
+                  <div className="flex items-center gap-1.5 py-1">
+                    <span className="ai-typing-dot" />
+                    <span className="ai-typing-dot" />
+                    <span className="ai-typing-dot" />
+                  </div>
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
-            {isSending && <p className="text-xs text-muted-foreground pl-11">HomeSpace AI đang chuẩn bị câu trả lời...</p>}
           </div>
         )}
       </div>

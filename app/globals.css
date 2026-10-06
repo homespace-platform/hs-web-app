@@ -157,3 +157,35 @@
   background: rgba(22, 32, 50, 0.9);
   border-color: var(--border);
 }
+
+@keyframes typing-bounce {
+  0%, 80%, 100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.ai-typing-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background-color: var(--primary);
+  animation: typing-bounce 1.3s infinite ease-in-out both;
+}
+
+.ai-typing-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.ai-typing-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.ai-typing-dot:nth-child(3) {
+  animation-delay: 0s;
+}

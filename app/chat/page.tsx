@@ -105,10 +105,28 @@ export default function ChatPage() {
     void (async () => {
       try {
         const previous = await aiService.listConversations();
-        const fresh = await aiService.createConversation();
         if (initializedForUserRef.current !== ownerId) return;
-        setAiSessions([toAiSession(fresh), ...previous.map(toAiSession)]);
-        setActiveAiSessionId(fresh.id);
+
+        if (previous.length > 0) {
+          const mostRecent = previous[0];
+          try {
+            const detail = await aiService.getConversation(mostRecent.id);
+            if (initializedForUserRef.current !== ownerId) return;
+            const sessions = previous.map((conv) =>
+              conv.id === mostRecent.id ? toAiSession(detail) : toAiSession(conv)
+            );
+            setAiSessions(sessions);
+            setActiveAiSessionId(mostRecent.id);
+          } catch {
+            setAiSessions(previous.map(toAiSession));
+            setActiveAiSessionId(mostRecent.id);
+          }
+        } else {
+          const fresh = await aiService.createConversation();
+          if (initializedForUserRef.current !== ownerId) return;
+          setAiSessions([toAiSession(fresh)]);
+          setActiveAiSessionId(fresh.id);
+        }
       } catch (error) {
         initializedForUserRef.current = null;
         toast.error(getApiErrorMessage(error, "Không tải được lịch sử trò chuyện. Vui lòng thử lại."));
@@ -165,6 +183,12 @@ export default function ChatPage() {
     return () => setActiveConversationId(null);
   }, [activeChannel, selectedDirectConversationId, setActiveConversationId]);
 
+  useEffect(() => {
+    if (activeChannel === "direct" && !selectedDirectConversationId && directConversations.length > 0) {
+      setActiveDirectConversationId(directConversations[0].id);
+    }
+  }, [activeChannel, selectedDirectConversationId, directConversations]);
+
   // Sidebar Drag-to-Resize Logic
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -213,6 +237,9 @@ export default function ChatPage() {
       return null;
     }
     setChatChannel("ai");
+    if (activeAiSession && activeAiSession.messages.length === 0 && activeAiSession.title === "Đoạn chat mới") {
+      return activeAiSession.id;
+    }
     try {
       const fresh = await aiService.createConversation();
       setAiSessions((prev) => [toAiSession(fresh), ...prev]);
@@ -455,7 +482,7 @@ export default function ChatPage() {
                 onSendMessage={handleSendAiMessage}
                 onNewSession={handleNewAiSession}
                 onSelectTopic={handleSelectAiTopic}
-                isSending={isInitializingAi || pendingAiSessionId !== null || (loadingAiSessionId !== null && loadingAiSessionId === activeAiSessionId)}
+                isSending={isInitializingAi || (pendingAiSessionId !== null && pendingAiSessionId === activeAiSessionId)}
                 isLoadingHistory={loadingAiSessionId !== null && loadingAiSessionId === activeAiSessionId}
                 isSidebarCollapsed={isSidebarCollapsed}
                 onToggleSidebar={toggleSidebar}

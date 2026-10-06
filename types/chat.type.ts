@@ -29,7 +29,6 @@ export interface ChatMessage {
     size?: string;
   }[];
   aiStatus?: import("@/types/ai.type").AiAnswerStatus;
-  aiCitations?: import("@/types/ai.type").AiCitation[];
 }
 
 export interface ChatConversation {
@@ -58,6 +57,7 @@ export interface AiChatSession {
   updatedAt?: string;
   isPinned?: boolean;
   messages: ChatMessage[];
+  messagesLoaded?: boolean;
 }
 
 export type ChatChannelType = "ai" | "direct";

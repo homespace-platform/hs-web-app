@@ -1,5 +1,6 @@
 export type AiAnswerStatus =
   | "ANSWERED"
+  | "GENERAL_ANSWER"
   | "NO_EVIDENCE"
   | "OUT_OF_SCOPE"
   | "GENERATION_UNAVAILABLE";
@@ -19,4 +20,24 @@ export interface AiAskResponse {
   status: AiAnswerStatus;
   citations: AiCitation[];
   requestId: string;
+}
+
+export interface AiConversationSummary {
+  id: string;
+  title: string;
+  isPinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiConversationMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  status?: AiAnswerStatus | null;
+  createdAt: string;
+}
+
+export interface AiConversationDetail extends AiConversationSummary {
+  messages: AiConversationMessage[];
 }

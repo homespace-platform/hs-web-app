@@ -33,6 +33,7 @@ interface ChatSidebarProps {
   onNewAiSession: () => void;
   onDeleteAiSession?: (id: string) => void;
   onTogglePinAiSession?: (id: string) => void;
+  isAiInitializing?: boolean;
   onSelectAiTopic?: (prompt: string) => void;
   onToggleCollapse?: () => void;
   // Direct P2P Conversations
@@ -58,6 +59,7 @@ export default function ChatSidebar({
   onNewAiSession,
   onDeleteAiSession,
   onTogglePinAiSession,
+  isAiInitializing = false,
   onSelectAiTopic,
   onToggleCollapse,
   directConversations,
@@ -197,6 +199,7 @@ export default function ChatSidebar({
               <button
                 type="button"
                 onClick={onNewAiSession}
+                disabled={isAiInitializing}
                 className="w-full py-2 px-3 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/40 text-foreground text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-2xs group"
               >
                 <Plus className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
@@ -228,7 +231,7 @@ export default function ChatSidebar({
                         <span className="truncate pr-2">{s.title}</span>
 
                         {/* Actions on hover */}
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <div className="flex items-center gap-1 opacity-100 shrink-0">
                           {onTogglePinAiSession && (
                             <button
                               type="button"
@@ -289,7 +292,7 @@ export default function ChatSidebar({
                         <span className="truncate pr-2">{s.title}</span>
 
                         {/* Actions on hover */}
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <div className="flex items-center gap-1 opacity-100 shrink-0">
                           {onTogglePinAiSession && (
                             <button
                               type="button"

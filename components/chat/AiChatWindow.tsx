@@ -4,16 +4,13 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
 import {
   ArrowLeft,
-  BookOpen,
   Check,
   Copy,
-  ExternalLink,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
   Send,
   Sparkles,
-  X,
 } from "lucide-react";
 import { AiChatSession, ChatMessage } from "@/types/chat.type";
 import { AI_QUICK_TOPICS } from "@/data/mock-chat-data";
@@ -21,28 +18,33 @@ import { toast } from "sonner";
 
 interface AiChatWindowProps {
   session: AiChatSession | null;
+  customerName?: string | null;
+  isAdmin?: boolean;
   onBack: () => void;
   onSendMessage: (sessionId: string, text: string) => void;
   onNewSession: () => void;
   onSelectTopic: (prompt: string) => void;
   isSending?: boolean;
+  isLoadingHistory?: boolean;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
 }
 
 export default function AiChatWindow({
   session,
+  customerName,
+  isAdmin = false,
   onBack,
   onSendMessage,
   onNewSession,
   onSelectTopic,
   isSending = false,
+  isLoadingHistory = false,
   isSidebarCollapsed,
   onToggleSidebar,
 }: AiChatWindowProps) {
   const [inputText, setInputText] = useState("");
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const [activeCitation, setActiveCitation] = useState<import("@/types/ai.type").AiCitation | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -58,7 +60,7 @@ export default function AiChatWindow({
     const trimmed = inputText.trim();
     if (!trimmed || isSending) return;
 
-    const targetSessionId = session?.id || `session-${Date.now()}`;
+    const targetSessionId = session?.id || "";
     onSendMessage(targetSessionId, trimmed);
     setInputText("");
     setTimeout(() => {
@@ -139,7 +141,7 @@ export default function AiChatWindow({
             </div>
             <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Tra cứu tài liệu HomeSpace
+              {isAdmin ? "Kiến thức HomeSpace và hỏi đáp chung" : "Đồng hành cùng bạn trên HomeSpace"}
             </span>
           </div>
         </div>
@@ -149,6 +151,7 @@ export default function AiChatWindow({
           <button
             type="button"
             onClick={onNewSession}
+            disabled={isSending}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold border border-primary/20 transition-all cursor-pointer shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -159,7 +162,11 @@ export default function AiChatWindow({
 
       {/* 2. Chat Stream Area */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
-        {isNewSession ? (
+        {isLoadingHistory ? (
+          <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+            Đang tải cuộc trò chuyện...
+          </div>
+        ) : isNewSession ? (
           /* Landing state khi chưa có tin nhắn */
           <div className="max-w-2xl mx-auto h-full flex flex-col items-center justify-center text-center pb-8">
             {/* Prominent, Large AI Logo */}
@@ -175,11 +182,14 @@ export default function AiChatWindow({
             </div>
 
             <h2 className="text-xl sm:text-2xl font-bold font-heading text-foreground tracking-tight mb-2">
-              Tôi có thể giúp gì cho bạn hôm nay?
+              Xin chào{customerName ? `, ${customerName}` : " bạn"}! Mình có thể giúp gì hôm nay?
             </h2>
             <p className="text-xs sm:text-sm text-muted-foreground max-w-md mb-6">
-              Tôi có thể giải thích tính năng, quy trình và chính sách HomeSpace dựa trên tài liệu đã được duyệt. Tôi chưa tra cứu tin đăng hoặc dữ liệu cá nhân theo thời gian thực.
+              {isAdmin
+                ? "Bạn có thể hỏi mình về HomeSpace hoặc các chủ đề khác. Câu trả lời về HomeSpace dựa trên tài liệu được duyệt; thông tin chung chưa được kiểm chứng theo thời gian thực."
+                : "Mình giúp bạn tìm hiểu cả việc cho thuê và đi thuê: tin đăng, yêu cầu thuê, hợp đồng, thanh toán và chính sách HomeSpace. Mình chưa xem được dữ liệu tài khoản theo thời gian thực."}
             </p>
+            {isSending && <p className="text-xs text-primary mb-4">Đang chuẩn bị cuộc trò chuyện...</p>}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">
               {AI_QUICK_TOPICS.map((topic) => (
@@ -239,30 +249,9 @@ export default function AiChatWindow({
                     {!isUser && msg.aiStatus && (
                       <div className="mt-2 text-[11px] text-muted-foreground">
                         {msg.aiStatus === "NO_EVIDENCE" && "Chưa tìm thấy tài liệu phù hợp."}
+                        {msg.aiStatus === "GENERAL_ANSWER" && "Kiến thức chung · không lấy từ tài liệu HomeSpace."}
                         {msg.aiStatus === "OUT_OF_SCOPE" && "Câu hỏi cần dữ liệu ngoài kho kiến thức tĩnh."}
-                        {msg.aiStatus === "GENERATION_UNAVAILABLE" && "Model trả lời đang tạm gián đoạn."}
-                        {msg.aiCitations && msg.aiCitations.length > 0 && (
-                          <div className="mt-2 space-y-1.5 border-t border-border pt-2">
-                            <span className="font-semibold text-foreground/85">Nguồn tham khảo:</span>
-                            <div className="flex flex-wrap gap-1.5 mt-1">
-                              {msg.aiCitations.map((source) => (
-                                <button
-                                  key={source.chunkId}
-                                  type="button"
-                                  onClick={() => setActiveCitation(source)}
-                                  className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-muted/50 px-2 py-1 text-[11px] text-foreground hover:bg-muted hover:border-primary/50 transition-colors cursor-pointer text-left"
-                                  title="Bấm để xem đoạn trích tài liệu"
-                                >
-                                  <BookOpen className="w-3 h-3 text-primary shrink-0" />
-                                  <span className="font-medium line-clamp-1 max-w-[260px]">
-                                    {source.title} · {source.heading}
-                                  </span>
-                                  <ExternalLink className="w-2.5 h-2.5 text-muted-foreground ml-0.5 shrink-0" />
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                        {msg.aiStatus === "GENERATION_UNAVAILABLE" && "Trợ lý đang tạm gián đoạn."}
                       </div>
                     )}
 
@@ -300,7 +289,7 @@ export default function AiChatWindow({
               );
             })}
             <div ref={messagesEndRef} />
-            {isSending && <p className="text-xs text-muted-foreground pl-11">HomeSpace AI đang tìm tài liệu và trả lời...</p>}
+            {isSending && <p className="text-xs text-muted-foreground pl-11">HomeSpace AI đang chuẩn bị câu trả lời...</p>}
           </div>
         )}
       </div>
@@ -335,7 +324,7 @@ export default function AiChatWindow({
               maxLength={500}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Hỏi về tính năng, quy trình hoặc chính sách HomeSpace..."
+              placeholder={isAdmin ? "Hỏi HomeSpace hoặc bất kỳ chủ đề nào..." : "Hỏi về thuê nhà, cho thuê hoặc HomeSpace..."}
               className="flex-1 bg-transparent text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none py-1.5"
             />
 
@@ -355,56 +344,12 @@ export default function AiChatWindow({
 
           <div className="flex items-center justify-end px-1">
             <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">
-              Chỉ trả lời theo tài liệu được duyệt • Hội thoại chưa được lưu
+              {isAdmin ? "Câu hỏi HomeSpace dựa trên tài liệu được duyệt • Kiến thức chung chưa kiểm chứng thời gian thực" : "Trả lời dựa trên tài liệu HomeSpace được duyệt"} • Hội thoại được lưu riêng cho tài khoản của bạn
             </span>
           </div>
         </form>
       </div>
     
-      {/* Citation Snippet Modal */}
-      {activeCitation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-5 shadow-xl animate-in fade-in zoom-in-95">
-            <div className="flex items-start justify-between border-b border-border pb-3">
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-primary/10 p-2 text-primary">
-                  <BookOpen className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-foreground leading-snug">{activeCitation.title}</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Mục: <span className="font-medium text-foreground">{activeCitation.heading}</span> (v{activeCitation.version})
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveCitation(null)}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="mt-4">
-              <div className="text-xs font-semibold text-muted-foreground mb-1.5">Đoạn trích dẫn từ tài liệu:</div>
-              <div className="rounded-xl bg-muted/40 p-4 text-xs leading-relaxed border border-border/80 font-mono text-foreground/90 whitespace-pre-wrap max-h-60 overflow-y-auto">
-                {activeCitation.snippet || "Đoạn trích từ tài liệu này được AI sử dụng làm cơ sở để tổng hợp câu trả lời."}
-              </div>
-            </div>
-
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setActiveCitation(null)}
-                className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity cursor-pointer"
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 </div>
   );
 }

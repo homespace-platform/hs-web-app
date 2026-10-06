@@ -8,6 +8,7 @@ import AiChatWindow from "@/components/chat/AiChatWindow";
 import ChatEmptyState from "@/components/chat/ChatEmptyState";
 import { aiService } from "@/services/ai.service";
 import { getApiErrorMessage } from "@/utils/apiError";
+import axios from "axios";
 import {
   ChatFilterTab,
   ChatMessage,
@@ -16,8 +17,41 @@ import {
 } from "@/types/chat.type";
 import { useChatDemo } from "@/components/chat/ChatDemoProvider";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/features/auth/useAuth";
+import type { AiConversationDetail, AiConversationMessage, AiConversationSummary } from "@/types/ai.type";
+import { toast } from "sonner";
+
+function toChatMessage(message: AiConversationMessage): ChatMessage {
+  return {
+    id: message.id,
+    sender: message.role === "user" ? "me" : "them",
+    content: message.content,
+    timestamp: new Date(message.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+    createdAt: message.createdAt,
+    status: "read",
+    aiStatus: message.status ?? undefined,
+  };
+}
+
+function toAiSession(conversation: AiConversationSummary | AiConversationDetail): AiChatSession {
+  return {
+    id: conversation.id,
+    title: conversation.title,
+    createdAt: new Date(conversation.createdAt).toLocaleDateString("vi-VN"),
+    updatedAt: conversation.updatedAt,
+    isPinned: conversation.isPinned,
+    messages: "messages" in conversation ? conversation.messages.map(toChatMessage) : [],
+    messagesLoaded: "messages" in conversation,
+  };
+}
 
 export default function ChatPage() {
+  const { profile, authenticated, initialized } = useAuth();
+  const customerName = [profile?.lastName, profile?.firstName]
+    .filter(Boolean)
+    .join(" ")
+    .trim() || profile?.username || null;
+  const isAdmin = ["ADMIN", "ROLE_ADMIN"].includes(profile?.role?.toUpperCase() || "");
   const searchParams = useSearchParams();
   const router = useRouter();
   const conversationIdFromUrl = searchParams.get("conversationId");
@@ -45,12 +79,44 @@ export default function ChatPage() {
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  // Multi-session AI State (Mới vào mở trang landing rỗng chuẩn Ảnh 2)
+  // Mongo-backed AI conversations, scoped by the authenticated Gateway identity.
   const [aiSessions, setAiSessions] = useState<AiChatSession[]>([]);
   const [pendingAiSessionId, setPendingAiSessionId] = useState<string | null>(null);
+  const [loadingAiSessionId, setLoadingAiSessionId] = useState<string | null>(null);
+  const [isInitializingAi, setIsInitializingAi] = useState(true);
+  const initializedForUserRef = useRef<string | null>(null);
+  const sendInFlightRef = useRef(false);
   const [activeAiSessionId, setActiveAiSessionId] = useState<string | null>(
     null
   );
+
+  useEffect(() => {
+    if (!authenticated || !profile?.id) {
+      initializedForUserRef.current = null;
+      setAiSessions([]);
+      setActiveAiSessionId(null);
+      if (initialized && !authenticated) setIsInitializingAi(false);
+      return;
+    }
+    if (initializedForUserRef.current === profile.id) return;
+    const ownerId = profile.id;
+    initializedForUserRef.current = ownerId;
+    setIsInitializingAi(true);
+    void (async () => {
+      try {
+        const previous = await aiService.listConversations();
+        const fresh = await aiService.createConversation();
+        if (initializedForUserRef.current !== ownerId) return;
+        setAiSessions([toAiSession(fresh), ...previous.map(toAiSession)]);
+        setActiveAiSessionId(fresh.id);
+      } catch (error) {
+        initializedForUserRef.current = null;
+        toast.error(getApiErrorMessage(error, "Không tải được lịch sử trò chuyện. Vui lòng thử lại."));
+      } finally {
+        setIsInitializingAi(false);
+      }
+    })();
+  }, [authenticated, initialized, profile?.id]);
 
   const {
     currentUserId,
@@ -140,23 +206,41 @@ export default function ChatPage() {
   };
 
   // 1. AI Actions
-  const handleNewAiSession = () => {
+  const handleNewAiSession = async (): Promise<string | null> => {
+    if (isInitializingAi) return null;
+    if (!authenticated) {
+      toast.error("Vui lòng đăng nhập để lưu cuộc trò chuyện.");
+      return null;
+    }
     setChatChannel("ai");
-    const newSessionId = `session-${Date.now()}`;
-    const newSession: AiChatSession = {
-      id: newSessionId,
-      title: "Đoạn chat mới",
-      createdAt: "Vừa xong",
-      isPinned: false,
-      messages: [],
-    };
-    setAiSessions((prev) => [newSession, ...prev]);
-    setActiveAiSessionId(newSessionId);
+    try {
+      const fresh = await aiService.createConversation();
+      setAiSessions((prev) => [toAiSession(fresh), ...prev]);
+      setActiveAiSessionId(fresh.id);
+      return fresh.id;
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không tạo được cuộc trò chuyện mới."));
+      return null;
+    }
   };
 
   const handleSendAiMessage = async (sessionId: string, text: string) => {
-    if (pendingAiSessionId) return;
-    setPendingAiSessionId(sessionId);
+    if (sendInFlightRef.current) return;
+    if (!authenticated) {
+      toast.error("Vui lòng đăng nhập để trò chuyện với HomeSpace AI.");
+      return;
+    }
+    sendInFlightRef.current = true;
+    let targetSessionId = sessionId;
+    if (!aiSessions.some((session) => session.id === targetSessionId)) {
+      const createdId = await handleNewAiSession();
+      if (!createdId) {
+        sendInFlightRef.current = false;
+        return;
+      }
+      targetSessionId = createdId;
+    }
+    setPendingAiSessionId(targetSessionId);
     const now = new Date();
     const timeString = `${now.getHours().toString().padStart(2, "0")}:${now
       .getMinutes()
@@ -172,46 +256,18 @@ export default function ChatPage() {
       status: "read",
     };
 
-    // Check if session already exists
-    const sessionExists = aiSessions.some((s) => s.id === sessionId);
-
-    if (!sessionExists) {
-      const generatedTitle =
-        text.length > 30 ? text.slice(0, 30) + "..." : text;
-      const newSession: AiChatSession = {
-        id: sessionId,
-        title: generatedTitle,
-        createdAt: "Hôm nay",
-        isPinned: false,
-        messages: [userMsg],
-      };
-      setAiSessions((prev) => [newSession, ...prev]);
-      setActiveAiSessionId(sessionId);
-    } else {
-      setAiSessions((prev) =>
-        prev.map((s) => {
-          if (s.id === sessionId) {
-            const shouldUpdateTitle =
-              s.title === "Đoạn chat mới" || s.messages.length === 0;
-            const updatedTitle = shouldUpdateTitle
-              ? text.length > 30
-                ? text.slice(0, 30) + "..."
-                : text
-              : s.title;
-
-            return {
-              ...s,
-              title: updatedTitle,
-              messages: [...s.messages, userMsg],
-            };
+    setAiSessions((prev) =>
+      prev.map((session) => session.id === targetSessionId
+        ? {
+            ...session,
+            title: session.title === "Đoạn chat mới" ? text.slice(0, 60) : session.title,
+            messages: [...session.messages, userMsg],
           }
-          return s;
-        })
-      );
-    }
+        : session),
+    );
 
     try {
-      const reply = await aiService.ask(text, sessionId);
+      const reply = await aiService.ask(text, targetSessionId);
       const replyTime = new Date();
       const replyTimeString = `${replyTime
         .getHours()
@@ -229,12 +285,11 @@ export default function ChatPage() {
         dateGroup: "Hôm nay",
         status: "read",
         aiStatus: reply.status,
-        aiCitations: reply.citations,
       };
 
       setAiSessions((prev) =>
         prev.map((s) => {
-          if (s.id === sessionId) {
+          if (s.id === targetSessionId) {
             return {
               ...s,
               messages: [...s.messages, aiReplyMsg],
@@ -244,13 +299,12 @@ export default function ChatPage() {
         })
       );
     } catch (error) {
-      const errorMessage = getApiErrorMessage(
-        error,
-        "Không thể kết nối trợ lý AI. Vui lòng thử lại sau.",
-      );
+      const errorMessage = axios.isAxiosError(error) && [502, 503, 504].includes(error.response?.status ?? 0)
+        ? "Trợ lý AI đang khởi động hoặc tạm gián đoạn. Vui lòng thử lại sau ít phút."
+        : getApiErrorMessage(error, "Không thể kết nối trợ lý AI. Vui lòng thử lại sau.");
       setAiSessions((prev) =>
         prev.map((session) =>
-          session.id === sessionId
+          session.id === targetSessionId
             ? {
                 ...session,
                 messages: [
@@ -258,7 +312,7 @@ export default function ChatPage() {
                   {
                     id: `msg-ai-error-${Date.now()}`,
                     sender: "them" as const,
-                    content: errorMessage,
+                    content: `${errorMessage} Nếu câu hỏi chưa xuất hiện sau khi tải lại trang, hãy gửi lại nhé.`,
                     timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
                     status: "read" as const,
                   },
@@ -269,34 +323,60 @@ export default function ChatPage() {
       );
     } finally {
       setPendingAiSessionId(null);
+      sendInFlightRef.current = false;
     }
   };
 
-  const handleDeleteAiSession = (sessionId: string) => {
-    setAiSessions((prev) => {
-      const filtered = prev.filter((s) => s.id !== sessionId);
-      if (activeAiSessionId === sessionId) {
-        setActiveAiSessionId(filtered.length > 0 ? filtered[0].id : null);
-      }
-      return filtered;
-    });
+  const handleSelectAiSession = async (sessionId: string) => {
+    setChatChannel("ai");
+    setActiveAiSessionId(sessionId);
+    if (aiSessions.find((session) => session.id === sessionId)?.messagesLoaded) return;
+    setLoadingAiSessionId(sessionId);
+    try {
+      const conversation = await aiService.getConversation(sessionId);
+      setAiSessions((prev) => prev.map((session) =>
+        session.id === sessionId ? toAiSession(conversation) : session,
+      ));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không tải được cuộc trò chuyện."));
+    } finally {
+      setLoadingAiSessionId(null);
+    }
   };
 
-  const handleTogglePinAiSession = (sessionId: string) => {
-    setAiSessions((prev) =>
-      prev.map((s) => {
-        if (s.id === sessionId) {
-          return { ...s, isPinned: !s.isPinned };
-        }
-        return s;
-      })
-    );
+  const handleDeleteAiSession = async (sessionId: string) => {
+    if (!window.confirm("Xóa vĩnh viễn cuộc trò chuyện này?")) return;
+    try {
+      await aiService.deleteConversation(sessionId);
+      const remaining = aiSessions.filter((session) => session.id !== sessionId);
+      setAiSessions(remaining);
+      if (activeAiSessionId === sessionId) {
+        if (remaining.length) void handleSelectAiSession(remaining[0].id);
+        else void handleNewAiSession();
+      }
+      toast.success("Đã xóa cuộc trò chuyện.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không xóa được cuộc trò chuyện."));
+    }
+  };
+
+  const handleTogglePinAiSession = async (sessionId: string) => {
+    const session = aiSessions.find((item) => item.id === sessionId);
+    if (!session) return;
+    try {
+      const updated = await aiService.setPinned(sessionId, !session.isPinned);
+      setAiSessions((prev) => prev.map((item) =>
+        item.id === sessionId ? { ...item, isPinned: updated.isPinned } : item,
+      ));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không cập nhật được cuộc trò chuyện."));
+    }
   };
 
   const handleSelectAiTopic = (prompt: string) => {
+    if (isInitializingAi) return;
     setChatChannel("ai");
-    const targetSessionId = activeAiSessionId || `session-${Date.now()}`;
-    handleSendAiMessage(targetSessionId, prompt);
+    void handleSendAiMessage(activeAiSessionId || "", prompt);
   };
 
   return (
@@ -324,12 +404,12 @@ export default function ChatPage() {
                 aiSessions={aiSessions}
                 activeAiSessionId={activeAiSessionId}
                 onSelectAiSession={(id) => {
-                  setChatChannel("ai");
-                  setActiveAiSessionId(id);
+                  void handleSelectAiSession(id);
                 }}
                 onNewAiSession={handleNewAiSession}
                 onDeleteAiSession={handleDeleteAiSession}
                 onTogglePinAiSession={handleTogglePinAiSession}
+                isAiInitializing={isInitializingAi}
                 // Direct P2P
                 directConversations={directConversations}
                 activeDirectConversationId={selectedDirectConversationId}
@@ -369,11 +449,14 @@ export default function ChatPage() {
             {activeChannel === "ai" ? (
               <AiChatWindow
                 session={activeAiSession}
+                customerName={customerName}
+                isAdmin={isAdmin}
                 onBack={() => setActiveAiSessionId(null)}
                 onSendMessage={handleSendAiMessage}
                 onNewSession={handleNewAiSession}
                 onSelectTopic={handleSelectAiTopic}
-                isSending={pendingAiSessionId === activeAiSessionId}
+                isSending={isInitializingAi || pendingAiSessionId !== null || (loadingAiSessionId !== null && loadingAiSessionId === activeAiSessionId)}
+                isLoadingHistory={loadingAiSessionId !== null && loadingAiSessionId === activeAiSessionId}
                 isSidebarCollapsed={isSidebarCollapsed}
                 onToggleSidebar={toggleSidebar}
               />

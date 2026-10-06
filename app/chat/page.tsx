@@ -46,6 +46,16 @@ function toAiSession(conversation: AiConversationSummary | AiConversationDetail)
   };
 }
 
+function selectedProvinceCode(): string {
+  try {
+    const selected = JSON.parse(localStorage.getItem("homespace_selected_province") || "null");
+    const code = String(selected?.code ?? "79");
+    return /^\d{1,4}$/.test(code) ? code : "79";
+  } catch {
+    return "79";
+  }
+}
+
 export default function ChatPage() {
   const { profile, authenticated, initialized } = useAuth();
   const customerName = [profile?.lastName, profile?.firstName]
@@ -328,8 +338,13 @@ export default function ChatPage() {
 
     try {
       const targetSession = aiSessions.find((session) => session.id === targetSessionId);
+      // Seed the conversation with the province selected in the header even if
+      // its first messages were knowledge questions. Once saved, the backend
+      // retains district/category updates for later listing follow-ups.
       const activeSearchContext = searchContext ?? (
-        targetSession?.messages.length === 0 ? targetSession.searchContext ?? undefined : undefined
+        targetSession?.searchContext
+          ? targetSession.messages.length === 0 ? targetSession.searchContext : undefined
+          : { provinceCode: selectedProvinceCode() }
       );
       const reply = await aiService.ask(text, targetSessionId, activeSearchContext);
       const replyTime = new Date();
@@ -356,6 +371,7 @@ export default function ChatPage() {
           if (s.id === targetSessionId) {
             return {
               ...s,
+              searchContext: s.searchContext ?? activeSearchContext,
               messages: [...s.messages, aiReplyMsg],
             };
           }

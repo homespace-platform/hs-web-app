@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import provinceService from "@/services/province.service";
 import { District } from "@/types/province.type";
-import { propertySearchService, type PlaceSuggestion } from "@/services/property-search.service";
+import { getFeaturedLocationsByProvince } from "@/data/featured-locations";
 
 interface AiSearchBarProps {
   onSearch?: (query: { keyword: string; location: string; type: string }) => void;
@@ -23,10 +23,6 @@ interface AiSearchBarProps {
 export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
   const router = useRouter();
   const [keyword, setKeyword] = useState("");
-  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
-  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
-  const [suggestionsError, setSuggestionsError] = useState(false);
-  const [fallbackToProvince, setFallbackToProvince] = useState(false);
   const [propertyType, setPropertyType] = useState("");
   const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [isTypeOpen, setIsTypeOpen] = useState(false);
@@ -34,6 +30,11 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
   // Selected Province from Header (Synced via localStorage & custom events)
   const [provinceCode, setProvinceCode] = useState<number | string>(79);
   const [provinceName, setProvinceName] = useState<string>("Thành phố Hồ Chí Minh");
+
+  // Gợi ý địa điểm nổi bật hard data từ JSON theo tỉnh đang chọn
+  const suggestions = useMemo(() => {
+    return getFeaturedLocationsByProvince(provinceCode, provinceName);
+  }, [provinceCode, provinceName]);
 
   // Districts corresponding to selected province
   const [districts, setDistricts] = useState<District[]>([]);
@@ -48,25 +49,7 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
     { value: "room", label: "Phòng trọ" },
   ];
 
-  useEffect(() => {
-    let cancelled = false;
-    setSuggestionsLoading(true);
-    setSuggestionsError(false);
-    propertySearchService.suggestions(String(provinceCode), selectedDistrict || undefined)
-      .then((response) => {
-        if (cancelled) return;
-        setSuggestions(response.suggestions);
-        setFallbackToProvince(response.fallbackToProvince);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setSuggestions([]);
-        setFallbackToProvince(false);
-        setSuggestionsError(true);
-      })
-      .finally(() => { if (!cancelled) setSuggestionsLoading(false); });
-    return () => { cancelled = true; };
-  }, [provinceCode, selectedDistrict]);
+
 
   // 1. Load initial province & district from localStorage and fetch districts
   useEffect(() => {
@@ -179,7 +162,6 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
 
   const handleQuickSuggestion = (item: string) => {
     setKeyword(item);
-    if (fallbackToProvince) handleSelectDistrict("");
   };
 
   return (
@@ -355,12 +337,7 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
           <Sparkles className="w-3.5 h-3.5 text-accent-ai" />
           Địa điểm nổi bật:
         </span>
-        {suggestionsLoading && <span className="text-muted-foreground">Đang tìm địa điểm phù hợp...</span>}
-        {!suggestionsLoading && suggestionsError && <span className="text-destructive">Chưa tải được gợi ý. Vui lòng thử tải lại trang.</span>}
-        {!suggestionsLoading && !suggestionsError && fallbackToProvince && (
-          <span className="text-muted-foreground">Chưa có địa điểm gợi ý riêng cho {selectedDistrict}; xem thêm địa điểm nổi bật tại {provinceName}:</span>
-        )}
-        {!suggestionsLoading && !suggestionsError && suggestions.length === 0 && (
+        {suggestions.length === 0 && (
           <span className="text-muted-foreground">Chưa có danh sách địa điểm nổi bật cho {provinceName}.</span>
         )}
         {suggestions.map((item, idx) => (

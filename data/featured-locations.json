@@ -1,0 +1,431 @@
+{
+  "01": {
+    "code": "01",
+    "name": "Hà Nội",
+    "locations": [
+      "ĐH Quốc gia Hà Nội · Cầu Giấy",
+      "ĐH Bách khoa Hà Nội",
+      "Mỹ Đình",
+      "Cầu Giấy",
+      "Hà Đông",
+      "Thanh Xuân",
+      "Hồ Hoàn Kiếm"
+    ]
+  },
+  "04": {
+    "code": "04",
+    "name": "Cao Bằng",
+    "locations": [
+      "Trung tâm Cao Bằng",
+      "Bệnh viện Đa khoa tỉnh Cao Bằng",
+      "Khu vực Sông Bằng",
+      "Thác Bản Giốc",
+      "Trùng Khánh"
+    ]
+  },
+  "08": {
+    "code": "08",
+    "name": "Tuyên Quang",
+    "locations": [
+      "Trung tâm Tuyên Quang",
+      "ĐH Tân Trào",
+      "Khu công nghiệp Long Bình An",
+      "Trung tâm Hà Giang",
+      "Đồng Văn",
+      "Mèo Vạc"
+    ]
+  },
+  "11": {
+    "code": "11",
+    "name": "Điện Biên",
+    "locations": [
+      "Trung tâm Điện Biên Phủ",
+      "ĐH Điện Biên",
+      "Bến xe Điện Biên",
+      "Mường Thanh",
+      "Sân bay Điện Biên"
+    ]
+  },
+  "12": {
+    "code": "12",
+    "name": "Lai Châu",
+    "locations": [
+      "Trung tâm Lai Châu",
+      "Bệnh viện Đa khoa Lai Châu",
+      "Quảng trường Nhân dân",
+      "Tam Đường",
+      "Khu vực Tân Phong"
+    ]
+  },
+  "14": {
+    "code": "14",
+    "name": "Sơn La",
+    "locations": [
+      "Trung tâm Sơn La",
+      "ĐH Tây Bắc",
+      "Bệnh viện Đa khoa Sơn La",
+      "Mộc Châu",
+      "Mai Sơn"
+    ]
+  },
+  "15": {
+    "code": "15",
+    "name": "Lào Cai",
+    "locations": [
+      "Trung tâm Lào Cai",
+      "Ga Lào Cai",
+      "ĐH Thái Nguyên – Phân hiệu Lào Cai",
+      "Sa Pa",
+      "Trung tâm Yên Bái",
+      "Nghĩa Lộ"
+    ]
+  },
+  "19": {
+    "code": "19",
+    "name": "Thái Nguyên",
+    "locations": [
+      "ĐH Thái Nguyên",
+      "ĐH Công nghiệp Thái Nguyên",
+      "KCN Yên Bình",
+      "Samsung Thái Nguyên",
+      "Trung tâm Thái Nguyên",
+      "Trung tâm Bắc Kạn"
+    ]
+  },
+  "20": {
+    "code": "20",
+    "name": "Lạng Sơn",
+    "locations": [
+      "Trung tâm Lạng Sơn",
+      "Chợ Đông Kinh",
+      "Ga Đồng Đăng",
+      "Cửa khẩu Hữu Nghị",
+      "KCN Hữu Lũng"
+    ]
+  },
+  "22": {
+    "code": "22",
+    "name": "Quảng Ninh",
+    "locations": [
+      "Hạ Long",
+      "Bãi Cháy",
+      "Hòn Gai",
+      "ĐH Hạ Long",
+      "Cẩm Phả",
+      "Uông Bí",
+      "KCN Quảng Yên"
+    ]
+  },
+  "24": {
+    "code": "24",
+    "name": "Bắc Ninh",
+    "locations": [
+      "Trung tâm Bắc Ninh",
+      "ĐH Kinh Bắc",
+      "KCN VSIP Bắc Ninh",
+      "KCN Yên Phong",
+      "KCN Quế Võ",
+      "Trung tâm Bắc Giang",
+      "KCN Quang Châu"
+    ]
+  },
+  "25": {
+    "code": "25",
+    "name": "Phú Thọ",
+    "locations": [
+      "Việt Trì",
+      "ĐH Hùng Vương",
+      "KCN Thụy Vân",
+      "Trung tâm Vĩnh Yên",
+      "KCN Khai Quang",
+      "Trung tâm Hòa Bình",
+      "KCN Lương Sơn"
+    ]
+  },
+  "31": {
+    "code": "31",
+    "name": "Hải Phòng",
+    "locations": [
+      "Trung tâm Hải Phòng",
+      "ĐH Hàng Hải Việt Nam",
+      "ĐH Hải Phòng",
+      "Lê Chân",
+      "KCN Tràng Duệ",
+      "VSIP Hải Phòng",
+      "Trung tâm Hải Dương"
+    ]
+  },
+  "33": {
+    "code": "33",
+    "name": "Hưng Yên",
+    "locations": [
+      "Trung tâm Hưng Yên",
+      "Văn Giang",
+      "Ecopark",
+      "KCN Thăng Long II",
+      "KCN Phố Nối",
+      "Trung tâm Thái Bình",
+      "ĐH Y Dược Thái Bình"
+    ]
+  },
+  "37": {
+    "code": "37",
+    "name": "Ninh Bình",
+    "locations": [
+      "Trung tâm Ninh Bình",
+      "ĐH Hoa Lư",
+      "Tam Điệp",
+      "Trung tâm Nam Định",
+      "ĐH Điều dưỡng Nam Định",
+      "Phủ Lý",
+      "KCN Đồng Văn"
+    ]
+  },
+  "38": {
+    "code": "38",
+    "name": "Thanh Hóa",
+    "locations": [
+      "Trung tâm Thanh Hóa",
+      "ĐH Hồng Đức",
+      "ĐH Văn hóa Thể thao và Du lịch Thanh Hóa",
+      "KCN Lễ Môn",
+      "Nghi Sơn",
+      "Sầm Sơn"
+    ]
+  },
+  "40": {
+    "code": "40",
+    "name": "Nghệ An",
+    "locations": [
+      "Trung tâm Vinh",
+      "ĐH Vinh",
+      "ĐH Y khoa Vinh",
+      "Bến xe Vinh",
+      "KCN VSIP Nghệ An",
+      "Cửa Lò"
+    ]
+  },
+  "42": {
+    "code": "42",
+    "name": "Hà Tĩnh",
+    "locations": [
+      "Trung tâm Hà Tĩnh",
+      "ĐH Hà Tĩnh",
+      "KCN Vũng Áng",
+      "Kỳ Anh",
+      "Hồng Lĩnh",
+      "Bệnh viện Đa khoa Hà Tĩnh"
+    ]
+  },
+  "44": {
+    "code": "44",
+    "name": "Quảng Trị",
+    "locations": [
+      "Đông Hà",
+      "KCN Nam Đông Hà",
+      "Lao Bảo",
+      "Trung tâm Đồng Hới",
+      "ĐH Quảng Bình",
+      "Phong Nha"
+    ]
+  },
+  "46": {
+    "code": "46",
+    "name": "Huế",
+    "locations": [
+      "ĐH Huế",
+      "Bệnh viện Trung ương Huế",
+      "Trung tâm Huế",
+      "An Cựu",
+      "Phú Bài",
+      "KCN Phú Bài",
+      "Đại Nội Huế"
+    ]
+  },
+  "48": {
+    "code": "48",
+    "name": "Đà Nẵng",
+    "locations": [
+      "ĐH Bách khoa Đà Nẵng",
+      "ĐH Kinh tế Đà Nẵng",
+      "Hải Châu",
+      "Ngũ Hành Sơn",
+      "Liên Chiểu",
+      "Hòa Khánh",
+      "Hội An",
+      "Tam Kỳ"
+    ]
+  },
+  "51": {
+    "code": "51",
+    "name": "Quảng Ngãi",
+    "locations": [
+      "Trung tâm Quảng Ngãi",
+      "ĐH Phạm Văn Đồng",
+      "KCN VSIP Quảng Ngãi",
+      "Dung Quất",
+      "Trung tâm Kon Tum",
+      "ĐH Đà Nẵng – Phân hiệu Kon Tum"
+    ]
+  },
+  "52": {
+    "code": "52",
+    "name": "Gia Lai",
+    "locations": [
+      "Pleiku",
+      "ĐH Nông Lâm TP.HCM – Phân hiệu Gia Lai",
+      "KCN Trà Đa",
+      "Quy Nhơn",
+      "ĐH Quy Nhơn",
+      "KCN Phú Tài",
+      "Nhơn Hội"
+    ]
+  },
+  "56": {
+    "code": "56",
+    "name": "Khánh Hòa",
+    "locations": [
+      "Nha Trang",
+      "ĐH Nha Trang",
+      "ĐH Khánh Hòa",
+      "Cam Ranh",
+      "KCN Suối Dầu",
+      "Phan Rang",
+      "KCN Du Long"
+    ]
+  },
+  "66": {
+    "code": "66",
+    "name": "Đắk Lắk",
+    "locations": [
+      "Buôn Ma Thuột",
+      "ĐH Tây Nguyên",
+      "Bệnh viện Vùng Tây Nguyên",
+      "KCN Hòa Phú",
+      "Tuy Hòa",
+      "ĐH Phú Yên",
+      "KCN Hòa Hiệp"
+    ]
+  },
+  "68": {
+    "code": "68",
+    "name": "Lâm Đồng",
+    "locations": [
+      "Đà Lạt",
+      "ĐH Đà Lạt",
+      "Bảo Lộc",
+      "KCN Lộc Sơn",
+      "Phan Thiết",
+      "ĐH Phan Thiết",
+      "Gia Nghĩa",
+      "KCN Tâm Thắng"
+    ]
+  },
+  "75": {
+    "code": "75",
+    "name": "Đồng Nai",
+    "locations": [
+      "Biên Hòa",
+      "ĐH Lạc Hồng",
+      "KCN Amata",
+      "KCN Long Thành",
+      "Sân bay Long Thành",
+      "Đồng Xoài",
+      "KCN Becamex Bình Phước",
+      "Chơn Thành"
+    ]
+  },
+  "79": {
+    "code": "79",
+    "name": "Hồ Chí Minh",
+    "locations": [
+      "ĐH Quốc gia TP.HCM · Thủ Đức",
+      "ĐH Công nghiệp TP.HCM (IUH) · Gò Vấp",
+      "ĐH Bách khoa TP.HCM",
+      "Chợ Bến Thành",
+      "Landmark 81",
+      "Thủ Đức",
+      "Thủ Dầu Một",
+      "VSIP Bình Dương",
+      "Vũng Tàu",
+      "Phú Mỹ"
+    ]
+  },
+  "80": {
+    "code": "80",
+    "name": "Tây Ninh",
+    "locations": [
+      "Trung tâm Tây Ninh",
+      "KCN Phước Đông",
+      "KCN Trảng Bàng",
+      "Long An/Tân An",
+      "ĐH Kinh tế Công nghiệp Long An",
+      "KCN Long Hậu",
+      "KCN Đức Hòa"
+    ]
+  },
+  "82": {
+    "code": "82",
+    "name": "Đồng Tháp",
+    "locations": [
+      "Cao Lãnh",
+      "ĐH Đồng Tháp",
+      "Sa Đéc",
+      "KCN Sa Đéc",
+      "Mỹ Tho",
+      "ĐH Tiền Giang",
+      "KCN Tân Hương"
+    ]
+  },
+  "86": {
+    "code": "86",
+    "name": "Vĩnh Long",
+    "locations": [
+      "Trung tâm Vĩnh Long",
+      "ĐH Cửu Long",
+      "ĐH Sư phạm Kỹ thuật Vĩnh Long",
+      "Bến Tre",
+      "Trà Vinh",
+      "ĐH Trà Vinh",
+      "KCN Long Đức"
+    ]
+  },
+  "91": {
+    "code": "91",
+    "name": "An Giang",
+    "locations": [
+      "Long Xuyên",
+      "ĐH An Giang",
+      "Châu Đốc",
+      "Rạch Giá",
+      "ĐH Kiên Giang",
+      "Phú Quốc",
+      "Hà Tiên"
+    ]
+  },
+  "92": {
+    "code": "92",
+    "name": "Cần Thơ",
+    "locations": [
+      "ĐH Cần Thơ",
+      "ĐH Y Dược Cần Thơ",
+      "Ninh Kiều",
+      "Cái Răng",
+      "KCN Trà Nóc",
+      "Vị Thanh",
+      "Sóc Trăng"
+    ]
+  },
+  "96": {
+    "code": "96",
+    "name": "Cà Mau",
+    "locations": [
+      "Trung tâm Cà Mau",
+      "ĐH Bình Dương – Phân hiệu Cà Mau",
+      "KCN Khánh An",
+      "Bạc Liêu",
+      "ĐH Bạc Liêu",
+      "Nhà máy Điện khí Cà Mau"
+    ]
+  }
+}

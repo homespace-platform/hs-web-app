@@ -14,7 +14,6 @@ import {
   ImageIcon,
   MapPin,
   MessageSquare,
-  Phone,
   ShieldCheck,
   Video,
   Eye,
@@ -147,7 +146,6 @@ export default function RentDetailView({
     pricing?.negotiable ?? property.details?.negotiable
   );
 
-  const [phoneRevealed, setPhoneRevealed] = useState(false);
   const [quickMessage, setQuickMessage] = useState("");
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [hasActiveBooking, setHasActiveBooking] = useState(false);
@@ -165,30 +163,6 @@ export default function RentDetailView({
       }).catch(() => { });
     }
   }, [authenticated, property?.id]);
-
-  const rawPhone = property.landlord.phone || "0999999999";
-  const cleanPhone = rawPhone.replace(/\s+/g, "");
-
-  // Che vài ký tự số điện thoại bằng dấu sao (vd: 0999 *** 999)
-  const formatPhoneMasked = (phone: string) => {
-    const c = phone.replace(/\s+/g, "");
-    if (c.length === 10) {
-      return `${c.slice(0, 4)} *** ${c.slice(7)}`;
-    }
-    if (c.length > 6) {
-      return `${c.slice(0, 4)} *** ${c.slice(-2)}`;
-    }
-    return `${c}***`;
-  };
-
-  // Hiển thị số điện thoại đầy đủ cách khoảng dễ đọc (vd: 0999 999 999)
-  const formatPhoneFull = (phone: string) => {
-    const c = phone.replace(/\s+/g, "");
-    if (c.length === 10) {
-      return `${c.slice(0, 4)} ${c.slice(4, 7)} ${c.slice(7)}`;
-    }
-    return c;
-  };
 
   const QUICK_SUGGESTIONS = [
     "Nhà này còn không?",
@@ -706,21 +680,12 @@ export default function RentDetailView({
                   )}
                 </div>
 
-                {/* 3. Hàng 2 nút liên hệ: Gọi điện & Chat */}
-                <div className="grid grid-cols-2 gap-2.5 pt-0.5">
-                  <a
-                    href={`tel:${cleanPhone}`}
-                    onClick={() => setPhoneRevealed(true)}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 px-3 text-xs font-semibold text-primary hover:bg-muted/60 transition-all cursor-pointer"
-                    title={`Gọi điện đến ${cleanPhone}`}
-                  >
-                    <Phone className="w-3.5 h-3.5 text-primary" />
-                    <span>{phoneRevealed ? formatPhoneFull(rawPhone) : "Gọi điện"}</span>
-                  </a>
+                {/* Liên hệ qua chat */}
+                <div className="pt-0.5">
                   <button
                     type="button"
                     onClick={() => void openPropertyChat()}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 px-3 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all cursor-pointer"
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 px-3 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all cursor-pointer"
                   >
                     <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
                     <span>Chat</span>
@@ -749,26 +714,6 @@ export default function RentDetailView({
                     </p>
                   </div>
                 </div>
-
-                {/* Green Reveal Phone Button - click mở liên kết tel: và hiện số đầy đủ */}
-                <a
-                  href={`tel:${cleanPhone}`}
-                  onClick={() => {
-                    if (!phoneRevealed) {
-                      setPhoneRevealed(true);
-                      toast.success(`Số điện thoại: ${formatPhoneFull(rawPhone)} (Đang kết nối cuộc gọi...)`);
-                    }
-                  }}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#00ba51] hover:bg-[#00a848] py-3 px-4 text-xs sm:text-sm font-bold text-white shadow-xs transition-all active:scale-[0.98] cursor-pointer"
-                  title={`Gọi điện đến ${cleanPhone}`}
-                >
-                  <Phone className="w-4 h-4 shrink-0" />
-                  <span className="truncate">
-                    {phoneRevealed
-                      ? `Gọi ngay: ${formatPhoneFull(rawPhone)}`
-                      : `Gọi ngay: ${formatPhoneMasked(rawPhone)}`}
-                  </span>
-                </a>
 
                 {/* Quick Chat Input Box */}
                 <form onSubmit={handleSendQuickMessage} className="space-y-2">

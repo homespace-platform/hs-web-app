@@ -20,8 +20,6 @@ import {
   Sparkles,
   Sofa,
   CreditCard,
-  Phone,
-  Mail,
   User,
   PawPrint,
   Utensils,
@@ -857,12 +855,6 @@ export default function ListingPreviewModal({
                       <p className="font-bold text-foreground truncate">
                         {listing.owner?.displayName || "Chủ nhà HomeSpace"}
                       </p>
-                      {listing.owner?.phone && (
-                        <p className="text-muted-foreground flex items-center gap-1 mt-0.5">
-                          <Phone className="w-3 h-3 text-emerald-600" />
-                          {listing.owner.phone}
-                        </p>
-                      )}
                     </div>
                   </div>
                 </div>

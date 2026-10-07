@@ -43,10 +43,10 @@ const SUB_AREAS: AreaItem[] = [
     listingCount: "0 tin đăng",
   },
   {
-    id: "bd",
-    name: "Bình Dương",
-    slug: "binh-duong",
-    image: "/area/binh-duong-1.jpg",
+    id: "hp",
+    name: "Hải Phòng",
+    slug: "hai-phong",
+    image: "/area/hai-phong-1.jpg",
     listingCount: "0 tin đăng",
   },
 ];

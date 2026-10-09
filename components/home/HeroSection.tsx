@@ -102,13 +102,12 @@ export default function HeroSection() {
         </Carousel>
       </div>
 
-      {/* 2. Floating AI Search Bar (Gối 1/2 chiều cao lên banner) & Trust Badges */}
+      {/* Floating search bar and trust badges */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full -mt-16 sm:-mt-20 md:-mt-24 lg:-mt-28 relative z-20 flex flex-col items-center mb-8">
         <div className="w-full max-w-6xl shadow-2xl rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 p-2 sm:p-3 border border-slate-200/80 dark:border-slate-800">
           <AiSearchBar />
         </div>
 
-        {/* 3. Trust Badges */}
         <div className="mt-8 pt-4 w-full max-w-4xl grid grid-cols-2 md:grid-cols-3 gap-4 text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">
           <div className="flex items-center justify-center gap-2">
             <ShieldCheck className="w-4 h-4 text-[#22C55E] shrink-0" />

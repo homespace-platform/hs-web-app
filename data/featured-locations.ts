@@ -1,5 +1,9 @@
 import featuredLocationsData from "@/data/featured-locations.json";
-import type { PlaceSuggestion } from "@/services/property-search.service";
+
+interface PlaceSuggestion {
+  label: string;
+  searchText: string;
+}
 
 export interface FeaturedProvinceData {
   code: string;

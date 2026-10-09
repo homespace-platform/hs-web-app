@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import {
   Search,
   MapPin,
@@ -16,12 +15,7 @@ import provinceService from "@/services/province.service";
 import { District } from "@/types/province.type";
 import { getFeaturedLocationsByProvince } from "@/data/featured-locations";
 
-interface AiSearchBarProps {
-  onSearch?: (query: { keyword: string; location: string; type: string }) => void;
-}
-
-export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
-  const router = useRouter();
+export default function AiSearchBar() {
   const [keyword, setKeyword] = useState("");
   const [propertyType, setPropertyType] = useState("");
   const [isLocationOpen, setIsLocationOpen] = useState(false);
@@ -137,29 +131,6 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
     );
   }, [districts, districtSearchQuery]);
 
-  const handleSearch = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const query = keyword.trim();
-    if (!query) return;
-    // Keep the natural-language prompt clean; structured search context is sent separately.
-    const firstMessage = query;
-    onSearch?.({
-      keyword: query,
-      location: selectedDistrict ? `${selectedDistrict}, ${provinceName}` : provinceName,
-      type: propertyType,
-    });
-    const params = new URLSearchParams({
-      channel: "ai",
-      newSession: "1",
-      prompt: firstMessage,
-      searchListings: "1",
-      provinceCode: String(provinceCode),
-    });
-    if (selectedDistrict) params.set("district", selectedDistrict);
-    if (propertyType) params.set("category", propertyType.toUpperCase());
-    router.push(`/chat?${params.toString()}`);
-  };
-
   const handleQuickSuggestion = (item: string) => {
     setKeyword(item);
   };
@@ -168,18 +139,17 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
     <div className="w-full mx-auto">
       {/* Main Search Bar Card */}
       <div className="bg-card text-card-foreground rounded-2xl shadow-xl shadow-primary-dark/5 border border-border p-2 sm:p-3 relative z-30">
-        <form onSubmit={handleSearch} className="flex flex-col gap-2">
+        <form onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-2">
           {/* Keyword Search Input */}
           <div className="flex items-start px-4 py-3 rounded-xl bg-muted/60 focus-within:ring-2 focus-within:ring-primary/30 transition-colors">
             <Search className="w-5 h-5 text-primary shrink-0 mr-3 mt-1" />
             <textarea
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSearch(); } }}
               rows={2}
               maxLength={500}
-              aria-label="Mô tả nhu cầu tìm phòng bằng ngôn ngữ tự nhiên"
-              placeholder="Ví dụ: Tôi là sinh viên, tìm phòng trọ có gác và ban công dưới 3 triệu tại Gò Vấp..."
+              aria-label="Tìm tin đăng theo tên, địa chỉ hoặc từ khóa"
+              placeholder="Tìm theo tên, địa chỉ hoặc từ khóa tin đăng..."
               className="w-full min-h-14 resize-none bg-transparent border-none outline-none text-sm md:text-base text-foreground placeholder:text-muted-foreground focus:ring-0 p-0"
             />
           </div>
@@ -322,8 +292,9 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
           {/* Action Submit Button */}
           <Button
             type="submit"
-            disabled={!keyword.trim()}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-7 py-3 h-auto rounded-xl shadow-md shadow-primary/20 hover:shadow-lg transition-all shrink-0 flex items-center justify-center gap-2 cursor-pointer"
+            disabled
+            title="Tìm kiếm nhanh chưa được kích hoạt"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-7 py-3 h-auto rounded-xl shadow-md shadow-primary/20 hover:shadow-lg transition-all shrink-0 flex items-center justify-center gap-2 disabled:opacity-100 disabled:cursor-not-allowed"
           >
             <span>Tìm kiếm nhanh</span>
           </Button>
@@ -344,7 +315,7 @@ export default function AiSearchBar({ onSearch }: AiSearchBarProps) {
           <button
             key={`${item.label}-${idx}`}
             type="button"
-            onClick={() => handleQuickSuggestion(item.searchText)}
+            onClick={() => handleQuickSuggestion(item.label)}
             className="bg-card/80 hover:bg-primary/10 text-foreground hover:text-primary border border-border px-3 py-1.5 rounded-full transition-all text-xs font-medium cursor-pointer"
           >
             {item.label}

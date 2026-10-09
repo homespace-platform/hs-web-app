@@ -3,14 +3,7 @@ export type AiAnswerStatus =
   | "GENERAL_ANSWER"
   | "NO_EVIDENCE"
   | "OUT_OF_SCOPE"
-  | "GENERATION_UNAVAILABLE"
-  | "PROPERTY_SEARCH";
-
-export interface AiPropertySearchContext {
-  provinceCode: string;
-  district?: string;
-  category?: string;
-}
+  | "GENERATION_UNAVAILABLE";
 
 export interface AiCitation {
   documentId: string;
@@ -35,7 +28,6 @@ export interface AiConversationSummary {
   isPinned: boolean;
   createdAt: string;
   updatedAt: string;
-  searchContext?: AiPropertySearchContext | null;
 }
 
 export interface AiConversationMessage {

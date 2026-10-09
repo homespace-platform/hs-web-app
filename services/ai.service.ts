@@ -39,11 +39,10 @@ export const aiService = {
   async ask(
     question: string,
     conversationId: string,
-    searchContext?: { provinceCode: string; district?: string; category?: string },
   ): Promise<AiAskResponse> {
     const response = await axiosClient.post<ApiResponse<AiAskResponse>>(
       "/api/v1/ai/agent/ask",
-      { question, conversationId, ...(searchContext ? { searchContext } : {}) },
+      { question, conversationId },
     );
     return response.data.result;
   },

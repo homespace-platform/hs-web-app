@@ -18,7 +18,7 @@ import {
 import { useChatDemo } from "@/components/chat/ChatDemoProvider";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/features/auth/useAuth";
-import type { AiConversationDetail, AiConversationMessage, AiConversationSummary, AiPropertySearchContext } from "@/types/ai.type";
+import type { AiConversationDetail, AiConversationMessage, AiConversationSummary } from "@/types/ai.type";
 import { toast } from "sonner";
 
 function toChatMessage(message: AiConversationMessage): ChatMessage {
@@ -40,20 +40,9 @@ function toAiSession(conversation: AiConversationSummary | AiConversationDetail)
     createdAt: new Date(conversation.createdAt).toLocaleDateString("vi-VN"),
     updatedAt: conversation.updatedAt,
     isPinned: conversation.isPinned,
-    searchContext: conversation.searchContext,
     messages: "messages" in conversation ? conversation.messages.map(toChatMessage) : [],
     messagesLoaded: "messages" in conversation,
   };
-}
-
-function selectedProvinceCode(): string {
-  try {
-    const selected = JSON.parse(localStorage.getItem("homespace_selected_province") || "null");
-    const code = String(selected?.code ?? "79");
-    return /^\d{1,4}$/.test(code) ? code : "79";
-  } catch {
-    return "79";
-  }
 }
 
 export default function ChatPage() {
@@ -67,15 +56,6 @@ export default function ChatPage() {
   const router = useRouter();
   const conversationIdFromUrl = searchParams.get("conversationId");
   const channelFromUrl = searchParams.get("channel");
-  const createSessionFromUrl = searchParams.get("newSession") === "1";
-  const initialPromptFromUrl = searchParams.get("prompt");
-  const searchContextFromUrl = searchParams.get("searchListings") === "1"
-    ? {
-        provinceCode: searchParams.get("provinceCode") || "79",
-        district: searchParams.get("district") || undefined,
-        category: searchParams.get("category") || undefined,
-      }
-    : undefined;
   const [channel, setChannel] = useState<ChatChannelType>(
     conversationIdFromUrl || channelFromUrl === "direct" ? "direct" : "ai"
   );
@@ -102,16 +82,10 @@ export default function ChatPage() {
   // Mongo-backed AI conversations, scoped by the authenticated Gateway identity.
   const [aiSessions, setAiSessions] = useState<AiChatSession[]>([]);
   const [pendingAiSessionId, setPendingAiSessionId] = useState<string | null>(null);
-  const [initialPromptToSend, setInitialPromptToSend] = useState<{
-    sessionId: string;
-    prompt: string;
-    searchContext?: AiPropertySearchContext;
-  } | null>(null);
   const [loadingAiSessionId, setLoadingAiSessionId] = useState<string | null>(null);
   const [isInitializingAi, setIsInitializingAi] = useState(true);
   const initializedForUserRef = useRef<string | null>(null);
   const sendInFlightRef = useRef(false);
-  const handledInitialPromptRef = useRef<string | null>(null);
   const [activeAiSessionId, setActiveAiSessionId] = useState<string | null>(
     null
   );
@@ -133,20 +107,7 @@ export default function ChatPage() {
         const previous = await aiService.listConversations();
         if (initializedForUserRef.current !== ownerId) return;
 
-        if (createSessionFromUrl && initialPromptFromUrl?.trim()) {
-          const fresh = await aiService.createConversation();
-          if (initializedForUserRef.current !== ownerId) return;
-          setAiSessions([
-            { ...toAiSession(fresh), searchContext: searchContextFromUrl },
-            ...previous.map(toAiSession),
-          ]);
-          setActiveAiSessionId(fresh.id);
-          setInitialPromptToSend({
-            sessionId: fresh.id,
-            prompt: initialPromptFromUrl.trim(),
-            searchContext: searchContextFromUrl,
-          });
-        } else if (previous.length > 0) {
+        if (previous.length > 0) {
           const mostRecent = previous[0];
           try {
             const detail = await aiService.getConversation(mostRecent.id);
@@ -173,7 +134,7 @@ export default function ChatPage() {
         setIsInitializingAi(false);
       }
     })();
-  }, [authenticated, createSessionFromUrl, initialPromptFromUrl, initialized, profile?.id, searchContextFromUrl]);
+  }, [authenticated, initialized, profile?.id]);
 
   const {
     currentUserId,
@@ -290,11 +251,7 @@ export default function ChatPage() {
     }
   };
 
-  const handleSendAiMessage = async (
-    sessionId: string,
-    text: string,
-    searchContext?: AiPropertySearchContext,
-  ) => {
+  const handleSendAiMessage = async (sessionId: string, text: string) => {
     if (sendInFlightRef.current) return;
     if (!authenticated) {
       toast.error("Vui lòng đăng nhập để trò chuyện với HomeSpace AI.");
@@ -337,16 +294,7 @@ export default function ChatPage() {
     );
 
     try {
-      const targetSession = aiSessions.find((session) => session.id === targetSessionId);
-      // Seed the conversation with the province selected in the header even if
-      // its first messages were knowledge questions. Once saved, the backend
-      // retains district/category updates for later listing follow-ups.
-      const activeSearchContext = searchContext ?? (
-        targetSession?.searchContext
-          ? targetSession.messages.length === 0 ? targetSession.searchContext : undefined
-          : { provinceCode: selectedProvinceCode() }
-      );
-      const reply = await aiService.ask(text, targetSessionId, activeSearchContext);
+      const reply = await aiService.ask(text, targetSessionId);
       const replyTime = new Date();
       const replyTimeString = `${replyTime
         .getHours()
@@ -371,7 +319,6 @@ export default function ChatPage() {
           if (s.id === targetSessionId) {
             return {
               ...s,
-              searchContext: s.searchContext ?? activeSearchContext,
               messages: [...s.messages, aiReplyMsg],
             };
           }
@@ -406,19 +353,6 @@ export default function ChatPage() {
       sendInFlightRef.current = false;
     }
   };
-
-  useEffect(() => {
-    if (!initialPromptToSend || isInitializingAi) return;
-    const requestKey = `${initialPromptToSend.sessionId}:${initialPromptToSend.prompt}`;
-    if (handledInitialPromptRef.current === requestKey) return;
-    handledInitialPromptRef.current = requestKey;
-    void handleSendAiMessage(
-      initialPromptToSend.sessionId,
-      initialPromptToSend.prompt,
-      initialPromptToSend.searchContext,
-    );
-    router.replace("/chat?channel=ai", { scroll: false });
-  }, [handleSendAiMessage, initialPromptToSend, isInitializingAi, router]);
 
   const handleSelectAiSession = async (sessionId: string) => {
     setChatChannel("ai");

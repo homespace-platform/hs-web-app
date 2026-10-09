@@ -142,7 +142,7 @@ export default function AiChatWindow({
             </div>
             <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              {isAdmin ? "Kiến thức HomeSpace và hỏi đáp chung" : "Đồng hành cùng bạn trên HomeSpace"}
+              {isAdmin ? "Kiến thức HomeSpace và tin đăng hiện có" : "Hỏi đáp HomeSpace và tìm tin đăng"}
             </span>
           </div>
         </div>
@@ -186,9 +186,7 @@ export default function AiChatWindow({
               Xin chào{customerName ? `, ${customerName}` : " bạn"}! Mình có thể giúp gì hôm nay?
             </h2>
             <p className="text-xs sm:text-sm text-muted-foreground max-w-md mb-6">
-              {isAdmin
-                ? "Bạn có thể hỏi mình về HomeSpace hoặc các chủ đề khác. Câu trả lời về HomeSpace dựa trên tài liệu được duyệt; thông tin chung chưa được kiểm chứng theo thời gian thực."
-                : "Mình giúp bạn tìm hiểu cả việc cho thuê và đi thuê: tin đăng, yêu cầu thuê, hợp đồng, thanh toán và chính sách HomeSpace. Mình chưa xem được dữ liệu tài khoản theo thời gian thực."}
+              Mình có thể tìm tin đang hiển thị theo giá, địa điểm, loại hình, tiện ích, nội thất và các điều kiện thuê; hoặc giải đáp về HomeSpace từ tài liệu đã duyệt. Thông tin tin đăng được kiểm tra khi bạn hỏi, không phải dữ liệu tài khoản riêng.
             </p>
             {isSending && (
               <div className="flex items-center gap-2 text-xs text-primary mb-4 px-3 py-1.5 rounded-full bg-primary/10">
@@ -257,11 +255,13 @@ export default function AiChatWindow({
                     <div className={isUser ? "whitespace-pre-wrap leading-relaxed text-xs sm:text-sm" : "leading-relaxed text-xs sm:text-sm"}>
                       {isUser ? msg.content : <AiMarkdownMessage content={msg.content} />}
                     </div>
-                    {!isUser && msg.aiStatus && (
+                    {!isUser && msg.aiStatus && msg.aiStatus !== "ANSWERED" && (
                       <div className="mt-2 text-[11px] text-muted-foreground">
+                        {msg.aiStatus === "NO_RESULTS" && "Chưa có tin đăng đang hiển thị khớp các điều kiện."}
+                        {msg.aiStatus === "TOOL_UNAVAILABLE" && "Chưa kiểm tra được dữ liệu tin đăng trực tiếp; không suy đoán kết quả."}
                         {msg.aiStatus === "NO_EVIDENCE" && "Chưa tìm thấy tài liệu phù hợp."}
                         {msg.aiStatus === "GENERAL_ANSWER" && "Kiến thức chung · không lấy từ tài liệu HomeSpace."}
-                        {msg.aiStatus === "OUT_OF_SCOPE" && "Câu hỏi cần dữ liệu ngoài kho kiến thức tĩnh."}
+                        {msg.aiStatus === "OUT_OF_SCOPE" && "Hiện chưa hỗ trợ tra cứu dữ liệu này."}
                         {msg.aiStatus === "GENERATION_UNAVAILABLE" && "Trợ lý đang tạm gián đoạn."}
                       </div>
                     )}
@@ -357,7 +357,7 @@ export default function AiChatWindow({
               maxLength={500}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isAdmin ? "Hỏi HomeSpace hoặc bất kỳ chủ đề nào..." : "Hỏi về thuê nhà, cho thuê hoặc HomeSpace..."}
+              placeholder="Tìm phòng theo tiêu chí hoặc hỏi về HomeSpace..."
               className="flex-1 bg-transparent text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none py-1.5"
             />
 
@@ -377,7 +377,7 @@ export default function AiChatWindow({
 
           <div className="flex items-center justify-end px-1">
             <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">
-              {isAdmin ? "Câu hỏi HomeSpace dựa trên tài liệu được duyệt • Kiến thức chung chưa kiểm chứng thời gian thực" : "Trả lời dựa trên tài liệu HomeSpace được duyệt"} • Hội thoại được lưu riêng cho tài khoản của bạn
+              Tin đăng được tra cứu khi hỏi • Hướng dẫn dựa trên tài liệu được duyệt • Hội thoại được lưu riêng cho tài khoản của bạn
             </span>
           </div>
         </form>

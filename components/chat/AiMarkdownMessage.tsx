@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -91,16 +92,14 @@ export default function AiMarkdownMessage({
               {children}
             </td>
           ),
-          a: ({ href, children }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary underline hover:text-primary/80 transition-colors"
-            >
-              {children}
-            </a>
-          ),
+          a: ({ href, children }) => {
+            const className = "text-primary underline hover:text-primary/80 transition-colors";
+            // Listing answers link to published detail pages inside HomeSpace.
+            if (href && /^\/rent\/[0-9a-fA-F-]{36}$/.test(href)) {
+              return <Link href={href} className={className}>{children}</Link>;
+            }
+            return <a href={href} target="_blank" rel="noopener noreferrer" className={className}>{children}</a>;
+          },
           hr: () => <hr className="my-3 border-border" />,
         }}
       >

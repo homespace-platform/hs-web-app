@@ -1,5 +1,7 @@
 export type AiAnswerStatus =
   | "ANSWERED"
+  | "NO_RESULTS"
+  | "TOOL_UNAVAILABLE"
   | "GENERAL_ANSWER"
   | "NO_EVIDENCE"
   | "OUT_OF_SCOPE"

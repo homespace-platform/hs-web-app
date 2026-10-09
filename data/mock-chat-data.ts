@@ -375,6 +375,24 @@ export const MOCK_CONVERSATIONS: ChatConversation[] = [
 
 export const AI_QUICK_TOPICS = [
   {
+    id: "listing-room",
+    title: "Tìm phòng trọ",
+    desc: "Lọc tin đang hiển thị theo khu vực và tiện ích",
+    prompt: "Tìm phòng trọ ở Phường Phú Lợi, Thành phố Hồ Chí Minh có ban công và chỗ gửi xe máy.",
+  },
+  {
+    id: "listing-house",
+    title: "Xem nhà nguyên căn",
+    desc: "Hỏi các điều kiện thuê và sức chứa",
+    prompt: "Nhà nguyên căn ở Phường Bình Dương, Thành phố Hồ Chí Minh cho tối đa bao nhiêu người ở?",
+  },
+  {
+    id: "listing-apartment",
+    title: "Xem căn hộ",
+    desc: "Tra cứu giá và số phòng ngủ từ tin đăng",
+    prompt: "Căn hộ ở Phường Thủ Dầu Một, Thành phố Hồ Chí Minh có bao nhiêu phòng ngủ và giá thuê bao nhiêu?",
+  },
+  {
     id: "topic-1",
     title: "HomeSpace là gì?",
     desc: "Tìm hiểu nền tảng và các tính năng chính",

@@ -76,8 +76,8 @@ export default function AiMarkdownMessage({
             );
           },
           table: ({ children }) => (
-            <div className="overflow-x-auto my-3">
-              <table className="min-w-full divide-y divide-border border border-border text-xs rounded-lg overflow-hidden">
+            <div className="max-w-full overflow-x-auto my-3 rounded-lg border border-border" role="region" aria-label="Bảng thông tin" tabIndex={0}>
+              <table className="min-w-[600px] w-full divide-y divide-border text-xs">
                 {children}
               </table>
             </div>

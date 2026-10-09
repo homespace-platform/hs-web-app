@@ -21,7 +21,6 @@ import {
   ChatChannelType,
   AiChatSession,
 } from "@/types/chat.type";
-import { AI_QUICK_TOPICS } from "@/data/mock-chat-data";
 
 interface ChatSidebarProps {
   channel: ChatChannelType;
@@ -34,7 +33,6 @@ interface ChatSidebarProps {
   onDeleteAiSession?: (id: string) => void;
   onTogglePinAiSession?: (id: string) => void;
   isAiInitializing?: boolean;
-  onSelectAiTopic?: (prompt: string) => void;
   onToggleCollapse?: () => void;
   // Direct P2P Conversations
   directConversations: ChatConversation[];
@@ -60,7 +58,6 @@ export default function ChatSidebar({
   onDeleteAiSession,
   onTogglePinAiSession,
   isAiInitializing = false,
-  onSelectAiTopic,
   onToggleCollapse,
   directConversations,
   activeDirectConversationId,
@@ -326,24 +323,6 @@ export default function ChatSidebar({
                 )}
               </div>
 
-              {/* Section 3: Gợi ý chủ đề nhanh bên dưới */}
-              <div className="pt-2 border-t border-border/60 space-y-1">
-                <div className="px-2 py-1 text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
-                  Gợi ý chủ đề nhanh
-                </div>
-                <div className="space-y-1">
-                  {AI_QUICK_TOPICS.map((topic) => (
-                    <div
-                      key={topic.id}
-                      onClick={() => onSelectAiTopic && onSelectAiTopic(topic.prompt)}
-                      className="px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 border border-transparent hover:border-primary/20 transition-all cursor-pointer truncate"
-                      title={topic.prompt}
-                    >
-                      <span>• {topic.title}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         ) : (

@@ -451,7 +451,6 @@ export default function ChatPage() {
                 onTabChange={setActiveTab}
                 showHidden={showHidden}
                 onToggleShowHidden={() => setShowHidden((prev) => !prev)}
-                onSelectAiTopic={handleSelectAiTopic}
                 onToggleCollapse={toggleSidebar}
                 currentUserId={currentUserId}
               />

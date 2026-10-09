@@ -224,6 +224,7 @@ export default function AiChatWindow({
           <div className="max-w-3xl mx-auto space-y-5 pb-4">
             {messages.map((msg) => {
               const isUser = msg.sender === "me";
+              const hasTable = !isUser && /^\|[^\n]+\|\s*$/m.test(msg.content);
 
               return (
                 <div
@@ -246,7 +247,7 @@ export default function AiChatWindow({
                   )}
 
                   <div
-                    className={`max-w-[85%] sm:max-w-[78%] group relative ${
+                    className={`min-w-0 ${hasTable ? "w-[calc(100%-2.75rem)]" : "max-w-[85%] sm:max-w-[78%]"} group relative ${
                       isUser
                         ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-2.5 shadow-sm text-sm"
                         : "bg-card border border-border text-foreground rounded-2xl rounded-tl-sm px-4 py-3 shadow-2xs text-sm"

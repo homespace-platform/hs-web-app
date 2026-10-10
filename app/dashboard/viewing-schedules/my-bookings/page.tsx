@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   Calendar,
   Clock,
-  CheckCircle2,
   XCircle,
   CalendarCheck,
   RefreshCw,
@@ -21,11 +20,11 @@ import AppointmentCardCompact from "@/components/appointment/AppointmentCardComp
 import AppointmentDetailModal from "@/components/appointment/AppointmentDetailModal";
 import AppointmentDateFilter from "@/components/appointment/AppointmentDateFilter";
 import BookingAppointmentModal from "@/components/appointment/BookingAppointmentModal";
+import AppointmentCalendar from "@/components/appointment/AppointmentCalendar";
 
 const STATUS_TABS: { label: string; value: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { label: "Tất cả", value: "ALL", icon: Calendar },
+  { label: "Lịch xem", value: "CALENDAR", icon: Calendar },
   { label: "Chờ xác nhận", value: "PENDING", icon: Clock },
-  { label: "Đã xác nhận", value: "CONFIRMED", icon: CheckCircle2 },
   { label: "Đã hoàn thành", value: "COMPLETED", icon: CalendarCheck },
   { label: "Đã hủy", value: "CANCELLED", icon: XCircle },
   { label: "Đã từ chối", value: "REJECTED", icon: XCircle },
@@ -39,9 +38,10 @@ export default function MyViewingBookingsPage() {
   const [appointments, setAppointments] = useState<AppointmentResponse[]>([]);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [pendingCount, setPendingCount] = useState(0);
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>("CALENDAR");
   const [selectedDateFilter, setSelectedDateFilter] = useState<string | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
@@ -61,15 +61,45 @@ export default function MyViewingBookingsPage() {
     if (!authenticated) return;
     setLoading(true);
     try {
-      const res = await appointmentService.getMyBookings({
-        status: statusFilter,
-        date: selectedDateFilter,
-        page: currentPage,
-        size: 10,
-      });
-      setAppointments(res.result || []);
-      setTotalElements(res.totalElements || 0);
-      setTotalPages(res.totalPages || 1);
+      if (statusFilter === "CALENDAR") {
+        const calendarAppointments: AppointmentResponse[] = [];
+
+        for (const status of ["CONFIRMED", "COMPLETED"]) {
+          const firstPage = await appointmentService.getMyBookings({ status, page: 1, size: 50 });
+          calendarAppointments.push(...(firstPage.result || []));
+
+          for (let page = 2; page <= firstPage.totalPages; page += 1) {
+            const nextPage = await appointmentService.getMyBookings({ status, page, size: 50 });
+            calendarAppointments.push(...(nextPage.result || []));
+          }
+        }
+
+        setAppointments(calendarAppointments);
+        setTotalElements(calendarAppointments.length);
+        setTotalPages(1);
+      } else {
+        const res = await appointmentService.getMyBookings({
+          status: statusFilter,
+          date: selectedDateFilter,
+          page: currentPage,
+          size: 10,
+        });
+        setAppointments(res.result || []);
+        setTotalElements(res.totalElements || 0);
+        setTotalPages(res.totalPages || 1);
+        if (statusFilter === "PENDING") {
+          setPendingCount(res.totalElements || 0);
+        }
+      }
+
+      if (statusFilter !== "PENDING") {
+        const pendingPage = await appointmentService.getMyBookings({
+          status: "PENDING",
+          page: 1,
+          size: 1,
+        });
+        setPendingCount(pendingPage.totalElements || 0);
+      }
     } catch (err: any) {
       console.error("Lỗi khi tải lịch đi xem:", err);
       toast.error("Không thể tải danh sách lịch đi xem.");
@@ -156,13 +186,7 @@ export default function MyViewingBookingsPage() {
         </button>
       </div>
 
-      {/* 2. Bộ Lọc Theo Ngày (Date Filter) */}
-      <AppointmentDateFilter
-        selectedDate={selectedDateFilter}
-        onSelectDate={handleDateChange}
-      />
-
-      {/* 3. Bộ Lọc Theo Trạng Thái (Status Filter Tabs) */}
+      {/* 2. Bộ Lọc Theo Trạng Thái (Status Filter Tabs) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar border-b border-border">
         {STATUS_TABS.map((tab) => {
           const isActive = statusFilter === tab.value;
@@ -179,13 +203,44 @@ export default function MyViewingBookingsPage() {
               }`}
             >
               <span>{tab.label}</span>
+              {tab.value === "PENDING" && pendingCount > 0 && (
+                <span
+                  className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.15)]"
+                  title={`${pendingCount} lịch đang chờ xác nhận`}
+                  aria-label={`${pendingCount} lịch đang chờ xác nhận`}
+                />
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* 4. Danh Sách Lịch Hẹn (Compact Cards) */}
-      {loading ? (
+      <div
+        key={statusFilter}
+        className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300 motion-reduce:animate-none"
+      >
+        {/* 3. Bộ Lọc Theo Ngày (chỉ dùng cho dạng danh sách) */}
+        {statusFilter !== "CALENDAR" && (
+          <AppointmentDateFilter
+            selectedDate={selectedDateFilter}
+            onSelectDate={handleDateChange}
+          />
+        )}
+
+      {/* 4. Calendar cho lịch đã duyệt; các trạng thái khác giữ danh sách cũ */}
+      {statusFilter === "CALENDAR" ? (
+        loading ? (
+          <div className="flex flex-col items-center justify-center p-16 space-y-3 text-muted-foreground">
+            <RefreshCw className="w-7 h-7 animate-spin text-primary" />
+            <p className="text-xs">Đang tải calendar lịch đi xem của bạn...</p>
+          </div>
+        ) : (
+          <AppointmentCalendar
+            appointments={appointments}
+            onSelectAppointment={(appointment) => setDetailAppointment(appointment)}
+          />
+        )
+      ) : loading ? (
         <div className="flex flex-col items-center justify-center p-16 space-y-3 text-muted-foreground">
           <RefreshCw className="w-7 h-7 animate-spin text-primary" />
           <p className="text-xs">Đang tải danh sách lịch đi xem của bạn...</p>
@@ -230,35 +285,36 @@ export default function MyViewingBookingsPage() {
         </div>
       )}
 
-      {/* 5. Phân Trang (Pagination) */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-4 border-t border-border text-xs">
-          <span className="text-muted-foreground">
-            Tổng cộng: <strong className="text-foreground">{totalElements}</strong> lịch hẹn
-          </span>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            >
-              Trước
-            </button>
-            <span className="px-3 py-1.5 font-semibold text-foreground">
-              {currentPage} / {totalPages}
+        {/* 5. Phân Trang (Pagination) */}
+        {statusFilter !== "CALENDAR" && totalPages > 1 && (
+          <div className="flex items-center justify-between pt-4 border-t border-border text-xs">
+            <span className="text-muted-foreground">
+              Tổng cộng: <strong className="text-foreground">{totalElements}</strong> lịch hẹn
             </span>
-            <button
-              type="button"
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            >
-              Sau
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                Trước
+              </button>
+              <span className="px-3 py-1.5 font-semibold text-foreground">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                Sau
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* 6. Modal Xem Chi Tiết Lịch Hẹn */}
       <AppointmentDetailModal

@@ -5,14 +5,14 @@ import Image from "next/image";
 import {
   ArrowLeft,
   Check,
+  ChevronDown,
+  ChevronUp,
   Copy,
-  PanelLeftClose,
   PanelLeftOpen,
-  Plus,
   Send,
   Sparkles,
 } from "lucide-react";
-import { AiChatSession, ChatMessage } from "@/types/chat.type";
+import type { AiChatSession } from "@/types/chat.type";
 import AiListingCards from "@/components/chat/AiListingCards";
 import { AI_QUICK_TOPICS } from "@/data/mock-chat-data";
 import { toast } from "sonner";
@@ -22,14 +22,21 @@ interface AiChatWindowProps {
   session: AiChatSession | null;
   customerName?: string | null;
   isAdmin?: boolean;
-  onBack: () => void;
+  onBack?: () => void;
   onSendMessage: (sessionId: string, text: string) => void;
-  onNewSession: () => void;
   onSelectTopic: (prompt: string) => void;
   isSending?: boolean;
   isLoadingHistory?: boolean;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
+  /** Only dimensions change; both sizes render the same chat UI. */
+  size?: "full" | "compact";
+  headerActions?: React.ReactNode;
+  onToggleCollapse?: () => void;
+  regionId?: string;
+  bodyOverride?: React.ReactNode;
+  notice?: React.ReactNode;
+  isVisible?: boolean;
 }
 
 export default function AiChatWindow({
@@ -38,40 +45,51 @@ export default function AiChatWindow({
   isAdmin = false,
   onBack,
   onSendMessage,
-  onNewSession,
   onSelectTopic,
   isSending = false,
   isLoadingHistory = false,
   isSidebarCollapsed,
   onToggleSidebar,
+  size = "full",
+  headerActions,
+  onToggleCollapse,
+  regionId,
+  bodyOverride,
+  notice,
+  isVisible = true,
 }: AiChatWindowProps) {
   const [inputText, setInputText] = useState("");
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const streamRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const messages = useMemo(() => session?.messages || [], [session?.messages]);
   const isNewSession = messages.length === 0;
+  const compact = size === "compact";
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isSending]);
+    if (!isVisible) return;
+    const stream = streamRef.current;
+    // Scroll only the conversation, never the surrounding home page.
+    stream?.scrollTo({ top: isNewSession ? 0 : stream.scrollHeight, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+  }, [messages, isNewSession, isSending, isVisible]);
 
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = inputText.trim();
-    if (!trimmed || isSending) return;
+    if (!trimmed || isSending || isLoadingHistory) return;
 
     const targetSessionId = session?.id || "";
     onSendMessage(targetSessionId, trimmed);
     setInputText("");
     setTimeout(() => {
-      inputRef.current?.focus();
+      inputRef.current?.focus({ preventScroll: true });
     }, 50);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleSend();
     }
@@ -89,9 +107,9 @@ export default function AiChatWindow({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
+    <div className={`flex min-w-0 flex-col bg-background overflow-hidden ${compact ? "w-full" : "flex-1 min-h-0 h-full"}`}>
       {/* 1. Header */}
-      <div className="h-16 px-4 border-b border-border flex items-center justify-between bg-card/80 backdrop-blur-sm shrink-0 z-10">
+      <div className="min-h-16 gap-2 px-3 py-2 sm:px-4 border-b border-border flex items-center justify-between bg-card/80 backdrop-blur-sm shrink-0 z-10">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {/* Sidebar Expand Button (Only visible when sidebar is collapsed) */}
           {onToggleSidebar && isSidebarCollapsed && (
@@ -106,14 +124,14 @@ export default function AiChatWindow({
           )}
 
           {/* Mobile Back Button */}
-          <button
+          {onBack && <button
             type="button"
             onClick={onBack}
             className="md:hidden p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
             title="Quay lại danh sách"
           >
             <ArrowLeft className="w-5 h-5" />
-          </button>
+          </button>}
 
           {/* AI Avatar */}
           <div className="relative shrink-0">
@@ -136,43 +154,53 @@ export default function AiChatWindow({
               <span className="text-sm font-bold text-foreground truncate">
                 HomeSpace Assistant AI
               </span>
-              <span className="px-2 py-0.2 rounded-full bg-primary/10 text-primary text-[10px] font-bold border border-primary/20 flex items-center gap-1">
+              <span className="hidden sm:flex shrink-0 px-2 py-0.2 rounded-full bg-primary/10 text-primary text-[10px] font-bold border border-primary/20 items-center gap-1">
                 <Sparkles className="w-3 h-3 text-primary animate-pulse" />
                 <span>Trợ lý AI</span>
               </span>
             </div>
-            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              {isAdmin ? "Kiến thức HomeSpace và tin đăng hiện có" : "Hỏi đáp HomeSpace và tìm tin đăng"}
+            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 min-w-0">
+              <span className="w-1.5 h-1.5 shrink-0 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="truncate">{isAdmin ? "Kiến thức HomeSpace và tin đăng hiện có" : "Hỏi đáp HomeSpace và tìm tin đăng"}</span>
             </span>
           </div>
         </div>
 
         {/* Action Header Button */}
-        <div className="flex items-center gap-2">
-          <button
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          {headerActions}
+          {onToggleCollapse && <button
             type="button"
-            onClick={onNewSession}
-            disabled={isSending}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold border border-primary/20 transition-all cursor-pointer shadow-2xs"
+            onClick={onToggleCollapse}
+            aria-expanded={isVisible}
+            aria-controls={regionId}
+            aria-label={isVisible ? "Thu gọn hội thoại" : "Mở hội thoại"}
+            title={isVisible ? "Thu gọn hội thoại" : "Mở hội thoại"}
+            className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-primary cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Đoạn chat mới</span>
-          </button>
+            {isVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>}
         </div>
       </div>
 
+      {/* Keep the complete shared UI mounted when home collapses, including drafts. */}
+      <div id={regionId} inert={!isVisible} aria-hidden={!isVisible} className={`grid min-h-0 ${compact ? "" : "flex-1"} ${onToggleCollapse ? "transition-[grid-template-rows,opacity] duration-500 ease-out motion-reduce:transition-none" : ""} ${isVisible ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+      <div className="min-h-0 overflow-hidden">
+      <div className={`flex min-h-0 flex-col ${compact ? "h-[min(560px,65svh)] min-h-80" : "h-full"}`}>
+      {bodyOverride ?? <>
+      {notice}
+
       {/* 2. Chat Stream Area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
+      <div ref={streamRef} role="log" aria-label="Hội thoại với HomeSpace AI" aria-busy={isSending} className={`flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-5 ${compact ? "" : "md:p-8"}`}>
         {isLoadingHistory ? (
           <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
             Đang tải cuộc trò chuyện...
           </div>
         ) : isNewSession ? (
           /* Landing state khi chưa có tin nhắn */
-          <div className="max-w-2xl mx-auto h-full flex flex-col items-center justify-center text-center pb-8">
+          <div className="max-w-2xl mx-auto min-h-full flex flex-col items-center justify-center text-center pb-8">
             {/* Prominent, Large AI Logo */}
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white border border-primary/25 shadow-md flex items-center justify-center p-3 mb-5 hover:scale-105 transition-transform duration-300">
+            <div className={`${compact ? "w-14 h-14" : "w-20 h-20 sm:w-24 sm:h-24"} shrink-0 rounded-3xl bg-white border border-primary/25 shadow-md flex items-center justify-center p-3 mb-5 hover:scale-105 transition-transform duration-300`}>
               <Image
                 src="/logo/ai/homespace-ai-logo-removebg.png"
                 alt="HomeSpace AI"
@@ -332,7 +360,7 @@ export default function AiChatWindow({
       </div>
 
       {/* 3. Quick Suggestions Chips Bar */}
-      <div className="px-3 sm:px-4 py-2 border-t border-border/60 bg-muted/20 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+      <div className="shrink-0 px-3 sm:px-4 py-2 border-t border-border/60 bg-muted/20 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
         <span className="text-[11px] text-muted-foreground font-medium shrink-0 flex items-center gap-1 pl-1">
           <span>Gợi ý:</span>
         </span>
@@ -351,7 +379,7 @@ export default function AiChatWindow({
       </div>
 
       {/* 4. Bottom Message Input Bar */}
-      <div className="p-3 sm:p-4 border-t border-border bg-card">
+      <div className="shrink-0 p-3 sm:p-4 border-t border-border bg-card">
         <form onSubmit={handleSend} className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2 bg-muted/50 focus-within:bg-background border border-border focus-within:border-primary/50 rounded-2xl px-3 py-1.5 shadow-2xs transition-all">
             <input
@@ -359,15 +387,17 @@ export default function AiChatWindow({
               type="text"
               value={inputText}
               maxLength={500}
+              disabled={isLoadingHistory}
+              aria-label="Câu hỏi cho HomeSpace AI"
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Tìm phòng theo tiêu chí hoặc hỏi về HomeSpace..."
-              className="flex-1 bg-transparent text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none py-1.5"
+              className="flex-1 min-w-0 bg-transparent text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none py-1.5"
             />
 
             <button
               type="submit"
-              disabled={!inputText.trim() || isSending}
+              disabled={!inputText.trim() || isSending || isLoadingHistory}
               className={`p-2 rounded-xl font-semibold transition-all flex items-center justify-center cursor-pointer ${
                 inputText.trim() && !isSending
                   ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30 hover:scale-105 active:scale-95"
@@ -386,7 +416,10 @@ export default function AiChatWindow({
           </div>
         </form>
       </div>
-    
-</div>
+      </>}
+      </div>
+      </div>
+      </div>
+    </div>
   );
 }

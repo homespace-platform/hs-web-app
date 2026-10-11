@@ -18,34 +18,8 @@ import {
 import { useChatDemo } from "@/components/chat/ChatDemoProvider";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/features/auth/useAuth";
-import type { AiConversationDetail, AiConversationMessage, AiConversationSummary } from "@/types/ai.type";
+import { toAiSession } from "@/lib/ai-conversation";
 import { toast } from "sonner";
-
-function toChatMessage(message: AiConversationMessage): ChatMessage {
-  return {
-    id: message.id,
-    sender: message.role === "user" ? "me" : "them",
-    content: message.content,
-    timestamp: new Date(message.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-    createdAt: message.createdAt,
-    status: "read",
-    aiStatus: message.status ?? undefined,
-    listingIds: message.role === "assistant" ? message.listingIds : undefined,
-    listingPositions: message.role === "assistant" ? message.listingPositions : undefined,
-  };
-}
-
-function toAiSession(conversation: AiConversationSummary | AiConversationDetail): AiChatSession {
-  return {
-    id: conversation.id,
-    title: conversation.title,
-    createdAt: new Date(conversation.createdAt).toLocaleDateString("vi-VN"),
-    updatedAt: conversation.updatedAt,
-    isPinned: conversation.isPinned,
-    messages: "messages" in conversation ? conversation.messages.map(toChatMessage) : [],
-    messagesLoaded: "messages" in conversation,
-  };
-}
 
 export default function ChatPage() {
   const { profile, authenticated, initialized } = useAuth();
@@ -57,6 +31,8 @@ export default function ChatPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const conversationIdFromUrl = searchParams.get("conversationId");
+  // Separate from direct messaging's conversationId query parameter.
+  const aiConversationIdFromUrl = searchParams.get("aiConversationId");
   const channelFromUrl = searchParams.get("channel");
   const [channel, setChannel] = useState<ChatChannelType>(
     conversationIdFromUrl || channelFromUrl === "direct" ? "direct" : "ai"
@@ -87,6 +63,7 @@ export default function ChatPage() {
   const [loadingAiSessionId, setLoadingAiSessionId] = useState<string | null>(null);
   const [isInitializingAi, setIsInitializingAi] = useState(true);
   const initializedForUserRef = useRef<string | null>(null);
+  const initializedAiUrlRef = useRef<string | null>(null);
   const sendInFlightRef = useRef(false);
   const [activeAiSessionId, setActiveAiSessionId] = useState<string | null>(
     null
@@ -95,48 +72,68 @@ export default function ChatPage() {
   useEffect(() => {
     if (!authenticated || !profile?.id) {
       initializedForUserRef.current = null;
+      initializedAiUrlRef.current = null;
       setAiSessions([]);
       setActiveAiSessionId(null);
       if (initialized && !authenticated) setIsInitializingAi(false);
       return;
     }
-    if (initializedForUserRef.current === profile.id) return;
+    if (initializedForUserRef.current === profile.id && (!aiConversationIdFromUrl || initializedAiUrlRef.current === aiConversationIdFromUrl)) return;
     const ownerId = profile.id;
+    let cancelled = false;
+    let completed = false;
     initializedForUserRef.current = ownerId;
+    initializedAiUrlRef.current = aiConversationIdFromUrl;
     setIsInitializingAi(true);
     void (async () => {
       try {
         const previous = await aiService.listConversations();
-        if (initializedForUserRef.current !== ownerId) return;
+        if (cancelled || initializedForUserRef.current !== ownerId) return;
+
+        if (aiConversationIdFromUrl) {
+          // Ownership is checked by the same Gateway/API as normal chat history.
+          // Do not silently open an unrelated "most recent" or pinned conversation.
+          const detail = await aiService.getConversation(aiConversationIdFromUrl);
+          if (cancelled || initializedForUserRef.current !== ownerId) return;
+          setAiSessions([toAiSession(detail), ...previous.filter((conv) => conv.id !== detail.id).map(toAiSession)]);
+          setActiveAiSessionId(detail.id);
+          return;
+        }
 
         if (previous.length > 0) {
           const mostRecent = previous[0];
           try {
             const detail = await aiService.getConversation(mostRecent.id);
-            if (initializedForUserRef.current !== ownerId) return;
+            if (cancelled || initializedForUserRef.current !== ownerId) return;
             const sessions = previous.map((conv) =>
               conv.id === mostRecent.id ? toAiSession(detail) : toAiSession(conv)
             );
             setAiSessions(sessions);
             setActiveAiSessionId(mostRecent.id);
           } catch {
+            if (cancelled || initializedForUserRef.current !== ownerId) return;
             setAiSessions(previous.map(toAiSession));
             setActiveAiSessionId(mostRecent.id);
           }
         } else {
           const fresh = await aiService.createConversation();
-          if (initializedForUserRef.current !== ownerId) return;
+          if (cancelled || initializedForUserRef.current !== ownerId) return;
           setAiSessions([toAiSession(fresh)]);
           setActiveAiSessionId(fresh.id);
         }
       } catch (error) {
+        if (cancelled || initializedForUserRef.current !== ownerId) return;
         initializedForUserRef.current = null;
         toast.error(getApiErrorMessage(error, "Không tải được lịch sử trò chuyện. Vui lòng thử lại."));
       } finally {
-        setIsInitializingAi(false);
+        if (!cancelled) { completed = true; setIsInitializingAi(false); }
       }
     })();
-  }, [authenticated, initialized, profile?.id]);
+    return () => {
+      cancelled = true;
+      if (!completed && initializedForUserRef.current === ownerId) initializedForUserRef.current = null;
+    };
+  }, [authenticated, initialized, profile?.id, aiConversationIdFromUrl]);
 
   const {
     currentUserId,
@@ -478,12 +475,12 @@ export default function ChatPage() {
           <div className="flex-1 h-full flex flex-col overflow-hidden min-w-0">
             {activeChannel === "ai" ? (
               <AiChatWindow
+                size="full"
                 session={activeAiSession}
                 customerName={customerName}
                 isAdmin={isAdmin}
                 onBack={() => setActiveAiSessionId(null)}
                 onSendMessage={handleSendAiMessage}
-                onNewSession={handleNewAiSession}
                 onSelectTopic={handleSelectAiTopic}
                 isSending={isInitializingAi || (pendingAiSessionId !== null && pendingAiSessionId === activeAiSessionId)}
                 isLoadingHistory={loadingAiSessionId !== null && loadingAiSessionId === activeAiSessionId}

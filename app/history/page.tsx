@@ -13,6 +13,7 @@ import historyService from "@/services/history.service";
 import { clearHistoryThunk, setHistoryIds } from "@/features/history/historySlice";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { getVisiblePages } from "@/lib/pagination";
 import {
   Clock,
   Search,
@@ -405,24 +406,28 @@ export default function HistoryPage() {
                 </button>
 
                 {/* Page Numbers */}
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                  (pageNum) => {
-                    const isCurrent = currentPage === pageNum;
-                    return (
-                      <button
-                        key={pageNum}
-                        type="button"
-                        onClick={() => handlePageChange(pageNum)}
-                        className={`w-9 h-9 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
-                          isCurrent
-                            ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30 scale-105"
-                            : "border border-border bg-card hover:bg-muted text-foreground"
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  }
+                {getVisiblePages(currentPage, totalPages).map((pageNum, index) =>
+                  pageNum === "ellipsis" ? (
+                    <span
+                      key={`ellipsis-${index}`}
+                      className="w-9 h-9 flex items-center justify-center text-xs font-bold text-muted-foreground"
+                    >
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => handlePageChange(pageNum)}
+                      className={`w-9 h-9 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                        currentPage === pageNum
+                          ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30 scale-105"
+                          : "border border-border bg-card hover:bg-muted text-foreground"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  )
                 )}
 
                 {/* Next Page */}

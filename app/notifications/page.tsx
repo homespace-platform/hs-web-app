@@ -23,6 +23,7 @@ import {
   Filter,
   Newspaper,
 } from "lucide-react";
+import { getVisiblePages } from "@/lib/pagination";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -469,8 +470,15 @@ export default function NotificationsPage() {
                 </button>
 
                 <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (page) => (
+                  {getVisiblePages(currentPage, totalPages).map((page, index) =>
+                    page === "ellipsis" ? (
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="w-10 h-10 flex items-center justify-center text-xs font-bold text-muted-foreground"
+                      >
+                        …
+                      </span>
+                    ) : (
                       <button
                         key={page}
                         type="button"

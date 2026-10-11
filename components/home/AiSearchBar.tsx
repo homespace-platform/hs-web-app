@@ -90,7 +90,7 @@ export default function AiSearchBar() {
       <div className="bg-card text-card-foreground rounded-2xl shadow-xl shadow-primary-dark/5 border border-border p-2 sm:p-3 relative z-30">
         <div className="mb-2 flex items-center justify-between gap-2 px-2 pt-1 text-xs">
           <span className="flex items-center gap-1.5 font-semibold text-primary"><Sparkles className="h-3.5 w-3.5" />Tìm nơi ở theo cách của bạn</span>
-          <span className="hidden sm:inline text-muted-foreground">Hỏi AI ngay tại đây · không chuyển trang</span>
+          <span className="hidden sm:inline text-muted-foreground">Hỏi AI ngay tại đây</span>
         </div>
         <form onSubmit={(event) => { event.preventDefault(); handleSearch(); }} className="flex flex-col sm:flex-row gap-2">
           <div className="flex min-w-0 flex-1 items-start px-4 py-3 rounded-xl bg-muted/60 focus-within:ring-2 focus-within:ring-primary/30 transition-colors">

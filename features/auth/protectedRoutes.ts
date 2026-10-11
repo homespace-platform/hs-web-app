@@ -3,7 +3,7 @@ const PROTECTED_ROUTE_PREFIXES = [
   "/favorites",
   "/history",
   "/notifications",
-  "/chat",
+  "/chat/call",
 ] as const;
 
 export function isProtectedRoute(pathname: string) {

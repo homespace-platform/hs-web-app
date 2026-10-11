@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import Header from "@/components/layout/Header";
 import ChatSidebar from "@/components/chat/ChatSidebar";
 import ChatWindow from "@/components/chat/ChatWindow";
 import AiChatWindow from "@/components/chat/AiChatWindow";
 import ChatEmptyState from "@/components/chat/ChatEmptyState";
-import { aiService } from "@/services/ai.service";
+import { aiService, guestAiService } from "@/services/ai.service";
 import { getApiErrorMessage } from "@/utils/apiError";
 import axios from "axios";
 import {
@@ -20,19 +20,39 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/features/auth/useAuth";
 import { toAiSession } from "@/lib/ai-conversation";
 import { toast } from "sonner";
+import { guestChatState, isGuestLoginRequired, resumeGuestConversation } from "@/lib/guest-ai-session";
 
 export default function ChatPage() {
-  const { profile, authenticated, initialized } = useAuth();
-  const customerName = [profile?.lastName, profile?.firstName]
+  const { initialized, authenticated, profile } = useAuth();
+  const scope = !initialized ? "initializing" : authenticated ? `account:${profile?.id ?? "loading"}` : "guest";
+  // Remount on identity changes: neither old history nor drafts can flash in the
+  // next account/guest window, including while its history request is pending.
+  return <ChatWorkspace key={scope} />;
+}
+
+function ChatWorkspace() {
+  const { profile, authenticated, initialized, login } = useAuth();
+  const ownerKey = !initialized ? null : authenticated ? profile?.id ?? null : "guest";
+  useEffect(() => { if (ownerKey === "guest") return guestChatState.retain(); }, [ownerKey]);
+  const ownerRef = useRef(ownerKey);
+  useLayoutEffect(() => {
+    ownerRef.current = ownerKey;
+    return () => { ownerRef.current = null; };
+  }, [ownerKey]);
+  const chatApi = authenticated ? aiService : guestAiService;
+  const customerName = authenticated ? [profile?.lastName, profile?.firstName]
     .filter(Boolean)
     .join(" ")
-    .trim() || profile?.username || null;
-  const isAdmin = ["ADMIN", "ROLE_ADMIN"].includes(profile?.role?.toUpperCase() || "");
+    .trim() || profile?.username || null : null;
+  const isAdmin = authenticated && ["ADMIN", "ROLE_ADMIN"].includes(profile?.role?.toUpperCase() || "");
   const searchParams = useSearchParams();
   const router = useRouter();
   const conversationIdFromUrl = searchParams.get("conversationId");
   // Separate from direct messaging's conversationId query parameter.
   const aiConversationIdFromUrl = searchParams.get("aiConversationId");
+  const resumeGuestNonce = searchParams.get("resumeGuest");
+  const [resumedDraft, setResumedDraft] = useState("");
+  const [migrationError, setMigrationError] = useState(false);
   const channelFromUrl = searchParams.get("channel");
   const [channel, setChannel] = useState<ChatChannelType>(
     conversationIdFromUrl || channelFromUrl === "direct" ? "direct" : "ai"
@@ -57,7 +77,7 @@ export default function ChatPage() {
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  // Mongo-backed AI conversations, scoped by the authenticated Gateway identity.
+  // Account history is persisted; guest conversation lives in browser memory only.
   const [aiSessions, setAiSessions] = useState<AiChatSession[]>([]);
   const [pendingAiSessionId, setPendingAiSessionId] = useState<string | null>(null);
   const [loadingAiSessionId, setLoadingAiSessionId] = useState<string | null>(null);
@@ -70,16 +90,22 @@ export default function ChatPage() {
   );
 
   useEffect(() => {
-    if (!authenticated || !profile?.id) {
+    if (!ownerKey) {
       initializedForUserRef.current = null;
       initializedAiUrlRef.current = null;
       setAiSessions([]);
       setActiveAiSessionId(null);
-      if (initialized && !authenticated) setIsInitializingAi(false);
+      setIsInitializingAi(true);
       return;
     }
-    if (initializedForUserRef.current === profile.id && (!aiConversationIdFromUrl || initializedAiUrlRef.current === aiConversationIdFromUrl)) return;
-    const ownerId = profile.id;
+    if (initializedForUserRef.current === ownerKey && (!aiConversationIdFromUrl || initializedAiUrlRef.current === aiConversationIdFromUrl)) return;
+    const ownerId = ownerKey;
+    if (initializedForUserRef.current !== ownerId) {
+      setAiSessions([]);
+      setActiveAiSessionId(null);
+      setPendingAiSessionId(null);
+      setLoadingAiSessionId(null);
+    }
     let cancelled = false;
     let completed = false;
     initializedForUserRef.current = ownerId;
@@ -87,13 +113,31 @@ export default function ChatPage() {
     setIsInitializingAi(true);
     void (async () => {
       try {
-        const previous = await aiService.listConversations();
+        if (authenticated && resumeGuestNonce) {
+          const resumed = await resumeGuestConversation(resumeGuestNonce);
+          if (cancelled || initializedForUserRef.current !== ownerId) return;
+          if (resumed) {
+            const conversation = resumed.conversation ?? await aiService.createConversation();
+            if (cancelled || initializedForUserRef.current !== ownerId) return;
+            const others = await aiService.listConversations();
+            if (cancelled || initializedForUserRef.current !== ownerId) return;
+            setAiSessions([toAiSession(conversation), ...others.filter((item) => item.id !== conversation.id).map(toAiSession)]);
+            setActiveAiSessionId(conversation.id);
+            setResumedDraft(resumed.pendingQuestion);
+            setMigrationError(false);
+            initializedAiUrlRef.current = conversation.id;
+            router.replace(`/chat?channel=ai&aiConversationId=${encodeURIComponent(conversation.id)}`, { scroll: false });
+            toast.success("Đã lưu cuộc trò chuyện vào tài khoản. Bạn có thể gửi câu hỏi đang chờ.");
+            return;
+          }
+        }
+        const previous = await chatApi.listConversations();
         if (cancelled || initializedForUserRef.current !== ownerId) return;
 
         if (aiConversationIdFromUrl) {
           // Ownership is checked by the same Gateway/API as normal chat history.
           // Do not silently open an unrelated "most recent" or pinned conversation.
-          const detail = await aiService.getConversation(aiConversationIdFromUrl);
+          const detail = await chatApi.getConversation(aiConversationIdFromUrl);
           if (cancelled || initializedForUserRef.current !== ownerId) return;
           setAiSessions([toAiSession(detail), ...previous.filter((conv) => conv.id !== detail.id).map(toAiSession)]);
           setActiveAiSessionId(detail.id);
@@ -103,7 +147,7 @@ export default function ChatPage() {
         if (previous.length > 0) {
           const mostRecent = previous[0];
           try {
-            const detail = await aiService.getConversation(mostRecent.id);
+            const detail = await chatApi.getConversation(mostRecent.id);
             if (cancelled || initializedForUserRef.current !== ownerId) return;
             const sessions = previous.map((conv) =>
               conv.id === mostRecent.id ? toAiSession(detail) : toAiSession(conv)
@@ -116,7 +160,7 @@ export default function ChatPage() {
             setActiveAiSessionId(mostRecent.id);
           }
         } else {
-          const fresh = await aiService.createConversation();
+          const fresh = await chatApi.createConversation();
           if (cancelled || initializedForUserRef.current !== ownerId) return;
           setAiSessions([toAiSession(fresh)]);
           setActiveAiSessionId(fresh.id);
@@ -124,6 +168,7 @@ export default function ChatPage() {
       } catch (error) {
         if (cancelled || initializedForUserRef.current !== ownerId) return;
         initializedForUserRef.current = null;
+        if (authenticated && resumeGuestNonce) setMigrationError(true);
         toast.error(getApiErrorMessage(error, "Không tải được lịch sử trò chuyện. Vui lòng thử lại."));
       } finally {
         if (!cancelled) { completed = true; setIsInitializingAi(false); }
@@ -133,7 +178,7 @@ export default function ChatPage() {
       cancelled = true;
       if (!completed && initializedForUserRef.current === ownerId) initializedForUserRef.current = null;
     };
-  }, [authenticated, initialized, profile?.id, aiConversationIdFromUrl]);
+  }, [ownerKey, chatApi, aiConversationIdFromUrl, authenticated, resumeGuestNonce, router]);
 
   const {
     currentUserId,
@@ -170,23 +215,23 @@ export default function ChatPage() {
     : null;
 
   useEffect(() => {
-    if (selectedDirectConversationId) {
+    if (authenticated && selectedDirectConversationId) {
       void loadConversationMessages(selectedDirectConversationId);
     }
-  }, [selectedDirectConversationId, loadConversationMessages]);
+  }, [authenticated, selectedDirectConversationId, loadConversationMessages]);
 
   useEffect(() => {
     setActiveConversationId(
-      activeChannel === "direct" ? selectedDirectConversationId : null,
+      authenticated && activeChannel === "direct" ? selectedDirectConversationId : null,
     );
     return () => setActiveConversationId(null);
-  }, [activeChannel, selectedDirectConversationId, setActiveConversationId]);
+  }, [authenticated, activeChannel, selectedDirectConversationId, setActiveConversationId]);
 
   useEffect(() => {
-    if (activeChannel === "direct" && !selectedDirectConversationId && directConversations.length > 0) {
+    if (authenticated && activeChannel === "direct" && !selectedDirectConversationId && directConversations.length > 0) {
       setActiveDirectConversationId(directConversations[0].id);
     }
-  }, [activeChannel, selectedDirectConversationId, directConversations]);
+  }, [authenticated, activeChannel, selectedDirectConversationId, directConversations]);
 
   // Sidebar Drag-to-Resize Logic
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -230,37 +275,37 @@ export default function ChatPage() {
 
   // 1. AI Actions
   const handleNewAiSession = async (): Promise<string | null> => {
-    if (isInitializingAi) return null;
-    if (!authenticated) {
-      toast.error("Vui lòng đăng nhập để lưu cuộc trò chuyện.");
-      return null;
-    }
+    if (isInitializingAi || !ownerKey) return null;
+    if (!authenticated) return activeAiSessionId;
+    setResumedDraft("");
+    const requestOwner = ownerKey;
     setChatChannel("ai");
     if (activeAiSession && activeAiSession.messages.length === 0 && activeAiSession.title === "Đoạn chat mới") {
       return activeAiSession.id;
     }
     try {
-      const fresh = await aiService.createConversation();
+      const fresh = await chatApi.createConversation();
+      if (ownerRef.current !== requestOwner) return null;
       setAiSessions((prev) => [toAiSession(fresh), ...prev]);
       setActiveAiSessionId(fresh.id);
       return fresh.id;
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không tạo được cuộc trò chuyện mới."));
+      if (ownerRef.current === requestOwner) toast.error(getApiErrorMessage(error, "Không tạo được cuộc trò chuyện mới."));
       return null;
     }
   };
 
   const handleSendAiMessage = async (sessionId: string, text: string) => {
-    if (sendInFlightRef.current) return;
-    if (!authenticated) {
-      toast.error("Vui lòng đăng nhập để trò chuyện với HomeSpace AI.");
-      return;
-    }
+    if (sendInFlightRef.current || isInitializingAi || !ownerKey) return;
+    if (!authenticated && !guestChatState.canAsk(text)) return;
+    if (migrationError) return; // Don't replace the consented conversation with a fresh one.
+    setResumedDraft("");
+    const requestOwner = ownerKey;
     sendInFlightRef.current = true;
     let targetSessionId = sessionId;
     if (!aiSessions.some((session) => session.id === targetSessionId)) {
       const createdId = await handleNewAiSession();
-      if (!createdId) {
+      if (!createdId || ownerRef.current !== requestOwner) {
         sendInFlightRef.current = false;
         return;
       }
@@ -293,7 +338,8 @@ export default function ChatPage() {
     );
 
     try {
-      const reply = await aiService.ask(text, targetSessionId);
+      const reply = await chatApi.ask(text, targetSessionId);
+      if (ownerRef.current !== requestOwner) return;
       const replyTime = new Date();
       const replyTimeString = `${replyTime
         .getHours()
@@ -327,6 +373,12 @@ export default function ChatPage() {
         })
       );
     } catch (error) {
+      if (ownerRef.current !== requestOwner) return;
+      if (isGuestLoginRequired(error)) {
+        setAiSessions((prev) => prev.map((item) => item.id === targetSessionId
+          ? { ...item, messages: item.messages.filter((message) => message.id !== userMsg.id) } : item));
+        return;
+      }
       const errorMessage = axios.isAxiosError(error) && [502, 503, 504].includes(error.response?.status ?? 0)
         ? "Trợ lý AI đang khởi động hoặc tạm gián đoạn. Vui lòng thử lại sau ít phút."
         : getApiErrorMessage(error, "Không thể kết nối trợ lý AI. Vui lòng thử lại sau.");
@@ -350,32 +402,36 @@ export default function ChatPage() {
         ),
       );
     } finally {
-      setPendingAiSessionId(null);
+      if (ownerRef.current === requestOwner) setPendingAiSessionId(null);
       sendInFlightRef.current = false;
     }
   };
 
   const handleSelectAiSession = async (sessionId: string) => {
+    const requestOwner = ownerKey;
     setChatChannel("ai");
     setActiveAiSessionId(sessionId);
     if (aiSessions.find((session) => session.id === sessionId)?.messagesLoaded) return;
     setLoadingAiSessionId(sessionId);
     try {
-      const conversation = await aiService.getConversation(sessionId);
+      const conversation = await chatApi.getConversation(sessionId);
+      if (ownerRef.current !== requestOwner) return;
       setAiSessions((prev) => prev.map((session) =>
         session.id === sessionId ? toAiSession(conversation) : session,
       ));
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không tải được cuộc trò chuyện."));
+      if (ownerRef.current === requestOwner) toast.error(getApiErrorMessage(error, "Không tải được cuộc trò chuyện."));
     } finally {
-      setLoadingAiSessionId(null);
+      if (ownerRef.current === requestOwner) setLoadingAiSessionId(null);
     }
   };
 
   const handleDeleteAiSession = async (sessionId: string) => {
+    const requestOwner = ownerKey;
     if (!window.confirm("Xóa vĩnh viễn cuộc trò chuyện này?")) return;
     try {
-      await aiService.deleteConversation(sessionId);
+      await chatApi.deleteConversation(sessionId);
+      if (ownerRef.current !== requestOwner) return;
       const remaining = aiSessions.filter((session) => session.id !== sessionId);
       setAiSessions(remaining);
       if (activeAiSessionId === sessionId) {
@@ -389,10 +445,12 @@ export default function ChatPage() {
   };
 
   const handleTogglePinAiSession = async (sessionId: string) => {
+    const requestOwner = ownerKey;
     const session = aiSessions.find((item) => item.id === sessionId);
     if (!session) return;
     try {
-      const updated = await aiService.setPinned(sessionId, !session.isPinned);
+      const updated = await chatApi.setPinned(sessionId, !session.isPinned);
+      if (ownerRef.current !== requestOwner) return;
       setAiSessions((prev) => prev.map((item) =>
         item.id === sessionId ? { ...item, isPinned: updated.isPinned } : item,
       ));
@@ -429,7 +487,7 @@ export default function ChatPage() {
                 channel={activeChannel}
                 onChannelChange={setChatChannel}
                 // AI Sessions
-                aiSessions={aiSessions}
+                aiSessions={authenticated ? aiSessions : []}
                 activeAiSessionId={activeAiSessionId}
                 onSelectAiSession={(id) => {
                   void handleSelectAiSession(id);
@@ -437,10 +495,10 @@ export default function ChatPage() {
                 onNewAiSession={handleNewAiSession}
                 onDeleteAiSession={handleDeleteAiSession}
                 onTogglePinAiSession={handleTogglePinAiSession}
-                isAiInitializing={isInitializingAi}
+                isAiInitializing={isInitializingAi || !authenticated}
                 // Direct P2P
-                directConversations={directConversations}
-                activeDirectConversationId={selectedDirectConversationId}
+                directConversations={authenticated ? directConversations : []}
+                activeDirectConversationId={authenticated ? selectedDirectConversationId : null}
                 onSelectDirectConversation={(id) => {
                   setChatChannel("direct");
                   setActiveDirectConversationId(id);
@@ -475,18 +533,34 @@ export default function ChatPage() {
           <div className="flex-1 h-full flex flex-col overflow-hidden min-w-0">
             {activeChannel === "ai" ? (
               <AiChatWindow
+                key={`${ownerKey ?? "initializing"}:${resumedDraft ? activeAiSessionId : ""}`}
                 size="full"
                 session={activeAiSession}
                 customerName={customerName}
+                isGuest={!authenticated}
+                initialDraft={resumedDraft}
+                notice={migrationError && <div role="alert" className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  Chưa chuyển được cuộc trò chuyện khách. Nội dung vẫn được giữ tạm để thử lại; mình chưa gửi câu hỏi đang chờ.
+                  <button type="button" onClick={() => window.location.reload()} className="ml-2 font-semibold underline">Thử lưu lại</button>
+                </div>}
                 isAdmin={isAdmin}
                 onBack={() => setActiveAiSessionId(null)}
                 onSendMessage={handleSendAiMessage}
                 onSelectTopic={handleSelectAiTopic}
                 isSending={isInitializingAi || (pendingAiSessionId !== null && pendingAiSessionId === activeAiSessionId)}
-                isLoadingHistory={loadingAiSessionId !== null && loadingAiSessionId === activeAiSessionId}
+                isLoadingHistory={isInitializingAi || (loadingAiSessionId !== null && loadingAiSessionId === activeAiSessionId)}
                 isSidebarCollapsed={isSidebarCollapsed}
                 onToggleSidebar={toggleSidebar}
               />
+            ) : !authenticated ? (
+              <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+                <h2 className="text-lg font-semibold">Đăng nhập để trò chuyện với chủ nhà</h2>
+                <p className="max-w-sm text-sm text-muted-foreground">Bạn vẫn có thể hỏi trợ lý AI và tìm nơi ở mà không cần tài khoản.</p>
+                <div className="flex flex-wrap justify-center gap-3">
+                  <button type="button" onClick={login} className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground cursor-pointer">Đăng nhập</button>
+                  <button type="button" onClick={() => setChatChannel("ai")} className="rounded-xl border border-border px-4 py-2 text-sm font-medium cursor-pointer">Hỏi trợ lý AI</button>
+                </div>
+              </div>
             ) : activeDirectConversation ? (
               <ChatWindow
                 conversation={activeDirectConversation}

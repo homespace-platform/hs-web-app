@@ -6,22 +6,25 @@ import { Search, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getFeaturedLocationsByProvince } from "@/data/featured-locations";
 import { useAuth } from "@/features/auth/useAuth";
-import { aiService } from "@/services/ai.service";
+import { aiService, guestAiService } from "@/services/ai.service";
 import { createHomeAiChat } from "@/lib/home-ai-chat";
 import { toast } from "sonner";
+import { guestChatState } from "@/lib/guest-ai-session";
 
 const HomeAiChatPanel = dynamic(() => import("./HomeAiChatPanel"), {
   loading: () => <div role="status" className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-5 text-sm text-primary">Đang mở HomeSpace AI…</div>,
 });
 
 export default function AiSearchBar() {
-  const { profile, authenticated, initialized, login } = useAuth();
-  const ownerId = authenticated ? profile?.id ?? null : null;
-  const chat = useMemo(() => createHomeAiChat(ownerId, aiService), [ownerId]);
+  const { profile, authenticated, initialized } = useAuth();
+  const ownerId = !initialized ? null : authenticated ? profile?.id ?? null : "guest";
+  useEffect(() => { if (ownerId === "guest") return guestChatState.retain(); }, [ownerId]);
+  const chatApi = authenticated ? aiService : guestAiService;
+  const chat = useMemo(() => createHomeAiChat(ownerId, chatApi), [ownerId, chatApi]);
   const chatState = useSyncExternalStore(chat.subscribe, chat.getSnapshot, chat.getSnapshot);
   const [chatOpened, setChatOpened] = useState(false);
   const [chatVisible, setChatVisible] = useState(false);
-  const customerName = [profile?.lastName, profile?.firstName].filter(Boolean).join(" ") || profile?.username || null;
+  const customerName = authenticated ? [profile?.lastName, profile?.firstName].filter(Boolean).join(" ") || profile?.username || null : null;
   const [keyword, setKeyword] = useState("");
 
   // Province controls featured places only, never implicit AI search criteria.
@@ -147,14 +150,10 @@ export default function AiSearchBar() {
         open={chatVisible}
         onToggle={() => setChatVisible((visible) => !visible)}
         state={chatState}
-        authenticated={Boolean(ownerId)}
+        authenticated={authenticated}
         initialized={initialized}
         customerName={customerName}
-        isAdmin={["ADMIN", "ROLE_ADMIN"].includes(profile?.role?.toUpperCase() || "")}
-        onLogin={() => {
-          try { sessionStorage.setItem("homespace_home_ai_draft", keyword); } catch { /* Storage may be disabled. */ }
-          login();
-        }}
+        isAdmin={authenticated && ["ADMIN", "ROLE_ADMIN"].includes(profile?.role?.toUpperCase() || "")}
         onSend={(text) => { void chat.send(text); }}
       />}
     </div>

@@ -53,7 +53,7 @@ test("busy mutex prevents duplicate clicks/Enter; home cannot reset its conversa
   assert.equal(chat.getSnapshot().session.id, "owned-session");
 });
 
-test("guest/empty/overlength inputs never call API", async () => {
+test("uninitialized/empty/overlength inputs never call API", async () => {
   const api = { createConversation: () => { throw new Error("API must not run"); } };
   assert.equal(await createHomeAiChat(null, api).send("Tìm phòng"), false);
   const chat = createHomeAiChat("tenant", api);
@@ -100,6 +100,35 @@ test("create failure preserves ability to start a session again", async () => {
   assert.equal(creates, 2);
 });
 
+test("guest quota shows a friendly limit notice, not a connection failure or a fake AI answer", async () => {
+  const chat = createHomeAiChat("guest", {
+    createConversation: async () => { throw { response: { status: 429 } }; },
+  });
+  assert.equal(await chat.send("Tìm phòng"), false);
+  assert.match(chat.getSnapshot().error, /Bạn đã hỏi khá nhiều/);
+  assert.equal(chat.getSnapshot().session, null);
+  assert.equal(chat.getSnapshot().isSending, false);
+});
+
+test("identity switch while reconciling a timeout never publishes old history or errors", async () => {
+  const pending = deferred();
+  const reading = deferred();
+  const chat = createHomeAiChat("old-owner", {
+    createConversation: async () => detail(),
+    ask: async () => { throw new Error("timeout"); },
+    getConversation: () => { reading.resolve(); return pending.promise; },
+  });
+  const sending = chat.send("Tìm phòng");
+  await reading.promise;
+  chat.setActive(false);
+  const next = createHomeAiChat("guest", {});
+  pending.resolve(detail("old-history", []));
+  assert.equal(await sending, false);
+  assert.equal(next.getSnapshot().session, null);
+  assert.equal(chat.getSnapshot().error, null);
+  assert.notEqual(chat.getSnapshot().session.id, "old-history");
+});
+
 test("natural-language questions are sent unchanged, without old selection criteria", async () => {
   const questions = [];
   const chat = createHomeAiChat("tenant", { createConversation: async () => detail(), ask: async (question) => { questions.push(question); return answer; } });
@@ -114,6 +143,7 @@ test("explicit handoff uses AI URL parameter, not direct-messaging conversationI
 });
 
 const ChatWindow = load("components/chat/AiChatWindow.tsx", {
+  "@/components/chat/GuestAiLoginDialog": () => null,
   "next/image": ({ unoptimized, ...props }) => React.createElement("img", props),
   "@/components/chat/AiListingCards": ({ listingIds, positions }) => React.createElement("div", { "data-card-ids": listingIds.join(","), "data-card-ordinal": positions?.[listingIds[0]] }),
   "@/components/chat/AiMarkdownMessage": ({ content }) => React.createElement("div", { "data-markdown": true }, content),
@@ -146,11 +176,14 @@ test("home is only an adapter to the whole shared chat, with smaller height and 
   assert.doesNotMatch(collapsed, /Quay lại danh sách/);
 });
 
-test("guest/loading keep shared header but replace chat body with safe explicit gates", () => {
+test("guest can use the shared composer and sees an anonymous greeting; loading stays gated", () => {
   const guest = renderToStaticMarkup(React.createElement(Panel, { ...panelProps, authenticated: false }));
-  assert.match(guest, /Đăng nhập để trò chuyện/);
+  assert.match(guest, /Chào bạn!/);
+  assert.doesNotMatch(guest, /Xin chào, Bạn|Đăng nhập để trò chuyện/);
   assert.match(guest, /HomeSpace Assistant AI/);
-  assert.doesNotMatch(guest, /Câu hỏi cho HomeSpace AI/);
+  assert.match(guest, /Câu hỏi cho HomeSpace AI/);
+  assert.match(guest, /Khách được hỏi 3 câu/);
+  assert.match(guest, /Hội thoại chỉ tồn tại trong phiên này/);
   const loading = renderToStaticMarkup(React.createElement(Panel, { ...panelProps, initialized: false }));
   assert.match(loading, /Đang chuẩn bị trợ lý/);
   assert.doesNotMatch(loading, /Câu hỏi cho HomeSpace AI/);
@@ -163,7 +196,7 @@ test("both sizes have identical header, welcome topics, chips and composer; only
     for (const content of ["HomeSpace Assistant AI", "Xin chào, Bạn", "Tìm hiểu HomeSpace", "Gợi ý:", "Câu hỏi cho HomeSpace AI"]) assert.ok(html.includes(content), `${size}: ${content}`);
     assert.doesNotMatch(html, /Đoạn chat mới/);
     assert.equal((html.match(/HomeSpace là gì\?<\/p>/g) || []).length, 1);
-    assert.match(html, /min-h-full/); // Welcome can scroll in compact mode.
+    assert.match(html, /data-ai-greeting/); // Welcome is the first assistant bubble.
     assert.equal(html.includes("560px,65svh"), size === "compact");
   }
 });
@@ -189,6 +222,7 @@ test("both sizes reuse the same two-sided stream, Markdown, card metadata and su
 function renderHomeSearch(snapshot, chatVisible = false) {
   let booleanState = 0;
   const SearchBar = load("components/home/AiSearchBar.tsx", {
+    "@/lib/guest-ai-session": { guestChatState: {} },
     react: { ...React, useState: (initial) => initial === false && ++booleanState <= 2 ? [chatVisible, () => {}] : React.useState(initial) },
     "next/dynamic": () => () => null,
     "@/components/ui/button": { Button: ({ children, ...props }) => React.createElement("button", props, children) },

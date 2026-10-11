@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, Loader2, LogIn, Sparkles } from "lucide-react";
+import { ArrowUpRight, Loader2 } from "lucide-react";
 import AiChatWindow from "@/components/chat/AiChatWindow";
 import { aiConversationHref } from "@/lib/ai-conversation";
 import type { HomeChatSnapshot } from "@/lib/home-ai-chat";
@@ -15,7 +15,6 @@ interface Props {
   initialized: boolean;
   customerName: string | null;
   isAdmin?: boolean;
-  onLogin: () => void;
   onSend: (text: string) => void;
 }
 
@@ -26,7 +25,7 @@ export function homeChatScrollTarget(panelTop: number, panelHeight: number, scro
 }
 
 // Home adapts conversation/auth state only. All chat UI lives in AiChatWindow.
-export default function HomeAiChatPanel({ open, onToggle, state, authenticated, initialized, customerName, isAdmin, onLogin, onSend }: Props) {
+export default function HomeAiChatPanel({ open, onToggle, state, authenticated, initialized, customerName, isAdmin, onSend }: Props) {
   const [ready, setReady] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -55,7 +54,8 @@ export default function HomeAiChatPanel({ open, onToggle, state, authenticated, 
       <AiChatWindow
         size="compact"
         session={state.session}
-        customerName={customerName}
+        customerName={authenticated ? customerName : null}
+        isGuest={!authenticated}
         isAdmin={isAdmin}
         isSending={state.isSending}
         isVisible={expanded}
@@ -70,12 +70,6 @@ export default function HomeAiChatPanel({ open, onToggle, state, authenticated, 
         }
         notice={state.error && <div role="alert" className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">{state.error}</div>}
         bodyOverride={!initialized ? <div role="status" className="flex flex-1 items-center justify-center gap-2 p-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Đang chuẩn bị trợ lý…</div>
-            : !authenticated ? <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-5 py-10 text-center">
-              <Sparkles className="mb-3 h-7 w-7 text-primary" />
-              <h3 className="text-lg font-bold">Mình sẵn sàng giúp bạn tìm nơi ở!</h3>
-              <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">Đăng nhập để hỏi AI và lưu hội thoại riêng của bạn. Câu hỏi vẫn ở ô tìm kiếm; bạn có thể gửi khi sẵn sàng.</p>
-              <button type="button" onClick={onLogin} className="mt-5 flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 cursor-pointer"><LogIn className="h-4 w-4" />Đăng nhập để trò chuyện</button>
-            </div>
             : undefined}
       />
     </section>

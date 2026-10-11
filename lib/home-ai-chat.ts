@@ -3,6 +3,7 @@ import type { AiChatSession } from "@/types/chat.type";
 import { toAiSession, toChatMessage } from "@/lib/ai-conversation";
 
 interface ChatApi {
+  canAsk?(question: string): boolean;
   createConversation(): Promise<AiConversationDetail>;
   getConversation(id: string): Promise<AiConversationDetail>;
   ask(question: string, conversationId: string): Promise<AiAskResponse>;
@@ -14,7 +15,7 @@ export interface HomeChatSnapshot {
   error: string | null;
 }
 
-// One controller per authenticated identity. Old in-flight results stay in the old
+// One controller per account or guest identity. Old in-flight results stay in the old
 // controller after logout/account switch, never in the next user's view.
 export function createHomeAiChat(ownerId: string | null, api: ChatApi) {
   let snapshot: HomeChatSnapshot = { session: null, isSending: false, error: null };
@@ -34,6 +35,7 @@ export function createHomeAiChat(ownerId: string | null, api: ChatApi) {
     async send(text: string) {
       const question = text.trim();
       if (!active || !ownerId || !question || question.length > 500 || snapshot.isSending) return false;
+      if (api.canAsk && !api.canAsk(question)) return false;
       update({ isSending: true, error: null });
       const createdAt = new Date().toISOString();
       const user = toChatMessage({ id: `local-user-${crypto.randomUUID()}`, role: "user", content: question, createdAt });
@@ -61,20 +63,31 @@ export function createHomeAiChat(ownerId: string | null, api: ChatApi) {
         });
         update({ session: { ...snapshot.session!, messages: [...snapshot.session!.messages, assistant] } });
         return true;
-      } catch {
+      } catch (error) {
         if (!active) return false;
+        const rateLimited = typeof error === "object" && error !== null && "response" in error
+          && (error as { response?: { status?: number } }).response?.status === 429;
+        const loginRequired = typeof error === "object" && error !== null && "code" in error
+          && error.code === "GUEST_LOGIN_REQUIRED";
         // A timeout does not prove the server rejected the question. Re-read history
         // once, and never automatically retry a paid generation request.
         let reconciled = false;
         if (conversationId) {
           try {
-            update({ session: toAiSession(await api.getConversation(conversationId)) });
+            const authoritative = await api.getConversation(conversationId);
+            if (!active) return false;
+            update({ session: toAiSession(authoritative) });
             reconciled = true;
           } catch { /* Preserve the visible question if the history is unavailable. */ }
         } else {
           update({ session: previousSession });
         }
-        update({ error: !conversationId
+        if (!active) return false;
+        update({ error: loginRequired ? null : rateLimited
+          ? "Bạn đã hỏi khá nhiều trong phiên này. Vui lòng chờ một chút rồi thử lại nhé."
+          : ownerId === "guest"
+          ? "Chưa nhận được phản hồi. Hội thoại khách chỉ giữ trong phiên này; mình không tự gửi lại để tránh phát sinh lượt hỏi trùng."
+          : !conversationId
           ? "Chưa tạo được hội thoại, nên câu hỏi chưa được gửi. Bạn thử gửi lại sau một chút nhé."
           : reconciled
           ? "Kết nối bị gián đoạn. Mình đã tải lại lịch sử hiện có; bạn kiểm tra câu trả lời bên dưới trước khi gửi lại nhé."

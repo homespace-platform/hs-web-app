@@ -17,10 +17,12 @@ import AiListingCards from "@/components/chat/AiListingCards";
 import { AI_QUICK_TOPICS } from "@/data/mock-chat-data";
 import { toast } from "sonner";
 import AiMarkdownMessage from "@/components/chat/AiMarkdownMessage";
+import GuestAiLoginDialog from "@/components/chat/GuestAiLoginDialog";
 
 interface AiChatWindowProps {
   session: AiChatSession | null;
   customerName?: string | null;
+  isGuest?: boolean;
   isAdmin?: boolean;
   onBack?: () => void;
   onSendMessage: (sessionId: string, text: string) => void;
@@ -36,12 +38,14 @@ interface AiChatWindowProps {
   regionId?: string;
   bodyOverride?: React.ReactNode;
   notice?: React.ReactNode;
+  initialDraft?: string;
   isVisible?: boolean;
 }
 
 export default function AiChatWindow({
   session,
   customerName,
+  isGuest = false,
   isAdmin = false,
   onBack,
   onSendMessage,
@@ -56,9 +60,10 @@ export default function AiChatWindow({
   regionId,
   bodyOverride,
   notice,
+  initialDraft = "",
   isVisible = true,
 }: AiChatWindowProps) {
-  const [inputText, setInputText] = useState("");
+  const [inputText, setInputText] = useState(initialDraft);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<HTMLDivElement>(null);
@@ -108,6 +113,7 @@ export default function AiChatWindow({
 
   return (
     <div className={`flex min-w-0 flex-col bg-background overflow-hidden ${compact ? "w-full" : "flex-1 min-h-0 h-full"}`}>
+      {isGuest && <GuestAiLoginDialog />}
       {/* 1. Header */}
       <div className="min-h-16 gap-2 px-3 py-2 sm:px-4 border-b border-border flex items-center justify-between bg-card/80 backdrop-blur-sm shrink-0 z-10">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -154,14 +160,10 @@ export default function AiChatWindow({
               <span className="text-sm font-bold text-foreground truncate">
                 HomeSpace Assistant AI
               </span>
-              <span className="hidden sm:flex shrink-0 px-2 py-0.2 rounded-full bg-primary/10 text-primary text-[10px] font-bold border border-primary/20 items-center gap-1">
-                <Sparkles className="w-3 h-3 text-primary animate-pulse" />
-                <span>Trợ lý AI</span>
-              </span>
             </div>
             <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 min-w-0">
               <span className="w-1.5 h-1.5 shrink-0 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="truncate">{isAdmin ? "Kiến thức HomeSpace và tin đăng hiện có" : "Hỏi đáp HomeSpace và tìm tin đăng"}</span>
+              <span className="truncate">{isAdmin ? "Trợ lý quản trị Homespace AI" : "Trợ lý Homespace AI"}</span>
             </span>
           </div>
         </div>
@@ -196,40 +198,19 @@ export default function AiChatWindow({
           <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
             Đang tải cuộc trò chuyện...
           </div>
-        ) : isNewSession ? (
-          /* Landing state khi chưa có tin nhắn */
-          <div className="max-w-2xl mx-auto min-h-full flex flex-col items-center justify-center text-center pb-8">
-            {/* Prominent, Large AI Logo */}
-            <div className={`${compact ? "w-14 h-14" : "w-20 h-20 sm:w-24 sm:h-24"} shrink-0 rounded-3xl bg-white border border-primary/25 shadow-md flex items-center justify-center p-3 mb-5 hover:scale-105 transition-transform duration-300`}>
-              <Image
-                src="/logo/ai/homespace-ai-logo-removebg.png"
-                alt="HomeSpace AI"
-                width={72}
-                height={72}
-                className="w-full h-full object-contain"
-                unoptimized
-              />
-            </div>
-
-            <h2 className="text-xl sm:text-2xl font-bold font-heading text-foreground tracking-tight mb-2">
-              Xin chào{customerName ? `, ${customerName}` : " bạn"}! Mình có thể giúp gì hôm nay?
-            </h2>
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-md mb-6">
-              Mình có thể tìm tin đang hiển thị theo giá, địa điểm, loại hình, tiện ích, nội thất và các điều kiện thuê; hoặc giải đáp về HomeSpace từ tài liệu đã duyệt. Thông tin tin đăng được kiểm tra khi bạn hỏi, không phải dữ liệu tài khoản riêng.
-            </p>
-            {isSending && (
-              <div className="flex items-center gap-2 text-xs text-primary mb-4 px-3 py-1.5 rounded-full bg-primary/10">
-                <Sparkles className="w-3.5 h-3.5 animate-pulse shrink-0" />
-                <span className="font-medium">Đang chuẩn bị cuộc trò chuyện...</span>
-                <div className="flex items-center gap-1">
-                  <span className="ai-typing-dot" />
-                  <span className="ai-typing-dot" />
-                  <span className="ai-typing-dot" />
-                </div>
+        ) : (
+          <div className="max-w-3xl mx-auto space-y-5 pb-4">
+            {/* Local greeting: not persisted or sent to the model as evidence. */}
+            <div className="flex gap-3 justify-start" data-ai-greeting="">
+              <div className="w-8 h-8 rounded-full bg-white border border-primary/25 p-1 shrink-0 shadow-2xs flex items-center justify-center mt-0.5">
+                <Image src="/logo/ai/homespace-ai-logo-removebg.png" alt="HomeSpace AI" width={24} height={24} className="w-full h-full object-contain" unoptimized />
               </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">
+              <div className="min-w-0 max-w-[85%] sm:max-w-[78%] rounded-2xl rounded-tl-sm border border-primary/15 bg-card px-4 py-3 text-xs sm:text-sm leading-relaxed shadow-2xs">
+                <p className="font-semibold">{!isGuest && customerName?.trim() ? `Xin chào, ${customerName.trim()}!` : "Chào bạn!"} Rất vui được đồng hành cùng bạn tại HomeSpace.</p>
+                <p className="mt-2">Mình có thể giúp bạn tìm nơi ở phù hợp hoặc giải đáp về HomeSpace. Bạn cứ chia sẻ khu vực, ngân sách và những tiện ích bạn mong muốn nhé!</p>
+              </div>
+            </div>
+            {isNewSession && <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pl-11 text-left">
               {AI_QUICK_TOPICS.map((topic) => (
                 <button
                   key={topic.id}
@@ -246,11 +227,7 @@ export default function AiChatWindow({
                   </p>
                 </button>
               ))}
-            </div>
-          </div>
-        ) : (
-          /* Conversation message list */
-          <div className="max-w-3xl mx-auto space-y-5 pb-4">
+            </div>}
             {messages.map((msg) => {
               const isUser = msg.sender === "me";
               const hasTable = !isUser && /^\|[^\n]+\|\s*$/m.test(msg.content);
@@ -411,7 +388,7 @@ export default function AiChatWindow({
 
           <div className="flex items-center justify-end px-1">
             <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">
-              Tin đăng được tra cứu khi hỏi • Hướng dẫn dựa trên tài liệu được duyệt • Hội thoại được lưu riêng cho tài khoản của bạn
+              Tin đăng được tra cứu khi hỏi • Hướng dẫn dựa trên tài liệu được duyệt • {isGuest ? "Khách được hỏi 3 câu • Hội thoại chỉ tồn tại trong phiên này" : "Hội thoại được lưu riêng cho tài khoản của bạn"}
             </span>
           </div>
         </form>

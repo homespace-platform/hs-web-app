@@ -15,7 +15,7 @@ export default function ChatEmptyState({
   onToggleSidebar,
 }: ChatEmptyStateProps) {
   return (
-    <div className="flex-1 flex flex-col h-full bg-background select-none overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
       {/* 1. Minimalist Header */}
       <div className="h-16 px-4 sm:px-6 border-b border-border flex items-center justify-between bg-card/80 backdrop-blur-sm shrink-0 z-10">
         <div className="flex items-center gap-3">

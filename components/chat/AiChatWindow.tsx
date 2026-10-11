@@ -13,6 +13,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { AiChatSession, ChatMessage } from "@/types/chat.type";
+import AiListingCards from "@/components/chat/AiListingCards";
 import { AI_QUICK_TOPICS } from "@/data/mock-chat-data";
 import { toast } from "sonner";
 import AiMarkdownMessage from "@/components/chat/AiMarkdownMessage";
@@ -88,7 +89,7 @@ export default function AiChatWindow({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-background select-none overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
       {/* 1. Header */}
       <div className="h-16 px-4 border-b border-border flex items-center justify-between bg-card/80 backdrop-blur-sm shrink-0 z-10">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -225,6 +226,7 @@ export default function AiChatWindow({
             {messages.map((msg) => {
               const isUser = msg.sender === "me";
               const hasTable = !isUser && /^\|[^\n]+\|\s*$/m.test(msg.content);
+              const hasCards = !isUser && Boolean(msg.listingIds?.length);
 
               return (
                 <div
@@ -247,7 +249,7 @@ export default function AiChatWindow({
                   )}
 
                   <div
-                    className={`min-w-0 ${hasTable ? "w-[calc(100%-2.75rem)]" : "max-w-[85%] sm:max-w-[78%]"} group relative ${
+                    className={`min-w-0 ${hasTable || hasCards ? "w-[calc(100%-2.75rem)]" : "max-w-[85%] sm:max-w-[78%]"} group relative ${
                       isUser
                         ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-2.5 shadow-sm text-sm"
                         : "bg-card border border-border text-foreground rounded-2xl rounded-tl-sm px-4 py-3 shadow-2xs text-sm"
@@ -256,6 +258,7 @@ export default function AiChatWindow({
                     <div className={isUser ? "whitespace-pre-wrap leading-relaxed text-xs sm:text-sm" : "leading-relaxed text-xs sm:text-sm"}>
                       {isUser ? msg.content : <AiMarkdownMessage content={msg.content} />}
                     </div>
+                    {hasCards && <AiListingCards listingIds={msg.listingIds!} positions={msg.listingPositions} />}
                     {!isUser && msg.aiStatus && msg.aiStatus !== "ANSWERED" && (
                       <div className="mt-2 text-[11px] text-muted-foreground">
                         {msg.aiStatus === "NO_RESULTS" && "Chưa có tin đăng đang hiển thị khớp các điều kiện."}

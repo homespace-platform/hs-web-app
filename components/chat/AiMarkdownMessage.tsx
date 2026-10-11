@@ -96,7 +96,7 @@ export default function AiMarkdownMessage({
             const className = "text-primary underline hover:text-primary/80 transition-colors";
             // Listing answers link to published detail pages inside HomeSpace.
             if (href && /^\/rent\/[0-9a-fA-F-]{36}$/.test(href)) {
-              return <Link href={href} className={className}>{children}</Link>;
+              return <Link href={href} target="_blank" rel="noopener noreferrer" prefetch={false} className={className}>{children}</Link>;
             }
             return <a href={href} target="_blank" rel="noopener noreferrer" className={className}>{children}</a>;
           },

@@ -22,6 +22,8 @@ export interface AiAskResponse {
   status: AiAnswerStatus;
   citations: AiCitation[];
   requestId: string;
+  listingIds?: string[];
+  listingPositions?: Record<string, number>;
 }
 
 export interface AiConversationSummary {
@@ -38,6 +40,8 @@ export interface AiConversationMessage {
   content: string;
   status?: AiAnswerStatus | null;
   createdAt: string;
+  listingIds?: string[];
+  listingPositions?: Record<string, number>;
 }
 
 export interface AiConversationDetail extends AiConversationSummary {

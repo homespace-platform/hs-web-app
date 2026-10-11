@@ -30,6 +30,8 @@ function toChatMessage(message: AiConversationMessage): ChatMessage {
     createdAt: message.createdAt,
     status: "read",
     aiStatus: message.status ?? undefined,
+    listingIds: message.role === "assistant" ? message.listingIds : undefined,
+    listingPositions: message.role === "assistant" ? message.listingPositions : undefined,
   };
 }
 
@@ -312,6 +314,8 @@ export default function ChatPage() {
         dateGroup: "Hôm nay",
         status: "read",
         aiStatus: reply.status,
+        listingIds: reply.listingIds,
+        listingPositions: reply.listingPositions,
       };
 
       setAiSessions((prev) =>

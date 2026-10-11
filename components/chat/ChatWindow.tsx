@@ -266,7 +266,7 @@ export default function ChatWindow({
   );
 
   return (
-    <div className="relative flex h-full flex-1 overflow-hidden bg-background select-none">
+    <div className="relative flex h-full flex-1 overflow-hidden bg-background">
       <div className="flex min-w-0 flex-1 flex-col">
       {/* 1. Chat Header */}
       <div className="h-16 px-4 border-b border-border flex items-center justify-between bg-card/80 backdrop-blur-sm shrink-0 z-10">

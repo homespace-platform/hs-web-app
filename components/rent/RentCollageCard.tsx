@@ -26,6 +26,7 @@ interface RentCollageCardProps {
   viewMode?: "collage" | "grid";
   initialFavorited?: boolean;
   onFavoriteChange?: (listingId: string, isFavorited: boolean) => void;
+  openInNewTab?: boolean;
 }
 
 export default function RentCollageCard({
@@ -33,6 +34,7 @@ export default function RentCollageCard({
   viewMode = "grid",
   initialFavorited = false,
   onFavoriteChange,
+  openInNewTab = false,
 }: RentCollageCardProps) {
   const { authenticated, login } = useAuth();
   const router = useRouter();
@@ -98,7 +100,16 @@ export default function RentCollageCard({
 
   const rawPrice =
     (property.details?.rawPrice as number) ?? property.priceMillion * 1_000_000;
-  const formattedPrice = formatVietnamesePrice(rawPrice, "tháng");
+  const pricing = property.details?.pricing as { amount?: number; unit?: string; currency?: string } | undefined;
+  const unitLabels: Record<string, string> = { MONTH: "tháng", ROOM_MONTH: "phòng/tháng", PERSON_MONTH: "người/tháng", M2_MONTH: "m²/tháng", SEAT_MONTH: "chỗ/tháng" };
+  const formattedPrice = openInNewTab && pricing
+    ? pricing.amount != null && Number.isFinite(Number(pricing.amount))
+      ? `${Number(pricing.amount).toLocaleString("vi-VN")} ${pricing.currency === "VND" ? "đ" : pricing.currency || "đ"}/${unitLabels[pricing.unit || ""] || pricing.unit || "tháng"}`
+      : "Chưa rõ giá thuê"
+    : formatVietnamesePrice(rawPrice, "tháng");
+  const navigationProps = openInNewTab
+    ? { target: "_blank", rel: "noopener noreferrer", prefetch: false as const, title: "Mở chi tiết tin đăng trong tab mới" }
+    : {};
 
   // 1. Collage View (Clean, Non-duplicated, Category-Exclusive Specs)
   if (viewMode === "collage") {
@@ -109,7 +120,7 @@ export default function RentCollageCard({
           {heartButtonElement}
         </div>
 
-        <Link href={`/rent/${property.id}`} className="block p-4 sm:p-5">
+        <Link href={`/rent/${property.id}`} {...navigationProps} className="block p-4 sm:p-5">
           {/* Image Gallery: adapts to 3+, 2, 1, or 0 images (NEVER duplicates images) */}
           {property.images.length >= 3 ? (
             <div className="grid grid-cols-12 gap-1.5 sm:gap-2 h-56 sm:h-64 rounded-2xl overflow-hidden relative mb-4 bg-muted">
@@ -276,7 +287,7 @@ export default function RentCollageCard({
               </div>
 
               {/* Nút Chat */}
-              <button
+              {!openInNewTab && <button
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
@@ -287,7 +298,7 @@ export default function RentCollageCard({
                 className="w-8 h-8 rounded-full border border-border bg-card hover:bg-muted text-muted-foreground hover:text-primary flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
               >
                 <MessageCircle className="w-4 h-4" />
-              </button>
+              </button>}
             </div>
           </div>
         </Link>
@@ -303,7 +314,7 @@ export default function RentCollageCard({
         {heartButtonElement}
       </div>
 
-      <Link href={`/rent/${property.id}`} className="flex flex-col flex-1 h-full">
+      <Link href={`/rent/${property.id}`} {...navigationProps} className="flex flex-col flex-1 h-full">
         {/* Single Main Image */}
         <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-muted shrink-0">
           {property.images[0] ? (
@@ -399,7 +410,7 @@ export default function RentCollageCard({
               </div>
 
               {/* Nút Chat nhanh */}
-              <button
+              {!openInNewTab && <button
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
@@ -410,7 +421,7 @@ export default function RentCollageCard({
                 className="w-7 h-7 rounded-full border border-border bg-card hover:bg-muted text-muted-foreground hover:text-primary flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
-              </button>
+              </button>}
             </div>
           </div>
         </div>

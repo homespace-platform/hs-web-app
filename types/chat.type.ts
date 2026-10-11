@@ -29,6 +29,8 @@ export interface ChatMessage {
     size?: string;
   }[];
   aiStatus?: import("@/types/ai.type").AiAnswerStatus;
+  listingIds?: string[];
+  listingPositions?: Record<string, number>;
 }
 
 export interface ChatConversation {

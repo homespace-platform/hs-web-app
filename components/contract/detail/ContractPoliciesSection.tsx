@@ -75,7 +75,7 @@ export default function ContractPoliciesSection({
   }
 
   const p = policies || {};
-  const noticeDays = p.noticeDaysBeforeTermination ?? 30;
+  const noticeDays = p.noticeDaysBeforeTermination;
   const lateMode = p.latePaymentFeeMode || "NONE";
   const savedFeeAmount = Number(p.latePaymentFeeAmount || 0);
   const savedGraceDays = Number(p.latePaymentFeeGraceDays || 0);
@@ -87,10 +87,11 @@ export default function ContractPoliciesSection({
       : chargeableDays > 0 ? savedFeeAmount : 0;
     return savedFeeCap > 0 ? Math.min(fee, savedFeeCap) : fee;
   };
-  const depositRefundDays = p.depositRefundDays ?? 15;
-  const sublettingAllowed = p.sublettingAllowed === true;
-  const petsAllowed = p.petsAllowed === true;
-  const smokingAllowed = p.smokingAllowed === true;
+  const depositRefundDays = p.depositRefundDays;
+  const policyText = (flag: string, key: string, yes: string, no: string) =>
+    typeof p[flag as keyof typeof p] === "boolean" ? (p[flag as keyof typeof p] ? yes : no)
+      : typeof p[key as keyof typeof p] === "string" && String(p[key as keyof typeof p]).trim()
+        ? String(p[key as keyof typeof p]) : "Chưa có thỏa thuận trong bản chụp hợp đồng";
 
   return (
     <section className="rounded-2xl border border-border bg-card p-4.5 space-y-4 shadow-2xs">
@@ -108,23 +109,23 @@ export default function ContractPoliciesSection({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5">
         <FieldRow
           label="Thời hạn báo trước khi chấm dứt"
-          value={`Tối thiểu ${noticeDays} ngày`}
+          value={noticeDays != null ? `Tối thiểu ${noticeDays} ngày` : "Chưa có thỏa thuận"}
         />
         <FieldRow
           label="Thời hạn hoàn trả tiền đặt cọc"
-          value={`Trong vòng ${depositRefundDays} ngày sau khi bàn giao`}
+          value={depositRefundDays != null ? `Trong vòng ${depositRefundDays} ngày sau khi bàn giao và quyết toán` : "Chưa có thỏa thuận"}
         />
         <FieldRow
           label="Cho thuê lại (Subletting)"
-          value={sublettingAllowed ? "Được phép (kèm thỏa thuận)" : "Tuyệt đối không được phép"}
+          value={policyText("sublettingAllowed", "subleasePolicy", "Được phép theo thỏa thuận", "Không được phép")}
         />
         <FieldRow
           label="Quy định nuôi thú cưng"
-          value={petsAllowed ? "Được phép tuân theo nội quy" : "Không nuôi thú cưng"}
+          value={policyText("petsAllowed", "petPolicy", "Được phép, tuân thủ nội quy", "Không được phép")}
         />
         <FieldRow
           label="Quy định hút thuốc trong nhà"
-          value={smokingAllowed ? "Khu vực cho phép" : "Nghiêm cấm hút thuốc"}
+          value={policyText("smokingAllowed", "smokingPolicy", "Chỉ tại khu vực cho phép", "Không được phép")}
         />
       </div>
 

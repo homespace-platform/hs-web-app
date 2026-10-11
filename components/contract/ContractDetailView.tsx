@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -36,6 +36,7 @@ import ContractDocumentSection from "@/components/contract/detail/ContractDocume
 import ContractSignaturePanel from "@/components/contract/detail/ContractSignaturePanel";
 import SmartCaSignaturePanel from "@/components/contract/detail/SmartCaSignaturePanel";
 import { contractListPath, invoiceDetailPath } from "@/lib/contract-routes";
+import { generateContractPreview } from "@/lib/contract-preview";
 
 export default function ContractDetailView({ perspective }: { perspective: "landlord" | "tenant" }) {
   const params = useParams();
@@ -47,11 +48,16 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   const [revision, setRevision] = useState<ContractRevisionResponse | null>(null);
   const [completeness, setCompleteness] = useState<ContractCompletenessResponse | null>(null);
   const [documents, setDocuments] = useState<ContractDocumentResponse[]>([]);
+  const [currentPreview, setCurrentPreview] = useState<ContractDocumentResponse | null>(null);
   const [payment, setPayment] = useState<ContractPaymentBreakdownResponse | null>(null);
   const [signatureState, setSignatureState] = useState<SignatureStateResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [rendering, setRendering] = useState(false);
+  const previewRequest = useRef<AbortController | null>(null);
+  const [reconcilingPreview, setReconcilingPreview] = useState(false);
+
+  useEffect(() => () => { previewRequest.current?.abort(); previewRequest.current = null; }, [contractId]);
   const [sending, setSending] = useState(false);
   const [signing, setSigning] = useState(false);
 
@@ -71,14 +77,18 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   const load = useCallback(async () => {
     if (!contractId) return;
     setLoading(true);
+    setRendering(false);
+    setReconcilingPreview(false);
+    setCurrentPreview(null);
     try {
       const c = await contractService.getContract(contractId);
-      const [rev, comp, docs, paymentBreakdown, sigState] = await Promise.all([
+      const [rev, comp, docs, paymentBreakdown, sigState, preview] = await Promise.all([
         contractService.getRevision(contractId),
         contractService.getCompleteness(contractId),
         contractService.getDocuments(contractId),
         contractService.getPaymentBreakdown(contractId),
         contractService.getSignatureState(contractId),
+        c.status === "DRAFT" ? contractService.getPreviewStatus(contractId) : Promise.resolve(null),
       ]);
       setContract(c);
       setRevision(rev);
@@ -86,6 +96,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       setWaterInitial(String(rev.meters?.waterInitial ?? ""));
       setCompleteness(comp);
       setDocuments(docs);
+      setCurrentPreview(preview);
       setPayment(paymentBreakdown);
       setSignatureState(sigState);
     } catch (err) {
@@ -113,18 +124,22 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   }, [load]);
 
   const latestDoc = useMemo(() => {
+    if (contract?.status === "DRAFT") return documents.find((doc) =>
+      doc.id === currentPreview?.id && doc.revisionId === revision?.id && doc.status === "READY"
+    ) ?? null;
     const ready = documents.filter(
       (d) => d.status === "READY" && (d.viewUrl || d.downloadUrl)
     );
     const preferred = ["SIGNED_FINAL", "SIGNED_LANDLORD", "OFFICIAL", "PREVIEW"];
     return ready.sort((a, b) => preferred.indexOf(a.purpose) - preferred.indexOf(b.purpose))[0]
       ?? documents[0] ?? null;
-  }, [documents]);
+  }, [documents, contract?.status, currentPreview, revision?.id]);
 
   const hasReadyCurrentDocument = useMemo(
     () =>
       Boolean(
         revision &&
+          (contract?.status !== "DRAFT" || currentPreview?.revisionId === revision.id) &&
           documents.some(
             (document) =>
               document.revisionId === revision.id &&
@@ -132,7 +147,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
               Boolean(document.storageObjectId)
           )
       ),
-    [documents, revision]
+    [documents, revision, contract?.status, currentPreview]
   );
 
   const electricityRequired = useMemo(() =>
@@ -213,29 +228,49 @@ export default function ContractDetailView({ perspective }: { perspective: "land
 
   // ACTION: TRIGGER PREVIEW
   async function handleRender() {
-    if (!contractId || !revision) return;
+    if (!contractId || !revision || previewRequest.current) return;
     if (metersDirty) {
       toast.warning("Vui lòng lưu chỉ số điện nước trước khi kết xuất hợp đồng.");
       document.getElementById("contract-handover")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
+    const request = new AbortController();
+    previewRequest.current = request;
     setRendering(true);
+    setReconcilingPreview(false);
     try {
-      const doc = await contractService.triggerPreview(contractId);
+      const doc = await generateContractPreview({
+        trigger: (signal) => contractService.triggerPreview(contractId, signal),
+        status: (signal) => contractService.getPreviewStatus(contractId, signal),
+      }, revision.id, request.signal, () => setReconcilingPreview(true));
+      if (request.signal.aborted) return;
+      if (!doc) {
+        toast.info("Chưa xác nhận được kết quả kết xuất. Hệ thống có thể vẫn đang xử lý; bạn có thể kiểm tra lại sau, không cần tạo hợp đồng mới.");
+        return;
+      }
       toast.success(
         `Đã kết xuất bản xem trước của bản sửa đổi số ${revision.revisionNumber}.`
       );
       setDocuments((prev) => [doc, ...prev.filter((d) => d.id !== doc.id)]);
-      const refreshedDocs = await contractService.getDocuments(contractId);
-      setDocuments(refreshedDocs);
-      const comp = await contractService.getCompleteness(contractId);
-      setCompleteness(comp);
+      setCurrentPreview(doc);
+      // A refresh failure must not turn an already confirmed export into an error toast.
+      const refreshed = await Promise.allSettled([
+        contractService.getDocuments(contractId), contractService.getCompleteness(contractId),
+      ]);
+      if (request.signal.aborted) return;
+      if (refreshed[0].status === "fulfilled") setDocuments(refreshed[0].value);
+      if (refreshed[1].status === "fulfilled") setCompleteness(refreshed[1].value);
     } catch (err) {
+      if (request.signal.aborted) return;
       toast.error(
         getApiErrorMessage(err, "Không thể kết xuất bản xem trước hợp đồng.")
       );
     } finally {
-      setRendering(false);
+      if (previewRequest.current === request) {
+        previewRequest.current = null;
+        setRendering(false);
+        setReconcilingPreview(false);
+      }
     }
   }
 
@@ -395,6 +430,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         isLandlord={isLandlord}
         isTenant={isTenant}
         rendering={rendering}
+        reconcilingPreview={reconcilingPreview}
         sending={sending}
         onRender={handleRender}
         onSend={handleSendToTenant}
@@ -445,13 +481,13 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         state={signatureState}
         isLandlord={isLandlord}
         isTenant={isTenant}
-        hasReadyPdf={Boolean(revision && documents.some(d => d.revisionId === revision.id && d.documentType === "PDF" && d.status === "READY"))}
+        hasReadyPdf={Boolean(!rendering && !metersDirty && !savingMeters && hasReadyCurrentDocument && revision && documents.some(d => d.revisionId === revision.id && d.documentType === "PDF" && d.status === "READY"))}
         onUpdated={refreshSignedState}
       /> : <ContractSignaturePanel
         contract={contract}
         isLandlord={isLandlord}
         isTenant={isTenant}
-        canSend={Boolean(completeness?.complete && hasReadyCurrentDocument)}
+        canSend={Boolean(!rendering && !metersDirty && completeness?.complete && hasReadyCurrentDocument)}
         sending={sending}
         signing={signing}
         onSend={handleSendToTenant}

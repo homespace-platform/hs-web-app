@@ -82,6 +82,7 @@ interface ContractHeaderProps {
   isLandlord: boolean;
   isTenant: boolean;
   rendering: boolean;
+  reconcilingPreview?: boolean;
   sending: boolean;
   onRender: () => Promise<void>;
   onSend: () => Promise<void>;
@@ -98,6 +99,7 @@ export default function ContractHeader({
   isLandlord,
   isTenant,
   rendering,
+  reconcilingPreview = false,
   sending,
   onRender,
   onSend,
@@ -206,12 +208,12 @@ export default function ContractHeader({
                 ) : (
                   <RefreshCw className="w-3.5 h-3.5" />
                 )}
-                Kết xuất lại file
+                {reconcilingPreview ? "Đang kiểm tra kết quả..." : rendering ? "Đang kết xuất..." : "Kết xuất file"}
               </button>
               {!smartCaMode && (
                 <button
                   type="button"
-                  disabled={sending || !completeness?.complete || !hasReadyDoc}
+                  disabled={rendering || sending || !completeness?.complete || !hasReadyDoc}
                   onClick={onSend}
                   title={
                     !completeness?.complete

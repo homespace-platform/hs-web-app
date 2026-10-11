@@ -109,11 +109,18 @@ export const contractService = {
   },
 
   /** Kết xuất bản nháp ra file. Trả về PDF nếu Gotenberg bật, ngược lại là DOCX. */
-  async triggerPreview(contractId: string): Promise<ContractDocumentResponse> {
+  async triggerPreview(contractId: string, signal?: AbortSignal): Promise<ContractDocumentResponse> {
     const response = await axiosClient.post<ApiResponse<ContractDocumentResponse>>(
-      `/api/v1/contracts/${contractId}/previews`
+      `/api/v1/contracts/${contractId}/previews`, undefined, { timeout: 95_000, signal }
     );
     return response.data.result;
+  },
+
+  async getPreviewStatus(contractId: string, signal?: AbortSignal): Promise<ContractDocumentResponse | null> {
+    const response = await axiosClient.get<ApiResponse<ContractDocumentResponse | null>>(
+      `/api/v1/contracts/${contractId}/preview-status`, { timeout: 10_000, signal }
+    );
+    return response.data.result ?? null;
   },
 
   async sendToTenant(contractId: string): Promise<ContractResponse> {

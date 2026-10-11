@@ -83,6 +83,15 @@ export interface PolicySnapshot {
   paymentDueDay?: string;
   paymentCycle?: string;
   noticeDaysBeforeTermination?: number;
+  noticeDaysBeforeMoveOut?: number;
+  depositDeductionConditions?: string;
+  subleasePolicy?: string;
+  petPolicy?: string;
+  smokingPolicy?: string;
+  overnightGuestPolicy?: string;
+  propertyInspectionNotice?: string;
+  vatPolicy?: string;
+  forceMajeure?: string;
   latePaymentFeeMode?: "NONE" | "FIXED_ONCE" | "FIXED_PER_DAY";
   latePaymentFeeAmount?: number;
   latePaymentFeeGraceDays?: number;

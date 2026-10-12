@@ -6,10 +6,11 @@ export interface InvoiceLine {
   quantity: number;
   unitPrice: number;
   amount: number;
+  quantityUnit?: "ngày" | "lần" | null;
 }
 
 export type OverdueActionType = "PAYMENT_REQUEST" | "EXTENSION_PROPOSAL" |
-  "MUTUAL_TERMINATION_PROPOSAL" | "LEGAL_REVIEW";
+  "MUTUAL_TERMINATION_PROPOSAL" | "LEGAL_REVIEW" | "AUTOMATIC_ROLLOVER";
 
 export interface OverdueAction {
   id: string;
@@ -42,7 +43,7 @@ export interface MonthlyInvoice {
   lateFeeAmount: number;
   serverNow: string;
   meterDeadlineAt: string;
-  workflowState: "UPCOMING" | "METER_REQUIRED" | "READY_FOR_ISSUE" | "METER_DEADLINE_MISSED" | "UNPAID" | "PAYMENT_REMINDER" | "OVERDUE" | "OVERDUE_ACTION_REQUIRED" | "UNDER_REVIEW" | "PAID" | "DEFERRED" | "ROLLED_OVER";
+  workflowState: "UPCOMING" | "METER_REQUIRED" | "READY_FOR_ISSUE" | "METER_DEADLINE_MISSED" | "UNPAID" | "PAYMENT_REMINDER" | "OVERDUE" | "OVERDUE_ACTION_REQUIRED" | "UNDER_REVIEW" | "PAID" | "DEFERRED" | "ROLLED_OVER" | "EXTENSION_PENDING" | "PAYMENT_EXTENDED";
   draftExtraCharges: { description: string; amount: number }[];
   overdueActions: OverdueAction[];
   deferredAt?: string;
@@ -58,6 +59,22 @@ export interface MonthlyInvoice {
   retainedDepositAmount?: number;
   originalDepositAmount?: number;
   canDeferToNextPeriod: boolean;
+  originalDueAt?: string;
+  lateFeeExempt: boolean;
+  electricityAutoFilled: boolean;
+  waterAutoFilled: boolean;
+  paymentExtensions: PaymentExtension[];
+  activeResolution: "NONE" | "EXTENSION_REQUEST" | "PAYMENT_EXTENSION" | "ROLLOVER" | "TERMINATION";
+  canRequestExtension: boolean;
+  canResolveOverdue: boolean;
+}
+
+export interface PaymentExtension {
+  id: string; days: number; note: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "CLOSED";
+  requestedAt: string; respondBy: string; requestedBy: string;
+  baseDueAt: string; frozenLateFee: number;
+  decidedAt?: string; decidedBy?: string; newDueAt?: string;
 }
 
 export interface IssueMonthlyInvoicePayload {

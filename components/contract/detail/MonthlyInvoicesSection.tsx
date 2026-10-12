@@ -11,6 +11,9 @@ import type { MonthlyInvoice } from "@/types/monthly-invoice.type";
 import type { PaymentRequest } from "@/types/payment-request.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 import OverdueActionsPanel from "./OverdueActionsPanel";
+import PaymentExtensionPanel from "./PaymentExtensionPanel";
+import { MeterReadingInput, MeterReadingSummary } from "./MeterReading";
+import InvoiceLineCalculation from "./InvoiceLineCalculation";
 
 type Extra = { description: string; amount: string };
 type Props = {
@@ -183,14 +186,16 @@ export default function MonthlyInvoicesSection({ contractId, contractActive, isL
           UPCOMING: "Kỳ thuê chưa đến ngày chốt chỉ số.",
           METER_REQUIRED: `Chủ nhà cần lưu chỉ số và phí phát sinh trước ${dateTime(invoice.meterDeadlineAt)}.`,
           READY_FOR_ISSUE: `Đã lưu bản nháp. Bạn có thể chốt và phát hành ngay; nếu không, hệ thống tự phát hành từ ${dateTime(invoice.meterDeadlineAt)}.`,
-          METER_DEADLINE_MISSED: "Đã qua hạn chốt chỉ số. Nếu chưa có dữ liệu hợp lệ, hệ thống không tự ước tính điện/nước; chủ nhà cần bổ sung và phát hành.",
+          METER_DEADLINE_MISSED: "Đã hết 24 giờ nhập chỉ số. Hệ thống sẽ tạm điền chỉ số cũ cho phần còn thiếu và phát hành; nếu thiếu chỉ số đầu hoặc biểu phí hợp lệ, cần bổ sung dữ liệu.",
+          EXTENSION_PENDING: "Đang chờ chủ nhà duyệt gia hạn. Phí phạt tạm dừng; nếu từ chối hoặc hết hạn phản hồi, phí sẽ được tính bù.",
+          PAYMENT_EXTENDED: "Đã gia hạn thanh toán. Giữ nguyên khoản phạt đã chốt, không tăng phí phạt thêm cho hóa đơn này.",
           UNPAID: "Hóa đơn đã phát hành, đang chờ người thuê thanh toán.",
           PAYMENT_REMINDER: "Sắp đến hạn thanh toán. Người thuê vui lòng kiểm tra số tiền và chuyển khoản.",
-          OVERDUE: "Hóa đơn quá hạn. Khoản phạt (nếu có trong hợp đồng) sẽ được tính riêng và cập nhật trên QR.",
+          OVERDUE: invoice.lateFeeExempt ? "Đã trễ hạn gia hạn. Khoản phạt đã chốt không tăng; nghĩa vụ thanh toán vẫn còn." : "Hóa đơn quá hạn. Khoản phạt (nếu có trong hợp đồng) sẽ được tính riêng và cập nhật trên QR.",
           OVERDUE_ACTION_REQUIRED: "Đã quá hạn 5 ngày: chủ nhà cần ghi nhận phương án xử lý bên dưới; hợp đồng, tiền cọc và tin đăng không tự thay đổi.",
           UNDER_REVIEW: "Đã báo chuyển khoản hoặc đang đối soát; phí phạt tạm dừng tăng trong lúc chờ xử lý.",
           PAID: "Đã xác nhận thanh toán.",
-          DEFERRED: "Chủ nhà đã cho phép cộng dồn khoản nợ này sang hóa đơn kỳ kế tiếp. Phí phạt đã dừng tăng; bạn vẫn có thể thanh toán hóa đơn này trước khi chuyển nợ.",
+          DEFERRED: `${invoice.overdueActions.some((action) => action.type === "AUTOMATIC_ROLLOVER") ? "Hệ thống đã tự chốt công nợ sau 10 ngày quá hạn" : "Chủ nhà đã cho phép cộng dồn khoản nợ này"} để cộng vào hóa đơn kỳ kế tiếp. Phí phạt đã dừng tăng; bạn vẫn có thể thanh toán hóa đơn này trước khi chuyển nợ.`,
           ROLLED_OVER: "Khoản nợ đã được cộng vào hóa đơn kỳ kế tiếp. QR của hóa đơn này đã hủy; vui lòng thanh toán theo hóa đơn mới.",
         };
         return <article key={invoice.id} className="rounded-2xl border border-border bg-card p-4 sm:p-5 space-y-4">
@@ -204,18 +209,19 @@ export default function MonthlyInvoicesSection({ contractId, contractActive, isL
           <p className={`rounded-lg px-3 py-2 text-xs ${["OVERDUE", "OVERDUE_ACTION_REQUIRED", "METER_DEADLINE_MISSED"].includes(invoice.workflowState) ? "bg-amber-50 text-amber-900" : "bg-blue-50 text-blue-800"}`}>
             {workflowMessage[invoice.workflowState]}
           </p>
+          {["UNPAID", "PAYMENT_REMINDER", "OVERDUE", "OVERDUE_ACTION_REQUIRED"].includes(invoice.workflowState) && <p className="text-xs text-muted-foreground">
+            Phạt chậm thanh toán tối đa 10 ngày theo đơn giá và mức trần của hợp đồng. Hết 10 ngày quá hạn chưa có phương án xử lý, hệ thống tự chốt nợ để cộng dồn nếu còn kỳ sau chưa phát hành; kỳ cuối giữ hóa đơn riêng để quyết toán.
+          </p>}
           {invoice.status === "DRAFT" && isLandlord && <div className="space-y-3 rounded-xl bg-muted/40 p-3">
-            <p className="text-xs text-muted-foreground">Từ ngày cuối kỳ, chủ nhà có thể chốt chỉ số và phát hành ngay để người thuê xem, thanh toán. Chỉ lưu bản nháp thì người thuê chưa thấy hóa đơn; hệ thống tự phát hành sau 10:00 ngày kế tiếp nếu đủ dữ liệu. Đơn giá lấy từ hợp đồng đã ký.</p>
+            <p className="text-xs text-muted-foreground">Chủ nhà có 24 giờ từ đầu ngày cuối kỳ để nhập chỉ số cuối kỳ. Có thể chốt và phát hành ngay; nếu chỉ lưu bản nháp, hệ thống tự phát hành từ {dateTime(invoice.meterDeadlineAt)} và tạm dùng chỉ số đầu kỳ cho phần chưa nhập. Đơn giá lấy từ hợp đồng đã ký.</p>
             {unsupportedWaterRate && <p className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">Biểu phí nước theo giá nhà nước chưa có đơn giá số cố định trong hợp đồng. Chưa thể phát hành tự động để tránh tính sai; vui lòng liên hệ quản trị viên.</p>}
             <div className="grid gap-3 sm:grid-cols-2">
-              {electricityRequired && <label className="text-xs font-medium">Điện cuối kỳ (đầu kỳ: {String(previousEnd(invoice, "electricity") ?? "chưa có")})
-                <input type="number" min={0} step="any" value={electricity[invoice.id] || ""}
-                  onChange={(e) => setElectricity((s) => ({ ...s, [invoice.id]: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" /></label>}
-              {waterRequired && <label className="text-xs font-medium">Nước cuối kỳ (đầu kỳ: {String(previousEnd(invoice, "water") ?? "chưa có")})
-                <input type="number" min={0} step="any" value={water[invoice.id] || ""}
-                  onChange={(e) => setWater((s) => ({ ...s, [invoice.id]: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" /></label>}
+              {electricityRequired && <MeterReadingInput name="điện" unit="kWh"
+                start={previousEnd(invoice, "electricity")} end={electricity[invoice.id] ?? ""}
+                onChange={(value) => setElectricity((s) => ({ ...s, [invoice.id]: value }))} />}
+              {waterRequired && <MeterReadingInput name="nước" unit="m³"
+                start={previousEnd(invoice, "water")} end={water[invoice.id] ?? ""}
+                onChange={(value) => setWater((s) => ({ ...s, [invoice.id]: value }))} />}
             </div>
             {rows.map((row, index) => <div key={index} className="flex flex-wrap gap-2">
               <input aria-label="Tên khoản phát sinh" placeholder="Tên khoản phát sinh" value={row.description}
@@ -240,11 +246,20 @@ export default function MonthlyInvoicesSection({ contractId, contractActive, isL
           </div>}
           {invoice.status !== "DRAFT" && <>
             <div className="divide-y divide-border text-sm">{invoice.lines.map((line, index) => <div key={index} className="flex justify-between gap-3 py-2">
-              <span>{line.description} <small className="text-muted-foreground">({line.quantity} × {money(line.unitPrice)})</small></span>
-              <strong>{money(line.amount)}</strong></div>)}
+              <div className="min-w-0">{line.description} <InvoiceLineCalculation line={line} />
+                {line.type === "ELECTRICITY" && <MeterReadingSummary start={invoice.electricityStart}
+                  end={invoice.electricityEnd} quantity={line.quantity} unit="kWh" />}
+                {line.type === "WATER" && <MeterReadingSummary start={invoice.waterStart}
+                  end={invoice.waterEnd} quantity={line.quantity} unit="m³" />}
+              </div>
+              <strong className="shrink-0">{money(line.amount)}</strong></div>)}
               <div className="flex justify-between pt-3 font-bold"><span>{invoice.status === "ROLLED_OVER" ? "Đã chuyển sang kỳ sau" : "Tổng hóa đơn"}</span><span>{money(invoice.totalAmount)}</span></div>
             </div>
-            {invoice.lateFeeAmount > 0 && invoice.status !== "ROLLED_OVER" && <p className="text-xs text-rose-700">Trong tổng trên có {money(invoice.lateFeeAmount)} phí chậm thanh toán theo hợp đồng. Nếu đã chuyển tiền, hãy gửi chứng từ để tạm dừng tăng phí.</p>}
+            {(invoice.electricityAutoFilled || invoice.waterAutoFilled) && <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
+              Chỉ số {invoice.electricityAutoFilled && invoice.waterAutoFilled ? "điện và nước" : invoice.electricityAutoFilled ? "điện" : "nước"} được hệ thống tạm điền bằng chỉ số đầu kỳ do chưa cập nhật trong 24 giờ. Phần tiêu thụ tạm tính bằng 0, không phải số đo thực tế.
+            </p>}
+            {invoice.lateFeeAmount > 0 && invoice.status !== "ROLLED_OVER" && <p className="text-xs text-rose-700">Trong tổng trên có {money(invoice.lateFeeAmount)} phí chậm thanh toán. {invoice.lateFeeExempt ? "Phí đã chốt, không tăng thêm cho hóa đơn này." : "Nếu đã chuyển tiền, hãy gửi chứng từ để tạm dừng tăng phí."}</p>}
+            <PaymentExtensionPanel invoice={invoice} isLandlord={isLandlord} isTenant={isTenant} refresh={refresh} />
             <OverdueActionsPanel invoice={invoice} contractActive={contractActive} isLandlord={isLandlord} isTenant={isTenant} refresh={refresh} />
             {payment && invoice.status !== "PAID" && invoice.status !== "ROLLED_OVER" && <div className="rounded-xl border border-border p-3 space-y-3 text-sm">
               <p className="font-semibold">Chuyển khoản trực tiếp cho chủ nhà</p>

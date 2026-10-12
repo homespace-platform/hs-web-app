@@ -82,7 +82,7 @@ export default function ContractPoliciesSection({
   const savedFeeCap = Number(p.latePaymentFeeCap || 0);
   const draftFeeAmount = Number(feeAmount);
   const feeAfterDays = (lateDays: number) => {
-    const chargeableDays = Math.max(0, lateDays - savedGraceDays);
+    const chargeableDays = Math.min(10, Math.max(0, lateDays - savedGraceDays));
     const fee = lateMode === "FIXED_PER_DAY" ? savedFeeAmount * chargeableDays
       : chargeableDays > 0 ? savedFeeAmount : 0;
     return savedFeeCap > 0 ? Math.min(fee, savedFeeCap) : fee;
@@ -151,7 +151,7 @@ export default function ContractPoliciesSection({
               className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2" />
           </label>}
           <p className="text-muted-foreground">{feeMode === "FIXED_PER_DAY" && draftFeeAmount > 0
-            ? `Trễ 1 ngày: ${formatVnd(draftFeeAmount)} · Trễ 5 ngày: ${formatVnd(draftFeeAmount * 5)}.`
+            ? `Trễ 1 ngày: ${formatVnd(draftFeeAmount)} · Trễ 5 ngày: ${formatVnd(draftFeeAmount * 5)} · Tối đa 10 ngày: ${formatVnd(draftFeeAmount * 10)} trên mỗi hóa đơn.`
             : feeMode === "FIXED_ONCE" && draftFeeAmount > 0 ? `Trễ 1 hay nhiều ngày: chỉ phạt một lần ${formatVnd(draftFeeAmount)}.`
             : feeMode !== "NONE" ? "Nhập mức tiền để xem ví dụ tính phí."
             : "Không cộng phí chậm thanh toán vào hóa đơn."}</p>
@@ -176,6 +176,7 @@ export default function ContractPoliciesSection({
               ? `sau ${savedGraceDays} ngày ân hạn kể từ hạn thanh toán ghi trên hóa đơn`
               : "từ ngày đầu tiên sau hạn thanh toán ghi trên hóa đơn"}. Sau 5 ngày quá hạn, hệ thống nhắc chủ nhà quyết định hướng xử lý.</p>
             {savedFeeCap > 0 && <p className="text-muted-foreground">Mức phạt tối đa của điều khoản cũ: {formatVnd(savedFeeCap)}.</p>}
+            {lateMode === "FIXED_PER_DAY" && <p className="text-muted-foreground">Hệ thống chỉ tính phạt tối đa 10 ngày trên mỗi hóa đơn; vẫn áp dụng mức trần tiền thấp hơn nếu có.</p>}
             {isDraft && <p className="font-medium text-amber-700">Hãy kết xuất lại hợp đồng để điều khoản này xuất hiện trong bản ký.</p>}
           </div>
         )}

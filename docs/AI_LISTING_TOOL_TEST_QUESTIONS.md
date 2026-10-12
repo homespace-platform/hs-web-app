@@ -1,6 +1,6 @@
 # Bộ câu hỏi kiểm thử trợ lý tìm tin đăng
 
-Nguồn đối chiếu: `hs-infrastructure/postgres/listings_seed_hcm_200.sql` (200 tin, 168 phường/xã/đặc khu thuộc mã tỉnh `79`). Chạy sau khi nạp seed và khởi động lại Core API + AI service. Đăng nhập tài khoản người thuê, mở `/chat?channel=ai`. Tin seed có số nhà/tên đường giả lập, không có tọa độ xác minh; không kiểm thử khoảng cách thật. Giá và lịch xem tính từ ngày chạy seed, nên đối chiếu trang chi tiết tin tại thời điểm test, không chốt số tĩnh.
+Nguồn đối chiếu: `hs-infrastructure/postgres/listings_seed_hcm.sql` (2.520 tin, 168 phường/xã/đặc khu thuộc mã tỉnh `79`, mỗi địa bàn 5 tin mỗi loại hình). Chạy sau khi nạp seed và khởi động lại Core API + AI service. Đăng nhập tài khoản người thuê, mở `/chat?channel=ai`. Tin seed có số nhà/tên đường giả lập, không có tọa độ xác minh; không kiểm thử khoảng cách thật. Giá và lịch xem tính từ ngày chạy seed, nên đối chiếu trang chi tiết tin tại thời điểm test, không chốt số tĩnh.
 
 Mỗi nhóm nhiều câu dưới đây nên gửi liên tiếp trong **cùng một đoạn chat** để kiểm tra nhớ ngữ cảnh. Khi ghi “tin vừa nêu”, AI phải giữ đúng tin trong đoạn chat; khi mở đoạn chat mới, không được mang tiêu chí từ đoạn cũ sang.
 

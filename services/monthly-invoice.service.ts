@@ -3,6 +3,21 @@ import type { ApiResponse } from "@/types/api.type";
 import type { IssueMonthlyInvoicePayload, MonthlyInvoice, OverdueActionType } from "@/types/monthly-invoice.type";
 
 export const monthlyInvoiceService = {
+  async requestPaymentExtension(id: string, days: number, note: string): Promise<MonthlyInvoice> {
+    const { data } = await axiosClient.post<ApiResponse<MonthlyInvoice>>(
+      `/api/v1/monthly-invoices/${id}/extension-requests`, { days, note });
+    return data.result;
+  },
+  async decidePaymentExtension(id: string, requestId: string, approve: boolean): Promise<MonthlyInvoice> {
+    const { data } = await axiosClient.post<ApiResponse<MonthlyInvoice>>(
+      `/api/v1/monthly-invoices/${id}/extension-requests/${requestId}/${approve ? "approve" : "reject"}`);
+    return data.result;
+  },
+  async extendPaymentDirectly(id: string, days: number, note: string): Promise<MonthlyInvoice> {
+    const { data } = await axiosClient.post<ApiResponse<MonthlyInvoice>>(
+      `/api/v1/monthly-invoices/${id}/extend-payment`, { days, note });
+    return data.result;
+  },
   async list(contractId: string): Promise<MonthlyInvoice[]> {
     const { data } = await axiosClient.get<ApiResponse<MonthlyInvoice[]>>(
       `/api/v1/monthly-invoices/contracts/${contractId}`

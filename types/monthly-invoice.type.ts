@@ -23,10 +23,20 @@ export interface OverdueAction {
   acknowledgedAt?: string;
 }
 
+export interface BillingPeriodView {
+  kind: "RECURRING" | "FINAL_SETTLEMENT" | "SUPPLEMENT";
+  paymentPeriodNumber: number | null;
+  rentPeriodStart: string | null;
+  rentPeriodEndExclusive: string | null;
+}
+
 export interface MonthlyInvoice {
+  billingPeriod?: BillingPeriodView;
   id: string;
   contractId: string;
   periodIndex: number;
+  finalCostSupplement?: boolean;
+  sourceInvoiceId?: string;
   periodStart: string;
   periodEndExclusive: string;
   status: MonthlyInvoiceStatus;

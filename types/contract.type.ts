@@ -4,6 +4,8 @@ export type ContractStatus =
   | "LANDLORD_SIGNATURE_PENDING"
   | "TENANT_SIGNATURE_PENDING"
   | "ACTIVE"
+  | "EXPIRED"
+  | "CLOSED"
   | "TERMINATED"
   | "CANCELLED";
 
@@ -130,6 +132,8 @@ export interface ContractResponse {
   templateId: string;
   templateVersionId: string;
   currentRevisionId?: string | null;
+  parentContractId?: string | null;
+  effectiveLeaseMonths?: number | null;
   status: ContractStatus;
   paymentStatus: ContractPaymentStatus;
   rentalPaymentId?: string | null;

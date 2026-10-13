@@ -1,0 +1,60 @@
+"use client";
+import { useRef, useState } from "react";
+import Image from "next/image";
+import { toast } from "sonner";
+import paymentService from "@/services/payment-request.service";
+import storageService from "@/services/storage.service";
+import type { PaymentRequest } from "@/types/payment-request.type";
+import { getApiErrorMessage } from "@/utils/apiError";
+const money = (n: number) => n.toLocaleString("vi-VN") + " đ";
+export default function SettlementPaymentPanel({ payment, isLandlord, refresh }: {
+  payment: PaymentRequest; isLandlord: boolean; refresh: () => Promise<void>;
+}) {
+  const mutex = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [proof, setProof] = useState<File | null>(null);
+  const [reason, setReason] = useState("");
+  const refund = payment.direction === "LANDLORD_TO_TENANT";
+  const payer = refund ? isLandlord : !isLandlord;
+  async function perform(action: () => Promise<unknown>) {
+    if (mutex.current) return;
+    mutex.current = true; setBusy(true);
+    try { await action(); await refresh(); toast.success("Đã cập nhật khoản quyết toán."); }
+    catch (error) { toast.error(getApiErrorMessage(error, "Chưa thể cập nhật thanh toán.")); }
+    finally { mutex.current = false; setBusy(false); }
+  }
+  async function report() {
+    if (!proof || proof.size > 15 * 1024 * 1024) { toast.error("Chọn chứng từ không quá 15 MB."); return; }
+    await perform(async () => {
+      const current = await paymentService.getPaymentRequest(payment.id);
+      if (current.totalAmount !== payment.totalAmount) throw new Error("Số tiền đã thay đổi; hãy tải lại.");
+      const proofStorageId = await storageService.uploadPaymentProof(proof, payment.id);
+      return paymentService.reportTransfer(payment.id, { proofStorageId, expectedAmount: payment.totalAmount });
+    });
+  }
+  async function viewProof(id: string) {
+    const tab = window.open("", "_blank");
+    try { const url = await storageService.getPaymentProofViewUrl(id); if (tab) { tab.opener = null; tab.location.href = url; } }
+    catch (error) { tab?.close(); toast.error(getApiErrorMessage(error, "Không mở được chứng từ.")); }
+  }
+  return <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/30 p-4 text-sm">
+    <h4 className="font-semibold">{refund ? "Hoàn cọc · Chủ nhà → Người thuê" : "Quyết toán còn thiếu · Người thuê → Chủ nhà"}</h4>
+    <p>Số tiền: <strong>{money(payment.totalAmount)}</strong> · Trạng thái: {payment.status === "CONFIRMED" ? "Đã nhận tiền" : payment.status === "TRANSFER_REPORTED" ? "Chờ bên nhận xác nhận" : payment.status === "OVERDUE" ? "Quá hạn, vẫn phải thanh toán" : "Chờ chuyển khoản"}</p>
+    <p className="text-xs">Hạn thanh toán: {payment.dueAt ? new Date(payment.dueAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—"}. Không tự coi đã nhận tiền chỉ vì bên gửi nộp chứng từ.</p>
+    <p>{payment.payeeBankAccountSnapshot?.bankName} · STK: <strong>{payment.payeeBankAccountSnapshot?.accountNumber}</strong> · {payment.payeeBankAccountSnapshot?.accountHolderName}</p>
+    <p>Nội dung chuyển khoản: <strong className="font-mono">{payment.transferReference}</strong></p>
+    {payer && payment.status !== "CONFIRMED" && payment.qrImageUrl && <Image unoptimized src={payment.qrImageUrl} alt="QR quyết toán" width={180} height={180} className="rounded-lg border" />}
+    {payer && ["AWAITING_TRANSFER", "REJECTED", "OVERDUE"].includes(payment.status) && <div className="flex flex-wrap gap-2">
+      <input aria-label="Chứng từ quyết toán" type="file" accept="image/*,.pdf" onChange={e => setProof(e.target.files?.[0] ?? null)} />
+      <button type="button" disabled={busy} onClick={() => void report()} className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">Tôi đã chuyển khoản</button>
+    </div>}
+    {(payment.evidences || []).map((e, i) => <button key={e.id} type="button" onClick={() => void viewProof(e.storageObjectId)} className="block text-xs text-primary underline">Xem chứng từ {i + 1}</button>)}
+    {!payer && payment.status === "TRANSFER_REPORTED" && <div className="flex flex-wrap gap-2">
+      <button type="button" disabled={busy} onClick={() => { if (window.confirm("Bạn đã thực sự nhận đủ số tiền vào tài khoản?")) void perform(() => paymentService.confirmReceipt(payment.id)); }} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">Xác nhận đã nhận tiền</button>
+      <input aria-label="Lý do từ chối chứng từ" value={reason} onChange={e => setReason(e.target.value)} placeholder="Lý do chưa xác nhận" className="rounded-lg border px-3 py-2 text-xs" />
+      <button type="button" disabled={busy || reason.trim().length < 10} onClick={() => void perform(() => paymentService.rejectReceipt(payment.id, { reason }))} className="rounded-lg border border-rose-200 px-3 py-2 text-xs text-rose-700 disabled:opacity-50">Từ chối chứng từ</button>
+    </div>}
+    {payment.rejectedReason && <p className="text-xs text-rose-700">Lý do từ chối: {payment.rejectedReason}</p>}
+    {payment.status === "DISPUTED" && <p className="text-xs text-rose-700">Đang tranh chấp; cần đối soát, không tự đóng hồ sơ.</p>}
+  </div>;
+}

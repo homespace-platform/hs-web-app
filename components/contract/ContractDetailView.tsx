@@ -35,7 +35,8 @@ import ContractHandoverSection from "@/components/contract/detail/ContractHandov
 import ContractDocumentSection from "@/components/contract/detail/ContractDocumentSection";
 import ContractSignaturePanel from "@/components/contract/detail/ContractSignaturePanel";
 import SmartCaSignaturePanel from "@/components/contract/detail/SmartCaSignaturePanel";
-import { contractListPath, invoiceDetailPath } from "@/lib/contract-routes";
+import ContractLifecyclePanel from "@/components/contract/detail/ContractLifecyclePanel";
+import { contractListPath, contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
 import { generateContractPreview } from "@/lib/contract-preview";
 
 export default function ContractDetailView({ perspective }: { perspective: "landlord" | "tenant" }) {
@@ -399,7 +400,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     </div>;
   }
 
-  const isDraft = contract.status === "DRAFT";
+  const isDraft = contract.status === "DRAFT" && !contract.parentContractId;
   const landlord = revision.landlord || {};
   const tenant = revision.tenant || {};
   const property = revision.property || {};
@@ -476,6 +477,10 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       )}
 
       {/* 3. SIGNATURE & CONFIRMATION PANEL (PROMINENT AT TOP / BOTTOM) */}
+      {contract.parentContractId && <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+        Đây là văn bản gia hạn liên kết hợp đồng gốc. Không thu lại cọc hoặc thanh toán INITIAL; giữ nguyên điều kiện đã chốt. Chỉ có hiệu lực sau đủ chữ ký hai bên.
+        <Link href={contractDetailPath(perspective, contract.parentContractId)} className="mt-2 block font-semibold underline">Mở hợp đồng gốc để theo dõi thời hạn, hóa đơn và cọc →</Link>
+      </div>}
       {signatureState?.signatureMode === "SMARTCA" ? <SmartCaSignaturePanel
         contract={contract}
         state={signatureState}
@@ -494,6 +499,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         onSign={handleSign}
       />}
 
+      {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED"].includes(contract.status) && <ContractLifecyclePanel contractId={contract.id} isLandlord={isLandlord} onUpdated={refreshSignedState} />}
       {/* 4. MAIN CONTRACT SECTIONS */}
       <div className="space-y-6">
         {/* CHỦ THỂ BÊN A VÀ BÊN B */}
@@ -509,11 +515,11 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         <ContractFinancialSection financial={financial} />
 
         {/* XÁC NHẬN THANH TOÁN BAN ĐẦU */}
-        <ContractInitialPaymentSection
+        {!contract.parentContractId && <ContractInitialPaymentSection
           initialPayment={initialPayment}
           paymentBreakdown={payment}
           paidAt={contract.paidAt}
-        />
+        />}
 
         {/* BẢNG TIỆN ÍCH DÙNG CHUNG VÀ CHÍNH SÁCH */}
         <ContractAmenitiesSection amenities={amenities} />
@@ -553,7 +559,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
 
         {/* DANH SÁCH FILE VĂN BẢN KẾT XUẤT */}
         <ContractDocumentSection documents={documents} />
-        {(contract.status === "ACTIVE" || contract.status === "TERMINATED") && <Link
+        {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status) && <Link
           href={invoiceDetailPath(contract.id)}
           className="block rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm font-semibold text-primary hover:bg-primary/10"
         >

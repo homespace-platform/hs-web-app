@@ -17,6 +17,8 @@ const STATUS_LABEL: Record<ContractStatus, string> = {
   LANDLORD_SIGNATURE_PENDING: "Chờ chủ nhà ký SmartCA",
   TENANT_SIGNATURE_PENDING: "Chờ người thuê ký SmartCA",
   ACTIVE: "Hiệu lực",
+  EXPIRED: "Hết thời hạn thuê",
+  CLOSED: "Đã quyết toán",
   TERMINATED: "Đã chấm dứt",
   CANCELLED: "Đã hủy",
 };
@@ -27,6 +29,8 @@ const STATUS_BADGE: Record<ContractStatus, string> = {
   LANDLORD_SIGNATURE_PENDING: "bg-sky-50 text-sky-700 border-sky-200",
   TENANT_SIGNATURE_PENDING: "bg-sky-50 text-sky-700 border-sky-200",
   ACTIVE: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300",
+  EXPIRED: "bg-amber-50 text-amber-800 border-amber-200",
+  CLOSED: "bg-slate-50 text-slate-700 border-slate-200",
   TERMINATED: "bg-zinc-100 text-zinc-600 border-zinc-200",
   CANCELLED: "bg-rose-50 text-rose-700 border-rose-200",
 };
@@ -95,7 +99,7 @@ export default function ContractListView({ perspective }: { perspective: "landlo
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(["ALL", ...(perspective === "landlord" ? ["DRAFT"] as const : []), "LANDLORD_SIGNATURE_PENDING", "TENANT_SIGNATURE_PENDING", "PENDING_REVIEW", "ACTIVE", "TERMINATED", "CANCELLED"] as const).map((key) => (
+        {(["ALL", ...(perspective === "landlord" ? ["DRAFT"] as const : []), "LANDLORD_SIGNATURE_PENDING", "TENANT_SIGNATURE_PENDING", "PENDING_REVIEW", "ACTIVE", "EXPIRED", "CLOSED", "TERMINATED", "CANCELLED"] as const).map((key) => (
           <button
             key={key}
             type="button"
@@ -153,7 +157,7 @@ export default function ContractListView({ perspective }: { perspective: "landlo
                   </span>
                 </div>
                 </button>
-                {(c.status === "ACTIVE" || c.status === "TERMINATED") && <Link href={invoiceDetailPath(c.id)}
+                {["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(c.status) && <Link href={invoiceDetailPath(c.id)}
                   className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline">
                   Xem hóa đơn tháng →
                 </Link>}

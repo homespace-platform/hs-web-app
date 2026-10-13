@@ -48,7 +48,7 @@ export default function ContractInvoicesPage() {
   const isLandlord = role === "landlord" && profile?.id === contract.landlordId;
   const isTenant = role === "tenant" && profile?.id === contract.tenantId;
   if (!isLandlord && !isTenant) return <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">Hợp đồng này không thuộc vai trò {role === "landlord" ? "cho thuê" : "đi thuê"} của bạn. <Link href="/dashboard/invoices" className="font-semibold underline">Về danh sách hóa đơn</Link></div>;
-  if (contract.status !== "ACTIVE" && contract.status !== "TERMINATED") return <div className="rounded-xl border border-border bg-card p-5 text-sm">Hóa đơn chỉ xuất hiện khi hợp đồng có hiệu lực. <Link href={contractDetailPath(role, contract.id)} className="font-semibold text-primary underline">Xem hợp đồng</Link></div>;
+  if (contract.parentContractId || !["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status)) return <div className="rounded-xl border border-border bg-card p-5 text-sm">Hóa đơn được quản lý trên hợp đồng gốc, kể cả sau hết hạn thuê. <Link href={contractDetailPath(role, contract.parentContractId || contract.id)} className="font-semibold text-primary underline">Xem hợp đồng</Link></div>;
 
   const charges = revision.charges || [];
   return <div className="mx-auto max-w-6xl space-y-6 pb-12">
@@ -61,6 +61,7 @@ export default function ContractInvoicesPage() {
     </div>
     <MonthlyInvoicesSection
       contractId={contract.id}
+      rentalRequestId={contract.rentalRequestId}
       contractActive={contract.status === "ACTIVE"}
       isLandlord={isLandlord}
       isTenant={isTenant}

@@ -7,25 +7,19 @@ import { toast } from "sonner";
 import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
 import { contractService } from "@/services/contract.service";
 import { monthlyInvoiceService } from "@/services/monthly-invoice.service";
+import paymentRequestService from "@/services/payment-request.service";
+import { invoiceStatusPresentation, invoicePeriodLabel } from "@/lib/invoice-status";
 import { contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
 import { invoiceMatchesPeriodFilter } from "@/lib/invoice-period-filter";
 import type { ContractResponse } from "@/types/contract.type";
 import type { MonthlyInvoice } from "@/types/monthly-invoice.type";
+import type { PaymentRequest } from "@/types/payment-request.type";
 import { getApiErrorMessage } from "@/utils/apiError";
+import InitialPaymentHistory from "@/components/contract/detail/InitialPaymentHistory";
 
-type InvoiceGroup = { contract: ContractResponse; invoices: MonthlyInvoice[] };
+type InvoiceGroup = { contract: ContractResponse; invoices: MonthlyInvoice[]; payments: PaymentRequest[] };
 const money = (value: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(value);
 const date = (value?: string) => value ? new Date(`${value}T00:00:00+07:00`).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
-const STATUS: Record<MonthlyInvoice["status"], string> = {
-  DRAFT: "Chờ phát hành", UNPAID: "Chưa thanh toán", OVERDUE: "Quá hạn", PAID: "Đã thanh toán", ROLLED_OVER: "Đã chuyển nợ",
-};
-const STATUS_STYLE: Record<MonthlyInvoice["status"], string> = {
-  DRAFT: "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
-  UNPAID: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
-  OVERDUE: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300",
-  PAID: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300",
-  ROLLED_OVER: "border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-};
 
 export default function InvoicesPage() {
   const { role, hydrated, openRolePicker } = useDashboardRole();
@@ -43,12 +37,19 @@ export default function InvoicesPage() {
       const result = await contractService.listContracts({ role: role.toUpperCase() as "LANDLORD" | "TENANT", billableOnly: true, page, size: 12 });
       const contracts = result.result || [];
       const invoiceResults = await Promise.allSettled(contracts.map((contract) => monthlyInvoiceService.list(contract.id)));
+      // Only review groups need a payment read to distinguish submitted proofs from disputes.
+      const paymentResults = await Promise.allSettled(contracts.map((contract, index) => {
+        const result = invoiceResults[index];
+        return result.status === "fulfilled" && result.value.some((invoice) => invoice.workflowState === "UNDER_REVIEW")
+          ? paymentRequestService.getContractPayments(contract.id) : Promise.resolve([] as PaymentRequest[]);
+      }));
       setGroups(contracts.map((contract, index) => ({
         contract,
         invoices: invoiceResults[index].status === "fulfilled" ? invoiceResults[index].value : [],
+        payments: paymentResults[index].status === "fulfilled" ? paymentResults[index].value : [],
       })));
-      if (invoiceResults.some((item) => item.status === "rejected")) {
-        toast.warning("Một số hóa đơn chưa tải được. Hãy thử làm mới.");
+      if ([...invoiceResults, ...paymentResults].some((item) => item.status === "rejected")) {
+        toast.warning("Một số hóa đơn hoặc trạng thái thanh toán chưa tải được. Hãy thử làm mới.");
       }
       setTotalPages(result.totalPages || 1);
     } catch (error) {
@@ -102,9 +103,9 @@ export default function InvoicesPage() {
         <div>
           <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
             <CalendarDays className="h-4 w-4 text-primary" />
-            Lọc theo kỳ hóa đơn
+            Lọc theo tháng chi phí
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">Chọn một ngày nằm trong kỳ hoặc chọn cả tháng cần xem.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Lọc theo khoảng thời gian phát sinh chi phí, không phải tháng tiền phòng trả trước. Xóa lọc để xem cả khoản cọc và tiền phòng tháng 1.</p>
         </div>
         <div className="flex flex-wrap items-end gap-2.5">
           <label className="space-y-1 text-xs font-semibold text-muted-foreground">
@@ -155,11 +156,11 @@ export default function InvoicesPage() {
           <p className="text-sm font-semibold text-foreground">Không có hóa đơn phù hợp</p>
           <p className="mt-1 text-xs text-muted-foreground">Không tìm thấy kỳ hóa đơn chứa ngày hoặc tháng đã chọn ở trang này.</p>
         </div>
-      : filteredGroups.map(({ contract, invoices }) => <section key={contract.id} className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-2xs sm:p-5">
+      : filteredGroups.map(({ contract, invoices, payments }) => <section key={contract.id} className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-2xs sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="font-bold">{contract.contractNumber}</p>
-              <p className="text-xs text-muted-foreground">{role === "landlord" ? "Hợp đồng cho thuê" : "Hợp đồng đi thuê"} · {invoices.length} kỳ hóa đơn</p>
+              <p className="text-xs text-muted-foreground">{role === "landlord" ? "Hợp đồng cho thuê" : "Hợp đồng đi thuê"} · {invoices.filter(i => i.billingPeriod?.kind === "RECURRING").length} hóa đơn định kỳ · {invoices.filter(i => i.billingPeriod?.kind === "FINAL_SETTLEMENT").length} quyết toán cuối · {invoices.filter(i => i.finalCostSupplement).length} bổ sung</p>
             </div>
             <div className="flex gap-3 text-xs font-semibold">
               <Link href={contractDetailPath(role, contract.id)} className="text-muted-foreground hover:underline">Xem hợp đồng</Link>
@@ -167,10 +168,16 @@ export default function InvoicesPage() {
             </div>
           </div>
           {invoices.length === 0 ? <p className="rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">Chưa có kỳ hóa đơn. Mở chi tiết để theo dõi khi đến ngày chốt chỉ số.</p>
-            : <div className="divide-y divide-border">{invoices.map((invoice) => <Link key={invoice.id} href={invoiceDetailPath(contract.id)} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm transition-colors hover:text-primary">
-              <span>Kỳ {invoice.periodIndex + 1}: {date(invoice.periodStart)} – {date(invoice.periodEndExclusive)}</span>
-              <span className="flex items-center gap-3"><span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${STATUS_STYLE[invoice.status]}`}>{STATUS[invoice.status]}</span><strong>{money(invoice.totalAmount)}</strong></span>
-            </Link>)}</div>}
+            : <div className="divide-y divide-border">{invoices.map((invoice) => {
+              const payment = payments.find((item) => item.invoiceId === invoice.id || item.id === invoice.paymentRequestId);
+              const presentation = invoiceStatusPresentation(invoice, payment?.status);
+              return <Link key={invoice.id} href={invoiceDetailPath(contract.id)} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm transition-colors hover:text-primary">
+              <span>{invoicePeriodLabel(invoice)}<span className="block text-xs text-muted-foreground">Chi phí: {date(invoice.periodStart)} – trước {date(invoice.periodEndExclusive)}</span>
+                {invoice.billingPeriod?.kind === "RECURRING" && <span className="block text-xs text-muted-foreground">Tiền phòng tháng {invoice.billingPeriod.paymentPeriodNumber}: {date(invoice.billingPeriod.rentPeriodStart || undefined)} – trước {date(invoice.billingPeriod.rentPeriodEndExclusive || undefined)}</span>}
+              </span>
+              <span className="flex flex-wrap items-center gap-3"><span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${presentation.className}`}>{presentation.label}</span><strong>{money(invoice.totalAmount)}</strong></span>
+            </Link>; })}</div>}
+          {!hasDateFilter && <InitialPaymentHistory key={contract.rentalRequestId} rentalRequestId={contract.rentalRequestId} />}
         </section>)}
     {totalPages > 1 && <div className="flex items-center justify-end gap-3 text-xs">
       <button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="rounded-lg border border-border px-3 py-2 disabled:opacity-40">Trước</button>

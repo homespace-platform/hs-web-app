@@ -84,6 +84,13 @@ export default function SmartCaSignaturePanel({ contract, state, isLandlord, isT
     } finally { setBusy(false); }
   }
 
+  if (["EXPIRED", "CLOSED", "TERMINATED", "CANCELLED"].includes(contract.status)) {
+    return <section className="rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+      {contract.status === "EXPIRED" ? "Hợp đồng đã hết thời hạn thuê. Tiếp tục hoàn tất hóa đơn, bàn giao và hoàn cọc bên dưới; không cần ký lại hợp đồng gốc."
+        : contract.status === "CLOSED" ? "Hợp đồng đã hoàn tất quyết toán. PDF đã ký được giữ nguyên để tra cứu."
+        : contract.status === "TERMINATED" ? "Hợp đồng đã chấm dứt. Không còn bước chờ ký số." : "Hợp đồng đã hủy. Không còn bước chờ ký số."}
+    </section>;
+  }
   if (!state.smartCaEnabled) {
     return <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       Chế độ SmartCA đã được chọn nhưng kết nối VNPT chưa bật trên máy chủ. Vui lòng liên hệ quản trị viên.

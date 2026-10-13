@@ -10,14 +10,17 @@ import storageService from "@/services/storage.service";
 import type { MonthlyInvoice } from "@/types/monthly-invoice.type";
 import type { PaymentRequest } from "@/types/payment-request.type";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { invoiceStatusPresentation, invoicePeriodLabel } from "@/lib/invoice-status";
 import OverdueActionsPanel from "./OverdueActionsPanel";
 import PaymentExtensionPanel from "./PaymentExtensionPanel";
 import { MeterReadingInput, MeterReadingSummary } from "./MeterReading";
 import InvoiceLineCalculation from "./InvoiceLineCalculation";
+import InitialPaymentHistory from "./InitialPaymentHistory";
 
 type Extra = { description: string; amount: string };
 type Props = {
   contractId: string;
+  rentalRequestId: string;
   contractActive: boolean;
   isLandlord: boolean;
   isTenant: boolean;
@@ -34,7 +37,7 @@ const money = (n: number) => new Intl.NumberFormat("vi-VN", {
 const date = (s?: string) => s ? new Date(s).toLocaleDateString("vi-VN") : "—";
 const dateTime = (s?: string) => s ? new Date(s).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 
-export default function MonthlyInvoicesSection({ contractId, contractActive, isLandlord, isTenant,
+export default function MonthlyInvoicesSection({ contractId, rentalRequestId, contractActive, isLandlord, isTenant,
   electricityRequired, waterRequired, unsupportedWaterRate, initialElectricity, initialWater }: Props) {
   const [invoices, setInvoices] = useState<MonthlyInvoice[]>([]);
   const [payments, setPayments] = useState<PaymentRequest[]>([]);
@@ -164,12 +167,13 @@ export default function MonthlyInvoicesSection({ contractId, contractActive, isL
   return <section id="monthly-invoices" className="space-y-4 scroll-mt-24">
     <div className="flex items-center justify-between gap-3">
       <div>
-        <h2 className="text-lg font-bold flex items-center gap-2"><ReceiptText className="h-5 w-5 text-primary" />Hóa đơn hằng tháng</h2>
+        <h2 className="text-lg font-bold flex items-center gap-2"><ReceiptText className="h-5 w-5 text-primary" />Lịch sử thanh toán & hóa đơn</h2>
         <p className="text-xs text-muted-foreground mt-1">Mỗi hóa đơn gồm phí dịch vụ, điện/nước và khoản phát sinh của kỳ vừa kết thúc, cùng tiền thuê kỳ kế tiếp nếu hợp đồng còn hạn. Tiền thuê kỳ đầu đã trả trước nên không thu lại; kỳ cuối chỉ quyết toán chi phí.</p>
       </div>
       <button type="button" onClick={() => void refresh()} aria-label="Làm mới hóa đơn"
         className="rounded-lg border border-border p-2 hover:bg-muted"><RefreshCw className="h-4 w-4" /></button>
     </div>
+    <InitialPaymentHistory key={rentalRequestId} rentalRequestId={rentalRequestId} />
     {outstanding > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
       Tổng chưa xác nhận thanh toán: <strong>{money(outstanding)}</strong>. Khoản đã chuyển nợ chỉ tính trong hóa đơn mới.
     </div>}
@@ -179,6 +183,7 @@ export default function MonthlyInvoicesSection({ contractId, contractActive, isL
           : "Chưa đến ngày cuối của kỳ thuê đầu tiên. Hóa đơn nháp sẽ xuất hiện để chủ nhà chốt chỉ số."}
       </div> : invoices.map((invoice) => {
         const payment = payments.find((p) => p.invoiceId === invoice.id || p.id === invoice.paymentRequestId);
+        const presentation = invoiceStatusPresentation(invoice, payment?.status);
         const rows = extras[invoice.id] || [];
         const canIssue = new Date(invoice.serverNow).getTime() >=
           new Date(`${invoice.periodEndExclusive}T00:00:00+07:00`).getTime() - 86_400_000;
@@ -193,17 +198,22 @@ export default function MonthlyInvoicesSection({ contractId, contractActive, isL
           PAYMENT_REMINDER: "Sắp đến hạn thanh toán. Người thuê vui lòng kiểm tra số tiền và chuyển khoản.",
           OVERDUE: invoice.lateFeeExempt ? "Đã trễ hạn gia hạn. Khoản phạt đã chốt không tăng; nghĩa vụ thanh toán vẫn còn." : "Hóa đơn quá hạn. Khoản phạt (nếu có trong hợp đồng) sẽ được tính riêng và cập nhật trên QR.",
           OVERDUE_ACTION_REQUIRED: "Đã quá hạn 5 ngày: chủ nhà cần ghi nhận phương án xử lý bên dưới; hợp đồng, tiền cọc và tin đăng không tự thay đổi.",
-          UNDER_REVIEW: "Đã báo chuyển khoản hoặc đang đối soát; phí phạt tạm dừng tăng trong lúc chờ xử lý.",
+          UNDER_REVIEW: payment?.status === "TRANSFER_REPORTED"
+            ? "Đã thanh toán và gửi chứng từ, đang chờ chủ nhà xác nhận nhận tiền. Phí phạt tạm dừng tăng trong lúc chờ xử lý."
+            : "Khoản thanh toán đang chờ xác nhận hoặc đối soát; phí phạt tạm dừng tăng trong lúc chờ xử lý.",
           PAID: "Đã xác nhận thanh toán.",
           DEFERRED: `${invoice.overdueActions.some((action) => action.type === "AUTOMATIC_ROLLOVER") ? "Hệ thống đã tự chốt công nợ sau 10 ngày quá hạn" : "Chủ nhà đã cho phép cộng dồn khoản nợ này"} để cộng vào hóa đơn kỳ kế tiếp. Phí phạt đã dừng tăng; bạn vẫn có thể thanh toán hóa đơn này trước khi chuyển nợ.`,
           ROLLED_OVER: "Khoản nợ đã được cộng vào hóa đơn kỳ kế tiếp. QR của hóa đơn này đã hủy; vui lòng thanh toán theo hóa đơn mới.",
         };
         return <article key={invoice.id} className="rounded-2xl border border-border bg-card p-4 sm:p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div><h3 className="font-semibold">Kỳ {invoice.periodIndex + 1}: {date(invoice.periodStart)} – {date(invoice.periodEndExclusive)} (không gồm ngày cuối)</h3>
+            <div><h3 className="font-semibold">{invoicePeriodLabel(invoice)}</h3>
+              <p className="text-xs text-muted-foreground">{invoice.finalCostSupplement ? "Chi phí bổ sung" : `Chi phí tháng ${invoice.periodIndex + 1}`}: {date(invoice.periodStart)} – trước {date(invoice.periodEndExclusive)}</p>
+              {invoice.billingPeriod?.kind === "RECURRING" && <p className="text-xs text-muted-foreground">Tiền phòng tháng {invoice.billingPeriod.paymentPeriodNumber}: {date(invoice.billingPeriod.rentPeriodStart || undefined)} – trước {date(invoice.billingPeriod.rentPeriodEndExclusive || undefined)}</p>}
+              {invoice.billingPeriod?.kind === "FINAL_SETTLEMENT" && <p className="text-xs font-semibold text-primary">Chỉ thu chi phí kỳ cuối và công nợ (nếu có), không thu tiền phòng tháng kế tiếp. Thanh toán đủ trước khi hoàn cọc.</p>}
               <p className="text-xs text-muted-foreground">{invoice.status === "DRAFT" ? "Chỉ chủ nhà thấy bản nháp; người thuê sẽ thấy sau khi phát hành" : `Hạn thanh toán: ${dateTime(invoice.dueAt)}`}</p></div>
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${invoice.status === "PAID" ? "bg-emerald-50 text-emerald-700" : invoice.status === "OVERDUE" ? "bg-rose-50 text-rose-700" : "bg-blue-50 text-blue-700"}`}>
-              {{ DRAFT: "Chờ phát hành", UNPAID: "Chưa thanh toán", OVERDUE: "Quá hạn", PAID: "Đã thanh toán", ROLLED_OVER: "Đã chuyển nợ" }[invoice.status]}
+            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${presentation.className}`}>
+              {presentation.label}
             </span>
           </div>
           <p className={`rounded-lg px-3 py-2 text-xs ${["OVERDUE", "OVERDUE_ACTION_REQUIRED", "METER_DEADLINE_MISSED"].includes(invoice.workflowState) ? "bg-amber-50 text-amber-900" : "bg-blue-50 text-blue-800"}`}>
@@ -274,7 +284,7 @@ export default function MonthlyInvoicesSection({ contractId, contractActive, isL
                 <button type="button" disabled={busy === payment.id} onClick={() => void report(payment)}
                   className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">Tôi đã chuyển khoản</button>
               </div>}
-              {payment.status === "TRANSFER_REPORTED" && <p className="text-blue-700">Đã gửi chứng từ — chờ chủ nhà xác nhận.</p>}
+              {payment.status === "TRANSFER_REPORTED" && <p className="text-blue-700">{isLandlord ? "Người thuê đã thanh toán và gửi chứng từ — vui lòng kiểm tra và xác nhận đã nhận tiền." : "Đã thanh toán, đã gửi chứng từ — chờ chủ nhà xác nhận."}</p>}
               {payment.status === "REJECTED" && <p className="text-rose-700">Chủ nhà từ chối chứng từ: {payment.rejectedReason || "Vui lòng kiểm tra và gửi lại."}</p>}
               {payment.evidences?.length > 0 && <div className="space-y-1">
                 <p className="text-xs font-semibold">Chứng từ đã gửi:</p>

@@ -39,7 +39,7 @@ export default function ContractInitialPaymentSection({
           </div>
           <div>
             <h3 className="text-sm font-bold text-foreground">
-              Xác nhận khoản thanh toán ban đầu (Đã hoàn tất)
+              Kỳ thanh toán 1 · Tiền cọc + tiền phòng tháng 1 (Đã hoàn tất)
             </h3>
             <p className="text-[11px] text-muted-foreground">
               Bên B đã thanh toán đủ trước khi tạo và ký hợp đồng chính thức
@@ -66,7 +66,7 @@ export default function ContractInitialPaymentSection({
           <tbody className="divide-y divide-border/60">
             <tr>
               <td className="py-2.5 px-3 font-medium text-foreground">
-                Tiền thuê kỳ đầu tiên
+                Tiền phòng tháng 1
               </td>
               <td className="py-2.5 px-3 text-right font-semibold text-foreground">
                 {formatMoney(monthlyRent)}

@@ -35,6 +35,19 @@ test("decimal water readings preview correctly and zero readings are valid", () 
   assert.match(input({ name: "nước", unit: "m³", start: 0.1, end: "0.3" }), /0,3 − 0,1 = <strong>0,2 m³/);
   assert.match(input({ start: 0, end: "0" }), /0 − 0 = <strong>0 kWh/);
 });
+test("supplement mode distinguishes already billed reading and previews only additional usage", () => {
+  const html = input({ variant: "supplement", start: 1500, end: "1600" });
+  assert.match(html, /Chỉ số điện đã tính trên hóa đơn \(kWh\)/);
+  assert.match(html, /Chỉ số điện hiện tại \(kWh\)/);
+  assert.match(html, /Lượng bổ sung: 1\.600 − 1\.500 = <strong>100 kWh/);
+  assert.match(html, /min="1500"/);
+  assert.match(html, /không thu lại phần này/);
+});
+test("supplement mode keeps missing reading unknown and warns for lower or equal new readings", () => {
+  assert.match(input({ variant: "supplement", start: undefined, end: "" }), /Chưa có/);
+  assert.match(input({ variant: "supplement", start: 1500, end: "1499" }), /không được thấp hơn chỉ số đã tính/);
+  assert.match(input({ variant: "supplement", start: 1500, end: "1500" }), /Không có lượng điện\/nước bổ sung cần thu/);
+});
 test("issued invoice summary displays stored start, end and billed quantity, including zero and missing data", () => {
   const render = (props) => renderToStaticMarkup(React.createElement(MeterReadingSummary, props));
   const html = render({ start: 1250, end: 1300, quantity: 50, unit: "kWh" });

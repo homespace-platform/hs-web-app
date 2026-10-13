@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Menu } from "lucide-react";
 import Header from "@/components/layout/Header";
 import DashboardSidebar from "./DashboardSidebar";
 
@@ -88,6 +88,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
 
   const currentBreadcrumb =
@@ -112,16 +113,20 @@ export default function DashboardLayout({
         <DashboardSidebar
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed(!collapsed)}
+          mobileOpen={mobileOpen}
+          onCloseMobile={() => setMobileOpen(false)}
         />
+        {mobileOpen && <button type="button" aria-label="Đóng menu quản lý" onClick={() => setMobileOpen(false)} className="fixed inset-x-0 bottom-0 top-20 z-30 bg-black/30 md:hidden" />}
 
         {/* Main Content Area */}
         <div
           className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
-            collapsed ? "ml-20" : "ml-64"
+            collapsed ? "md:ml-20" : "md:ml-64"
           }`}
         >
           {/* Page Content Container with Breadcrumbs */}
-          <div className="flex-1 p-6 lg:p-8 bg-slate-50/50 dark:bg-background overflow-x-hidden space-y-4">
+          <div className="flex-1 p-4 sm:p-6 lg:p-8 bg-slate-50/50 dark:bg-background overflow-x-hidden space-y-4">
+            <button type="button" aria-expanded={mobileOpen} onClick={() => { setCollapsed(false); setMobileOpen(true); }} className="inline-flex h-10 items-center gap-2 rounded-xl border bg-card px-3 text-sm font-semibold md:hidden"><Menu className="size-4" />Menu quản lý</button>
             {/* Dynamic Breadcrumbs */}
             <nav className="flex items-center gap-2 text-xs font-semibold select-none">
               {currentBreadcrumb.parent ? (

@@ -59,7 +59,7 @@ const STATUS_CONFIG: Record<
     bg: "bg-emerald-50 dark:bg-emerald-950/40",
   },
   EXPIRED: { label: "Hết thời hạn thuê — chờ quyết toán", color: "text-amber-800", border: "border-amber-200", bg: "bg-amber-50" },
-  CLOSED: { label: "Đã quyết toán", color: "text-slate-700", border: "border-slate-200", bg: "bg-slate-50" },
+  CLOSED: { label: "Đã kết thúc hợp đồng", color: "text-slate-700", border: "border-slate-200", bg: "bg-slate-50" },
   TERMINATED: {
     label: "Đã chấm dứt",
     color: "text-rose-700 dark:text-rose-300",

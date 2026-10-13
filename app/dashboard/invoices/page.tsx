@@ -1,188 +1,73 @@
 "use client";
-
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { CalendarDays, Loader2, ReceiptText, RefreshCw, X } from "lucide-react";
-import { toast } from "sonner";
+import { useEffect, useRef, useState } from "react";
+import { ReceiptText, RefreshCw, Search } from "lucide-react";
 import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
+import ContractPaymentCard, { type ContractPaymentBundle } from "@/components/dashboard/invoices/ContractPaymentCard";
 import { contractService } from "@/services/contract.service";
 import { monthlyInvoiceService } from "@/services/monthly-invoice.service";
 import paymentRequestService from "@/services/payment-request.service";
-import { invoiceStatusPresentation, invoicePeriodLabel } from "@/lib/invoice-status";
-import { contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
-import { invoiceMatchesPeriodFilter } from "@/lib/invoice-period-filter";
-import type { ContractResponse } from "@/types/contract.type";
-import type { MonthlyInvoice } from "@/types/monthly-invoice.type";
-import type { PaymentRequest } from "@/types/payment-request.type";
+import { contractLifecycleService } from "@/services/contract-lifecycle.service";
+import type { ContractStatus } from "@/types/contract.type";
 import { getApiErrorMessage } from "@/utils/apiError";
-import InitialPaymentHistory from "@/components/contract/detail/InitialPaymentHistory";
-
-type InvoiceGroup = { contract: ContractResponse; invoices: MonthlyInvoice[]; payments: PaymentRequest[] };
-const money = (value: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(value);
-const date = (value?: string) => value ? new Date(`${value}T00:00:00+07:00`).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 
 export default function InvoicesPage() {
   const { role, hydrated, openRolePicker } = useDashboardRole();
-  const [groups, setGroups] = useState<InvoiceGroup[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [bundles, setBundles] = useState<ContractPaymentBundle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("");
-
-  const load = useCallback(async () => {
-    if (!role) return;
-    setLoading(true);
-    try {
-      const result = await contractService.listContracts({ role: role.toUpperCase() as "LANDLORD" | "TENANT", billableOnly: true, page, size: 12 });
-      const contracts = result.result || [];
-      const invoiceResults = await Promise.allSettled(contracts.map((contract) => monthlyInvoiceService.list(contract.id)));
-      // Only review groups need a payment read to distinguish submitted proofs from disputes.
-      const paymentResults = await Promise.allSettled(contracts.map((contract, index) => {
-        const result = invoiceResults[index];
-        return result.status === "fulfilled" && result.value.some((invoice) => invoice.workflowState === "UNDER_REVIEW")
-          ? paymentRequestService.getContractPayments(contract.id) : Promise.resolve([] as PaymentRequest[]);
-      }));
-      setGroups(contracts.map((contract, index) => ({
-        contract,
-        invoices: invoiceResults[index].status === "fulfilled" ? invoiceResults[index].value : [],
-        payments: paymentResults[index].status === "fulfilled" ? paymentResults[index].value : [],
-      })));
-      if ([...invoiceResults, ...paymentResults].some((item) => item.status === "rejected")) {
-        toast.warning("Một số hóa đơn hoặc trạng thái thanh toán chưa tải được. Hãy thử làm mới.");
-      }
-      setTotalPages(result.totalPages || 1);
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không thể tải danh sách hóa đơn."));
-      setGroups([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [role, page]);
-
-  useEffect(() => { void load(); }, [load]);
+  const [status, setStatus] = useState<ContractStatus | "">("");
+  const [search, setSearch] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const prevRole = useRef(role);
   useEffect(() => {
-    setPage(1);
-    setGroups([]);
-    setSelectedDate("");
-    setSelectedMonth("");
+    if (prevRole.current !== role) { prevRole.current = role; setPage(1); setStatus(""); setSearch(""); setBundles([]); }
   }, [role]);
-
-  const filteredGroups = useMemo(() => {
-    if (!selectedDate && !selectedMonth) return groups;
-
-    return groups
-      .map((group) => ({
-        ...group,
-        invoices: group.invoices.filter((invoice) =>
-          invoiceMatchesPeriodFilter(invoice, selectedDate, selectedMonth),
-        ),
-      }))
-      .filter((group) => group.invoices.length > 0);
-  }, [groups, selectedDate, selectedMonth]);
-
-  const hasDateFilter = Boolean(selectedDate || selectedMonth);
-
+  useEffect(() => {
+    if (!role) return;
+    let cancelled = false;
+    setLoading(true); setError("");
+    void (async () => {
+      try {
+        const result = await contractService.listContracts({ role: role.toUpperCase() as "LANDLORD" | "TENANT", billableOnly: true, status: status || undefined, page, size: 8 });
+        if (cancelled) return;
+        const next = await Promise.all((result.result || []).map(async contract => {
+          // Read payment amounts after invoice sync has updated fees and transfer obligations.
+          const [invoiceResult, lifecycleResult, initialResult] = await Promise.allSettled([
+            monthlyInvoiceService.list(contract.id), contractLifecycleService.get(contract.id),
+            paymentRequestService.getInitialPaymentByRentalRequestId(contract.rentalRequestId),
+          ]);
+          const paymentResult = await Promise.allSettled([paymentRequestService.getContractPayments(contract.id)]);
+          return { contract, invoices: invoiceResult.status === "fulfilled" ? invoiceResult.value : undefined,
+            lifecycle: lifecycleResult.status === "fulfilled" ? lifecycleResult.value : undefined,
+            initial: initialResult.status === "fulfilled" ? initialResult.value : undefined,
+            payments: paymentResult[0].status === "fulfilled" ? paymentResult[0].value : undefined };
+        }));
+        if (cancelled) return;
+        setBundles(next); setTotalPages(result.totalPages || 1);
+      } catch (cause) {
+        if (!cancelled) { setError(getApiErrorMessage(cause, "Chưa tải được hồ sơ thanh toán.")); setBundles([]); }
+      } finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [role, status, page, refreshKey]);
+  const visible = bundles.filter(bundle => bundle.contract.contractNumber.toLowerCase().includes(search.trim().toLowerCase()));
   if (!hydrated) return <p className="text-sm text-muted-foreground">Đang tải vai trò…</p>;
-  if (!role) return <div className="rounded-2xl border border-border bg-card p-6 text-sm">
-    Chọn vai trò cho thuê hoặc đi thuê để xem hóa đơn. {" "}
-    <button type="button" onClick={openRolePicker} className="font-semibold text-primary underline">Chọn vai trò</button>
-  </div>;
-
-  return <div className="space-y-6 pb-28 animate-in fade-in-50 duration-200">
-    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-      <div className="space-y-1">
-        <h1 className="flex items-center gap-2.5 text-xl font-bold tracking-tight sm:text-2xl"><ReceiptText className="h-6 w-6 text-primary" />Hóa đơn {role === "landlord" ? "cho thuê" : "đi thuê"}</h1>
-        <p className="text-xs text-muted-foreground sm:text-sm">Theo dõi hóa đơn từng kỳ và mở chi tiết để {role === "landlord" ? "phát hành, xác nhận thanh toán hoặc xử lý quá hạn" : "xem số tiền, QR và báo chuyển khoản"}.</p>
-      </div>
-      <button type="button" onClick={() => void load()} disabled={loading} className="inline-flex h-9 cursor-pointer items-center gap-1.5 self-start rounded-xl border border-border bg-card px-3 text-xs font-semibold shadow-2xs transition-colors hover:bg-muted disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-primary" : ""}`} />Làm mới</button>
+  if (!role) return <div className="rounded-xl border p-5">Chọn vai trò để xem thanh toán. <button type="button" onClick={openRolePicker} className="text-primary underline">Chọn vai trò</button></div>;
+  return <div className="mx-auto max-w-6xl space-y-5 pb-12">
+    <header className="flex flex-wrap items-start justify-between gap-3">
+      <div><h1 className="flex items-center gap-2 text-2xl font-bold"><ReceiptText className="size-6 text-primary" />Hóa đơn & thanh toán</h1><p className="mt-2 text-sm text-muted-foreground">{role === "landlord" ? "Quản lý các khoản thu và hoàn cọc cho người thuê." : "Theo dõi các khoản thanh toán và tiền cọc được hoàn."}</p></div>
+      <button type="button" disabled={loading} onClick={() => setRefreshKey(key => key + 1)} className="inline-flex h-10 items-center gap-2 rounded-xl border bg-card px-4 text-sm font-semibold disabled:opacity-50"><RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} />Làm mới</button>
+    </header>
+    <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 sm:flex-row sm:items-end">
+      <label className="flex-1 text-sm font-medium">Tìm hợp đồng trong trang này<div className="relative mt-2"><Search className="absolute left-3 top-3 size-4 text-muted-foreground" /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Nhập mã hợp đồng…" className="h-10 w-full rounded-xl border bg-background pl-9 pr-3" /></div></label>
+      <label className="text-sm font-medium">Trạng thái hợp đồng<select value={status} onChange={event => { setStatus(event.target.value as ContractStatus | ""); setPage(1); }} className="mt-2 block h-10 w-full rounded-xl border bg-background px-3 sm:w-60"><option value="">Tất cả hợp đồng</option><option value="ACTIVE">Đang thuê</option><option value="EXPIRED">Đã hết thời hạn thuê</option><option value="CLOSED">Đã kết thúc hợp đồng</option><option value="TERMINATED">Đã chấm dứt</option></select></label>
     </div>
-
-    <div className="rounded-2xl border border-border bg-card p-3 shadow-2xs sm:p-4">
-      <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
-        <div>
-          <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
-            <CalendarDays className="h-4 w-4 text-primary" />
-            Lọc theo tháng chi phí
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">Lọc theo khoảng thời gian phát sinh chi phí, không phải tháng tiền phòng trả trước. Xóa lọc để xem cả khoản cọc và tiền phòng tháng 1.</p>
-        </div>
-        <div className="flex flex-wrap items-end gap-2.5">
-          <label className="space-y-1 text-xs font-semibold text-muted-foreground">
-            <span className="block">Theo ngày</span>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(event) => {
-                setSelectedDate(event.target.value);
-                if (event.target.value) setSelectedMonth("");
-              }}
-              className="h-9 rounded-xl border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition-colors focus:border-primary"
-            />
-          </label>
-          <span className="hidden h-9 items-center text-xs text-muted-foreground sm:flex">hoặc</span>
-          <label className="space-y-1 text-xs font-semibold text-muted-foreground">
-            <span className="block">Theo tháng</span>
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(event) => {
-                setSelectedMonth(event.target.value);
-                if (event.target.value) setSelectedDate("");
-              }}
-              className="h-9 rounded-xl border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition-colors focus:border-primary"
-            />
-          </label>
-          {hasDateFilter && (
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedDate("");
-                setSelectedMonth("");
-              }}
-              className="inline-flex h-9 cursor-pointer items-center gap-1 rounded-xl px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <X className="h-3.5 w-3.5" />
-              Xóa lọc
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-
-    {loading ? <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Đang tải hóa đơn…</div>
-      : groups.length === 0 ? <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-sm text-muted-foreground">Chưa có hóa đơn cho hợp đồng ở trang này. Hóa đơn xuất hiện khi hợp đồng có hiệu lực và đến kỳ chốt chỉ số.</div>
-      : filteredGroups.length === 0 ? <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center shadow-2xs">
-          <p className="text-sm font-semibold text-foreground">Không có hóa đơn phù hợp</p>
-          <p className="mt-1 text-xs text-muted-foreground">Không tìm thấy kỳ hóa đơn chứa ngày hoặc tháng đã chọn ở trang này.</p>
-        </div>
-      : filteredGroups.map(({ contract, invoices, payments }) => <section key={contract.id} className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-2xs sm:p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="font-bold">{contract.contractNumber}</p>
-              <p className="text-xs text-muted-foreground">{role === "landlord" ? "Hợp đồng cho thuê" : "Hợp đồng đi thuê"} · {invoices.filter(i => i.billingPeriod?.kind === "RECURRING").length} hóa đơn định kỳ · {invoices.filter(i => i.billingPeriod?.kind === "FINAL_SETTLEMENT").length} quyết toán cuối · {invoices.filter(i => i.finalCostSupplement).length} bổ sung</p>
-            </div>
-            <div className="flex gap-3 text-xs font-semibold">
-              <Link href={contractDetailPath(role, contract.id)} className="text-muted-foreground hover:underline">Xem hợp đồng</Link>
-              <Link href={invoiceDetailPath(contract.id)} className="text-primary hover:underline">Quản lý hóa đơn →</Link>
-            </div>
-          </div>
-          {invoices.length === 0 ? <p className="rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">Chưa có kỳ hóa đơn. Mở chi tiết để theo dõi khi đến ngày chốt chỉ số.</p>
-            : <div className="divide-y divide-border">{invoices.map((invoice) => {
-              const payment = payments.find((item) => item.invoiceId === invoice.id || item.id === invoice.paymentRequestId);
-              const presentation = invoiceStatusPresentation(invoice, payment?.status);
-              return <Link key={invoice.id} href={invoiceDetailPath(contract.id)} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm transition-colors hover:text-primary">
-              <span>{invoicePeriodLabel(invoice)}<span className="block text-xs text-muted-foreground">Chi phí: {date(invoice.periodStart)} – trước {date(invoice.periodEndExclusive)}</span>
-                {invoice.billingPeriod?.kind === "RECURRING" && <span className="block text-xs text-muted-foreground">Tiền phòng tháng {invoice.billingPeriod.paymentPeriodNumber}: {date(invoice.billingPeriod.rentPeriodStart || undefined)} – trước {date(invoice.billingPeriod.rentPeriodEndExclusive || undefined)}</span>}
-              </span>
-              <span className="flex flex-wrap items-center gap-3"><span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${presentation.className}`}>{presentation.label}</span><strong>{money(invoice.totalAmount)}</strong></span>
-            </Link>; })}</div>}
-          {!hasDateFilter && <InitialPaymentHistory key={contract.rentalRequestId} rentalRequestId={contract.rentalRequestId} />}
-        </section>)}
-    {totalPages > 1 && <div className="flex items-center justify-end gap-3 text-xs">
-      <button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="rounded-lg border border-border px-3 py-2 disabled:opacity-40">Trước</button>
-      <span>{page}/{totalPages}</span>
-      <button type="button" disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)} className="rounded-lg border border-border px-3 py-2 disabled:opacity-40">Sau</button>
-    </div>}
+    {error ? <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{error === "Network Error" ? "Chưa kết nối được máy chủ. Kiểm tra kết nối và phiên đăng nhập rồi thử lại." : error} <button type="button" onClick={() => setRefreshKey(key => key + 1)} className="underline">Thử lại</button></div>
+      : loading ? <div aria-busy="true" className="space-y-4">{[0, 1].map(key => <div key={key} className="h-56 animate-pulse rounded-2xl border bg-muted/40" />)}</div>
+      : visible.length ? visible.map(bundle => <ContractPaymentCard key={role + ":" + bundle.contract.id} bundle={bundle} role={role} />)
+      : <div className="rounded-2xl border border-dashed bg-card p-8 text-center"><p className="font-semibold">{search ? "Không tìm thấy mã hợp đồng trên trang này" : "Chưa có hợp đồng phù hợp"}</p><p className="mt-2 text-sm text-muted-foreground">Mỗi hợp đồng có hồ sơ riêng cho thanh toán ban đầu, hóa đơn theo kỳ và hoàn cọc.</p>{(search || status) && <button type="button" onClick={() => { setSearch(""); setStatus(""); setPage(1); }} className="mt-3 text-sm font-semibold text-primary">Xóa bộ lọc</button>}</div>}
+    {!loading && !error && totalPages > 1 && <nav aria-label="Phân trang hợp đồng" className="flex items-center justify-end gap-3 text-sm"><button type="button" disabled={page === 1} onClick={() => { setPage(value => value - 1); setSearch(""); }} className="rounded-lg border px-3 py-2 disabled:opacity-40">Trước</button><span>Trang {page}/{totalPages}</span><button type="button" disabled={page >= totalPages} onClick={() => { setPage(value => value + 1); setSearch(""); }} className="rounded-lg border px-3 py-2 disabled:opacity-40">Sau</button></nav>}
   </div>;
 }

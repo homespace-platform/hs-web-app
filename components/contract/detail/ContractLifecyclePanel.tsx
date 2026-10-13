@@ -14,7 +14,7 @@ import { invoicePeriodLabel } from "@/lib/invoice-status";
 const dt = (value?: string) => value ? new Date(value).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 const money = (value?: number) => (value ?? 0).toLocaleString("vi-VN") + " đ";
 const renewalLabels = { REQUESTED: "Chờ chủ nhà duyệt", APPROVED: "Chờ ký văn bản gia hạn", APPLIED: "Đã ký đủ · Đã áp dụng", REJECTED: "Chủ nhà từ chối", EXPIRED: "Đã hết hạn duyệt/ký" };
-const closureLabels = { WAITING_HANDOVER: "Chờ bàn giao và quyết toán", PROPOSED: "Chờ người thuê xác nhận", DISPUTED: "Chưa thống nhất · Cần đối soát", REFUND_PENDING: "Chờ hoàn cọc", BALANCE_PENDING: "Chờ thanh toán khoản còn thiếu", CLOSED: "Đã hoàn tất quyết toán" };
+const closureLabels = { WAITING_HANDOVER: "Chờ bàn giao và lập đề xuất", PROPOSED: "Chờ người thuê xác nhận", DISPUTED: "Chưa thống nhất · Cần đối soát", REFUND_PENDING: "Chờ hoàn cọc", BALANCE_PENDING: "Chờ thanh toán khoản còn thiếu", CLOSED: "Đã hoàn tất xử lý tiền cọc" };
 const eventLabels: Record<string, string> = { PROPOSED: "Chủ nhà gửi đề xuất", LEGACY_PROPOSAL: "Đề xuất trước khi bổ sung lịch sử", DISPUTED: "Người thuê yêu cầu đối soát", ACCEPTED: "Người thuê đồng ý quyết toán", COSTS_ADDED: "Phát hành chi phí bổ sung · cần đối chiếu lại", RESPONSE_OVERDUE: "Quá hạn phản hồi · cần xử lý", PAYMENT_OVERDUE: "Quá hạn chuyển tiền", CLOSED: "Hoàn tất quyết toán" };
 type DeductionDraft = ClosureDeduction & { key: string; files: File[] };
 function EvidenceLinks({ ids }: { ids?: string[] }) {
@@ -25,8 +25,8 @@ function EvidenceLinks({ ids }: { ids?: string[] }) {
     catch (error) { tab?.close(); toast.error(getApiErrorMessage(error, "Không mở được minh chứng.")); }
   }}>Xem minh chứng {i + 1} ↗</button>)}</div>;
 }
-export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdated }: {
-  contractId: string; isLandlord: boolean; onUpdated?: () => Promise<void>;
+export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdated, mode = "all" }: {
+  contractId: string; isLandlord: boolean; onUpdated?: () => Promise<void>; mode?: "all" | "renewal" | "settlement";
 }) {
   const [data, setData] = useState<ContractLifecycle | null>(null);
   const [error, setError] = useState("");
@@ -127,11 +127,12 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
       supplementRetry.current = null; setElectricity(""); setWater(""); setExtraDescription(""); setExtraAmount(""); });
   }
   return <section className="space-y-4 rounded-2xl border border-primary/20 bg-card p-4 sm:p-5">
-    <div className="flex items-center justify-between"><h2 className="flex items-center gap-2 font-bold"><CalendarPlus className="h-5 w-5 text-primary" />Gia hạn & quyết toán hợp đồng</h2>
+    <div className="flex items-center justify-between"><h2 className="flex items-center gap-2 font-bold"><CalendarPlus className="h-5 w-5 text-primary" />{mode === "renewal" ? "Gia hạn hợp đồng" : mode === "settlement" ? "Hoàn cọc & bàn giao" : "Gia hạn & quyết toán hợp đồng"}</h2>
       <button type="button" aria-label="Làm mới vòng đời hợp đồng" onClick={() => void refresh()} className="rounded-lg border p-2"><RefreshCw className="h-4 w-4" /></button></div>
     {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
     {!data && !error && <p className="flex gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Đang tải…</p>}
     {data && <>
+      {mode !== "settlement" && <>
       <div className="grid gap-3 rounded-xl bg-primary/5 p-3 text-xs sm:grid-cols-3">
         <p>Mốc hết thời hạn thuê<br /><strong>{data.endExclusive} · 00:00 (không bao gồm ngày này)</strong></p>
         <p>Mở yêu cầu trước 30 ngày<br /><strong>{dt(data.renewalOpensAt)}</strong></p>
@@ -163,7 +164,9 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
         {r.agreementContractId && (isLandlord || r.agreementStatus === "TENANT_SIGNATURE_PENDING" || r.agreementStatus === "ACTIVE") && <Link href={contractDetailPath(isLandlord ? "landlord" : "tenant", r.agreementContractId)} target="_blank" rel="noopener noreferrer" className="inline-block text-xs font-semibold text-primary underline">Mở văn bản gia hạn · xem PDF & ký SmartCA ↗</Link>}
         {!isLandlord && r.status === "APPROVED" && r.agreementStatus !== "TENANT_SIGNATURE_PENDING" && <p className="text-xs text-muted-foreground">Chờ chủ nhà kết xuất PDF và ký trước; sau đó bạn sẽ ký trên văn bản đã có chữ ký chủ nhà.</p>}
       </article>)}
-      {data.closure && <div className="space-y-3 border-t pt-4">
+      </>}
+      {mode === "settlement" && !data.closure && <div className="space-y-3 rounded-xl bg-muted/30 p-4 text-sm"><p>Cọc đang giữ: <strong>{money(data.heldDeposit)}</strong></p><p className="text-muted-foreground">Hồ sơ hoàn cọc mở khi kết thúc thời hạn thuê. Hai bên hoàn tất chi phí cuối, bàn giao và thống nhất khoản khấu trừ trước khi chuyển tiền hoàn.</p></div>}
+      {mode !== "renewal" && data.closure && <div className="space-y-3 border-t pt-4">
         <details open={!data.billing.allPaid} className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/30 p-3 text-xs">
           <summary className="cursor-pointer font-semibold">Bước 1 · Hoàn tất hóa đơn kỳ cuối{data.billing.allPaid ? " · Đã hoàn tất ✓ — xem chi tiết" : " · Cần xử lý"}</summary>
           <p>Điện, nước, dịch vụ và chi phí phát sinh được thanh toán trong mục Hóa đơn. Không gia hạn thuê thì bill cuối không thu tiền phòng kỳ tiếp theo; điện/nước không trừ vào cọc.</p>
@@ -172,7 +175,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
             <strong>{money(bill.totalAmount)} · {bill.status === "PAID" ? "Đã xác nhận thanh toán" : bill.status === "ROLLED_OVER" ? "Đã chuyển nợ" : bill.paymentStatus === "TRANSFER_REPORTED" ? "Đã thanh toán · Chờ chủ nhà xác nhận" : bill.paymentStatus === "DISPUTED" ? "Đang đối soát" : bill.status === "DRAFT" ? "Chờ chốt chỉ số/phát hành" : "Cần thanh toán"}</strong>
           </div>)}
           <p className={data.billing.allPaid ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>
-            {data.billing.allPaid ? "Tất cả hóa đơn đã hoàn tất. Có thể tiếp tục quyết toán cọc." : "Chưa hoàn tất hóa đơn. Bước quyết toán/hoàn cọc đang khóa."}</p>
+            {data.billing.allPaid ? data.closure.status === "CLOSED" ? "Tất cả hóa đơn đã hoàn tất." : "Tất cả hóa đơn đã hoàn tất. Có thể tiếp tục quyết toán cọc." : "Chưa hoàn tất hóa đơn. Bước quyết toán/hoàn cọc đang khóa."}</p>
           <Link href={invoiceDetailPath(contractId)} className="inline-block rounded-lg bg-primary px-3 py-2 font-semibold text-primary-foreground">{isLandlord ? "Mở hóa đơn · Chốt chỉ số / xác nhận nhận tiền →" : "Mở hóa đơn · Thanh toán kỳ cuối →"}</Link>
           {data.billing.canIssueSupplement && <details className="space-y-2 border-t pt-3">
             <summary className="cursor-pointer font-semibold">Ngoại lệ · Bổ sung chi phí chưa thu (không bắt buộc)</summary>
@@ -188,7 +191,8 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
           </details>}
         </details>
         <h3 className="flex items-center gap-2 font-semibold"><ClipboardCheck className="h-4 w-4 text-primary" />Bàn giao & tiền cọc · {closureLabels[data.closure.status]}</h3>
-        <p className="text-xs">Cọc đang giữ: <strong>{money(data.heldDeposit)}</strong>. Cần thanh toán và chủ nhà xác nhận toàn bộ hóa đơn trước khi chốt hoàn cọc; không tự khấu trừ công nợ hóa đơn để tránh thu trùng.</p>
+        {data.closure.status !== "CLOSED" ? <p className="text-sm">Cọc đang giữ: <strong>{money(data.heldDeposit)}</strong>. Hoàn tất hóa đơn rồi thống nhất khấu trừ và số tiền hoàn.</p>
+          : <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900"><p className="font-semibold">Đã kết thúc hợp đồng · Hoàn tất xử lý tiền cọc</p><p className="mt-1 text-sm">{data.refundPayment ? `Đã hoàn ${money(data.refundPayment.totalAmount)} cho người thuê và xác nhận nhận tiền.` : data.balancePayment ? "Đã xác nhận thanh toán khoản còn thiếu." : "Hai bên đã thống nhất khấu trừ và hoàn tất nghĩa vụ."}</p></div>}
         {data.closure.respondBy && <p className={data.closure.responseOverdueAt ? "rounded-lg bg-amber-50 p-3 text-xs text-amber-800" : "text-xs text-muted-foreground"}>
           {data.closure.status === "DISPUTED" ? "Chủ nhà cần phản hồi đối soát" : "Người thuê cần phản hồi đề xuất"} trước {dt(data.closure.respondBy)}.
           {data.closure.responseOverdueAt && " Đã quá hạn phản hồi. Hai bên cần liên hệ xử lý; không tự đồng ý, không tự tạo QR hoặc đóng hồ sơ."}
@@ -228,8 +232,8 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
           <label className="flex gap-2"><input type="checkbox" checked={handover} onChange={e => setHandover(e.target.checked)} />Tôi đã nhận lại phòng trống, chìa khóa, tài sản thuê; đã đối chiếu đủ hóa đơn và không thu trùng các khoản đã thanh toán.</label>
           <button type="button" disabled={busy || !handover} onClick={propose} className="rounded-lg bg-primary px-3 py-2 font-semibold text-primary-foreground disabled:opacity-50">Gửi đề xuất quyết toán</button>
         </div>}
-        {data.closure.proposalVersion > 0 && data.closure.status !== "WAITING_HANDOVER" && <div className="space-y-2 rounded-xl border p-3 text-xs">
-          <p className="font-semibold">Đề xuất phiên bản {data.closure.proposalVersion}</p>
+        {data.closure.proposalVersion > 0 && data.closure.status !== "WAITING_HANDOVER" && <details open={["PROPOSED", "DISPUTED"].includes(data.closure.status)} className="space-y-2 rounded-xl border p-3 text-sm">
+          <summary className="cursor-pointer font-semibold">Đề xuất hoàn cọc · Phiên bản {data.closure.proposalVersion}</summary>
           {data.closure.deductions?.map((row, i) => <div key={i} className="space-y-1 border-t pt-2"><p>{row.description} · <strong>{money(row.amount)}</strong></p><EvidenceLinks ids={row.evidenceIds} /></div>)}
           <p>Điện cuối: {data.closure.electricityFinal ?? "Không thu theo công tơ"} · Nước cuối: {data.closure.waterFinal ?? "Không thu theo công tơ"}</p>
           {(data.closure.utilityAdjustment ?? 0) > 0
@@ -237,7 +241,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
             : <p>Điện/nước đã chốt trên hóa đơn, không trừ vào cọc · Khấu trừ khác: {money(data.closure.otherDeduction)}</p>}
           <p className="font-semibold">Hoàn cho người thuê: {money(data.closure.refundAmount)} · Người thuê trả thêm: {money(data.closure.balanceAmount)}</p>
           <p className="whitespace-pre-wrap">{data.closure.note}</p>
-          {data.closure.refundDueAt && <p>Hạn quyết toán/hoàn cọc: {dt(data.closure.refundDueAt)}</p>}
+          {data.closure.refundDueAt && data.closure.status !== "CLOSED" && <p>Hạn quyết toán/hoàn cọc: {dt(data.closure.refundDueAt)}</p>}
           {!isLandlord && data.closure.status === "PROPOSED" && <>
             <label className="flex gap-2"><input type="checkbox" checked={consent === proposalKey} onChange={e => setConsent(e.target.checked ? proposalKey : null)} />Tôi xác nhận đã bàn giao, đã đọc và đồng ý các khoản khấu trừ cùng số tiền hoàn/trả thêm. Đây chưa phải xác nhận đã nhận tiền hoàn.</label>
             <div className="flex gap-2"><button type="button" disabled={busy || consent !== proposalKey || !data.billing.allPaid || (data.closure.utilityAdjustment ?? 0) > 0} onClick={() => void perform(() => api.accept(contractId, data.closure!.proposalVersion))} className="rounded-lg bg-emerald-600 px-3 py-2 text-white disabled:opacity-50">Đồng ý quyết toán</button>
@@ -250,7 +254,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
               <p>Chưa tạo QR hoàn cọc. Chủ nhà cần phản hồi bằng đề xuất mới; không coi im lặng là đồng ý.</p>
             </details>
           </>}
-        </div>}
+        </details>}
         {!!data.closure.history?.length && <details className="space-y-3 rounded-xl border p-3 text-xs">
           <summary className="cursor-pointer font-semibold">Lịch sử quyết toán & khiếu nại ({data.closure.history.length})</summary>
           {[...data.closure.history].reverse().map((event, index) => <article key={index} className="space-y-2 border-t pt-3">
@@ -262,7 +266,6 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
         </details>}
         {data.refundPayment && <SettlementPaymentPanel payment={data.refundPayment} isLandlord={isLandlord} refresh={refresh} />}
         {data.balancePayment && <SettlementPaymentPanel payment={data.balancePayment} isLandlord={isLandlord} refresh={refresh} />}
-        {data.closure.status === "CLOSED" && <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">Đã hoàn tất nghĩa vụ quyết toán. Hồ sơ và các PDF đã ký được giữ nguyên.</p>}
       </div>}
     </>}
   </section>;

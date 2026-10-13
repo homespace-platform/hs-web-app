@@ -8,6 +8,7 @@ import {
   PanelLeftOpen,
   Building2,
   KeyRound,
+  X,
 } from "lucide-react";
 import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
 import { getNavForRole } from "@/components/dashboard/dashboard-nav";
@@ -16,11 +17,15 @@ import { DASHBOARD_ROLE_LABEL, type DashboardRole } from "@/lib/dashboard-role";
 interface DashboardSidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export default function DashboardSidebar({
   collapsed,
   onToggleCollapse,
+  mobileOpen = false,
+  onCloseMobile,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const { role, selectRole, openRolePicker } = useDashboardRole();
@@ -29,11 +34,12 @@ export default function DashboardSidebar({
   const switchRole = (next: DashboardRole) => {
     if (next === role) return;
     selectRole(next);
+    onCloseMobile?.();
   };
 
   return (
     <aside
-      className={`fixed top-20 left-0 z-40 h-[calc(100vh-5rem)] bg-card border-r border-border flex flex-col transition-all duration-300 select-none ${
+      className={`fixed top-20 left-0 z-40 h-[calc(100vh-5rem)] bg-card border-r border-border ${mobileOpen ? "flex" : "hidden"} md:flex flex-col transition-all duration-300 select-none ${
         collapsed ? "w-20" : "w-64"
       }`}
     >
@@ -46,7 +52,7 @@ export default function DashboardSidebar({
         <button
           type="button"
           onClick={onToggleCollapse}
-          className={`p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center justify-center ${
+          className={`p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer hidden md:flex items-center justify-center ${
             collapsed ? "mx-auto" : ""
           }`}
           title={collapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
@@ -57,6 +63,7 @@ export default function DashboardSidebar({
             <PanelLeftClose className="w-4 h-4" />
           )}
         </button>
+        <button type="button" onClick={onCloseMobile} aria-label="Đóng menu quản lý" className="rounded-lg p-2 hover:bg-muted md:hidden"><X className="size-4" /></button>
       </div>
 
       {/* Role toggle */}
@@ -133,6 +140,7 @@ export default function DashboardSidebar({
                   <Link
                     key={item.title}
                     href={item.path}
+                    onClick={onCloseMobile}
                     className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
                       isActive
                         ? "bg-primary/10 text-primary font-bold shadow-2xs"

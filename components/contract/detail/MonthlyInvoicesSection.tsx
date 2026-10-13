@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { Loader2, Plus, ReceiptText, RefreshCw, Trash2 } from "lucide-react";
@@ -10,12 +10,14 @@ import storageService from "@/services/storage.service";
 import type { MonthlyInvoice } from "@/types/monthly-invoice.type";
 import type { PaymentRequest } from "@/types/payment-request.type";
 import { getApiErrorMessage } from "@/utils/apiError";
-import { invoiceStatusPresentation, invoicePeriodLabel } from "@/lib/invoice-status";
+import { invoiceStatusPresentation, invoicePeriodLabel, invoicePeriodSecondaryLabel } from "@/lib/invoice-status";
 import OverdueActionsPanel from "./OverdueActionsPanel";
 import PaymentExtensionPanel from "./PaymentExtensionPanel";
 import { MeterReadingInput, MeterReadingSummary } from "./MeterReading";
 import InvoiceLineCalculation from "./InvoiceLineCalculation";
 import InitialPaymentHistory from "./InitialPaymentHistory";
+import { chooseInvoice, paymentModulePath } from "@/lib/payment-module";
+import { findInvoicePayment } from "@/lib/invoice-list";
 
 type Extra = { description: string; amount: string };
 type Props = {
@@ -29,6 +31,9 @@ type Props = {
   unsupportedWaterRate: boolean;
   initialElectricity?: string | number;
   initialWater?: string | number;
+  showInitialPayment?: boolean;
+  requestedInvoiceId?: string | null;
+  onUpdated?: () => Promise<void>;
 };
 
 const money = (n: number) => new Intl.NumberFormat("vi-VN", {
@@ -38,7 +43,8 @@ const date = (s?: string) => s ? new Date(s).toLocaleDateString("vi-VN") : "—"
 const dateTime = (s?: string) => s ? new Date(s).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 
 export default function MonthlyInvoicesSection({ contractId, rentalRequestId, contractActive, isLandlord, isTenant,
-  electricityRequired, waterRequired, unsupportedWaterRate, initialElectricity, initialWater }: Props) {
+  electricityRequired, waterRequired, unsupportedWaterRate, initialElectricity, initialWater,
+  showInitialPayment = true, requestedInvoiceId, onUpdated }: Props) {
   const [invoices, setInvoices] = useState<MonthlyInvoice[]>([]);
   const [payments, setPayments] = useState<PaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,12 +54,19 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
   const [extras, setExtras] = useState<Record<string, Extra[]>>({});
   const [proofs, setProofs] = useState<Record<string, File | null>>({});
   const [rejection, setRejection] = useState<Record<string, string>>({});
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const requestGeneration = useRef(0);
+  const actionMutex = useRef(false);
 
   const refresh = useCallback(async () => {
+    const generation = ++requestGeneration.current;
     try {
       // Billing sync may increase a late fee and regenerate VietQR; fetch payments afterwards.
       const bills = await monthlyInvoiceService.list(contractId);
       const paymentList = await paymentRequestService.getContractPayments(contractId);
+      if (generation !== requestGeneration.current) return;
+      setLoadError("");
       setInvoices(bills);
       setPayments(paymentList);
       setElectricity(Object.fromEntries(bills.filter((bill) => bill.status === "DRAFT" && bill.electricityEnd != null)
@@ -64,11 +77,11 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
         .map((bill) => [bill.id, (bill.draftExtraCharges || [])
           .map((row) => ({ description: row.description, amount: String(row.amount) }))])));
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Không thể tải hóa đơn tháng."));
-    } finally { setLoading(false); }
+      if (generation === requestGeneration.current) setLoadError(getApiErrorMessage(err, "Không thể tải hóa đơn và trạng thái thanh toán."));
+    } finally { if (generation === requestGeneration.current) setLoading(false); }
   }, [contractId]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { const pending = requestGeneration; void refresh(); return () => { pending.current++; }; }, [refresh]);
   useEffect(() => {
     if (window.location.hash === "#monthly-invoices") {
       document.getElementById("monthly-invoices")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -76,10 +89,12 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
   }, []);
 
   async function perform(id: string, action: () => Promise<unknown>, success: string) {
+    if (actionMutex.current) return;
+    actionMutex.current = true;
     setBusy(id);
-    try { await action(); toast.success(success); await refresh(); }
+    try { await action(); toast.success(success); await refresh(); if (onUpdated) await onUpdated(); }
     catch (err) { toast.error(getApiErrorMessage(err, "Thao tác chưa thành công.")); await refresh(); }
-    finally { setBusy(null); }
+    finally { actionMutex.current = false; setBusy(null); }
   }
 
   function previousEnd(invoice: MonthlyInvoice, kind: "electricity" | "water") {
@@ -163,25 +178,43 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
 
   const outstanding = invoices.filter((i) => i.status === "UNPAID" || i.status === "OVERDUE")
     .reduce((sum, i) => sum + i.totalAmount, 0);
+  const selected = chooseInvoice(invoices, payments, isLandlord ? "landlord" : "tenant", selectedInvoiceId ?? requestedInvoiceId);
 
   return <section id="monthly-invoices" className="space-y-4 scroll-mt-24">
     <div className="flex items-center justify-between gap-3">
       <div>
-        <h2 className="text-lg font-bold flex items-center gap-2"><ReceiptText className="h-5 w-5 text-primary" />Lịch sử thanh toán & hóa đơn</h2>
-        <p className="text-xs text-muted-foreground mt-1">Mỗi hóa đơn gồm phí dịch vụ, điện/nước và khoản phát sinh của kỳ vừa kết thúc, cùng tiền thuê kỳ kế tiếp nếu hợp đồng còn hạn. Tiền thuê kỳ đầu đã trả trước nên không thu lại; kỳ cuối chỉ quyết toán chi phí.</p>
+        <h2 className="text-lg font-bold flex items-center gap-2"><ReceiptText className="h-5 w-5 text-primary" />Hóa đơn theo kỳ</h2>
+        <p className="text-sm text-muted-foreground mt-1">Chọn kỳ để xem chi tiết, chốt chỉ số hoặc xác nhận thanh toán.</p>
       </div>
       <button type="button" onClick={() => void refresh()} aria-label="Làm mới hóa đơn"
         className="rounded-lg border border-border p-2 hover:bg-muted"><RefreshCw className="h-4 w-4" /></button>
     </div>
-    <InitialPaymentHistory key={rentalRequestId} rentalRequestId={rentalRequestId} />
+    {showInitialPayment && <InitialPaymentHistory key={rentalRequestId} rentalRequestId={rentalRequestId} defaultOpen />}
     {outstanding > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
       Tổng chưa xác nhận thanh toán: <strong>{money(outstanding)}</strong>. Khoản đã chuyển nợ chỉ tính trong hóa đơn mới.
     </div>}
-    {loading ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Đang tải hóa đơn…</div>
+    {loadError ? <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{loadError} <button type="button" onClick={() => void refresh()} className="font-semibold underline">Thử lại</button></div>
+      : loading ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Đang tải hóa đơn…</div>
       : invoices.length === 0 ? <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
         {isTenant ? "Chưa có hóa đơn được phát hành. Sau khi chủ nhà chốt chỉ số và phát hành, bạn sẽ thấy số tiền và QR thanh toán tại đây."
           : "Chưa đến ngày cuối của kỳ thuê đầu tiên. Hóa đơn nháp sẽ xuất hiện để chủ nhà chốt chỉ số."}
-      </div> : invoices.map((invoice) => {
+      </div> : <div className="grid items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <label className="text-sm font-semibold lg:hidden">Chọn kỳ hóa đơn<select value={selected || ""} disabled={busy !== null} onChange={event => {
+          setSelectedInvoiceId(event.target.value);
+          window.history.replaceState(null, "", paymentModulePath(contractId, "monthly", event.target.value));
+        }} className="mt-2 block h-11 w-full rounded-xl border bg-card px-3">{[...invoices].sort((a, b) => b.periodIndex - a.periodIndex).map(bill => <option key={bill.id} value={bill.id}>{invoicePeriodLabel(bill)} · {money(bill.totalAmount)}</option>)}</select></label>
+        <nav aria-label="Chọn kỳ hóa đơn" className="hidden space-y-2 rounded-2xl border bg-card p-3 lg:sticky lg:top-24 lg:block">
+          {[...invoices].sort((a, b) => b.periodIndex - a.periodIndex).map(bill => {
+            const status = invoiceStatusPresentation(bill, findInvoicePayment(bill, payments)?.status);
+            return <button key={bill.id} type="button" disabled={busy !== null} aria-pressed={selected === bill.id} onClick={() => {
+              setSelectedInvoiceId(bill.id);
+              window.history.replaceState(null, "", paymentModulePath(contractId, "monthly", bill.id));
+            }} className={`block w-full space-y-2 rounded-xl border p-3 text-left disabled:opacity-50 ${selected === bill.id ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted"}`}>
+              <span className="block text-sm font-semibold">{invoicePeriodLabel(bill)}</span><span className="block text-sm font-bold tabular-nums">{money(bill.totalAmount)}</span><span className={`inline-block rounded-full border px-2 py-1 text-xs ${status.className}`}>{status.label}</span>
+            </button>;
+          })}
+        </nav>
+        <div className="min-w-0">{invoices.filter(invoice => invoice.id === selected).map((invoice) => {
         const payment = payments.find((p) => p.invoiceId === invoice.id || p.id === invoice.paymentRequestId);
         const presentation = invoiceStatusPresentation(invoice, payment?.status);
         const rows = extras[invoice.id] || [];
@@ -208,6 +241,7 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
         return <article key={invoice.id} className="rounded-2xl border border-border bg-card p-4 sm:p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div><h3 className="font-semibold">{invoicePeriodLabel(invoice)}</h3>
+              {invoicePeriodSecondaryLabel(invoice) && <p className="text-xs text-muted-foreground">{invoicePeriodSecondaryLabel(invoice)}</p>}
               <p className="text-xs text-muted-foreground">{invoice.finalCostSupplement ? "Chi phí bổ sung" : `Chi phí tháng ${invoice.periodIndex + 1}`}: {date(invoice.periodStart)} – trước {date(invoice.periodEndExclusive)}</p>
               {invoice.billingPeriod?.kind === "RECURRING" && <p className="text-xs text-muted-foreground">Tiền phòng tháng {invoice.billingPeriod.paymentPeriodNumber}: {date(invoice.billingPeriod.rentPeriodStart || undefined)} – trước {date(invoice.billingPeriod.rentPeriodEndExclusive || undefined)}</p>}
               {invoice.billingPeriod?.kind === "FINAL_SETTLEMENT" && <p className="text-xs font-semibold text-primary">Chỉ thu chi phí kỳ cuối và công nợ (nếu có), không thu tiền phòng tháng kế tiếp. Thanh toán đủ trước khi hoàn cọc.</p>}
@@ -293,8 +327,10 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
                   className="block text-xs font-semibold text-primary underline underline-offset-2">Xem chứng từ {index + 1}</button>)}
               </div>}
               {isLandlord && payment.status === "TRANSFER_REPORTED" && <div className="flex flex-wrap items-center gap-2">
-                <button type="button" disabled={busy === payment.id} onClick={() => void perform(payment.id,
-                  () => paymentRequestService.confirmReceipt(payment.id), "Đã xác nhận thanh toán.")}
+                <button type="button" disabled={busy === payment.id} onClick={() => {
+                  if (window.confirm("Bạn đã kiểm tra tài khoản và nhận đủ số tiền của hóa đơn này?")) void perform(payment.id,
+                    () => paymentRequestService.confirmReceipt(payment.id), "Đã xác nhận thanh toán.");
+                }}
                   className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">Xác nhận đã nhận tiền</button>
                 <input value={rejection[payment.id] || ""} onChange={(e) => setRejection((s) => ({ ...s, [payment.id]: e.target.value }))}
                   placeholder="Lý do từ chối" className="rounded-lg border border-border bg-background px-3 py-2 text-xs" />
@@ -305,6 +341,6 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
             </div>}
           </>}
         </article>;
-      })}
+      })}</div></div>}
   </section>;
 }

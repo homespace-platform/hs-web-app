@@ -26,7 +26,6 @@ import ContractPartiesSection from "@/components/contract/detail/ContractParties
 import ContractPropertySection from "@/components/contract/detail/ContractPropertySection";
 import ContractLeaseSection from "@/components/contract/detail/ContractLeaseSection";
 import ContractFinancialSection from "@/components/contract/detail/ContractFinancialSection";
-import ContractInitialPaymentSection from "@/components/contract/detail/ContractInitialPaymentSection";
 import ContractAmenitiesSection from "@/components/contract/detail/ContractAmenitiesSection";
 import ContractChargesSection from "@/components/contract/detail/ContractChargesSection";
 import ContractEquipmentSection from "@/components/contract/detail/ContractEquipmentSection";
@@ -406,7 +405,6 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   const property = revision.property || {};
   const lease = revision.lease || {};
   const financial = revision.financial || {};
-  const initialPayment = revision.initialPayment;
   const amenities = revision.amenities || [];
   const charges = revision.charges || [];
   const equipments = revision.equipments || [];
@@ -499,7 +497,10 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         onSign={handleSign}
       />}
 
-      {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED"].includes(contract.status) && <ContractLifecyclePanel contractId={contract.id} isLandlord={isLandlord} onUpdated={refreshSignedState} />}
+      {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED"].includes(contract.status) && <>
+        {contract.status === "ACTIVE" && <ContractLifecyclePanel contractId={contract.id} isLandlord={isLandlord} onUpdated={refreshSignedState} mode="renewal" />}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4"><div><p className="font-semibold">Hóa đơn & thanh toán</p><p className="mt-1 text-sm text-muted-foreground">Thanh toán ban đầu, hóa đơn theo kỳ và bàn giao / hoàn cọc được quản lý trong một hồ sơ riêng.</p></div><Link href={invoiceDetailPath(contract.id)} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Mở hồ sơ thanh toán →</Link></div>
+      </>}
       {/* 4. MAIN CONTRACT SECTIONS */}
       <div className="space-y-6">
         {/* CHỦ THỂ BÊN A VÀ BÊN B */}
@@ -514,12 +515,6 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         {/* GIÁ THUÊ VÀ ĐẶT CỌC */}
         <ContractFinancialSection financial={financial} />
 
-        {/* XÁC NHẬN THANH TOÁN BAN ĐẦU */}
-        {!contract.parentContractId && <ContractInitialPaymentSection
-          initialPayment={initialPayment}
-          paymentBreakdown={payment}
-          paidAt={contract.paidAt}
-        />}
 
         {/* BẢNG TIỆN ÍCH DÙNG CHUNG VÀ CHÍNH SÁCH */}
         <ContractAmenitiesSection amenities={amenities} />

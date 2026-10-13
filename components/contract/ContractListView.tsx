@@ -18,7 +18,7 @@ const STATUS_LABEL: Record<ContractStatus, string> = {
   TENANT_SIGNATURE_PENDING: "Chờ người thuê ký SmartCA",
   ACTIVE: "Hiệu lực",
   EXPIRED: "Hết thời hạn thuê",
-  CLOSED: "Đã quyết toán",
+  CLOSED: "Đã kết thúc hợp đồng",
   TERMINATED: "Đã chấm dứt",
   CANCELLED: "Đã hủy",
 };

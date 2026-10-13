@@ -38,9 +38,9 @@ const Signing = load(signingSource, false);
 const base = { endExclusive: "2027-01-12", canRequestRenewal: false, canProposeClosure: false, heldDeposit: 20000000,
   billing: { allPaid: true, canIssueSupplement: false, bills: [] },
   renewals: [], renewalOpensAt: "2026-12-12T17:00:00Z", renewalSignBy: "2027-01-10T17:00:00Z" };
-function renderLifecycle(data, isLandlord) {
+function renderLifecycle(data, isLandlord, mode = "all") {
   fixture = { ...base, ...data }; stateIndex = 0;
-  return renderToStaticMarkup(React.createElement(Lifecycle, { contractId: "root", isLandlord }));
+  return renderToStaticMarkup(React.createElement(Lifecycle, { contractId: "root", isLandlord, mode }));
 }
 function renderPayment(status, isLandlord, direction = "LANDLORD_TO_TENANT") {
   return renderToStaticMarkup(React.createElement(Payment, { isLandlord, refresh: async () => {}, payment: {
@@ -55,6 +55,15 @@ test("renewal action and signing links respect party and server state", () => {
   assert.doesNotMatch(renderLifecycle({ renewals: [r] }, false), /Duyệt &amp; tạo văn bản/);
   assert.doesNotMatch(renderLifecycle({ renewals: [{ ...r, status: "APPROVED", agreementContractId: "child", agreementStatus: "DRAFT" }] }, false), /Mở văn bản gia hạn/);
   assert.match(renderLifecycle({ renewals: [{ ...r, status: "APPROVED", agreementContractId: "child", agreementStatus: "TENANT_SIGNATURE_PENDING" }] }, false), /target="_blank"/);
+});
+
+test("separate payment module preserves settlement consent and hides contract renewal actions", () => {
+  const data = { canRequestRenewal: true, closure: { status: "PROPOSED", proposalVersion: 1, refundAmount: 20000000 },
+    renewals: [{ id: "renewal", months: 3, status: "APPROVED", agreementContractId: "child", agreementStatus: "TENANT_SIGNATURE_PENDING" }] };
+  const settlement = renderLifecycle(data, false, "settlement");
+  assert.match(settlement, /Đồng ý quyết toán/);assert.doesNotMatch(settlement, /Gửi yêu cầu gia hạn|Mở văn bản gia hạn/);
+  const renewal = renderLifecycle(data, false, "renewal");
+  assert.match(renewal, /Gửi yêu cầu gia hạn/);assert.doesNotMatch(renewal, /Đồng ý quyết toán|Bàn giao &amp; tiền cọc/);
 });
 
 test("renewal disabled before server opening date, enabled for tenant only, cutoff explained", () => {

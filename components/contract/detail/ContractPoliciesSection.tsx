@@ -4,6 +4,12 @@ import React, { useEffect, useState } from "react";
 import { FileCheck, Edit3, Check, Loader2 } from "lucide-react";
 import { FieldRow } from "./utils";
 import type { PolicySnapshot } from "@/types/contract.type";
+import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
+import InlineAmendmentFields, { BillingSystemRuleLabels } from "./InlineAmendmentFields";
+import ListingPoliciesCard from "@/components/listing/ListingPoliciesCard";
+import type { ListingPolicyValue } from "@/types/listing-policy.type";
+import VndMoneyInput from "@/components/ui/vnd-money-input";
+import { ContractEditField } from "./ContractFieldState";
 
 const formatVnd = (amount: number) => `${amount.toLocaleString("vi-VN")} đ`;
 
@@ -13,17 +19,20 @@ interface ContractPoliciesSectionProps {
   isDraft: boolean;
   isLandlord: boolean;
   onSaveSpecialTerms?: (terms: string) => Promise<void>;
-  onSaveLateFee?: (policy: Pick<PolicySnapshot, "latePaymentFeeMode" | "latePaymentFeeAmount" | "latePaymentFeeGraceDays" | "latePaymentFeeCap">) => Promise<void>;
+  onSaveLateFee?: (policy: Pick<PolicySnapshot, "latePaymentFeeMode" | "latePaymentFeeAmount">) => Promise<void>;
 }
 
 export default function ContractPoliciesSection({
-  policies,
-  specialTerms,
+  policies: originalPolicies,
+  specialTerms: originalSpecialTerms,
   isDraft,
   isLandlord,
   onSaveSpecialTerms,
   onSaveLateFee,
 }: ContractPoliciesSectionProps) {
+  const w = useAmendmentWorkspace();
+  const policies = w?.data?.currentTerms.policies ?? originalPolicies;
+  const specialTerms = w?.data?.currentTerms.specialTerms ?? originalSpecialTerms;
   const [editing, setEditing] = useState(false);
   const [termText, setTermText] = useState(specialTerms || "");
   const [saving, setSaving] = useState(false);
@@ -54,9 +63,7 @@ export default function ContractPoliciesSection({
     setSaving(true);
     try {
       await onSaveLateFee({ latePaymentFeeMode: feeMode,
-        latePaymentFeeAmount: feeMode === "NONE" ? 0 : amount,
-        latePaymentFeeGraceDays: 0,
-        latePaymentFeeCap: null });
+        latePaymentFeeAmount: feeMode === "NONE" ? 0 : amount });
       setEditingFee(false);
     } catch {
       setFeeError("Không thể lưu phí phạt. Vui lòng kiểm tra thông báo lỗi và thử lại.");
@@ -93,8 +100,13 @@ export default function ContractPoliciesSection({
       : typeof p[key as keyof typeof p] === "string" && String(p[key as keyof typeof p]).trim()
         ? String(p[key as keyof typeof p]) : "Chưa có thỏa thuận trong bản chụp hợp đồng";
 
+  if (w?.editing) return <section id="amendment-rules" className="scroll-mt-24 min-w-0 rounded-2xl border bg-card p-4.5 space-y-3">
+    <h3 className="text-sm font-bold">Chính sách vận hành và điều khoản thỏa thuận bổ sung</h3>
+    <InlineAmendmentFields group="rules"/>
+  </section>;
+
   return (
-    <section className="rounded-2xl border border-border bg-card p-4.5 space-y-4 shadow-2xs">
+    <section id="amendment-rules" className="scroll-mt-24 rounded-2xl border border-border bg-card p-4.5 space-y-4 shadow-2xs">
       <div className="flex items-center justify-between border-b border-border/70 pb-2">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
@@ -106,24 +118,26 @@ export default function ContractPoliciesSection({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5">
-        <FieldRow
+      {w?.editing && <InlineAmendmentFields group="rules" />}
+      {!w?.editing && Array.isArray(p.listingPolicies) && p.listingPolicies.length > 0 && <ListingPoliciesCard rows={p.listingPolicies as ListingPolicyValue[]} compact contract />}
+      <div className={`grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5 ${w?.editing || Array.isArray(p.listingPolicies) && p.listingPolicies.length ? "hidden" : ""}`}>
+        <FieldRow editable
           label="Thời hạn báo trước khi chấm dứt"
           value={noticeDays != null ? `Tối thiểu ${noticeDays} ngày` : "Chưa có thỏa thuận"}
         />
-        <FieldRow
+        <FieldRow editable
           label="Thời hạn hoàn trả tiền đặt cọc"
           value={depositRefundDays != null ? `Trong vòng ${depositRefundDays} ngày sau khi bàn giao và quyết toán` : "Chưa có thỏa thuận"}
         />
-        <FieldRow
+        <FieldRow editable
           label="Cho thuê lại (Subletting)"
           value={policyText("sublettingAllowed", "subleasePolicy", "Được phép theo thỏa thuận", "Không được phép")}
         />
-        <FieldRow
+        <FieldRow editable
           label="Quy định nuôi thú cưng"
           value={policyText("petsAllowed", "petPolicy", "Được phép, tuân thủ nội quy", "Không được phép")}
         />
-        <FieldRow
+        <FieldRow editable
           label="Quy định hút thuốc trong nhà"
           value={policyText("smokingAllowed", "smokingPolicy", "Chỉ tại khu vực cho phép", "Không được phép")}
         />
@@ -136,26 +150,24 @@ export default function ContractPoliciesSection({
             className="text-xs font-semibold text-primary hover:underline">{lateMode === "NONE" ? "Thiết lập phí" : "Chỉnh sửa"}</button>}
         </div>
         {editingFee ? <div className="grid gap-3 text-xs">
-          <label>Cách tính phí
+          <ContractEditField group="policies" changed={feeMode!==lateMode}><label>Cách tính phí
             <select value={feeMode} onChange={(e) => setFeeMode(e.target.value as typeof feeMode)}
               className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2">
               <option value="NONE">Không phạt</option>
               <option value="FIXED_ONCE">Phạt một lần sau hạn</option>
               <option value="FIXED_PER_DAY">Phạt cho mỗi ngày trễ</option>
             </select>
-          </label>
-          {feeMode !== "NONE" && <label>Mức phạt (đ)
-            <input type="text" inputMode="numeric" value={feeAmount ? Number(feeAmount).toLocaleString("vi-VN") : ""}
-              onChange={(e) => { setFeeAmount(e.target.value.replace(/\D/g, "")); setFeeError(""); }}
-              placeholder={feeMode === "FIXED_PER_DAY" ? "Ví dụ: 100.000 đ/ngày" : "Ví dụ: 100.000 đ/lần"}
-              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2" />
-          </label>}
+          </label></ContractEditField>
+          {feeMode !== "NONE" && <ContractEditField group="policies" changed={Number(feeAmount)!==savedFeeAmount}><VndMoneyInput label="Mức phạt (đ)" min={1} value={feeAmount}
+            onValueChange={amount => { setFeeAmount(amount); setFeeError(""); }}
+            placeholder={feeMode === "FIXED_PER_DAY" ? "Ví dụ: 100.000 đ/ngày" : "Ví dụ: 100.000 đ/lần"} /></ContractEditField>}
           <p className="text-muted-foreground">{feeMode === "FIXED_PER_DAY" && draftFeeAmount > 0
             ? `Trễ 1 ngày: ${formatVnd(draftFeeAmount)} · Trễ 5 ngày: ${formatVnd(draftFeeAmount * 5)} · Tối đa 10 ngày: ${formatVnd(draftFeeAmount * 10)} trên mỗi hóa đơn.`
             : feeMode === "FIXED_ONCE" && draftFeeAmount > 0 ? `Trễ 1 hay nhiều ngày: chỉ phạt một lần ${formatVnd(draftFeeAmount)}.`
             : feeMode !== "NONE" ? "Nhập mức tiền để xem ví dụ tính phí."
             : "Không cộng phí chậm thanh toán vào hóa đơn."}</p>
           {feeError && <p className="text-rose-600">{feeError}</p>}
+          <BillingSystemRuleLabels policies={{...p,latePaymentFeeMode:feeMode,latePaymentFeeAmount:feeAmount}} />
           <div className="flex justify-end gap-2">
             <button type="button" disabled={saving} onClick={() => { resetFeeForm(); setEditingFee(false); }} className="rounded-lg border border-border px-3 py-2">Hủy</button>
             <button type="button" disabled={saving} onClick={() => void saveFee()} className="rounded-lg bg-primary px-3 py-2 font-semibold text-primary-foreground inline-flex items-center gap-1">
@@ -163,20 +175,20 @@ export default function ContractPoliciesSection({
             </button>
           </div>
         </div> : lateMode === "NONE" ? (
-          <p className="text-xs text-muted-foreground">Không áp dụng phí phạt đóng trễ cho hợp đồng này.</p>
+          <p data-contract-field-state="editable" className="text-xs text-blue-700! dark:text-blue-400!">Không áp dụng phí phạt đóng trễ cho hợp đồng này.</p>
         ) : (
           <div className="space-y-2.5 text-xs">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <strong className="text-lg font-bold text-foreground">{formatVnd(savedFeeAmount)}</strong>
-              <span className="font-semibold text-foreground">{lateMode === "FIXED_PER_DAY" ? "/ mỗi ngày trễ" : "/ một lần duy nhất"}</span>
+              <strong data-contract-field-state="editable" className="text-lg font-bold text-blue-700! dark:text-blue-400!">{formatVnd(savedFeeAmount)}</strong>
+              <span data-contract-field-state="editable" className="font-semibold text-blue-700! dark:text-blue-400!">{lateMode === "FIXED_PER_DAY" ? "/ mỗi ngày trễ" : "/ một lần duy nhất"}</span>
               <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">{isDraft ? "Đã lưu trong bản nháp" : "Điều khoản đã chốt"}</span>
             </div>
             <p className="text-foreground">Trễ 1 ngày: {formatVnd(feeAfterDays(1))} · Trễ 5 ngày: {formatVnd(feeAfterDays(5))}.</p>
             <p className="text-muted-foreground">Bắt đầu tính {savedGraceDays > 0
               ? `sau ${savedGraceDays} ngày ân hạn kể từ hạn thanh toán ghi trên hóa đơn`
               : "từ ngày đầu tiên sau hạn thanh toán ghi trên hóa đơn"}. Sau 5 ngày quá hạn, hệ thống nhắc chủ nhà quyết định hướng xử lý.</p>
-            {savedFeeCap > 0 && <p className="text-muted-foreground">Mức phạt tối đa của điều khoản cũ: {formatVnd(savedFeeCap)}.</p>}
-            {lateMode === "FIXED_PER_DAY" && <p className="text-muted-foreground">Hệ thống chỉ tính phạt tối đa 10 ngày trên mỗi hóa đơn; vẫn áp dụng mức trần tiền thấp hơn nếu có.</p>}
+            {savedFeeCap > 0 && <p className="text-muted-foreground">{p.billingRules ? "Tổng phí phạt tối đa do hệ thống tính" : "Mức phạt tối đa của điều khoản cũ"}: {formatVnd(savedFeeCap)}.</p>}
+            {lateMode === "FIXED_PER_DAY" && <p className="text-muted-foreground">Hệ thống chỉ tính phạt tối đa 10 ngày trên mỗi hóa đơn; {p.billingRules ? "tổng tối đa bằng mức phí mỗi ngày nhân 10, không phải khoản phạt tự động phải trả đủ." : "vẫn áp dụng mức trần tiền thấp hơn trong bản ký cũ nếu có."}</p>}
             {isDraft && <p className="font-medium text-amber-700">Hãy kết xuất lại hợp đồng để điều khoản này xuất hiện trong bản ký.</p>}
           </div>
         )}
@@ -189,6 +201,7 @@ export default function ContractPoliciesSection({
       </p>
 
       {/* SPECIAL TERMS */}
+      {w?.data?.currentTerms.systemTerms&&<div className="rounded-xl border bg-muted/20 p-3.5 text-xs"><h4 className="font-semibold">Quy trình xử lý quá hạn do hệ thống quản lý</h4><p className="mt-2 whitespace-pre-wrap text-muted-foreground">{w.data.currentTerms.systemTerms}</p></div>}
       <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-2">
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
@@ -209,13 +222,13 @@ export default function ContractPoliciesSection({
         {editing ? (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">Phí phạt đóng trễ được quản lý riêng ở mục trên. Nếu xóa câu điều khoản chấm dứt sau 5 ngày quá hạn, nút xử lý theo điều khoản đó sẽ không áp dụng cho bản ký này.</p>
-            <textarea
+            <ContractEditField group="specialTerms" changed={termText.trim()!==String(specialTerms??"").trim()}><textarea
               rows={3}
               value={termText}
               onChange={(e) => setTermText(e.target.value)}
               placeholder="Nhập các điều khoản thỏa thuận bổ sung đã thống nhất giữa hai bên..."
               className="w-full rounded-lg border border-input bg-background p-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            />
+            /></ContractEditField>
             <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
@@ -244,7 +257,7 @@ export default function ContractPoliciesSection({
             </div>
           </div>
         ) : (
-          <p className="text-xs text-foreground leading-relaxed">
+          <p data-contract-field-state="editable" className="text-xs text-blue-700! dark:text-blue-400! leading-relaxed">
             {specialTerms ? (
               specialTerms
             ) : (

@@ -15,6 +15,8 @@ const icons = [Wallet, ReceiptText, RotateCcw];
 export default function ContractPaymentCard({ bundle, role }: { bundle: ContractPaymentBundle; role: DashboardRole }) {
   const { contract, lifecycle } = bundle;
   const summaries = [initialSummary(bundle.initial), monthlySummary(bundle.invoices, bundle.payments), depositSummary(lifecycle)];
+  const pendingDeposits=bundle.payments?.filter(p=>p.type === "DEPOSIT_ADJUSTMENT" && p.status !== "CONFIRMED") ?? [];
+  if(pendingDeposits.length) summaries[2]={label:`${pendingDeposits.length} khoản chênh lệch cọc cần xử lý`,detail:"Mở hồ sơ để chuyển tiền hoặc xác nhận nhận tiền",tone:"warning",amount:pendingDeposits.reduce((sum,p)=>sum+p.totalAmount,0)};
   const status = lifecycle?.closure?.status === "CLOSED" ? "CLOSED" : contract.status;
   return <article className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">

@@ -16,6 +16,7 @@ const styles = {
 };
 
 export function invoicePeriodLabel(invoice: InvoicePeriod) {
+  if (invoice.billingPeriod?.kind === "COSTS_ONLY") return `Chi phí tháng ${invoice.periodIndex + 1} · Tiền thuê đã thu trước`;
   if (invoice.finalCostSupplement || invoice.billingPeriod?.kind === "SUPPLEMENT") {
     return "Chi phí bổ sung kỳ cuối";
   }
@@ -41,7 +42,7 @@ export function invoicePeriodSecondaryLabel(invoice: InvoicePeriod): string | nu
   if (invoice.billingPeriod?.kind !== "RECURRING") return null;
   const rentMonth = invoice.billingPeriod.paymentPeriodNumber;
   if (!rentMonth || rentMonth < 2) return null;
-  return `Tiền phòng tháng ${rentMonth} + chi phí tháng ${rentMonth - 1}`;
+  return `Tiền phòng theo khoảng ngày trên hóa đơn + chi phí tháng ${rentMonth - 1}`;
 }
 
 export function invoicePeriodDateSummary(invoice: Pick<MonthlyInvoice, "periodStart" | "periodEndExclusive" | "billingPeriod">): string {

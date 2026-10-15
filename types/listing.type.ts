@@ -313,6 +313,7 @@ export type ListingMediaRequest = {
 };
 
 export type CreateListingRequest = {
+  policies?: import("./listing-policy.type").ListingPolicyInput[];
   id?: string | null;
   duplicateSourceListingId?: string | null;
   branchId?: string | null;
@@ -412,6 +413,7 @@ export type ListingOwner = {
 };
 
 export type ListingDetailResponse = {
+  policies?: import("./listing-policy.type").ListingPolicyValue[];
   id: string;
   ownerId: string;
   branchId?: string | null;
@@ -453,6 +455,7 @@ export type ListingDetailResponse = {
 };
 
 export type ListingOptionsResponse = {
+  policies?: import("./listing-policy.type").ListingPolicyDefinition[];
   category: ListingCategory;
   amenities: ListingOptionItemResponse[];
   furnishings: ListingOptionItemResponse[];

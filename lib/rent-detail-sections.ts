@@ -1,4 +1,5 @@
 import type { RentPropertyItem } from "@/types/rent.type";
+import { contractPropertyFeatureValue } from "@/lib/contract-property-feature-labels";
 
 export type RentDetailItem = { label: string; value: string };
 export type RentDetailSection = { title: string; items: RentDetailItem[] };
@@ -48,7 +49,7 @@ const BILLING_METHOD_LABELS: Record<string, string> = {
   PER_M3: "đ/m³",
   PER_PERSON_MONTH: "đ/người/tháng",
   PER_MONTH: "đ/tháng",
-  PER_M2_MONTH: "đ/m²/tháng",
+  PER_M2_MONTH: "đ/mét vuông/tháng",
   PER_VEHICLE_MONTH: "đ/xe/tháng",
   PER_HOUR: "đ/giờ",
   FREE: "Miễn phí",
@@ -95,7 +96,7 @@ export function getRentDetailSections(
       detail("Giấy tờ pháp lý", label(details.legalStatus, LEGAL_LABELS)),
     ],
     house: [
-      detail("Diện tích đất", details.landAreaM2, " m²"),
+      detail("Diện tích đất", details.landAreaM2, " mét vuông"),
       detail("Mặt tiền", details.frontageWidthM, " m"),
       detail("Chiều dài", details.lengthM, " m"),
       detail("Độ rộng đường/hẻm", details.accessRoadWidthM, " m"),
@@ -107,7 +108,7 @@ export function getRentDetailSections(
       detail("Phòng bếp", details.kitchenCount, " phòng"),
       detail("Sân thượng", booleanLabel(details.hasRooftop)),
       detail("Garage để xe", booleanLabel(details.hasGarage)),
-      detail("Lối đi", label(details.accessType, { PRIVATE: "Riêng biệt", SHARED: "Chung" })),
+      detail("Lối đi", contractPropertyFeatureValue("Lối đi", details.accessType)),
       detail("Tình trạng nội thất", label(details.furnishingStatus, FURNISHING_LABELS)),
       detail("Số người ở tối đa", details.maxOccupants, " người"),
       detail("Số xe máy tối đa", details.maxVehicles, " xe"),
@@ -141,7 +142,7 @@ export function getRentDetailSections(
         })
       ),
       detail("Số chỗ ngồi dự kiến", details.expectedSeats, " chỗ"),
-      detail("Diện tích chia nhỏ tối thiểu", details.minimumDivisibleAreaM2, " m²"),
+      detail("Diện tích chia nhỏ tối thiểu", details.minimumDivisibleAreaM2, " mét vuông"),
       detail("Số phòng vệ sinh", details.restroomCount, " phòng"),
       detail(
         "Hệ thống vệ sinh",

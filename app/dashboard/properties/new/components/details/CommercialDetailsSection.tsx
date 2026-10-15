@@ -52,7 +52,7 @@ export default function CommercialDetailsSection({
         {/* Diện tích (Bắt buộc) */}
         <FormField
           id="field-commercial-area"
-          label="Diện tích sử dụng (m²)"
+          label="Diện tích sử dụng (mét vuông)"
           required
           error={errors.areaM2}
         >

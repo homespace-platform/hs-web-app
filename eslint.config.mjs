@@ -6,6 +6,11 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    files: ["tests/amendment-ui/*.cjs"],
+    // Node CLI and the Webpack loader use CommonJS; application files keep the import rule.
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
+  {
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": "off",
@@ -18,6 +23,7 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    "tests/amendment-ui/output/**",
     "next-env.d.ts",
   ]),
 ]);

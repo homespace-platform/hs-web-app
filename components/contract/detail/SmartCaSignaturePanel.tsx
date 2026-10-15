@@ -99,7 +99,7 @@ export default function SmartCaSignaturePanel({ contract, state, isLandlord, isT
 
   if (contract.status === "ACTIVE") {
     return <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900 flex items-center gap-3">
-      <CheckCircle2 className="h-5 w-5" /> Hai bên đã ký số. Hãy tải PDF hoàn chỉnh để kiểm tra chữ ký.
+      <CheckCircle2 className="h-5 w-5" /> {contract.agreementKind === "AMENDMENT" ? "Hai bên đã ký đủ phụ lục. Xem trạng thái và ngày áp dụng ở bảng điều chỉnh phía trên." : "Hai bên đã ký số. Hãy tải PDF hoàn chỉnh để kiểm tra chữ ký."}
     </section>;
   }
 
@@ -121,7 +121,7 @@ export default function SmartCaSignaturePanel({ contract, state, isLandlord, isT
     <div className="flex items-start gap-3">
       <ShieldCheck className="h-6 w-6 text-sky-700 shrink-0" />
       <div>
-        <h3 className="font-bold text-sm">Ký số hợp đồng bằng VNPT SmartCA</h3>
+        <h3 className="font-bold text-sm">Ký số {contract.agreementKind === "AMENDMENT" ? "phụ lục" : "hợp đồng"} bằng VNPT SmartCA</h3>
         <p className="text-xs text-muted-foreground mt-1">Rà soát PDF trước khi gửi yêu cầu. Ứng dụng SmartCA xác nhận giao dịch; HomeSpace sẽ đóng gói và kiểm tra chữ ký trên PDF.</p>
       </div>
     </div>

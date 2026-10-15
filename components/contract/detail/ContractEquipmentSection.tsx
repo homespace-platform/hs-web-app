@@ -3,6 +3,8 @@
 import React from "react";
 import { Package, ShieldCheck } from "lucide-react";
 import { str } from "./utils";
+import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
+import InlineAmendmentFields from "./InlineAmendmentFields";
 
 interface ContractEquipmentSectionProps {
   equipments?: Record<string, unknown>[] | null;
@@ -88,10 +90,11 @@ export function formatHandoverCondition(val?: unknown): {
 export default function ContractEquipmentSection({
   equipments,
 }: ContractEquipmentSectionProps) {
-  const items = equipments || [];
+  const w = useAmendmentWorkspace();
+  const items = w?.data?.currentTerms.equipments ?? equipments ?? [];
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4.5 space-y-3 shadow-2xs">
+    <section id="amendment-equipments" className="scroll-mt-24 rounded-2xl border border-border bg-card p-4.5 space-y-3 shadow-2xs">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/70 pb-2">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
@@ -99,7 +102,7 @@ export default function ContractEquipmentSection({
           </div>
           <div>
             <h3 className="text-sm font-bold text-foreground">
-              Danh mục tài sản và nội thất bàn giao (Equipment Table)
+              Nội thất và tài sản bàn giao
             </h3>
             <p className="text-[11px] text-muted-foreground">
               Trang thiết bị gắn liền với tài sản bàn giao theo hiện trạng thực tế
@@ -112,7 +115,7 @@ export default function ContractEquipmentSection({
         </span>
       </div>
 
-      {items.length > 0 ? (
+      {w?.editing ? <InlineAmendmentFields group="equipments" /> : items.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-border/80">
           <table className="w-full text-xs">
             <thead className="bg-muted/40 text-muted-foreground border-b border-border/80">
@@ -131,27 +134,28 @@ export default function ContractEquipmentSection({
                 const name = str(eq.name || eq.equipmentName);
                 const quantity = eq.quantity != null ? str(eq.quantity) : "01";
                 const cond = formatHandoverCondition(eq.condition || eq.status);
-                const note = str(eq.note || "Bàn giao theo nhà");
+                const note = str(eq.note || "Chưa có ghi chú bàn giao");
 
                 return (
                   <tr key={idx} className="hover:bg-muted/30 transition-colors">
                     <td className="py-2.5 px-3 text-center font-semibold text-muted-foreground">
                       {idx + 1}
                     </td>
-                    <td className="py-2.5 px-3 font-semibold text-foreground">
+                    <td data-contract-field-state="editable" className="py-2.5 px-3 font-semibold text-blue-700! dark:text-blue-400!">
                       {name}
                     </td>
-                    <td className="py-2.5 px-3 text-center font-medium text-foreground">
+                    <td data-contract-field-state="editable" className="py-2.5 px-3 text-center font-medium text-blue-700! dark:text-blue-400!">
                       {quantity}
                     </td>
                     <td className="py-2.5 px-3">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border ${cond.className}`}
+                        data-contract-field-state="editable"
+                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border text-blue-700! dark:text-blue-400! ${cond.className}`}
                       >
                         {cond.label}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 text-muted-foreground">{note}</td>
+                    <td data-contract-field-state="editable" className="py-2.5 px-3 text-blue-700! dark:text-blue-400!">{note}</td>
                   </tr>
                 );
               })}

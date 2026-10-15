@@ -32,7 +32,7 @@ export default function HouseDetailsSection({
         {/* Tổng diện tích sử dụng (Bắt buộc) */}
         <FormField
           id="field-total-usable-area"
-          label="Tổng diện tích sử dụng (m²)"
+          label="Tổng diện tích sử dụng (mét vuông)"
           required
           error={errors.totalUsableAreaM2}
           hint="Tổng diện tích sàn tất cả các tầng cộng lại"
@@ -53,7 +53,7 @@ export default function HouseDetailsSection({
         {/* Diện tích đất */}
         <FormField
           id="field-land-area"
-          label="Diện tích đất (m²)"
+          label="Diện tích đất (mét vuông)"
           error={errors.landAreaM2}
           hint="Diện tích khuôn viên đất"
         >

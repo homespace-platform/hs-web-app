@@ -75,13 +75,11 @@ export interface AmenitySnapshot {
   index?: number;
   code?: string;
   name?: string;
-  scope?: string;
-  costText?: string;
-  conditionText?: string;
   sourceType?: string;
 }
 
 export interface PolicySnapshot {
+  listingPolicies?: import("./listing-policy.type").ListingPolicyValue[];
   paymentDueDay?: string;
   paymentCycle?: string;
   noticeDaysBeforeTermination?: number;
@@ -98,6 +96,7 @@ export interface PolicySnapshot {
   latePaymentFeeAmount?: number;
   latePaymentFeeGraceDays?: number;
   latePaymentFeeCap?: number | null;
+  billingRules?: Record<string, unknown>;
   overdueLandlordTerminationAfterFiveDays?: boolean;
   depositRefundDays?: number;
   sublettingAllowed?: boolean;
@@ -125,6 +124,7 @@ export interface UpdateContractRevisionRequest {
 export interface ContractResponse {
   id: string;
   contractNumber: string;
+  signingCity?: string | null;
   rentalRequestId: string;
   listingId: string;
   landlordId: string;
@@ -133,6 +133,7 @@ export interface ContractResponse {
   templateVersionId: string;
   currentRevisionId?: string | null;
   parentContractId?: string | null;
+  agreementKind?: "AMENDMENT" | "RENEWAL" | null;
   effectiveLeaseMonths?: number | null;
   status: ContractStatus;
   paymentStatus: ContractPaymentStatus;

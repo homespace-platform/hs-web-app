@@ -15,6 +15,7 @@ export type PaymentType =
   | "OTHER_CHARGE"
   | "INITIAL_PAYMENT_REFUND"
   | "DEPOSIT_REFUND"
+  | "DEPOSIT_ADJUSTMENT"
   ;
 
 export type PaymentDirection = "TENANT_TO_LANDLORD" | "LANDLORD_TO_TENANT";

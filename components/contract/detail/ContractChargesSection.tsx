@@ -3,6 +3,8 @@
 import React from "react";
 import { Receipt, Zap, Droplet, Info } from "lucide-react";
 import { str } from "./utils";
+import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
+import InlineAmendmentFields from "./InlineAmendmentFields";
 
 interface ContractChargesSectionProps {
   charges?: Record<string, unknown>[] | null;
@@ -33,10 +35,11 @@ export function formatBillingMethod(method?: unknown): string {
 export default function ContractChargesSection({
   charges,
 }: ContractChargesSectionProps) {
-  const items = charges || [];
+  const w = useAmendmentWorkspace();
+  const items = w?.data?.currentTerms.charges ?? charges ?? [];
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4.5 space-y-3 shadow-2xs">
+    <section id="amendment-charges" className="scroll-mt-24 rounded-2xl border border-border bg-card p-4.5 space-y-3 shadow-2xs">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/70 pb-2">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
@@ -44,7 +47,7 @@ export default function ContractChargesSection({
           </div>
           <div>
             <h3 className="text-sm font-bold text-foreground">
-              Phí dịch vụ và chi phí sinh hoạt (Charges Table)
+              Phí dịch vụ và chi phí sinh hoạt
             </h3>
             <p className="text-[11px] text-muted-foreground">
               Đơn giá, cách thức tính phí và phân loại chi phí định kỳ hoặc theo công tơ
@@ -57,7 +60,7 @@ export default function ContractChargesSection({
         </span>
       </div>
 
-      {items.length > 0 ? (
+      {w?.editing ? <InlineAmendmentFields group="charges" /> : items.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-border/80">
           <table className="w-full text-xs">
             <thead className="bg-muted/40 text-muted-foreground border-b border-border/80">
@@ -83,7 +86,7 @@ export default function ContractChargesSection({
                     <td className="py-2.5 px-3 text-center font-semibold text-muted-foreground">
                       {idx + 1}
                     </td>
-                    <td className="py-2.5 px-3 font-semibold text-foreground">
+                    <td data-contract-field-state="editable" className="py-2.5 px-3 font-semibold text-blue-700! dark:text-blue-400!">
                       <div className="flex items-center gap-1.5">
                         {isMetered && (billingMethod === "PER_KWH" ? (
                           <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -93,13 +96,13 @@ export default function ContractChargesSection({
                         {name}
                       </div>
                     </td>
-                    <td className="py-2.5 px-3 text-foreground font-medium">
+                    <td data-contract-field-state="editable" className="py-2.5 px-3 text-blue-700! dark:text-blue-400! font-medium">
                       {str(charge.amountAndMethod || charge.amount)}
                     </td>
-                    <td className="py-2.5 px-3 text-muted-foreground font-medium">
-                      {formatBillingMethod(charge.billingMethodText || charge.billingMethod)}
+                    <td data-contract-field-state="editable" className="py-2.5 px-3 text-blue-700! dark:text-blue-400! font-medium">
+                      {formatBillingMethod(charge.billingMethod || charge.billingMethodText)}
                     </td>
-                    <td className="py-2.5 px-3 text-muted-foreground">
+                    <td data-contract-field-state="editable" className="py-2.5 px-3 text-blue-700! dark:text-blue-400!">
                       {str(charge.note || "Theo mức sử dụng thực tế")}
                     </td>
                   </tr>
@@ -110,7 +113,7 @@ export default function ContractChargesSection({
         </div>
       ) : (
         <p className="text-xs text-muted-foreground italic py-2">
-          Giá thuê đã bao gồm trọn gói tất cả các dịch vụ cơ bản.
+          Chưa có khoản phí dịch vụ được ghi nhận trong hợp đồng. Không tự suy ra các dịch vụ đã miễn phí hoặc bao gồm trong giá thuê.
         </p>
       )}
 

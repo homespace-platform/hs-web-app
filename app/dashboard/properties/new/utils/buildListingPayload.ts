@@ -27,6 +27,7 @@ import type {
 } from "../types";
 
 export interface BuildPayloadParams {
+  policies?: import("@/types/listing-policy.type").ListingPolicyInput[];
   id?: string | null;
   duplicateSourceListingId?: string | null;
   submissionAction: ListingSubmissionAction;
@@ -303,7 +304,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
         monthlyExpenses.waterPrice
           ? Number(monthlyExpenses.waterPrice)
           : null,
-      unit: monthlyExpenses.waterType === "M3" ? "m³" : "người",
+      unit: monthlyExpenses.waterType === "M3" ? "m³" : monthlyExpenses.waterType === "PER_PERSON" ? "người/tháng" : monthlyExpenses.waterType === "FLAT_ROOM" ? "phòng/tháng" : undefined,
       includedInRent: monthlyExpenses.waterType === "INCLUDED",
       sortOrder: 2,
     },
@@ -424,6 +425,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
         };
 
   return {
+    policies: params.policies ?? [],
     id: params.id || null,
     duplicateSourceListingId: params.duplicateSourceListingId || undefined,
     branchId: basicInfo.branchId || null,
@@ -443,10 +445,10 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
     houseDetail,
     roomDetail,
     amenityCodes: params.catalogAmenityCodes && params.catalogAmenityCodes.length > 0
-      ? selectedAmenities.filter((item) => params.catalogAmenityCodes!.includes(item))
-      : selectedAmenities,
+      ? selectedAmenities.filter((item) => item !== "PETS_ALLOWED" && params.catalogAmenityCodes!.includes(item))
+      : selectedAmenities.filter(item => item !== "PETS_ALLOWED"),
     customAmenities: params.catalogAmenityCodes && params.catalogAmenityCodes.length > 0
-      ? selectedAmenities.filter((item) => !params.catalogAmenityCodes!.includes(item))
+      ? selectedAmenities.filter((item) => item !== "PETS_ALLOWED" && !params.catalogAmenityCodes!.includes(item))
       : [],
     furnishings: furnishingAssets.map((row) => ({
       itemCode: row.itemCode || null,

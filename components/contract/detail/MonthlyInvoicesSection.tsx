@@ -1,4 +1,5 @@
 "use client";
+import VndMoneyInput from "@/components/ui/vnd-money-input";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
@@ -271,9 +272,9 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
               <input aria-label="Tên khoản phát sinh" placeholder="Tên khoản phát sinh" value={row.description}
                 onChange={(e) => setExtras((s) => ({ ...s, [invoice.id]: rows.map((x, n) => n === index ? { ...x, description: e.target.value } : x) }))}
                 className="min-w-40 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-              <input aria-label="Số tiền phát sinh" type="number" min={1} placeholder="Số tiền (đ)" value={row.amount}
-                onChange={(e) => setExtras((s) => ({ ...s, [invoice.id]: rows.map((x, n) => n === index ? { ...x, amount: e.target.value } : x) }))}
-                className="w-36 rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+              <VndMoneyInput ariaLabel="Số tiền phát sinh" min={1} max={Number.MAX_SAFE_INTEGER} placeholder="Số tiền (đ)" value={row.amount}
+                onValueChange={amount => setExtras((s) => ({ ...s, [invoice.id]: rows.map((x, n) => n === index ? { ...x, amount } : x) }))}
+                className="w-44 max-w-full" />
               <button type="button" aria-label="Xóa khoản phát sinh" onClick={() => setExtras((s) => ({ ...s, [invoice.id]: rows.filter((_, n) => n !== index) }))}
                 className="rounded-lg border border-border px-3"><Trash2 className="h-4 w-4" /></button>
             </div>)}

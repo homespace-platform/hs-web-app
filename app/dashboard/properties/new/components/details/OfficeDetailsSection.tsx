@@ -69,7 +69,7 @@ export default function OfficeDetailsSection({
         {/* Diện tích cho thuê (Bắt buộc) */}
         <FormField
           id="field-rental-area"
-          label="Diện tích cho thuê (m²)"
+          label="Diện tích cho thuê (mét vuông)"
           required
           error={errors.rentalAreaM2}
         >

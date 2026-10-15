@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
+import ListingPoliciesCard from "@/components/listing/ListingPoliciesCard";
+import type { ListingPolicyValue } from "@/types/listing-policy.type";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -307,7 +309,7 @@ export default function RentDetailView({
             {/* Quick Metrics Bar */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl border border-border bg-card">
               <DetailMetric icon={BedDouble} label="Giá thuê" value={`${formatPrice(property.priceMillion)}/th`} />
-              <DetailMetric icon={Bath} label="Diện tích" value={`${property.areaM2} m²`} />
+              <DetailMetric icon={Bath} label="Diện tích" value={`${property.areaM2} mét vuông`} />
               {showBedroomMetric ? (
                 <DetailMetric icon={BedDouble} label="Phòng ngủ" value={`${property.beds} PN`} />
               ) : property.category === "office" && property.details?.expectedSeats != null ? (
@@ -357,6 +359,7 @@ export default function RentDetailView({
           ))}
 
           {/* Amenities */}
+          <ListingPoliciesCard rows={Array.isArray(property.details?.policies) ? property.details.policies as ListingPolicyValue[] : undefined} />
           {amenities.length > 0 && (
             <section className="space-y-4">
               <h2 className="font-heading text-lg font-bold">Tiện ích tòa nhà & dịch vụ</h2>
@@ -392,8 +395,8 @@ export default function RentDetailView({
                         <td className="px-3 py-2.5 font-medium text-foreground">{item.assetName}</td>
                         <td className="px-3 py-2.5 text-foreground">{item.quantity ?? 1}</td>
                         <td className="px-3 py-2.5 text-muted-foreground">
-                          {item.conditionText || item.handoverCondition || "Bình thường"}
-                          {item.conditionNote ? ` (${item.conditionNote})` : ""}
+                          {item.conditionText || item.handoverCondition || "Chưa ghi nhận"}
+                          {!item.conditionText && item.conditionNote ? ` (${item.conditionNote})` : ""}
                         </td>
                       </tr>
                     ))}
@@ -412,6 +415,15 @@ export default function RentDetailView({
                   </span>
                 ))}
               </div>
+            </section>
+          ) : ["house", "apartment", "room"].includes(property.category) ? (
+            <section className="space-y-4">
+              <h2 className="font-heading text-lg font-bold">Trang thiết bị / Nội thất bàn giao</h2>
+              <p className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+                {property.details?.furnishingStatus === "UNFURNISHED"
+                  ? "Không có nội thất bàn giao kèm theo. Bài đăng được chủ nhà khai báo là không nội thất."
+                  : "Chủ nhà chưa cung cấp danh sách nội thất bàn giao. Vui lòng xác nhận khi xem nhà."}
+              </p>
             </section>
           ) : null}
 

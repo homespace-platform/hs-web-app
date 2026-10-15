@@ -10,7 +10,7 @@ export type PaymentSummary = { label: string; detail: string; amount?: number; t
 export const paymentSections: { id: PaymentSection; title: string; description: string }[] = [
   { id: "initial", title: "Thanh toán ban đầu", description: "Tiền cọc và tiền phòng tháng 1" },
   { id: "monthly", title: "Hóa đơn theo kỳ", description: "Tiền phòng, điện nước và chi phí cuối" },
-  { id: "deposit", title: "Hoàn cọc", description: "Bàn giao, khấu trừ và chuyển tiền hoàn" },
+  { id: "deposit", title: "Cọc & hoàn cọc", description: "Bổ sung/hoàn chênh lệch, bàn giao và quyết toán" },
 ];
 export function paymentSection(value: string | null): PaymentSection { return value === "initial" || value === "deposit" ? value : "monthly"; }
 export function paymentModulePath(id: string, section: PaymentSection, invoiceId?: string) {

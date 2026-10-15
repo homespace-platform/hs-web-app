@@ -80,10 +80,10 @@ export default function ApartmentDetailsSection({
           />
         </FormField>
 
-        {/* Diện tích (m²) */}
+        {/* Diện tích (mét vuông) */}
         <FormField
           id="field-area-m2"
-          label="Diện tích (m²)"
+          label="Diện tích (mét vuông)"
           required
           error={errors.areaM2}
         >

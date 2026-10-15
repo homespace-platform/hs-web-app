@@ -1,4 +1,6 @@
 import axiosClient from "@/lib/axios-client";
+import { primaryDocument } from "@/lib/contract-document-history";
+import type { ContractAmendments } from "@/types/contract-amendment.type";
 import type { ApiResponse, PageResponse } from "@/types/api.type";
 import type {
   ContractCompletenessResponse,
@@ -151,10 +153,49 @@ export const contractService = {
     return response.data.result;
   },
 
+  async getDocument(documentId: string): Promise<ContractDocumentResponse> {
+    const response = await axiosClient.get<ApiResponse<ContractDocumentResponse>>(
+      `/api/v1/contracts/documents/${encodeURIComponent(documentId)}`
+    );
+    return response.data.result;
+  },
+
   async getDocuments(contractId: string): Promise<ContractDocumentResponse[]> {
     const response = await axiosClient.get<ApiResponse<ContractDocumentResponse[]>>(
       `/api/v1/contracts/${contractId}/documents`
     );
     return response.data.result || [];
+  },
+
+  async getEffectiveDocument(contractId: string): Promise<ContractDocumentResponse | null> {
+    // Use the existing server-resolved terms API, including on Core versions that
+    // predate /effective-document. Never infer effectiveness from newest PDF/signature.
+    const requested = await contractService.getContract(contractId);
+    const root = requested.parentContractId ? await contractService.getContract(requested.parentContractId) : requested;
+    if (requested.id !== contractId || !root.id || root.parentContractId)
+      throw new Error("Không xác định được hợp đồng gốc để đối chiếu văn bản đang áp dụng.");
+    const response = await axiosClient.get<ApiResponse<ContractAmendments>>(
+      `/api/v1/contracts/${encodeURIComponent(root.id)}/amendments`
+    );
+    const state = response.data.result;
+    if (!state?.currentTermsRevisionId || !Number.isFinite(Date.parse(state.serverNow)))
+      throw new Error("Chưa xác định được phiên bản hợp đồng đang áp dụng từ hệ thống.");
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(state.serverNow));
+    const candidates = state.currentTermsRevisionId === root.currentRevisionId ? [root.id]
+      : [...state.proposals].filter(p => p.signedAt && ["APPLIED","SCHEDULED"].includes(p.status)
+          && p.agreementContractId && p.effectiveOn <= today)
+        .sort((a,b) => b.effectiveOn.localeCompare(a.effectiveOn) || Date.parse(b.signedAt!) - Date.parse(a.signedAt!))
+        .map(p => p.agreementContractId!);
+    for (const ownerId of new Set(candidates)) {
+      const rows = await contractService.getDocuments(ownerId);
+      const match = primaryDocument(rows.filter(d => d.contractId === ownerId && Boolean(d.storageObjectId)),true,state.currentTermsRevisionId);
+      if (!match) continue;
+      const fresh = await contractService.getDocument(match.id);
+      if (fresh.id !== match.id || fresh.contractId !== ownerId || fresh.revisionId !== state.currentTermsRevisionId
+        || fresh.status !== "READY" || fresh.purpose !== "SIGNED_FINAL" || fresh.documentType !== "PDF")
+        throw new Error("Tệp nhận được không khớp phiên bản hợp đồng đang áp dụng. Vui lòng tải lại hồ sơ.");
+      return fresh;
+    }
+    return null;
   },
 };

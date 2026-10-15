@@ -20,7 +20,8 @@ export default function AmenitiesSection({
 }: AmenitiesSectionProps) {
   const [customAmenityInput, setCustomAmenityInput] = useState("");
 
-  const defaultAmenityCodes = options.map((item) => item.code);
+  const visibleOptions = options.filter(item => item.code !== "PETS_ALLOWED");
+  const defaultAmenityCodes = visibleOptions.map((item) => item.code);
 
   function toggleAmenity(amenity: string) {
     if (selectedAmenities.includes(amenity)) {
@@ -38,7 +39,7 @@ export default function AmenitiesSection({
   }
 
   const customAddedAmenities = selectedAmenities.filter(
-    (item) => !defaultAmenityCodes.includes(item)
+    (item) => item !== "PETS_ALLOWED" && !defaultAmenityCodes.includes(item)
   );
 
   return (
@@ -51,7 +52,7 @@ export default function AmenitiesSection({
       <div className="space-y-4">
         {/* Danh sách tiện ích theo loại hình */}
         <div className="flex flex-wrap gap-2.5">
-          {options.map((amenity) => {
+          {visibleOptions.map((amenity) => {
             const isSelected = selectedAmenities.includes(amenity.code);
             return (
               <button

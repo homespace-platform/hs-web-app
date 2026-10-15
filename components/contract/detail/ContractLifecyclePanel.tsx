@@ -1,4 +1,5 @@
 "use client";
+import VndMoneyInput from "@/components/ui/vnd-money-input";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CalendarPlus, ClipboardCheck, Loader2, RefreshCw } from "lucide-react";
@@ -185,7 +186,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
               <MeterReadingInput name="điện" unit="kWh" variant="supplement" start={lastBilled?.electricityEnd} end={electricity} onChange={setElectricity} />
               <MeterReadingInput name="nước" unit="m³" variant="supplement" start={lastBilled?.waterEnd} end={water} onChange={setWater} />
               <label>Chi phí phát sinh chưa thu<input aria-label="Mô tả chi phí bổ sung" maxLength={150} value={extraDescription} onChange={e => setExtraDescription(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label>
-              <label>Số tiền phát sinh (đ)<input aria-label="Số tiền chi phí bổ sung" type="number" min={0} value={extraAmount} onChange={e => setExtraAmount(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label>
+              <VndMoneyInput label="Số tiền phát sinh (đ)" ariaLabel="Số tiền chi phí bổ sung" max={Number.MAX_SAFE_INTEGER} value={extraAmount} onValueChange={setExtraAmount} />
             </div>
             <button type="button" disabled={busy} onClick={issueSupplement} className="rounded-lg border border-primary px-3 py-2 font-semibold text-primary disabled:opacity-50">Phát hành hóa đơn bổ sung kỳ cuối</button>
           </details>}
@@ -216,7 +217,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
             <legend className="px-1 font-semibold">Khoản khấu trừ {index + 1}</legend>
             <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
               <label>Nội dung / căn cứ<input aria-label={`Nội dung khấu trừ ${index + 1}`} maxLength={300} value={row.description} onChange={e => setDeductions(rows => rows.map(item => item.key === row.key ? { ...item, description: e.target.value } : item))} placeholder="Ví dụ: thay kính cửa bị vỡ" className="mt-1 w-full rounded-lg border p-2" /></label>
-              <label>Số tiền (đ)<input aria-label={`Số tiền khấu trừ ${index + 1}`} type="number" min={1} max={1_000_000_000} step={1} value={row.amount || ""} onChange={e => setDeductions(rows => rows.map(item => item.key === row.key ? { ...item, amount: Number(e.target.value) } : item))} className="mt-1 w-full rounded-lg border p-2" /></label>
+              <VndMoneyInput label="Số tiền (đ)" ariaLabel={`Số tiền khấu trừ ${index + 1}`} min={1} value={row.amount || ""} onValueChange={amount => setDeductions(rows => rows.map(item => item.key === row.key ? { ...item, amount: Number(amount) } : item))} />
             </div>
             <EvidenceLinks ids={row.evidenceIds} />
             <label className="block">Minh chứng (không bắt buộc, tối đa 5 ảnh/PDF, 15 MB/tệp)<input aria-label={`Minh chứng khấu trừ ${index + 1}`} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" className="mt-2 block w-full" onChange={e => { const files = selectFiles(e.target.files, row.evidenceIds.length); if (files) setDeductions(rows => rows.map(item => item.key === row.key ? { ...item, files } : item)); else e.target.value = ""; }} /></label>

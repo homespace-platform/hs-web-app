@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, ReceiptText, RotateCcw, Wallet } from "lucide-react
 import MonthlyInvoicesSection from "@/components/contract/detail/MonthlyInvoicesSection";
 import InitialPaymentHistory from "@/components/contract/detail/InitialPaymentHistory";
 import ContractLifecyclePanel from "@/components/contract/detail/ContractLifecyclePanel";
+import { DepositAdjustmentPayments } from "@/components/contract/detail/SettlementPaymentPanel";
 import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
 import { useAuth } from "@/features/auth/useAuth";
 import { contractService } from "@/services/contract.service";
@@ -77,6 +78,7 @@ function ContractInvoicesPage() {
       unsupportedWaterRate={charges.some(charge => charge.billingMethod === "STATE_WATER_RATE" && charge.includedInRent !== true)}
       initialElectricity={revision.meters?.electricityInitial == null ? undefined : String(revision.meters.electricityInitial)}
       initialWater={revision.meters?.waterInitial == null ? undefined : String(revision.meters.waterInitial)} />}
+    {section === "deposit" && <DepositAdjustmentPayments contractId={contract.id} isLandlord={isLandlord}/>}
     {section === "deposit" && (contract.status === "TERMINATED"
       ? <div className="rounded-xl border bg-card p-5 text-sm">Hợp đồng đã chấm dứt theo phương án xử lý riêng. Kiểm tra điều khoản và kết quả xử lý tiền cọc trong <Link href={contractDetailPath(role, contract.id)} className="text-primary underline">hồ sơ hợp đồng</Link>.</div>
       : <ContractLifecyclePanel key={role + ":" + contract.id} contractId={contract.id} isLandlord={isLandlord} mode="settlement" onUpdated={refresh} />)}

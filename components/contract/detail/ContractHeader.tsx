@@ -7,8 +7,6 @@ import {
   FileText,
   ShieldCheck,
   CreditCard,
-  Layers,
-  Sparkles,
   Send,
   RefreshCw,
   Loader2,
@@ -23,6 +21,12 @@ import type {
   ContractStatus,
 } from "@/types/contract.type";
 import ContractPdfViewerModal from "./ContractPdfViewerModal";
+import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
+import { appliedAmendment } from "@/lib/contract-document-history";
+import { contractService } from "@/services/contract.service";
+import { toast } from "sonner";
+import { documentTime } from "@/lib/contract-document-history";
+import { FieldRow } from "./utils";
 
 const STATUS_CONFIG: Record<
   ContractStatus,
@@ -109,6 +113,10 @@ export default function ContractHeader({
 }: ContractHeaderProps) {
   const router = useRouter();
   const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
+  const [viewDoc,setViewDoc] = useState<ContractDocumentResponse|null>(null);
+  const [opening,setOpening] = useState(false);
+  const workspace = useAmendmentWorkspace();
+  const applied = workspace?.data?.proposals.filter(p => appliedAmendment(p,workspace.data!.serverNow)).length ?? 0;
 
   const isPaid =
     Boolean(contract.rentalPaymentId) ||
@@ -116,6 +124,31 @@ export default function ContractHeader({
     contract.paymentStatus === "PAID_MOCK";
 
   const statusCfg = STATUS_CONFIG[contract.status] || STATUS_CONFIG.DRAFT;
+  const signedAppendix = Boolean(contract.parentContractId && contract.agreementKind === "AMENDMENT" && contract.status === "ACTIVE");
+  const showEffectiveDocument = contract.status === "ACTIVE" && (!contract.parentContractId || signedAppendix);
+  const openDocument = async (download = false, ownAppendix = false) => {
+    const effective = showEffectiveDocument && !ownAppendix;
+    if ((!effective && !latestDoc) || opening) return;
+    const tab = download ? window.open("about:blank","_blank") : null;
+    if (download && !tab) { toast.error("Hãy cho phép trình duyệt mở cửa sổ tải về rồi thử lại."); return; }
+    if (tab) tab.opener = null;
+    setOpening(true);
+    try {
+      // Resolve again on every click: simulated business time and the effective
+      // amendment may have changed since this page was loaded. Never fall back to root.
+      const fresh = effective
+        ? await contractService.getEffectiveDocument(contract.id)
+        : await contractService.getDocument(latestDoc!.id);
+      if (!fresh || fresh.status !== "READY" || (effective
+        ? fresh.purpose !== "SIGNED_FINAL" || fresh.documentType !== "PDF"
+        : fresh.id !== latestDoc!.id || fresh.contractId !== contract.id)
+        || !(download ? fresh.downloadUrl : fresh.viewUrl || fresh.downloadUrl))
+        throw new Error(effective ? "Chưa tải được PDF đã ký của hợp đồng đang áp dụng. Vui lòng thử lại; hệ thống không mở thay bằng bản cũ." : "Chưa mở được tài liệu hiện tại. Hãy tải lại hồ sơ rồi thử lại.");
+      if (tab) tab.location.href = fresh.downloadUrl!;
+      else { setViewDoc(fresh); setShowPreviewModal(true); }
+    } catch (e) { tab?.close(); toast.error(e instanceof Error ? e.message : "Không mở được tài liệu."); }
+    finally { setOpening(false); }
+  };
 
   return (
     <>
@@ -127,7 +160,7 @@ export default function ContractHeader({
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Danh sách hợp đồng
+            {contract.agreementKind === "AMENDMENT" ? "Về hợp đồng gốc" : "Danh sách hợp đồng"}
           </button>
 
           <div className="flex flex-wrap items-center gap-2.5">
@@ -142,20 +175,8 @@ export default function ContractHeader({
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusCfg.bg} ${statusCfg.color} ${statusCfg.border}`}
                 >
-                  {statusCfg.label}
+                  {contract.agreementKind === "AMENDMENT" && contract.status === "ACTIVE" ? "Đã ký đủ phụ lục" : statusCfg.label}
                 </span>
-                {revision.schemaVersion && (
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20 inline-flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" />
-                    Schema V{revision.schemaVersion}
-                  </span>
-                )}
-                {revision.revisionNumber != null && (
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-muted text-muted-foreground border border-border inline-flex items-center gap-1">
-                    <Layers className="w-3 h-3" />
-                    Bản sửa đổi #{revision.revisionNumber}
-                  </span>
-                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
@@ -172,7 +193,7 @@ export default function ContractHeader({
                 <span>•</span>
                 <span className="inline-flex items-center gap-1">
                   <CreditCard className="w-3 h-3" />
-                  {isPaid ? (
+                  {contract.agreementKind === "AMENDMENT" ? <span className="text-muted-foreground">Thanh toán theo hợp đồng gốc</span> : isPaid ? (
                     <span className="text-emerald-600 font-semibold dark:text-emerald-400">
                       Đã hoàn tất thanh toán ban đầu
                     </span>
@@ -194,15 +215,66 @@ export default function ContractHeader({
               </div>
             </div>
           </div>
+          <a href="#contract-document-history" className="inline-block text-xs font-medium text-primary underline underline-offset-2">
+            {applied ? `Đã áp dụng ${applied} lần điều chỉnh · Xem hợp đồng và lịch sử` : "Xem văn bản và lịch sử tệp"}
+          </a>
+          <details className="text-xs"><summary className="cursor-pointer text-muted-foreground">Thông tin văn bản</summary>
+            <div className="mt-2 space-y-1 rounded-xl border bg-card p-3">
+              <FieldRow label="Số hợp đồng" value={contract.contractNumber}/>
+              <FieldRow label="Địa điểm lập văn bản" value={contract.signingCity}/>
+              <FieldRow label="Thời điểm hai bên ký đủ" value={contract.signedAt ? documentTime(contract.signedAt) : "Chưa ký đủ hai bên"}/>
+              <p className="pt-1 text-muted-foreground">Ngày lập in trên Word/PDF được hệ thống ghi lúc kết xuất; không đồng nhất với ngày bắt đầu thuê hoặc thời điểm ký đủ. Xem bản đã ký để đối chiếu ngày in chính xác.</p>
+              <details><summary className="cursor-pointer text-muted-foreground">Thông tin kỹ thuật · Chỉ đọc</summary>
+                <FieldRow label="Phiên bản cấu trúc dữ liệu" value={revision.schemaVersion}/>
+                <FieldRow label="Số bản soạn thảo" value={revision.revisionNumber}/>
+              </details>
+            </div>
+          </details>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start">
-          {isLandlord && contract.status === "DRAFT" && (
-            <>
+          {(showEffectiveDocument || latestDoc?.downloadUrl) && (
+            <button
+              type="button"
+              disabled={opening}
+              onClick={() => void openDocument(true)}
+              className="h-9 px-3.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs inline-flex items-center gap-1.5 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {showEffectiveDocument ? "Tải PDF đang áp dụng" : latestDoc?.purpose === "SIGNED_FINAL" ? "Tải PDF đã ký" : `Tải bản ${latestDoc?.documentType}`}
+            </button>
+          )}
+
+          {(showEffectiveDocument || latestDoc?.viewUrl) && (
+            <button
+              type="button"
+              disabled={opening}
+              onClick={() => void openDocument()}
+              className="h-9 px-3.5 rounded-xl border border-border bg-card hover:bg-muted hover:border-primary/40 text-foreground text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5 text-primary" />
+              {showEffectiveDocument ? "Xem hợp đồng đang áp dụng" : latestDoc?.purpose === "SIGNED_FINAL" ? "Xem bản đã ký" : latestDoc?.purpose === "SIGNED_LANDLORD" ? "Xem bản đang ký" : "Xem bản soạn thảo"}
+            </button>
+          )}
+          {signedAppendix && latestDoc && (latestDoc.storageObjectId || latestDoc.viewUrl || latestDoc.downloadUrl) && <button type="button" disabled={opening} onClick={() => void openDocument(false,true)}
+            className="h-9 rounded-xl border border-border bg-card px-3.5 text-xs font-semibold disabled:opacity-50">
+            Xem riêng phụ lục này
+          </button>}
+          {signedAppendix && <p className="basis-full max-w-md text-xs text-muted-foreground">
+            Phụ lục đã ký có thể còn chờ hiệu lực. Nút “đang áp dụng” luôn lấy bản có hiệu lực theo ngày hệ thống; xem riêng phụ lục để đối chiếu bản này.
+          </p>}
+        </div>
+      </div>
+
+      {isLandlord && contract.status === "DRAFT" && !workspace?.editing && (
+        <div role="region" aria-label="Thao tác kết xuất hợp đồng" className="fixed left-4 right-24 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-40 m-0! rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur sm:left-auto sm:right-28 sm:max-w-[calc(100vw-8rem)]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="min-w-0 text-xs text-muted-foreground">Kết xuất PDF để kiểm tra và tiếp tục ký ở đầu trang.</p>
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                disabled={rendering}
-                onClick={onRender}
+                disabled={rendering || reconcilingPreview || sending}
+                onClick={() => { window.scrollTo({ top: 0, behavior: "smooth" }); void onRender(); }}
                 className="h-9 px-3.5 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
               >
                 {rendering ? (
@@ -215,7 +287,7 @@ export default function ContractHeader({
               {!smartCaMode && (
                 <button
                   type="button"
-                  disabled={rendering || sending || !completeness?.complete || !hasReadyDoc}
+                  disabled={rendering || reconcilingPreview || sending || !completeness?.complete || !hasReadyDoc}
                   onClick={onSend}
                   title={
                     !completeness?.complete
@@ -234,38 +306,15 @@ export default function ContractHeader({
                   {sending ? "Đang gửi..." : "Gửi cho người thuê"}
                 </button>
               )}
-            </>
-          )}
-
-          {latestDoc?.downloadUrl && (
-            <a
-              href={latestDoc.downloadUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="h-9 px-3.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs inline-flex items-center gap-1.5 transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Tải file {latestDoc.documentType}
-            </a>
-          )}
-
-          {latestDoc?.viewUrl && (
-            <button
-              type="button"
-              onClick={() => setShowPreviewModal(true)}
-              className="h-9 px-3.5 rounded-xl border border-border bg-card hover:bg-muted hover:border-primary/40 text-foreground text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-            >
-              <Eye className="w-3.5 h-3.5 text-primary" />
-              Xem trước
-            </button>
-          )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       <ContractPdfViewerModal
         isOpen={showPreviewModal}
         onClose={() => setShowPreviewModal(false)}
-        document={latestDoc}
+        document={viewDoc}
       />
     </>
   );

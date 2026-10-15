@@ -27,6 +27,8 @@ import HouseDetailsSection from "./components/details/HouseDetailsSection";
 import RoomDetailsSection from "./components/details/RoomDetailsSection";
 import FurnishingAssetsSection from "./components/details/FurnishingAssetsSection";
 import AmenitiesSection from "./components/AmenitiesSection";
+import ListingPolicyFields from "@/components/listing/ListingPolicyFields";
+import { policyInputs, type ListingPolicyInput } from "@/types/listing-policy.type";
 import MonthlyExpensesSection from "./components/MonthlyExpensesSection";
 import PricingSection from "./components/PricingSection";
 import LocationSection, { type AddressMode } from "./components/LocationSection";
@@ -154,6 +156,8 @@ function CreatePropertyListingContent() {
 
   // Section 3: Amenities
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [listingPolicies, setListingPolicies] = useState<ListingPolicyInput[]>([]);
+  const [policyCatalogError, setPolicyCatalogError] = useState("");
   const [listingOptions, setListingOptions] = useState<ListingOptionsResponse>({
     category: "APARTMENT",
     amenities: [],
@@ -444,15 +448,19 @@ function CreatePropertyListingContent() {
         ? "ROOM"
         : "APARTMENT";
 
+    setListingOptions({category:catEnum,amenities:[],furnishings:[],policies:[]});
+    setPolicyCatalogError("Đang tải chính sách theo loại hình…");
     listingService
       .getPublicOptions(catEnum)
       .then((res) => {
         if (!cancelled && res) {
           setListingOptions(res);
+          setPolicyCatalogError(res.policies?.length ? "" : "Danh mục chính sách chưa có dữ liệu. Vui lòng khởi động backend và tải lại.");
         }
       })
       .catch((err) => {
         console.warn("Could not fetch options catalog:", err);
+        if (!cancelled) setPolicyCatalogError("Không tải được chính sách theo loại hình. Vui lòng tải lại trang trước khi gửi duyệt.");
       });
 
     return () => {
@@ -551,6 +559,7 @@ function CreatePropertyListingContent() {
           setRoomDetails(formState.roomDetails);
           setFurnishingAssets(formState.furnishingAssets);
           setSelectedAmenities(formState.selectedAmenities);
+          setListingPolicies((detail.policies ?? []).map(p => ({code:p.code,value:p.value,note:p.note ?? ""})));
           setMonthlyExpenses(formState.monthlyExpenses);
           setPricing(formState.pricing);
           setAddressMode(formState.addressMode);
@@ -924,6 +933,18 @@ function CreatePropertyListingContent() {
 
     const isValid = validateAllFields();
     if (!isValid) return;
+    const definitions = listingOptions.policies ?? [];
+    if (action === "SUBMIT_FOR_REVIEW" && (policyCatalogError || !definitions.length)) { toast.error(policyCatalogError || "Chưa tải danh mục chính sách."); return; }
+    for (const d of definitions) {
+      const p = listingPolicies.find(p => p.code === d.code);
+      if (p?.value && d.valueType === "INTEGER" && (!Number.isInteger(Number(p.value)) || (d.minimumValue != null && Number(p.value) < d.minimumValue) || (d.maximumValue != null && Number(p.value) > d.maximumValue))) {
+        toast.error(`${d.label}: nhập số nguyên từ ${d.minimumValue ?? 0} đến ${d.maximumValue ?? "giới hạn quy định"}.`); return;
+      }
+    }
+    if (action === "SUBMIT_FOR_REVIEW") {
+      const missing = definitions.find(d => d.required && !listingPolicies.some(p => p.code === d.code && p.value.trim()));
+      if (missing) { toast.error(`Cần nhập chính sách: ${missing.label}`); document.getElementById("section-policies")?.scrollIntoView({behavior:"smooth"}); return; }
+    }
 
     if (selectedBranch && (selectedBranch.isComplete === false || (selectedBranch.missingCharges && selectedBranch.missingCharges.length > 0))) {
       toast.error(
@@ -1000,6 +1021,7 @@ function CreatePropertyListingContent() {
         furnishingAssets,
         selectedAmenities,
         catalogAmenityCodes: listingOptions.amenities.map((item) => item.code),
+        policies: policyInputs(listingPolicies,definitions),
         monthlyExpenses,
         pricing,
         addressMode,
@@ -1256,6 +1278,11 @@ function CreatePropertyListingContent() {
         />
 
         {/* Section 4: Chi phí hàng tháng */}
+        <section id="section-policies" className="scroll-mt-24 rounded-2xl border border-border bg-card p-5 sm:p-6">
+          <h2 className="text-lg font-bold">Chính sách & nội quy thuê</h2>
+          <p className="mb-5 mt-1 text-sm text-muted-foreground">Người thuê sẽ xem các quy định này trước khi gửi yêu cầu thuê. Phí phạt đóng trễ chỉ nhập khi soạn hợp đồng, không nhập ở đây.</p>
+          {policyCatalogError ? <p role="alert" className="text-sm text-amber-800">{policyCatalogError}</p> : <ListingPolicyFields definitions={listingOptions.policies ?? []} values={listingPolicies} onChange={setListingPolicies} />}
+        </section>
         <MonthlyExpensesSection
           category={basicInfo.category}
           data={monthlyExpenses}

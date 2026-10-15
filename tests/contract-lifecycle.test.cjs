@@ -23,6 +23,7 @@ function load(source, lifecycle, namespace = false) {
     : name === "next/image" ? { default: ({ unoptimized, ...props }) => React.createElement("img", props) }
     : name === "./SettlementPaymentPanel" ? { default: () => null }
     : name === "./MeterReading" ? MeterComponents
+    : name === "@/components/ui/vnd-money-input" ? { default: ({label, value}) => React.createElement("input", {"aria-label":label, value:value ?? "", readOnly:true}) }
     : name === "@/lib/invoice-status" ? load(fs.readFileSync(path.join(__dirname, "../lib/invoice-status.ts"), "utf8"), false, true)
     : name.startsWith("@/services/") ? { contractLifecycleService: {}, default: {} }
     : name === "@/utils/apiError" ? { getApiErrorMessage: () => "test error" }
@@ -42,9 +43,9 @@ function renderLifecycle(data, isLandlord, mode = "all") {
   fixture = { ...base, ...data }; stateIndex = 0;
   return renderToStaticMarkup(React.createElement(Lifecycle, { contractId: "root", isLandlord, mode }));
 }
-function renderPayment(status, isLandlord, direction = "LANDLORD_TO_TENANT") {
+function renderPayment(status, isLandlord, direction = "LANDLORD_TO_TENANT", type) {
   return renderToStaticMarkup(React.createElement(Payment, { isLandlord, refresh: async () => {}, payment: {
-    id: "refund", totalAmount: 20000000, status, direction, evidences: [], qrImageUrl: "https://vietqr.test/refund",
+    id: "refund", totalAmount: 20000000, status, direction, type, evidences: [], qrImageUrl: "https://vietqr.test/refund",
     payeeBankAccountSnapshot: { bankName: "VCB", accountNumber: "1234", accountHolderName: "TENANT" },
   } }));
 }
@@ -93,6 +94,12 @@ test("balance settlement reverses roles and overdue obligation stays payable", (
   assert.doesNotMatch(renderPayment("CONFIRMED", true), /Tôi đã chuyển khoản/);
   assert.match(paymentSource, /expectedAmount: payment.totalAmount/);
   assert.match(paymentSource, /window.confirm/);
+});
+test("deposit adjustment distinguishes top-up and partial refund with correct receipt roles", () => {
+  assert.match(renderPayment("AWAITING_TRANSFER",false,"TENANT_TO_LANDLORD","DEPOSIT_ADJUSTMENT"),/Bổ sung cọc|Tôi đã chuyển khoản/);
+  assert.match(renderPayment("TRANSFER_REPORTED",true,"TENANT_TO_LANDLORD","DEPOSIT_ADJUSTMENT"),/Xác nhận đã nhận tiền/);
+  assert.match(renderPayment("AWAITING_TRANSFER",true,"LANDLORD_TO_TENANT","DEPOSIT_ADJUSTMENT"),/Hoàn chênh lệch cọc/);
+  assert.match(renderPayment("TRANSFER_REPORTED",false,"LANDLORD_TO_TENANT","DEPOSIT_ADJUSTMENT"),/Xác nhận đã nhận tiền/);
 });
 test("unpaid final bills show payment step and hide deposit proposal; only owner can issue supplement", () => {
   const closure = { status: "WAITING_HANDOVER", proposalVersion: 0 };

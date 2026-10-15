@@ -30,7 +30,7 @@ export default function RoomDetailsSection({
         {/* Diện tích (Bắt buộc) */}
         <FormField
           id="field-room-area"
-          label="Diện tích phòng (m²)"
+          label="Diện tích phòng (mét vuông)"
           required
           error={errors.areaM2}
         >

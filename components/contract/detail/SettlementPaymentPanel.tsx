@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import paymentService from "@/services/payment-request.service";
@@ -38,7 +38,7 @@ export default function SettlementPaymentPanel({ payment, isLandlord, refresh }:
     catch (error) { tab?.close(); toast.error(getApiErrorMessage(error, "Không mở được chứng từ.")); }
   }
   return <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/30 p-4 text-sm">
-    <h4 className="font-semibold">{refund ? "Hoàn cọc · Chủ nhà → Người thuê" : "Quyết toán còn thiếu · Người thuê → Chủ nhà"}</h4>
+    <h4 className="font-semibold">{payment.type === "DEPOSIT_ADJUSTMENT" ? refund ? "Hoàn chênh lệch cọc · Chủ nhà → Người thuê" : "Bổ sung cọc · Người thuê → Chủ nhà" : refund ? "Hoàn cọc · Chủ nhà → Người thuê" : "Quyết toán còn thiếu · Người thuê → Chủ nhà"}</h4>
     <p>Số tiền: <strong>{money(payment.totalAmount)}</strong> · Trạng thái: {payment.status === "CONFIRMED" ? "Đã nhận tiền" : payment.status === "TRANSFER_REPORTED" ? "Chờ bên nhận xác nhận" : payment.status === "OVERDUE" ? "Quá hạn, vẫn phải thanh toán" : "Chờ chuyển khoản"}</p>
     {payment.status === "CONFIRMED" && <p className="text-emerald-700">Đã xác nhận nhận đủ tiền{(payment.payeeConfirmedAt || payment.confirmedAt) ? ` · ${new Date((payment.payeeConfirmedAt || payment.confirmedAt)!).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}` : ""}.</p>}
     <details open={payment.status !== "CONFIRMED"} className="space-y-3"><summary className="cursor-pointer font-medium">Thông tin chuyển khoản & chứng từ</summary>
@@ -60,4 +60,19 @@ export default function SettlementPaymentPanel({ payment, isLandlord, refresh }:
     {payment.status === "DISPUTED" && <p className="text-xs text-rose-700">Đang tranh chấp; cần đối soát, không tự đóng hồ sơ.</p>}
     </details>
   </div>;
+}
+
+export function DepositAdjustmentPayments({ contractId, isLandlord }: { contractId: string; isLandlord: boolean }) {
+  const [rows, setRows] = useState<PaymentRequest[]>([]), [error, setError] = useState("");
+  const generation=useRef(0);
+  const refresh = useCallback(async () => {
+    const token=++generation.current;
+    try { const payments=await paymentService.getContractPayments(contractId);if(token===generation.current){setRows(payments.filter(p=>p.type === "DEPOSIT_ADJUSTMENT")); setError("");} }
+    catch (cause) { if(token===generation.current)setError(getApiErrorMessage(cause,"Chưa tải được khoản chênh lệch cọc.")); }
+  }, [contractId]);
+  useEffect(()=>{ const current=generation;void refresh(); const timer=window.setInterval(()=>void refresh(),30_000); return ()=>{current.current++;window.clearInterval(timer);}; },[refresh]);
+  return <section className="space-y-3" aria-label="Điều chỉnh tiền cọc">
+    <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">Chênh lệch cọc theo phụ lục</h3><button type="button" onClick={()=>void refresh()} className="text-sm text-primary">Làm mới khoản cọc</button></div>
+    {error ? <p role="alert" className="text-sm text-rose-700">{error}</p> : !rows.length ? <p className="text-sm text-muted-foreground">Chưa có khoản điều chỉnh cọc. Khi phụ lục đủ chữ ký và đến ngày hiệu lực, phần cọc cần bổ sung hoặc hoàn được quản lý tại đây.</p> : rows.map(payment=><SettlementPaymentPanel key={payment.id} payment={payment} isLandlord={isLandlord} refresh={refresh}/>)}
+  </section>;
 }

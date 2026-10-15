@@ -62,6 +62,7 @@ const Detail = load(detailSource, name => name === "react" ? testReact
   : name.startsWith("@/services/") ? { default: {}, monthlyInvoiceService: {} }
   : name === "@/utils/apiError" ? { getApiErrorMessage: () => "test error" }
   : name.startsWith("./") ? { default: () => null, MeterReadingInput: () => null, MeterReadingSummary: () => null }
+  : name === "@/components/ui/vnd-money-input" ? { default: ({label, value}) => React.createElement("input", {"aria-label":label, value:value ?? "", readOnly:true}) }
   : name === "next/image" ? { default: () => null } : require(name)).default;
 test("both parties see pending badge on actual detail component, owner retains confirmation action", () => {
   const invoice = { ...state(), id: "bill", periodIndex: 0, periodStart: "2026-11-12", periodEndExclusive: "2026-12-12",

@@ -33,7 +33,6 @@ export const APARTMENT_AMENITIES = [
   "Chỗ để xe",
   "Bảo vệ 24/7",
   "Camera",
-  "Cho nuôi thú cưng",
   "Hồ bơi",
   "Phòng gym",
 ];
@@ -47,7 +46,6 @@ export const HOUSE_AMENITIES = [
   "Thang máy",
   "Bảo vệ 24/7",
   "Camera",
-  "Cho nuôi thú cưng",
   "Hồ bơi",
   "Phòng gym",
 ];
@@ -57,7 +55,6 @@ export const ROOM_AMENITIES = [
   "Thang máy",
   "Bảo vệ 24/7",
   "Camera",
-  "Cho nuôi thú cưng",
   "Hồ bơi",
   "Phòng gym",
 ];

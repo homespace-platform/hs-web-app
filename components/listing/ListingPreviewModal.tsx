@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import ListingPoliciesCard from "./ListingPoliciesCard";
 import {
   X,
   Home,
@@ -80,9 +81,9 @@ const DIRECTION_LABELS: Record<string, string> = {
 
 const FURNISHING_LABELS: Record<FurnishingStatus, string> = {
   UNFURNISHED: "Nhà trống (Không nội thất)",
-  BASIC: "Nội thất cơ bản (Đèn, quạt, vệ sinh)",
+  BASIC: "Nội thất cơ bản",
   PARTIALLY_FURNISHED: "Nội thất một phần",
-  FULLY_FURNISHED: "Đầy đủ nội thất cao cấp (Full đồ)",
+  FULLY_FURNISHED: "Đầy đủ nội thất",
   LUXURY: "Nội thất cao cấp",
 };
 
@@ -108,7 +109,7 @@ const BILLING_METHOD_LABELS: Record<BillingMethod, string> = {
   PER_M3: "Theo khối nước (m³)",
   PER_PERSON_MONTH: "Người / tháng",
   PER_MONTH: "Tháng cố định",
-  PER_M2_MONTH: "m² / tháng",
+  PER_M2_MONTH: "mét vuông / tháng",
   PER_VEHICLE_MONTH: "Xe / tháng",
   PER_HOUR: "Giờ",
   FREE: "Miễn phí",
@@ -318,7 +319,7 @@ export default function ListingPreviewModal({
                   {listing.areaM2 && (
                     <>
                       <span>•</span>
-                      <span className="font-semibold text-foreground">{listing.areaM2} m²</span>
+                      <span className="font-semibold text-foreground">{listing.areaM2} mét vuông</span>
                     </>
                   )}
                   {listing.viewCount != null && (
@@ -434,7 +435,7 @@ export default function ListingPreviewModal({
                   {/* Diện tích */}
                   <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
                     <p className="text-muted-foreground">Diện tích sử dụng</p>
-                    <p className="font-bold text-foreground mt-0.5">{listing.areaM2} m²</p>
+                    <p className="font-bold text-foreground mt-0.5">{listing.areaM2} mét vuông</p>
                   </div>
 
                   {/* CĂN HỘ (APARTMENT) */}
@@ -561,7 +562,7 @@ export default function ListingPreviewModal({
                         <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
                           <p className="text-muted-foreground">Diện tích đất</p>
                           <p className="font-bold text-foreground mt-0.5">
-                            {listing.houseDetail.landAreaM2} m²
+                            {listing.houseDetail.landAreaM2} mét vuông
                           </p>
                         </div>
                       )}
@@ -745,7 +746,9 @@ export default function ListingPreviewModal({
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground italic">
-                      Nhà trống, chưa có nội thất kèm theo
+                      {(listing.houseDetail?.furnishingStatus ?? listing.apartmentDetail?.furnishingStatus ?? listing.roomDetail?.furnishingStatus) === "UNFURNISHED"
+                        ? "Không có nội thất bàn giao kèm theo. Bài đăng được chủ nhà khai báo là không nội thất."
+                        : "Chủ nhà chưa cung cấp danh sách nội thất bàn giao. Vui lòng xác nhận khi xem nhà."}
                     </p>
                   )}
                 </div>
@@ -800,6 +803,7 @@ export default function ListingPreviewModal({
                 </div>
               )}
 
+              <ListingPoliciesCard rows={listing.policies} compact />
               {/* 8. LỊCH XEM NHÀ & THÔNG TIN CHỦ NHÀ */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Lịch xem nhà */}

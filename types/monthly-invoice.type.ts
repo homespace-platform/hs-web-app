@@ -24,7 +24,7 @@ export interface OverdueAction {
 }
 
 export interface BillingPeriodView {
-  kind: "RECURRING" | "FINAL_SETTLEMENT" | "SUPPLEMENT";
+  kind: "RECURRING" | "FINAL_SETTLEMENT" | "SUPPLEMENT" | "COSTS_ONLY";
   paymentPeriodNumber: number | null;
   rentPeriodStart: string | null;
   rentPeriodEndExclusive: string | null;

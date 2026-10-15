@@ -3,10 +3,13 @@
 import React from "react";
 import { Gauge, Info, Loader2 } from "lucide-react";
 import { FieldRow } from "./utils";
+import { ContractEditField } from "./ContractFieldState";
 
 interface ContractHandoverSectionProps {
   electricityInitial?: string | null;
   waterInitial?: string | null;
+  originalElectricityInitial?: string | null;
+  originalWaterInitial?: string | null;
   isWaterPerPerson?: boolean;
   electricityRequired: boolean;
   waterRequired: boolean;
@@ -23,6 +26,8 @@ interface ContractHandoverSectionProps {
 export default function ContractHandoverSection({
   electricityInitial,
   waterInitial,
+  originalElectricityInitial,
+  originalWaterInitial,
   isWaterPerPerson,
   electricityRequired,
   waterRequired,
@@ -69,7 +74,7 @@ export default function ContractHandoverSection({
 
       {isDraft && isLandlord ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-          <label className="space-y-1.5 text-xs font-semibold text-foreground">
+          <ContractEditField group="meters" changed={originalElectricityInitial!==undefined&&String(electricityInitial??"").trim()!==String(originalElectricityInitial??"").trim()}><label className="space-y-1.5 text-xs font-semibold text-foreground">
             <span>Chỉ số điện ban đầu (kWh) {electricityRequired && <span className="text-destructive">*</span>}</span>
             <input
               type="text"
@@ -85,9 +90,9 @@ export default function ContractHandoverSection({
             <span className={`text-[10px] font-normal block ${errors?.electricity ? "text-destructive" : "text-muted-foreground"}`}>
               {errors?.electricity || (electricityRequired ? "Nhập số không âm; 0 là hợp lệ." : "Không bắt buộc nếu điện không tính theo công tơ.")}
             </span>
-          </label>
+          </label></ContractEditField>
 
-          <label className="space-y-1.5 text-xs font-semibold text-foreground">
+          <ContractEditField group="meters" readonly={isWaterPerPerson} changed={originalWaterInitial!==undefined&&String(waterInitial??"").trim()!==String(originalWaterInitial??"").trim()}><label className="space-y-1.5 text-xs font-semibold text-foreground">
             <span>Chỉ số nước ban đầu (m³) {waterRequired && <span className="text-destructive">*</span>}</span>
             <input
               type="text"
@@ -110,7 +115,7 @@ export default function ContractHandoverSection({
                 ? "Nước tính theo đầu người; không cần chỉ số đồng hồ."
                 : waterRequired ? "Nhập số không âm; 0 là hợp lệ." : "Không bắt buộc nếu nước không tính theo đồng hồ.")}
             </span>
-          </label>
+          </label></ContractEditField>
           <div className="sm:col-span-2 flex items-center justify-end gap-3">
             {isDirty && <span className="text-[11px] text-amber-600">Có chỉ số chưa lưu</span>}
             <button type="button" disabled={!isDirty || saving} onClick={onSave}

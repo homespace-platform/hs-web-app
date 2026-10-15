@@ -31,10 +31,14 @@ import ContractChargesSection from "@/components/contract/detail/ContractCharges
 import ContractEquipmentSection from "@/components/contract/detail/ContractEquipmentSection";
 import ContractPoliciesSection from "@/components/contract/detail/ContractPoliciesSection";
 import ContractHandoverSection from "@/components/contract/detail/ContractHandoverSection";
+import ContractInitialPaymentSection from "@/components/contract/detail/ContractInitialPaymentSection";
+import { ContractFieldLegend } from "@/components/contract/detail/ContractFieldState";
 import ContractDocumentSection from "@/components/contract/detail/ContractDocumentSection";
 import ContractSignaturePanel from "@/components/contract/detail/ContractSignaturePanel";
 import SmartCaSignaturePanel from "@/components/contract/detail/SmartCaSignaturePanel";
 import ContractLifecyclePanel from "@/components/contract/detail/ContractLifecyclePanel";
+import ContractAmendmentPanel from "@/components/contract/detail/ContractAmendmentPanel";
+import ContractAmendmentWorkspace, { ContractTermsNotice } from "@/components/contract/detail/ContractAmendmentWorkspace";
 import { contractListPath, contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
 import { generateContractPreview } from "@/lib/contract-preview";
 
@@ -249,7 +253,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         return;
       }
       toast.success(
-        `Đã kết xuất bản xem trước của bản sửa đổi số ${revision.revisionNumber}.`
+        "Đã tạo bản xem trước từ nội dung vừa lưu."
       );
       setDocuments((prev) => [doc, ...prev.filter((d) => d.id !== doc.id)]);
       setCurrentPreview(doc);
@@ -294,7 +298,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         revisionNote: "Cập nhật điều khoản thỏa thuận riêng.",
       });
       setRevision(updated);
-      toast.success(`Đã lưu bản sửa đổi số ${updated.revisionNumber}.`);
+      toast.success("Đã lưu nội dung bản soạn thảo.");
       const comp = await contractService.getCompleteness(contractId);
       setCompleteness(comp);
     } catch (err) {
@@ -302,7 +306,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     }
   }
 
-  async function handleSaveLateFee(policy: Pick<PolicySnapshot, "latePaymentFeeMode" | "latePaymentFeeAmount" | "latePaymentFeeGraceDays" | "latePaymentFeeCap">) {
+  async function handleSaveLateFee(policy: Pick<PolicySnapshot, "latePaymentFeeMode" | "latePaymentFeeAmount">) {
     if (!contractId || !revision) return;
     try {
       const updated = await contractService.updateRevision(contractId, {
@@ -400,6 +404,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   }
 
   const isDraft = contract.status === "DRAFT" && !contract.parentContractId;
+  const isAmendment = contract.agreementKind === "AMENDMENT";
   const landlord = revision.landlord || {};
   const tenant = revision.tenant || {};
   const property = revision.property || {};
@@ -411,16 +416,17 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   const policies = revision.policies;
 
   return (
-    <div className="space-y-6 animate-in fade-in-50 duration-200 pb-12 max-w-6xl mx-auto">
+    <ContractAmendmentWorkspace contractId={contract.id} actorId={profile.id} perspective={perspective} enabled={!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status)}>
+    <div className="space-y-6 animate-in fade-in-50 duration-200 pb-52 max-w-6xl mx-auto">
       <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm">
-        <p className="font-semibold">{perspective === "landlord" ? "Hợp đồng cho thuê" : "Hợp đồng đi thuê"}</p>
+        <p className="font-semibold">{isAmendment ? "Phụ lục điều chỉnh hợp đồng" : perspective === "landlord" ? "Hợp đồng cho thuê" : "Hợp đồng đi thuê"}</p>
         <p className="text-xs text-muted-foreground">{perspective === "landlord"
           ? "Quản lý nội dung, tài liệu và chữ ký với tư cách bên cho thuê."
           : "Xem nội dung, tài liệu và xác nhận ký với tư cách bên đi thuê."}</p>
       </div>
       {/* 1. CONTRACT HEADER */}
       <ContractHeader
-        backPath={contractListPath(perspective)}
+        backPath={isAmendment && contract.parentContractId ? contractDetailPath(perspective, contract.parentContractId) : contractListPath(perspective)}
         contract={contract}
         revision={revision}
         completeness={completeness}
@@ -476,9 +482,11 @@ export default function ContractDetailView({ perspective }: { perspective: "land
 
       {/* 3. SIGNATURE & CONFIRMATION PANEL (PROMINENT AT TOP / BOTTOM) */}
       {contract.parentContractId && <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-        Đây là văn bản gia hạn liên kết hợp đồng gốc. Không thu lại cọc hoặc thanh toán INITIAL; giữ nguyên điều kiện đã chốt. Chỉ có hiệu lực sau đủ chữ ký hai bên.
+        {isAmendment ? "Phụ lục này ghi nhận điều khoản đã thống nhất với ngày áp dụng riêng. Xem bảng thay đổi và PDF trước khi ký. Hợp đồng gốc và lịch sử thanh toán được giữ nguyên."
+          : "Đây là văn bản gia hạn liên kết hợp đồng gốc. Không thu lại cọc hoặc thanh toán INITIAL; giữ nguyên điều kiện đã chốt. Chỉ có hiệu lực sau đủ chữ ký hai bên."}
         <Link href={contractDetailPath(perspective, contract.parentContractId)} className="mt-2 block font-semibold underline">Mở hợp đồng gốc để theo dõi thời hạn, hóa đơn và cọc →</Link>
       </div>}
+      {isAmendment && contract.parentContractId && <ContractAmendmentPanel contractId={contract.parentContractId} actorId={profile.id} perspective={perspective} agreementId={contract.id} />}
       {signatureState?.signatureMode === "SMARTCA" ? <SmartCaSignaturePanel
         contract={contract}
         state={signatureState}
@@ -499,11 +507,15 @@ export default function ContractDetailView({ perspective }: { perspective: "land
 
       {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED"].includes(contract.status) && <>
         {contract.status === "ACTIVE" && <ContractLifecyclePanel contractId={contract.id} isLandlord={isLandlord} onUpdated={refreshSignedState} mode="renewal" />}
+        <ContractAmendmentPanel contractId={contract.id} actorId={profile.id} perspective={perspective} />
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4"><div><p className="font-semibold">Hóa đơn & thanh toán</p><p className="mt-1 text-sm text-muted-foreground">Thanh toán ban đầu, hóa đơn theo kỳ và bàn giao / hoàn cọc được quản lý trong một hồ sơ riêng.</p></div><Link href={invoiceDetailPath(contract.id)} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Mở hồ sơ thanh toán →</Link></div>
       </>}
       {/* 4. MAIN CONTRACT SECTIONS */}
       <div className="space-y-6">
+        <>
+        {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status) && <ContractTermsNotice />}
         {/* CHỦ THỂ BÊN A VÀ BÊN B */}
+        <ContractFieldLegend />
         <ContractPartiesSection landlord={landlord} tenant={tenant} />
 
         {/* THÔNG TIN BẤT ĐỘNG SẢN BÀN GIAO */}
@@ -517,6 +529,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
 
 
         {/* BẢNG TIỆN ÍCH DÙNG CHUNG VÀ CHÍNH SÁCH */}
+        <ContractInitialPaymentSection initialPayment={revision.initialPayment} />
         <ContractAmenitiesSection amenities={amenities} />
 
         {/* BẢNG PHÍ DỊCH VỤ VÀ ĐIỆN NƯỚC */}
@@ -537,6 +550,8 @@ export default function ContractDetailView({ perspective }: { perspective: "land
 
         {/* CHỈ SỐ BAN ĐẦU ĐƯA VÀO HỢP ĐỒNG */}
         <ContractHandoverSection
+          originalElectricityInitial={String(revision.meters?.electricityInitial??"")}
+          originalWaterInitial={String(revision.meters?.waterInitial??"")}
           electricityInitial={electricityInitial}
           waterInitial={waterInitial}
           isWaterPerPerson={isWaterPerPerson}
@@ -552,8 +567,9 @@ export default function ContractDetailView({ perspective }: { perspective: "land
           onSave={handleSaveMeters}
         />
 
+        </>
         {/* DANH SÁCH FILE VĂN BẢN KẾT XUẤT */}
-        <ContractDocumentSection documents={documents} />
+        <ContractDocumentSection documents={documents} contract={contract} />
         {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status) && <Link
           href={invoiceDetailPath(contract.id)}
           className="block rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm font-semibold text-primary hover:bg-primary/10"
@@ -565,7 +581,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       {/* FOOTER NAVIGATION */}
       <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <span>
-          Hệ thống HomeSpace quản lý hợp đồng thông qua snapshot thỏa thuận bất biến, đảm bảo toàn vẹn tính pháp lý và sự minh bạch cho cả hai bên.
+          Hợp đồng gốc, các phụ lục và bản đã ký được giữ nguyên để cả hai bên xem lại. Nội dung điều chỉnh chỉ áp dụng sau khi hoàn tất ký và đến mốc hiệu lực.
         </span>
         <Link
           href={
@@ -579,5 +595,6 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         </Link>
       </div>
     </div>
+    </ContractAmendmentWorkspace>
   );
 }

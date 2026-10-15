@@ -296,7 +296,7 @@ export default function MonthlyExpensesSection({
               >
                 <option value="NONE">Không áp dụng</option>
                 <option value="MONTHLY">Cố định theo tháng</option>
-                <option value="PER_M2">Tính theo m² / tháng</option>
+                <option value="PER_M2">Tính theo mét vuông / tháng</option>
                 <option value="INCLUDED">Đã bao gồm trong giá thuê</option>
               </select>
 
@@ -313,7 +313,7 @@ export default function MonthlyExpensesSection({
                     className={`${inputClass} pr-20`}
                   />
                   <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
-                    {data.managementFeeType === "PER_M2" ? "đ/m²" : "đ/tháng"}
+                    {data.managementFeeType === "PER_M2" ? "đ/mét vuông" : "đ/tháng"}
                   </span>
                 </div>
               ) : (

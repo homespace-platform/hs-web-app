@@ -13,6 +13,7 @@ export function toChatMessage(message: AiConversationMessage): ChatMessage {
     listingIds: message.role === "assistant" ? message.listingIds : undefined,
     listingPositions: message.role === "assistant" ? message.listingPositions : undefined,
     contractCards: message.role === "assistant" ? message.contractCards : undefined,
+    appointmentCards: message.role === "assistant" ? message.appointmentCards : undefined,
     dataSources: message.role === "assistant" ? message.dataSources : undefined,
   };
 }

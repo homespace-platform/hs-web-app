@@ -15,7 +15,9 @@ import {
 import type { AiChatSession } from "@/types/chat.type";
 import AiListingCards from "@/components/chat/AiListingCards";
 import AiContractCards from "@/components/chat/AiContractCards";
+import AiAppointmentCards from "@/components/chat/AiAppointmentCards";
 import { aiSourceNote, aiStatusNote, safeContractCards } from "@/lib/ai-contract-cards";
+import { safeAppointmentCards } from "@/lib/ai-appointment-cards";
 import { AI_QUICK_TOPICS } from "@/data/mock-chat-data";
 import { toast } from "sonner";
 import AiMarkdownMessage from "@/components/chat/AiMarkdownMessage";
@@ -234,9 +236,10 @@ export default function AiChatWindow({
               const isUser = msg.sender === "me";
               const hasTable = !isUser && /^\|[^\n]+\|\s*$/m.test(msg.content);
               const contractCards = isUser ? [] : safeContractCards(msg.contractCards);
-              const hasCards = !isUser && (Boolean(msg.listingIds?.length) || contractCards.length > 0);
+              const appointmentCards = isUser ? [] : safeAppointmentCards(msg.appointmentCards);
+              const hasCards = !isUser && (Boolean(msg.listingIds?.length) || contractCards.length > 0 || appointmentCards.length > 0);
               const statusNote = isUser ? null : aiStatusNote(msg.aiStatus, msg.dataSources);
-              const sourceNote = isUser ? null : aiSourceNote(msg.dataSources);
+              const sourceNote = isUser ? null : aiSourceNote(msg.dataSources, msg.aiStatus);
 
               return (
                 <div
@@ -270,6 +273,7 @@ export default function AiChatWindow({
                     </div>
                     {!isUser && Boolean(msg.listingIds?.length) && <AiListingCards listingIds={msg.listingIds!} positions={msg.listingPositions} />}
                     {contractCards.length > 0 && <AiContractCards cards={contractCards} />}
+                    {appointmentCards.length > 0 && <AiAppointmentCards cards={appointmentCards} />}
                     {(statusNote || sourceNote) && (
                       <div className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
                         {statusNote && <p>{statusNote}</p>}

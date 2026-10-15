@@ -22,6 +22,7 @@ import AppointmentCardCompact from "@/components/appointment/AppointmentCardComp
 import AppointmentDetailModal from "@/components/appointment/AppointmentDetailModal";
 import AppointmentDateFilter from "@/components/appointment/AppointmentDateFilter";
 import AppointmentCalendar from "@/components/appointment/AppointmentCalendar";
+import { useAppointmentDeepLink } from "@/components/appointment/useAppointmentDeepLink";
 
 const STATUS_TABS: { label: string; value: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { label: "Lịch xem", value: "CALENDAR", icon: Calendar },
@@ -48,6 +49,16 @@ export default function ViewingSchedulesHostPage() {
 
   // Modal Chi Tiết
   const [detailAppointment, setDetailAppointment] = useState<AppointmentResponse | null>(null);
+
+  // Mở đúng lịch từ thẻ AI: ?appointmentId=<uuid>&status=<hint>
+  useAppointmentDeepLink({
+    authenticated,
+    fetchPage: (status, page, size) => appointmentService.getOwnerAppointments({ status, page, size }),
+    onOpen: (appointment, tab) => {
+      if (tab) { setStatusFilter(tab); setCurrentPage(1); }
+      setDetailAppointment(appointment);
+    },
+  });
 
   // Dialog Xử Lý Thao Tác (Approve, Reject, Cancel, Complete, Reject Reschedule)
   const [activeDialog, setActiveDialog] = useState<{

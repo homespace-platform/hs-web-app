@@ -360,6 +360,7 @@ function ChatWorkspace() {
         listingIds: reply.listingIds,
         listingPositions: reply.listingPositions,
         contractCards: reply.contractCards,
+        appointmentCards: reply.appointmentCards,
         dataSources: reply.dataSources,
       };
 

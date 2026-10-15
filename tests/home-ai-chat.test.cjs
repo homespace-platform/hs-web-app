@@ -148,6 +148,8 @@ const ChatWindow = load("components/chat/AiChatWindow.tsx", {
   "@/components/chat/AiListingCards": ({ listingIds, positions }) => React.createElement("div", { "data-card-ids": listingIds.join(","), "data-card-ordinal": positions?.[listingIds[0]] }),
   "@/components/chat/AiContractCards": ({ cards }) => React.createElement("div", { "data-contract-cards": cards.map((card) => card.contractId).join(",") }),
   "@/lib/ai-contract-cards": load("lib/ai-contract-cards.ts"),
+  "@/components/chat/AiAppointmentCards": ({ cards }) => React.createElement("div", { "data-appointment-cards": cards.map((card) => card.appointmentId).join(",") }),
+  "@/lib/ai-appointment-cards": load("lib/ai-appointment-cards.ts"),
   "@/components/chat/AiMarkdownMessage": ({ content }) => React.createElement("div", { "data-markdown": true }, content),
   "@/data/mock-chat-data": { AI_QUICK_TOPICS: [{ id: "overview", title: "HomeSpace là gì?", prompt: "HomeSpace là gì?", desc: "Tìm hiểu HomeSpace" }] },
 }).default;

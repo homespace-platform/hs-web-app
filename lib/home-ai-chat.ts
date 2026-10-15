@@ -60,7 +60,8 @@ export function createHomeAiChat(ownerId: string | null, api: ChatApi) {
           id: `local-assistant-${crypto.randomUUID()}`, role: "assistant", content: response.answer,
           createdAt: new Date().toISOString(), status: response.status,
           listingIds: response.listingIds, listingPositions: response.listingPositions,
-          contractCards: response.contractCards, dataSources: response.dataSources,
+          contractCards: response.contractCards, appointmentCards: response.appointmentCards,
+          dataSources: response.dataSources,
         });
         update({ session: { ...snapshot.session!, messages: [...snapshot.session!.messages, assistant] } });
         return true;

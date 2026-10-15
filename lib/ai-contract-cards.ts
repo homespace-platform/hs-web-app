@@ -39,8 +39,24 @@ export function formatReadAt(value?: string | null): string | null {
   return time.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" });
 }
 
-/** Status line under an assistant answer. Contract states must never read as listing states. */
+/** Statuses where nothing was read from the system, so no "read from the system" source may be claimed. */
+const NO_DATA_READ = new Set<string>(["TOOL_UNAVAILABLE", "LOGIN_REQUIRED", "NOT_FOUND"]);
+
+/**
+ * Status line under an assistant answer. The module that answered decides the wording (dataSources carries
+ * CORE_APPOINTMENT / CORE_CONTRACT even for errors): appointment states never read as contract or listing states.
+ */
 export function aiStatusNote(status?: AiAnswerStatus | null, dataSources?: string[]): string | null {
+  if (dataSources?.includes("CORE_APPOINTMENT")) {
+    switch (status) {
+      case "NO_RESULTS": return "Hệ thống không có lịch xem nhà nào khớp yêu cầu này.";
+      case "TOOL_UNAVAILABLE": return "Chưa đọc được dữ liệu lịch xem nhà lúc này; mình không suy đoán kết quả.";
+      case "LOGIN_REQUIRED": return "Cần đăng nhập để xem lịch xem nhà của bạn.";
+      case "NEEDS_CLARIFICATION": return "Chọn lịch hoặc tin bạn muốn hỏi để mình đọc đúng dữ liệu.";
+      case "NOT_FOUND": return "Không tìm thấy lịch hoặc tin đăng này trong dữ liệu của tài khoản đang đăng nhập.";
+      default: break;
+    }
+  }
   const contract = Boolean(dataSources?.includes("CORE_CONTRACT")) || status === "LOGIN_REQUIRED"
     || status === "NEEDS_CLARIFICATION" || status === "NOT_FOUND";
   switch (status) {
@@ -59,10 +75,18 @@ export function aiStatusNote(status?: AiAnswerStatus | null, dataSources?: strin
   }
 }
 
-/** Source line that keeps personal Core data apart from general RAG guidance. */
-export function aiSourceNote(dataSources?: string[]): string | null {
-  const core = dataSources?.includes("CORE_CONTRACT");
+/**
+ * Source line that keeps personal Core data apart from general RAG guidance. When the status says no data was
+ * read (error / nothing found) no "read from the system" source is claimed.
+ */
+export function aiSourceNote(dataSources?: string[], status?: AiAnswerStatus | null): string | null {
+  if (status && NO_DATA_READ.has(status)) return null;
   const rag = dataSources?.includes("RAG");
+  if (dataSources?.includes("CORE_APPOINTMENT")) {
+    if (rag) return "Nguồn: lịch xem nhà của bạn (đọc từ hệ thống) và hướng dẫn chung từ tài liệu HomeSpace.";
+    return "Nguồn: lịch xem nhà của bạn, đọc từ hệ thống.";
+  }
+  const core = dataSources?.includes("CORE_CONTRACT");
   if (core && rag) return "Nguồn: dữ liệu hợp đồng của bạn (đọc từ hệ thống) và hướng dẫn chung từ tài liệu HomeSpace.";
   if (core) return "Nguồn: dữ liệu hợp đồng của bạn, đọc từ hệ thống.";
   return null;

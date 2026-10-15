@@ -32,6 +32,7 @@ export interface ChatMessage {
   listingIds?: string[];
   listingPositions?: Record<string, number>;
   contractCards?: import("@/types/ai.type").AiContractCard[];
+  appointmentCards?: import("@/types/ai.type").AiAppointmentCard[];
   dataSources?: string[];
 }
 

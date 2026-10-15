@@ -21,6 +21,7 @@ import AppointmentDetailModal from "@/components/appointment/AppointmentDetailMo
 import AppointmentDateFilter from "@/components/appointment/AppointmentDateFilter";
 import BookingAppointmentModal from "@/components/appointment/BookingAppointmentModal";
 import AppointmentCalendar from "@/components/appointment/AppointmentCalendar";
+import { useAppointmentDeepLink } from "@/components/appointment/useAppointmentDeepLink";
 
 const STATUS_TABS: { label: string; value: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { label: "Lịch xem", value: "CALENDAR", icon: Calendar },
@@ -47,6 +48,16 @@ export default function MyViewingBookingsPage() {
 
   // Modal Chi Tiết
   const [detailAppointment, setDetailAppointment] = useState<AppointmentResponse | null>(null);
+
+  // Mở đúng lịch từ thẻ AI: ?appointmentId=<uuid>&status=<hint>
+  useAppointmentDeepLink({
+    authenticated,
+    fetchPage: (status, page, size) => appointmentService.getMyBookings({ status, page, size }),
+    onOpen: (appointment, tab) => {
+      if (tab) { setStatusFilter(tab); setCurrentPage(1); }
+      setDetailAppointment(appointment);
+    },
+  });
 
   // Modal Đổi lịch
   const [rescheduleTarget, setRescheduleTarget] = useState<AppointmentResponse | null>(null);

@@ -28,6 +28,34 @@ export interface AiContractCard {
   source?: string;
 }
 
+/**
+ * Built by the AI service from a verified Core projection. It carries no URL: the web app builds the
+ * role-correct route and the exact-open parameter. The stored status and the time-derived phase stay
+ * separate, and a proposed schedule never replaces the current one. It is a snapshot at `readAt`.
+ */
+export interface AiAppointmentCard {
+  appointmentId: string;
+  requesterRole: "OWNER" | "RENTER";
+  roleLabel: string;
+  listingId?: string | null;
+  listingTitle: string;
+  listingAddress?: string | null;
+  date?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  status: string;
+  statusLabel: string;
+  temporalPhase?: string | null;
+  phaseLabel?: string | null;
+  statusSyncPending?: boolean;
+  rescheduleRequested?: boolean;
+  proposedDate?: string | null;
+  proposedStartTime?: string | null;
+  proposedEndTime?: string | null;
+  readAt?: string | null;
+  source?: string;
+}
+
 export interface AiCitation {
   documentId: string;
   version: string;
@@ -46,6 +74,7 @@ export interface AiAskResponse {
   listingIds?: string[];
   listingPositions?: Record<string, number>;
   contractCards?: AiContractCard[];
+  appointmentCards?: AiAppointmentCard[];
   dataSources?: string[];
 }
 
@@ -66,6 +95,7 @@ export interface AiConversationMessage {
   listingIds?: string[];
   listingPositions?: Record<string, number>;
   contractCards?: AiContractCard[];
+  appointmentCards?: AiAppointmentCard[];
   dataSources?: string[];
 }
 

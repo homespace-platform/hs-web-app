@@ -5,7 +5,28 @@ export type AiAnswerStatus =
   | "GENERAL_ANSWER"
   | "NO_EVIDENCE"
   | "OUT_OF_SCOPE"
-  | "GENERATION_UNAVAILABLE";
+  | "GENERATION_UNAVAILABLE"
+  | "LOGIN_REQUIRED"
+  | "NEEDS_CLARIFICATION"
+  | "NOT_FOUND";
+
+/** Built by the AI service from a verified Core projection. It carries no URL. */
+export interface AiContractCard {
+  contractId: string;
+  contractNumber: string;
+  property?: string | null;
+  askerRole: "LANDLORD" | "TENANT";
+  roleLabel: string;
+  status: string;
+  statusLabel: string;
+  leasePhase: string;
+  phaseLabel: string;
+  leaseStart?: string | null;
+  leaseEndExclusive?: string | null;
+  lastRentalDay?: string | null;
+  readAt?: string | null;
+  source?: string;
+}
 
 export interface AiCitation {
   documentId: string;
@@ -24,6 +45,8 @@ export interface AiAskResponse {
   requestId: string;
   listingIds?: string[];
   listingPositions?: Record<string, number>;
+  contractCards?: AiContractCard[];
+  dataSources?: string[];
 }
 
 export interface AiConversationSummary {
@@ -42,6 +65,8 @@ export interface AiConversationMessage {
   createdAt: string;
   listingIds?: string[];
   listingPositions?: Record<string, number>;
+  contractCards?: AiContractCard[];
+  dataSources?: string[];
 }
 
 export interface AiConversationDetail extends AiConversationSummary {

@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import type { AiChatSession } from "@/types/chat.type";
 import AiListingCards from "@/components/chat/AiListingCards";
+import AiContractCards from "@/components/chat/AiContractCards";
+import { aiSourceNote, aiStatusNote, safeContractCards } from "@/lib/ai-contract-cards";
 import { AI_QUICK_TOPICS } from "@/data/mock-chat-data";
 import { toast } from "sonner";
 import AiMarkdownMessage from "@/components/chat/AiMarkdownMessage";
@@ -231,7 +233,10 @@ export default function AiChatWindow({
             {messages.map((msg) => {
               const isUser = msg.sender === "me";
               const hasTable = !isUser && /^\|[^\n]+\|\s*$/m.test(msg.content);
-              const hasCards = !isUser && Boolean(msg.listingIds?.length);
+              const contractCards = isUser ? [] : safeContractCards(msg.contractCards);
+              const hasCards = !isUser && (Boolean(msg.listingIds?.length) || contractCards.length > 0);
+              const statusNote = isUser ? null : aiStatusNote(msg.aiStatus, msg.dataSources);
+              const sourceNote = isUser ? null : aiSourceNote(msg.dataSources);
 
               return (
                 <div
@@ -263,15 +268,12 @@ export default function AiChatWindow({
                     <div className={isUser ? "whitespace-pre-wrap leading-relaxed text-xs sm:text-sm" : "leading-relaxed text-xs sm:text-sm"}>
                       {isUser ? msg.content : <AiMarkdownMessage content={msg.content} />}
                     </div>
-                    {hasCards && <AiListingCards listingIds={msg.listingIds!} positions={msg.listingPositions} />}
-                    {!isUser && msg.aiStatus && msg.aiStatus !== "ANSWERED" && (
-                      <div className="mt-2 text-[11px] text-muted-foreground">
-                        {msg.aiStatus === "NO_RESULTS" && "Chưa có tin đăng đang hiển thị khớp các điều kiện."}
-                        {msg.aiStatus === "TOOL_UNAVAILABLE" && "Chưa kiểm tra được dữ liệu tin đăng trực tiếp; không suy đoán kết quả."}
-                        {msg.aiStatus === "NO_EVIDENCE" && "Chưa tìm thấy tài liệu phù hợp."}
-                        {msg.aiStatus === "GENERAL_ANSWER" && "Kiến thức chung · không lấy từ tài liệu HomeSpace."}
-                        {msg.aiStatus === "OUT_OF_SCOPE" && "Hiện chưa hỗ trợ tra cứu dữ liệu này."}
-                        {msg.aiStatus === "GENERATION_UNAVAILABLE" && "Trợ lý đang tạm gián đoạn."}
+                    {!isUser && Boolean(msg.listingIds?.length) && <AiListingCards listingIds={msg.listingIds!} positions={msg.listingPositions} />}
+                    {contractCards.length > 0 && <AiContractCards cards={contractCards} />}
+                    {(statusNote || sourceNote) && (
+                      <div className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
+                        {statusNote && <p>{statusNote}</p>}
+                        {sourceNote && <p>{sourceNote}</p>}
                       </div>
                     )}
 

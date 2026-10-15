@@ -146,6 +146,8 @@ const ChatWindow = load("components/chat/AiChatWindow.tsx", {
   "@/components/chat/GuestAiLoginDialog": () => null,
   "next/image": ({ unoptimized, ...props }) => React.createElement("img", props),
   "@/components/chat/AiListingCards": ({ listingIds, positions }) => React.createElement("div", { "data-card-ids": listingIds.join(","), "data-card-ordinal": positions?.[listingIds[0]] }),
+  "@/components/chat/AiContractCards": ({ cards }) => React.createElement("div", { "data-contract-cards": cards.map((card) => card.contractId).join(",") }),
+  "@/lib/ai-contract-cards": load("lib/ai-contract-cards.ts"),
   "@/components/chat/AiMarkdownMessage": ({ content }) => React.createElement("div", { "data-markdown": true }, content),
   "@/data/mock-chat-data": { AI_QUICK_TOPICS: [{ id: "overview", title: "HomeSpace là gì?", prompt: "HomeSpace là gì?", desc: "Tìm hiểu HomeSpace" }] },
 }).default;
@@ -217,6 +219,23 @@ test("both sizes reuse the same two-sided stream, Markdown, card metadata and su
     assert.doesNotMatch(html, /Đoạn chat mới/);
     assert.match(html, /Gợi ý:/);
   }
+});
+
+test("contract cards and sources render beside, not instead of, listing cards and old messages", () => {
+  const cid = "00000000-0000-0000-0000-0000000000c1";
+  const card = { contractId: cid, contractNumber: "HD-1", askerRole: "TENANT", roleLabel: "Người thuê", status: "ACTIVE",
+    statusLabel: "Đang có hiệu lực", leasePhase: "IN_LEASE", phaseLabel: "Đang trong thời hạn thuê" };
+  const session = { ...detail(), messages: [
+    mapping.toChatMessage({ id: "old", role: "assistant", content: "Tin cũ", createdAt: detail().createdAt, listingIds: answer.listingIds, listingPositions: answer.listingPositions }),
+    mapping.toChatMessage({ id: "c", role: "assistant", content: "Theo dữ liệu hệ thống", createdAt: detail().createdAt, status: "ANSWERED", contractCards: [card], dataSources: ["CORE_CONTRACT"] }),
+    mapping.toChatMessage({ id: "n", role: "assistant", content: "Không đọc được", createdAt: detail().createdAt, status: "TOOL_UNAVAILABLE", dataSources: ["CORE_CONTRACT"] }),
+  ] };
+  const html = renderToStaticMarkup(React.createElement(ChatWindow, { session, onBack() {}, onSendMessage() {}, onSelectTopic() {} }));
+  assert.match(html, /data-card-ordinal="3"/);                 // listing history untouched
+  assert.match(html, new RegExp(`data-contract-cards="${cid}"`));
+  assert.ok(html.includes("Nguồn: dữ liệu hợp đồng của bạn, đọc từ hệ thống."));
+  assert.ok(html.includes("Chưa đọc được dữ liệu hợp đồng lúc này"));
+  assert.ok(!html.includes("Chưa kiểm tra được dữ liệu tin đăng"));
 });
 
 function renderHomeSearch(snapshot, chatVisible = false) {

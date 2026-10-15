@@ -359,6 +359,8 @@ function ChatWorkspace() {
         aiStatus: reply.status,
         listingIds: reply.listingIds,
         listingPositions: reply.listingPositions,
+        contractCards: reply.contractCards,
+        dataSources: reply.dataSources,
       };
 
       setAiSessions((prev) =>

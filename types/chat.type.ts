@@ -31,6 +31,8 @@ export interface ChatMessage {
   aiStatus?: import("@/types/ai.type").AiAnswerStatus;
   listingIds?: string[];
   listingPositions?: Record<string, number>;
+  contractCards?: import("@/types/ai.type").AiContractCard[];
+  dataSources?: string[];
 }
 
 export interface ChatConversation {

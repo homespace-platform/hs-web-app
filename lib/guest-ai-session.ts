@@ -105,7 +105,8 @@ export const guestAiService = {
         messages: [...before.messages,
           { id: crypto.randomUUID(), role: "user", content: question, createdAt },
           { id: crypto.randomUUID(), role: "assistant", content: reply.answer, createdAt,
-            status: reply.status, listingIds: reply.listingIds, listingPositions: reply.listingPositions }],
+            status: reply.status, listingIds: reply.listingIds, listingPositions: reply.listingPositions,
+            contractCards: reply.contractCards, dataSources: reply.dataSources }],
       };
       update({ remaining: reply.remainingQuestions });
       return reply;

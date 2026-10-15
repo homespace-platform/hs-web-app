@@ -12,6 +12,8 @@ export function toChatMessage(message: AiConversationMessage): ChatMessage {
     aiStatus: message.status ?? undefined,
     listingIds: message.role === "assistant" ? message.listingIds : undefined,
     listingPositions: message.role === "assistant" ? message.listingPositions : undefined,
+    contractCards: message.role === "assistant" ? message.contractCards : undefined,
+    dataSources: message.role === "assistant" ? message.dataSources : undefined,
   };
 }
 

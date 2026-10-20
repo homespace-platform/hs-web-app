@@ -16,6 +16,8 @@ interface ContractSignaturePanelProps {
   isLandlord: boolean;
   isTenant: boolean;
   canSend: boolean;
+  signingAllowed?: boolean;
+  blockedReason?: string;
   sending: boolean;
   signing: boolean;
   onSend: () => Promise<void>;
@@ -27,6 +29,8 @@ export default function ContractSignaturePanel({
   isLandlord,
   isTenant,
   canSend,
+  signingAllowed = true,
+  blockedReason,
   sending,
   signing,
   onSend,
@@ -82,6 +86,9 @@ export default function ContractSignaturePanel({
   }
 
   // Internal confirmation mode. SmartCA has its own server-driven panel.
+  if (!signingAllowed && (isDraft || isPending)) {
+    return <section className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">{blockedReason || "Chưa đủ điều kiện ký. Xem tiến trình nhận nhà phía trên."}</section>;
+  }
 
   // 3A. LANDLORD FLOW (IN DRAFT)
   if (isLandlord && isDraft) {

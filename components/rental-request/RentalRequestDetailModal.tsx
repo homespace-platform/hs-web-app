@@ -1,5 +1,8 @@
 "use client";
 
+import RentalOnboardingPanel from "./RentalOnboardingPanel";
+import type { RentalOnboarding } from "@/services/rental-onboarding.service";
+
 import React, { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import {
@@ -25,7 +28,7 @@ import {
   Car,
   Bike,
 } from "lucide-react";
-import { format, formatDistanceToNow, isPast } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
 import paymentRequestService from "@/services/payment-request.service";
@@ -82,18 +85,6 @@ function isValidImageUrl(url?: string | null): boolean {
   );
 }
 
-function formatHoldRemaining(expiresAt: string, nowMs: number): string {
-  const ms = new Date(expiresAt).getTime() - nowMs;
-  if (ms <= 0) return "đã hết hạn";
-  const totalSec = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSec / 3600);
-  const minutes = Math.floor((totalSec % 3600) / 60);
-  const seconds = totalSec % 60;
-  if (hours > 0) return `${hours} giờ ${minutes} phút`;
-  if (minutes > 0) return `${minutes} phút ${seconds} giây`;
-  return `${seconds} giây`;
-}
-
 const STATUS_CONFIG: Record<
   RentalRequestStatus,
   { label: string; badgeClass: string; icon: React.ComponentType<{ className?: string }> }
@@ -105,7 +96,7 @@ const STATUS_CONFIG: Record<
     icon: Clock,
   },
   ACCEPTED: {
-    label: `Đang giữ chỗ ${RENTAL_HOLD_DURATION_SHORT}`,
+    label: "Đã chấp nhận · Chờ nhận nhà",
     badgeClass:
       "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
     icon: CheckCircle2,
@@ -159,13 +150,13 @@ export default function RentalRequestDetailModal({
   isProcessingAction = false,
 }: RentalRequestDetailModalProps) {
   const [detail, setDetail] = useState<RentalRequestResponse | null>(null);
+  const [onboarding, setOnboarding] = useState<RentalOnboarding | null>(null);
   const [detailedPayment, setDetailedPayment] = useState<PaymentRequest | null>(null);
   const [proofViewUrl, setProofViewUrl] = useState<string | null>(null);
   const [proofLoading, setProofLoading] = useState(false);
   const [proofError, setProofError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
   const [confirmingReceipt, setConfirmingReceipt] = useState(false);
   const [rejectingReceipt, setRejectingReceipt] = useState(false);
   const [showRejectReceiptPrompt, setShowRejectReceiptPrompt] = useState(false);
@@ -202,6 +193,7 @@ export default function RentalRequestDetailModal({
 
   // Fetch fresh request detail when modal opens or requestId changes
   useEffect(() => {
+    setOnboarding(null);
     if (!isOpen || !requestId) {
       setDetail(null);
       setDetailedPayment(null);
@@ -242,19 +234,6 @@ export default function RentalRequestDetailModal({
     };
   }, [isOpen, requestId, loadDetailedPayment]);
 
-  // Tick for hold countdown
-  useEffect(() => {
-    if (!detail?.holdExpiresAt || detail.status !== "ACCEPTED") return;
-    const isHoldValid = !isPast(new Date(detail.holdExpiresAt));
-    if (!isHoldValid) return;
-
-    const interval = window.setInterval(() => {
-      setNowMs(Date.now());
-    }, 1000);
-
-    return () => window.clearInterval(interval);
-  }, [detail?.holdExpiresAt, detail?.status]);
-
   if (!isOpen) return null;
 
   // Compute status presentation (consistent with card)
@@ -263,7 +242,7 @@ export default function RentalRequestDetailModal({
   const isContractDraft = linkedContract?.status === "DRAFT";
   const isContractPaid =
     linkedContract?.paymentStatus === "PAID_MOCK" ||
-    Boolean(linkedContract?.rentalPaymentId);
+    linkedContract?.paymentStatus === "PAID";
   const hasExecutionContract = isContractPending || isContractActive;
 
   const initialPayment = detail?.initialPayment;
@@ -355,9 +334,15 @@ export default function RentalRequestDetailModal({
         icon: FileText,
       }
     : detail?.status === "ACCEPTED"
-    ? isPaymentPaid
+    ? isPaymentReported || onboarding?.stage === "AWAITING_DEPOSIT_CONFIRMATION" || onboarding?.stage === "AWAITING_RENT_CONFIRMATION"
       ? {
-          label: "Đã thanh toán — chờ hợp đồng",
+          label: mode === "RECEIVED" ? "Đã báo chuyển · Chờ bạn xác nhận" : "Đã báo chuyển · Chờ chủ nhà xác nhận",
+          badgeClass: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300",
+          icon: Clock,
+        }
+      : isPaymentPaid
+      ? {
+          label: "Đã xác nhận khoản giữ chỗ · Xem tiến trình nhận nhà",
           badgeClass:
             "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
           icon: CheckCircle2,
@@ -381,10 +366,7 @@ export default function RentalRequestDetailModal({
 
   const StatusIcon = statusInfo.icon;
 
-  const hasHoldExpired =
-    detail?.status === "ACCEPTED" &&
-    detail?.holdExpiresAt &&
-    isPast(new Date(detail.holdExpiresAt));
+  const hasHoldExpired = detail?.status === "EXPIRED" && !!detail?.holdExpiresAt;
 
   const estimatedEndDate = calculateEstimatedEndDate(
     detail?.moveInDate,
@@ -395,9 +377,9 @@ export default function RentalRequestDetailModal({
     detail?.effectiveMonthlyRent != null && detail.effectiveMonthlyRent > 0
       ? detail.effectiveMonthlyRent
       : detail?.monthlyRentPrice ?? 0;
-  const upfrontTotal = detailedPayment?.totalAmount ?? initialPayment?.totalAmount
-    ?? rentPriceToDisplay + (detail?.depositAmount ?? 0);
-  const prepaidFees = Math.max(0, upfrontTotal - rentPriceToDisplay - (detail?.depositAmount ?? 0));
+  const prepaidFees = detailedPayment?.lineItems?.filter(l => l.type !== "RENT" && l.type !== "DEPOSIT")
+    .reduce((sum, l) => sum + l.amount, 0) ?? 0;
+  const upfrontTotal = rentPriceToDisplay + (detail?.depositAmount ?? 0) + prepaidFees;
   const predictableCharges = parseCostBreakdownSnapshot(detail?.costBreakdownSnapshot);
   const excludedCharges = parseExcludedChargesSnapshot(detail?.excludedChargesSnapshot);
 
@@ -485,6 +467,12 @@ export default function RentalRequestDetailModal({
             </div>
           ) : (
             <>
+              {["ACCEPTED", "COMPLETED", "CANCELLED_BY_RENTER"].includes(detail.status) && <RentalOnboardingPanel rentalRequestId={detail.id} isLandlord={mode === "RECEIVED"} onSnapshot={setOnboarding} onUpdated={async () => {
+                const fresh = await rentalRequestService.getRequestById(detail.id);
+                setDetail(fresh);
+                await loadDetailedPayment(detail.id);
+                onPaymentStatusChange?.();
+              }} />}
               {/* 1. THÔNG TIN BÀI ĐĂNG */}
               <div className="p-4 rounded-2xl bg-muted/30 border border-border flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                 <div className="flex items-center gap-3.5 min-w-0">
@@ -662,7 +650,7 @@ export default function RentalRequestDetailModal({
                     <span>Khoản thanh toán ban đầu</span>
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-relaxed">
-                    Chỉ gồm tiền thuê kỳ đầu và tiền cọc (nếu có); thanh toán sau khi chủ nhà chấp thuận.
+                    Nghĩa vụ gồm cọc và tiền tháng đầu. Nếu nhận nhà trong tương lai, hai khoản được mở ở hai thời điểm riêng; xem tiến trình nhận nhà phía trên.
                   </p>
                 </div>
                 {/* Khoản phải trả trong luồng yêu cầu thuê */}
@@ -670,7 +658,7 @@ export default function RentalRequestDetailModal({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
                       <ShieldCheck className="w-4 h-4 shrink-0" />
-                      <span>Thanh toán ban đầu</span>
+                      <span>Tổng nghĩa vụ cọc và tháng đầu</span>
                     </div>
                     <span className="text-[11px] px-2 py-0.5 rounded-md border border-primary/30 bg-background text-primary font-semibold shrink-0">
                       {depositBadge}
@@ -705,13 +693,13 @@ export default function RentalRequestDetailModal({
                   </div>
 
                   <p className="text-[10px] text-muted-foreground italic pt-1 border-t border-primary/10">
-                    * Số tiền được chuyển khoản trực tiếp vào tài khoản ngân hàng của chủ nhà để giữ chỗ sau khi chủ nhà chấp thuận yêu cầu. HomeSpace không nhận tiền và không giữ tiền.
+                    * Đây là tổng nghĩa vụ, không phải số tiền cần chuyển ngay. Xem từng khoản và hạn thanh toán trong tiến trình nhận nhà. HomeSpace không nhận tiền và không giữ tiền.
                   </p>
 
                   <div className="border-t border-primary/20 pt-2.5 flex items-baseline justify-between gap-2">
                     <div className="space-y-0.5 min-w-0">
                       <span className="text-xs font-bold text-foreground block">
-                        Tổng cần thanh toán
+                        Tổng cọc + tháng đầu
                       </span>
                       <span className="text-[10px] text-muted-foreground block truncate">
                         Tiền thuê kỳ đầu + Tiền đặt cọc{prepaidFees > 0 ? " + Phí đã trả trước" : ""}
@@ -765,224 +753,10 @@ export default function RentalRequestDetailModal({
                   )}
 
                   {/* Trạng thái thanh toán và giữ chỗ */}
-                  {detail.status === "ACCEPTED" && !hasExecutionContract && (
-                    <>
-                      {/* Báo chuyển khoản chờ xác nhận */}
-                      {isPaymentReported && (
-                        <div className="p-4 rounded-2xl border-2 border-primary/40 bg-primary/5 space-y-3.5">
-                          <div className="flex items-center justify-between border-b border-primary/20 pb-2">
-                            <span className="font-bold text-xs text-primary flex items-center gap-1.5">
-                              <Clock className="w-4 h-4 animate-pulse" />
-                              <span>{mode === "RECEIVED" ? "Chờ chủ nhà xác nhận" : "Đã gửi chứng từ — chờ chủ nhà xác nhận"}</span>
-                            </span>
-                            <span className="font-extrabold text-sm text-primary">
-                              {formatVND(detailedPayment?.totalAmount ?? initialPayment?.totalAmount ?? detail.estimatedInitialTotal ?? 0)}
-                            </span>
-                          </div>
+                  {detail.status === "PENDING" && detail.respondBy && <p className="text-sm">Hạn chủ nhà phản hồi: {new Date(detail.respondBy).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} (giờ Việt Nam). Quá hạn yêu cầu tự hết hiệu lực; phòng chưa bị khóa ở bước này.</p>}
 
-                          <div className="text-xs text-muted-foreground space-y-2 bg-card p-3.5 rounded-xl border border-border/60">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              <div>
-                                <span className="text-[11px] text-muted-foreground block">Thời điểm hệ thống nhận chứng từ:</span>
-                                <span className="font-semibold text-foreground">
-                                  {detailedPayment?.payerReportedAt || initialPayment?.payerReportedAt || latestEvidence?.declaredTransferTime
-                                    ? format(new Date(detailedPayment?.payerReportedAt || initialPayment?.payerReportedAt || latestEvidence?.declaredTransferTime || new Date()), "HH:mm:ss, dd/MM/yyyy")
-                                    : "—"}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-[11px] text-muted-foreground block">Nội dung CK (Ref):</span>
-                                <span className="font-mono font-bold text-primary">
-                                  {detailedPayment?.transferReference || initialPayment?.transferReference || "—"}
-                                </span>
-                              </div>
-                              {payeeSnapshot && (
-                                <div className="sm:col-span-2">
-                                  <span className="text-[11px] text-muted-foreground block">Tài khoản nhận tiền:</span>
-                                  <span className="font-semibold text-foreground">
-                                    {payeeSnapshot.bankName} ({payeeSnapshot.bankCode}) • STK: <strong className="font-mono">{payeeSnapshot.accountNumber}</strong> • {payeeSnapshot.accountHolderName}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
 
-                            {/* Proof Attachment Preview & Link */}
-                            {proofLoading && (
-                              <div className="pt-2 border-t border-border/40 text-[11px] text-muted-foreground flex items-center gap-1.5">
-                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                <span>Đang tạo liên kết xem chứng từ...</span>
-                              </div>
-                            )}
-                            {!proofLoading && proofViewUrl && (
-                              <div className="pt-2 border-t border-border/40 space-y-1.5">
-                                <span className="text-[11px] font-semibold text-foreground block">
-                                  Chứng từ / Biên lai chuyển khoản đính kèm:
-                                </span>
-                                <div className="flex items-center gap-3">
-                                  <a
-                                    href={proofViewUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-primary/30 bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors shadow-2xs"
-                                  >
-                                    <FileText className="w-3.5 h-3.5" />
-                                    <span>Xem chứng từ gốc (ảnh/PDF)</span>
-                                    <ExternalLink className="w-3 h-3 ml-0.5" />
-                                  </a>
-                                </div>
-                              </div>
-                            )}
-                            {!proofLoading && latestEvidence && !proofViewUrl && (
-                              <div className="pt-2 border-t border-border/40 flex flex-wrap items-center justify-between gap-2">
-                                <span className="text-[11px] text-rose-600 dark:text-rose-400">
-                                  {proofError || "Chưa thể mở chứng từ đính kèm."}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => requestId && void loadDetailedPayment(requestId)}
-                                  className="px-2.5 py-1 rounded-lg border border-border bg-background hover:bg-muted text-[11px] font-semibold text-foreground inline-flex items-center gap-1"
-                                >
-                                  <RefreshCw className="w-3 h-3" />
-                                  Thử lại
-                                </button>
-                              </div>
-                            )}
-                          </div>
-
-                          {mode === "RECEIVED" && (
-                            <div className="pt-2 border-t border-primary/20 space-y-2">
-                              <p className="text-[11px] text-muted-foreground">
-                                Vui lòng kiểm tra tài khoản ngân hàng thụ hưởng của bạn. Sau khi thấy tiền đã vào tài khoản, bấm <strong>Xác nhận đã nhận đủ tiền</strong> để mở khóa tạo hợp đồng.
-                              </p>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <button
-                                  type="button"
-                                  disabled={confirmingReceipt || rejectingReceipt}
-                                  onClick={handleConfirmReceipt}
-                                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                                >
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                  <span>{confirmingReceipt ? "Đang xác nhận..." : "Xác nhận đã nhận đủ tiền"}</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={confirmingReceipt || rejectingReceipt}
-                                  onClick={() => setShowRejectReceiptPrompt(true)}
-                                  className="px-3.5 py-2 rounded-xl border border-rose-300 dark:border-rose-800 bg-background hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
-                                >
-                                  Chưa nhận được tiền
-                                </button>
-                              </div>
-
-                              {showRejectReceiptPrompt && (
-                                <div className="p-3.5 rounded-xl border border-rose-200 bg-rose-50/70 dark:border-rose-900/50 dark:bg-rose-950/30 space-y-2 mt-2 animate-in fade-in-50 duration-200">
-                                  <label className="block text-xs font-semibold text-rose-900 dark:text-rose-200">
-                                    Lý do chưa nhận được / từ chối chứng từ <span className="text-rose-600">* (Bắt buộc)</span>:
-                                  </label>
-                                  <input
-                                    value={receiptRejectReason}
-                                    onChange={(e) => setReceiptRejectReason(e.target.value)}
-                                    placeholder="Ví dụ: Chưa thấy biến động số dư / Số tiền không khớp..."
-                                    className="h-9 w-full rounded-lg border border-border bg-background px-3 text-xs outline-none focus:border-rose-500"
-                                  />
-                                  <div className="flex items-center justify-end gap-2 pt-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => setShowRejectReceiptPrompt(false)}
-                                      className="px-3 py-1 rounded-lg border border-border bg-background text-xs text-muted-foreground hover:bg-muted"
-                                    >
-                                      Hủy
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={rejectingReceipt || !receiptRejectReason.trim()}
-                                      onClick={handleRejectReceipt}
-                                      className="px-3.5 py-1 rounded-lg bg-rose-600 text-white text-xs font-bold disabled:opacity-50 hover:bg-rose-700 transition-colors cursor-pointer"
-                                    >
-                                      {rejectingReceipt ? "Đang gửi..." : "Gửi từ chối"}
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Bị từ chối chứng từ */}
-                      {isPaymentRejected && (
-                        <div className="p-3.5 rounded-2xl border border-rose-300 bg-rose-50/80 dark:border-rose-900/60 dark:bg-rose-950/30 text-rose-900 dark:text-rose-200 space-y-2">
-                          <div className="flex items-start gap-2">
-                            <Ban className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
-                            <div className="space-y-0.5 text-xs">
-                              <p className="font-bold">Chủ nhà chưa nhận được tiền hoặc từ chối chứng từ</p>
-                              {detailedPayment?.rejectedReason && (
-                                <p className="text-[11px] italic font-medium">
-                                  Lý do: &quot;{detailedPayment.rejectedReason}&quot;
-                                </p>
-                              )}
-                              <p className="text-[11px] text-muted-foreground">
-                                Vui lòng kiểm tra lại thông tin giao dịch hoặc tải lại chứng từ chuyển khoản hợp lệ.
-                              </p>
-                            </div>
-                          </div>
-                          {mode === "SENT" && (
-                            <div className="pt-1 text-right">
-                              <button
-                                type="button"
-                                onClick={() => onPayMock?.(detail)}
-                                className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all cursor-pointer shadow-2xs"
-                              >
-                                Gửi lại chứng từ chuyển khoản
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Chờ chuyển khoản */}
-                      {!isPaymentReported && !isPaymentRejected && isPaymentPending && (
-                        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold flex items-center gap-1.5">
-                              <Clock className="w-3.5 h-3.5 animate-pulse text-amber-600 dark:text-amber-400" />
-                              <span>{mode === "SENT" ? "Chờ bạn chuyển khoản trực tiếp" : "Chờ khách chuyển khoản trực tiếp"}:</span>
-                            </span>
-                            <span className="font-extrabold text-sm text-amber-600 dark:text-amber-400">
-                              {detail.holdExpiresAt ? `còn ${formatHoldRemaining(initialPayment?.expiresAt ?? detail.holdExpiresAt, nowMs)}` : "Đang giữ chỗ"}
-                            </span>
-                          </div>
-                          <p className="text-[11px] opacity-90">
-                            Tổng cần chuyển: <strong className="text-foreground">{formatVND(initialPayment?.totalAmount ?? detail.estimatedInitialTotal ?? 0)}</strong>
-                            {detail.holdExpiresAt && ` (hết hạn lúc ${format(new Date(initialPayment?.expiresAt ?? detail.holdExpiresAt), "HH:mm:ss, dd/MM/yyyy")})`}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Đã xác nhận */}
-                      {isPaymentPaid && (
-                        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold flex items-center gap-1.5">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              <span>{mode === "SENT" ? "Đã xác nhận chuyển khoản — chờ hợp đồng" : "Đã xác nhận nhận đủ tiền chuyển khoản"}:</span>
-                            </span>
-                            <span className="font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
-                              {formatVND(initialPayment?.totalAmount ?? detail.estimatedInitialTotal ?? 0)}
-                            </span>
-                          </div>
-                          <p className="text-[11px] opacity-90">
-                            {initialPayment?.confirmedAt && `Xác nhận nhận tiền lúc ${format(new Date(initialPayment.confirmedAt), "HH:mm:ss, dd/MM/yyyy")}. `}
-                            {mode === "RECEIVED" && initialPayment?.contractDueAt && (
-                              <span>Thời hạn tạo hợp đồng: <strong>còn {formatHoldRemaining(initialPayment.contractDueAt, nowMs)}</strong></span>
-                            )}
-                          </p>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {hasHoldExpired && (
+                  {detail.status === "EXPIRED" && hasHoldExpired && (
                     <div className="p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-800 dark:text-orange-300">
                       <span className="font-bold flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5 text-orange-600" />
@@ -1057,17 +831,7 @@ export default function RentalRequestDetailModal({
               )}
 
               {/* Khách thuê ACCEPTED và PENDING thanh toán -> Nút Chuyển khoản giữ chỗ */}
-              {mode === "SENT" && detail.status === "ACCEPTED" && isPaymentPending && !isPaymentReported && !isPaymentRejected && (
-                <button
-                  type="button"
-                  disabled={isProcessingAction}
-                  onClick={() => onPayMock?.(detail)}
-                  className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-40"
-                >
-                  <CreditCard className="w-3.5 h-3.5" />
-                  <span>Chuyển khoản giữ chỗ</span>
-                </button>
-              )}
+
 
               {/* Chủ nhà ACCEPTED -> Tạo hợp đồng hoặc Xem hợp đồng */}
               {mode === "RECEIVED" && (detail.status === "ACCEPTED" || detail.status === "COMPLETED") && (
@@ -1083,7 +847,7 @@ export default function RentalRequestDetailModal({
                   </button>
                 ) : (
                   detail.status === "ACCEPTED" && (
-                    isPaymentPaid ? (
+                    onboarding?.canPrepareContract ? (
                       <button
                         type="button"
                         disabled={isProcessingAction}
@@ -1098,14 +862,14 @@ export default function RentalRequestDetailModal({
                         <button
                           type="button"
                           disabled
-                          title="Chỉ có thể tạo hợp đồng sau khi xác nhận nhận đủ tiền chuyển khoản."
+                          title="Chỉ tạo bản nháp khi tiến trình nhận nhà cho phép sau xác nhận cọc."
                           className="px-4 py-2 rounded-xl bg-muted text-muted-foreground border border-border text-xs font-semibold cursor-not-allowed inline-flex items-center gap-1.5 opacity-60"
                         >
                           <FileText className="w-3.5 h-3.5" />
                           <span>Tạo hợp đồng</span>
                         </button>
                         <span className="text-[11px] text-muted-foreground italic hidden sm:inline">
-                          * Chỉ tạo hợp đồng sau khi xác nhận nhận đủ tiền chuyển khoản.
+                          * Xem điều kiện tạo bản nháp trong tiến trình nhận nhà.
                         </span>
                       </div>
                     )
@@ -1122,7 +886,7 @@ export default function RentalRequestDetailModal({
                   className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-40"
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  <span>{isContractActive ? "Xem hợp đồng hiệu lực" : "Mở hợp đồng"}</span>
+                  <span>{isContractActive ? "Xem hợp đồng hiệu lực" : isContractDraft ? "Xem bản nháp hợp đồng" : "Mở hợp đồng"}</span>
                 </button>
               )}
             </div>

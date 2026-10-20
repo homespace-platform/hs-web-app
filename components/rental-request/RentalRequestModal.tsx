@@ -28,7 +28,7 @@ import type {
 } from "@/types/rental-request.type";
 import type { DepositType } from "@/types/listing.type";
 import { Calendar } from "@/components/ui/calendar";
-import { RENTAL_HOLD_DURATION_LABEL } from "@/config/rental-hold.config";
+import axiosClient from "@/lib/axios-client";
 import {
   formatVND,
   clampValue,
@@ -79,6 +79,12 @@ export default function RentalRequestModal({
   const { profile, username } = useAuth();
 
   // Form states
+  const [holdMinutes, setHoldMinutes] = useState<number | null>(null);
+  useEffect(() => {
+    let active = true;
+    if (isOpen) axiosClient.get("/api/v1/rental-requests/policy").then(res => { if (active) setHoldMinutes(res.data.result.holdMinutes); }).catch(() => { if (active) setHoldMinutes(null); });
+    return () => { active = false; };
+  }, [isOpen]);
   const [moveInDate, setMoveInDate] = useState<Date>(() => new Date());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [leaseMonths, setLeaseMonths] = useState<number>(() =>
@@ -482,8 +488,7 @@ export default function RentalRequestModal({
           <Clock className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
           <p>
             Sau khi chủ nhà chấp thuận, bạn có{" "}
-            <strong>{RENTAL_HOLD_DURATION_LABEL}</strong> để ký hợp đồng và hoàn
-            tất thanh toán để đảm bảo giữ chỗ căn nhà.
+            <strong>{holdMinutes ? `${holdMinutes} phút` : "thời hạn hiển thị trên yêu cầu thanh toán"}</strong> để thanh toán giữ chỗ. Nếu ngày vào ở còn ở tương lai, chỉ thu cọc; tiền tháng đầu và ký hợp đồng mở vào ngày bắt đầu thuê. Bạn có thể đề nghị chủ nhà đồng ý bắt đầu thuê sớm.
           </p>
         </div>
 

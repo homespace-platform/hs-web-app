@@ -119,7 +119,6 @@ export default function ContractHeader({
   const applied = workspace?.data?.proposals.filter(p => appliedAmendment(p,workspace.data!.serverNow)).length ?? 0;
 
   const isPaid =
-    Boolean(contract.rentalPaymentId) ||
     contract.paymentStatus === "PAID" ||
     contract.paymentStatus === "PAID_MOCK";
 

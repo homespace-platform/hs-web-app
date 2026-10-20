@@ -37,7 +37,7 @@ const STATUS_BADGE: Record<ContractStatus, string> = {
 
 function contractStatusLabel(contract: ContractResponse): string {
   if (contract.status === "PENDING_REVIEW") {
-    return Boolean(contract.rentalPaymentId) || contract.paymentStatus === "PAID_MOCK"
+    return contract.paymentStatus === "PAID" || contract.paymentStatus === "PAID_MOCK"
       ? "Chờ ký hợp đồng"
       : "Chờ thanh toán/ký";
   }
@@ -52,8 +52,8 @@ export default function ContractListView({ perspective }: { perspective: "landlo
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState<ContractStatus | "ALL">("ALL");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await contractService.listContracts({
         status: statusFilter === "ALL" ? undefined : statusFilter,
@@ -64,14 +64,16 @@ export default function ContractListView({ perspective }: { perspective: "landlo
       setItems(res.result || []);
       setTotalPages(res.totalPages || 1);
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Không thể tải danh sách hợp đồng."));
+      if (!silent) toast.error(getApiErrorMessage(err, "Không thể tải danh sách hợp đồng."));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [page, perspective, statusFilter]);
 
   useEffect(() => {
     void load();
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void load(true); }, 30000);
+    return () => window.clearInterval(timer);
   }, [load]);
 
   return (
@@ -85,7 +87,7 @@ export default function ContractListView({ perspective }: { perspective: "landlo
           <p className="text-xs sm:text-sm text-muted-foreground">
             {perspective === "landlord"
               ? "Hợp đồng bạn lập và quản lý với vai trò bên cho thuê."
-              : "Hợp đồng bạn nhận và ký với vai trò bên thuê."}
+              : "Xem trước hợp đồng, đề nghị bắt đầu thuê sớm và ký khi đủ điều kiện."}
           </p>
         </div>
         <button
@@ -99,7 +101,7 @@ export default function ContractListView({ perspective }: { perspective: "landlo
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(["ALL", ...(perspective === "landlord" ? ["DRAFT"] as const : []), "LANDLORD_SIGNATURE_PENDING", "TENANT_SIGNATURE_PENDING", "PENDING_REVIEW", "ACTIVE", "EXPIRED", "CLOSED", "TERMINATED", "CANCELLED"] as const).map((key) => (
+        {(["ALL", "DRAFT", "LANDLORD_SIGNATURE_PENDING", "TENANT_SIGNATURE_PENDING", "PENDING_REVIEW", "ACTIVE", "EXPIRED", "CLOSED", "TERMINATED", "CANCELLED"] as const).map((key) => (
           <button
             key={key}
             type="button"
@@ -113,7 +115,7 @@ export default function ContractListView({ perspective }: { perspective: "landlo
                 : "bg-card border-border text-muted-foreground hover:bg-muted"
             }`}
           >
-            {key === "ALL" ? "Tất cả" : STATUS_LABEL[key]}
+            {key === "ALL" ? "Tất cả" : key === "DRAFT" && perspective === "tenant" ? "Bản nháp để xem trước" : STATUS_LABEL[key]}
           </button>
         ))}
       </div>
@@ -129,7 +131,7 @@ export default function ContractListView({ perspective }: { perspective: "landlo
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
             {perspective === "landlord"
               ? "Bạn có thể tạo hợp đồng từ yêu cầu thuê đã được chấp thuận. "
-              : "Hợp đồng sẽ xuất hiện khi chủ nhà gửi cho bạn xem và ký. "}
+              : "Bản nháp sẽ xuất hiện sau khi chủ nhà xác nhận cọc và tạo hợp đồng. Bạn vẫn có thể xem tiến trình nhận nhà và đề nghị bắt đầu sớm từ yêu cầu thuê. "}
             <Link href={perspective === "landlord" ? "/dashboard/rental-requests" : "/dashboard/rental-requests/my-requests"} className="text-primary font-semibold hover:underline">
               Xem yêu cầu thuê
             </Link>
@@ -153,10 +155,14 @@ export default function ContractListView({ perspective }: { perspective: "landlo
                   <span
                     className={`self-start sm:self-center text-[11px] font-bold px-2.5 py-1 rounded-full border ${STATUS_BADGE[c.status]}`}
                   >
-                    {contractStatusLabel(c)}
+                    {c.status === "DRAFT" && perspective === "tenant" ? "Bản nháp · Chưa có hiệu lực" : contractStatusLabel(c)}
                   </span>
                 </div>
                 </button>
+                {c.status === "DRAFT" && perspective === "tenant" && <div className="mt-3 space-y-1 border-t pt-3 text-xs">
+                  <p className="text-muted-foreground">Đây là bản đang soạn, chưa phải hợp đồng đã ký. Bạn được xem nội dung; chỉ mở ký khi đã đến ngày thuê và xác nhận đủ tiền.</p>
+                  <Link href={contractDetailPath(perspective,c.id)} className="inline-flex font-semibold text-primary hover:underline">Xem hợp đồng & đề nghị bắt đầu thuê sớm →</Link>
+                </div>}
                 {["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(c.status) && <Link href={invoiceDetailPath(c.id)}
                   className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline">
                   Xem hóa đơn tháng →

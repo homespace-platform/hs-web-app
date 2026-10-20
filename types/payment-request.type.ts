@@ -9,6 +9,7 @@ export type PaymentStatus =
   | "EXPIRED";
 
 export type PaymentType =
+  | "RESERVATION_DEPOSIT"
   | "INITIAL"
   | "MONTHLY_RENT"
   | "UTILITY"

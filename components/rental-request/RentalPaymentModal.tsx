@@ -37,7 +37,8 @@ import type { RentalRequestResponse } from "@/types/rental-request.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 
 interface RentalPaymentModalProps {
-  request: RentalRequestResponse;
+  request: Pick<RentalRequestResponse, "id"> & Partial<RentalRequestResponse>;
+  paymentId?: string;
   isOpen: boolean;
   onClose: () => void;
   onPaymentSuccess?: (payment: PaymentRequest) => void;
@@ -65,6 +66,7 @@ function formatCountdown(seconds: number): string {
 
 export default function RentalPaymentModal({
   request,
+  paymentId,
   isOpen,
   onClose,
   onPaymentSuccess,
@@ -126,7 +128,7 @@ export default function RentalPaymentModal({
 
     async function loadPayment() {
       try {
-        const res = await paymentRequestService.getInitialPaymentByRentalRequestId(request.id);
+        const res = paymentId ? await paymentRequestService.getPaymentRequest(paymentId) : await paymentRequestService.getInitialPaymentByRentalRequestId(request.id);
         if (isMounted) {
           setPayment(res);
         }
@@ -145,7 +147,7 @@ export default function RentalPaymentModal({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, request.id]);
+  }, [isOpen, request.id, paymentId]);
 
   // Countdown timer for mobile QR session
   useEffect(() => {
@@ -191,7 +193,7 @@ export default function RentalPaymentModal({
 
         if (res.status === "CONSUMED") {
           // Mobile đã upload và gửi trực tiếp cho chủ nhà!
-          const updated = await paymentRequestService.getInitialPaymentByRentalRequestId(request.id);
+          const updated = paymentId ? await paymentRequestService.getPaymentRequest(paymentId) : await paymentRequestService.getInitialPaymentByRentalRequestId(request.id);
           if (!isPolling) return;
           setPayment(updated);
           setShowReportForm(false);
@@ -223,7 +225,7 @@ export default function RentalPaymentModal({
       isPolling = false;
       clearInterval(pollInterval);
     };
-  }, [isOpen, showReportForm, proofSource, mobileStatus, mobileSessionId, payment, request.id, onPaymentSuccess]);
+  }, [isOpen, showReportForm, proofSource, mobileStatus, mobileSessionId, payment, request.id, onPaymentSuccess, paymentId]);
 
   if (!isOpen) return null;
 
@@ -411,6 +413,7 @@ export default function RentalPaymentModal({
       setSubmitting(true);
       try {
         const payload: ReportTransferPayload = {
+          expectedAmount: payment.totalAmount,
           proofStorageId: finalStorageId,
         };
 
@@ -435,6 +438,7 @@ export default function RentalPaymentModal({
       setSubmitting(true);
       try {
         const payload: ReportTransferPayload = {
+          expectedAmount: payment.totalAmount,
           evidenceUploadSessionId: mobileSessionId,
         };
 
@@ -523,7 +527,7 @@ export default function RentalPaymentModal({
                   <div className="space-y-1 text-sm">
                     <p className="font-bold text-base">Chủ nhà đã xác nhận nhận đủ tiền</p>
                     <p className="text-xs sm:text-sm opacity-90">
-                      Khoản thanh toán ban đầu đã được chủ nhà xác nhận. Quy trình tạo và ký hợp đồng thuê đã sẵn sàng.
+                      Khoản chuyển đã được xác nhận. Xem tiến trình nhận nhà để biết bước tiếp theo và thời điểm được ký.
                     </p>
                   </div>
                 </div>
@@ -563,7 +567,7 @@ export default function RentalPaymentModal({
                 <div className="flex items-center justify-between text-sm font-bold text-foreground pb-2.5 border-b border-border/70">
                   <span className="flex items-center gap-2">
                     <Receipt className="w-4 h-4 text-primary" />
-                    <span>Chi tiết khoản thanh toán ban đầu</span>
+                    <span>{payment?.type === "RESERVATION_DEPOSIT" ? "Tiền cọc giữ chỗ" : "Chi tiết tiền thuê tháng đầu / cọc"}</span>
                   </span>
                   <span>Số tiền</span>
                 </div>

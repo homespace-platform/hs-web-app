@@ -106,21 +106,15 @@ test("payment numbers are independent of expense months for three and twelve mon
 
 const initialSource = read("components/contract/detail/InitialPaymentHistory.tsx");
 const InitialHistory = load(initialSource, name => name === "react" ? testReact
+  : name === "@/components/rental-request/RentalOnboardingPanel" ? { default: () => null }
   : name.startsWith("@/services/") ? { default: {} } : require(name)).default;
-test("initial payment history uses original amounts and receipt status without a second QR", () => {
-  const payment = { status: "CONFIRMED", totalAmount: 15000000, lineItems: [
-    { id: "rent", type: "RENT", displayName: "Rent", amount: 5000000 },
-    { id: "deposit", type: "DEPOSIT", displayName: "Tiền cọc", amount: 10000000 },
-  ] };
-  // useState order: payment, error, open
-  initialStates = [payment, false, true]; stateIndex = 0;
+test("initial payment history delegates to the onboarding panel so deposit and first rent keep separate receipts", () => {
   const html = renderToStaticMarkup(React.createElement(InitialHistory, { rentalRequestId: "rental", defaultOpen: true }));
-  assert.match(html, /Cọc \+ tiền phòng tháng 1/); assert.match(html, /15\.000\.000 đ/);
-  assert.match(html, /Đã xác nhận thanh toán/); assert.doesNotMatch(html, /<img|Tôi đã chuyển khoản/);
-  initialStates = [{ ...payment, status: "TRANSFER_REPORTED" }, false, false]; stateIndex = 0;
-  assert.match(renderToStaticMarkup(React.createElement(InitialHistory, { rentalRequestId: "rental" })), /Chờ xác nhận/);
-  initialStates = [null, true, false]; stateIndex = 0;
-  const errorHtml = renderToStaticMarkup(React.createElement(InitialHistory, { rentalRequestId: "rental" }));
-  assert.match(errorHtml, /Thử lại/); assert.doesNotMatch(errorHtml, /Đã xác nhận thanh toán|>0 đ</);
-  assert.match(initialSource, /getInitialPaymentByRentalRequestId\(rentalRequestId\)/);
+  assert.match(html, /<details open/);
+  assert.match(initialSource, /<RentalOnboardingPanel rentalRequestId=\{rentalRequestId\} \/>/);
+  assert.doesNotMatch(html, /<img|Tôi đã chuyển khoản/);
+  const panel = read("components/rental-request/RentalOnboardingPanel.tsx");
+  // Reported is not confirmed, and confirming one payment never implies the other.
+  assert.match(panel, /TRANSFER_REPORTED: "Đã báo chuyển · Chờ xác nhận"/);
+  assert.match(panel, /CONFIRMED: "Đã xác nhận"/);
 });

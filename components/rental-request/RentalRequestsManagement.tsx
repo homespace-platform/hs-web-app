@@ -1,5 +1,6 @@
 "use client";
 
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -24,7 +25,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
-import { format, formatDistanceToNow, isPast } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
 import ListingPreviewModal from "@/components/listing/ListingPreviewModal";
@@ -47,19 +48,6 @@ interface RentalRequestsManagementProps {
   mode: "RECEIVED" | "SENT";
 }
 
-/** Đếm ngược còn lại tới holdExpiresAt — rõ phút/giây thay vì "khoảng 24 giờ" của date-fns. */
-function formatHoldRemaining(expiresAt: string, nowMs: number): string {
-  const ms = new Date(expiresAt).getTime() - nowMs;
-  if (ms <= 0) return "đã hết hạn";
-  const totalSec = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSec / 3600);
-  const minutes = Math.floor((totalSec % 3600) / 60);
-  const seconds = totalSec % 60;
-  if (hours > 0) return `${hours} giờ ${minutes} phút`;
-  if (minutes > 0) return `${minutes} phút ${seconds} giây`;
-  return `${seconds} giây`;
-}
-
 const STATUS_CONFIG: Record<
   RentalRequestStatus,
   { label: string; badgeClass: string; icon: React.ComponentType<{ className?: string }> }
@@ -70,7 +58,7 @@ const STATUS_CONFIG: Record<
     icon: Clock,
   },
   ACCEPTED: {
-    label: `Đang giữ chỗ ${RENTAL_HOLD_DURATION_SHORT}`,
+    label: "Đã chấp nhận · Chờ nhận nhà",
     badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
     icon: CheckCircle2,
   },
@@ -147,7 +135,6 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const [rejectReason, setRejectReason] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [previewListingId, setPreviewListingId] = useState<string | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
   const [creatingContractRequestId, setCreatingContractRequestId] = useState<string | null>(null);
   const creatingContractRef = useRef<string | null>(null);
   const [contractsByRequest, setContractsByRequest] = useState<Record<string, ContractResponse | null>>({});
@@ -257,25 +244,12 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     };
   }, [requests, contractsByRequest]);
 
-  // Tick mỗi giây để countdown giữ chỗ cập nhật
+  // Deadlines come from the business clock, not the browser's real-time clock.
   useEffect(() => {
-    const hasActiveHold = requests.some(
-      (r) => r.status === "ACCEPTED" && r.holdExpiresAt && !isPast(new Date(r.holdExpiresAt))
-    );
-    if (!hasActiveHold) return;
+    if (!requests.some(r => r.status === "ACCEPTED" || r.status === "PENDING")) return;
     const id = window.setInterval(() => {
-      const t = Date.now();
-      setNowMs(t);
-      const anyJustExpired = requests.some(
-        (r) =>
-          r.status === "ACCEPTED" &&
-          r.holdExpiresAt &&
-          new Date(r.holdExpiresAt).getTime() <= t
-      );
-      if (anyJustExpired) {
-        void fetchRequests();
-      }
-    }, 1000);
+      if (document.visibilityState === "visible") void fetchRequests();
+    }, 30000);
     return () => window.clearInterval(id);
   }, [requests, fetchRequests]);
 
@@ -286,7 +260,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     try {
       await rentalRequestService.acceptRentalRequest(acceptTarget.id);
       toast.success(
-        `Chấp thuận thành công! Bài đăng đã chuyển sang trạng thái Giữ chỗ ${RENTAL_HOLD_DURATION_SHORT} và các yêu cầu song song đã được tự động hủy.`
+        "Đã chấp nhận và giữ chỗ. Xem chi tiết để theo dõi hạn chuyển khoản và ngày bắt đầu thuê; các yêu cầu khác chưa bị hủy."
       );
       setAcceptTarget(null);
       fetchRequests();
@@ -362,8 +336,8 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground">
             {mode === "RECEIVED"
-              ? `Theo dõi, xét duyệt hồ sơ thuê nhà và quản lý trạng thái giữ chỗ độc quyền ${RENTAL_HOLD_DURATION_LABEL} cho bài đăng của bạn.`
-              : `Theo dõi tiến độ xét duyệt và thời hạn giữ chỗ ${RENTAL_HOLD_DURATION_LABEL} cho các căn nhà bạn đang gửi yêu cầu thuê.`}
+              ? "Xét duyệt hồ sơ, theo dõi cọc, tiền tháng đầu và ký hợp đồng khi nhận nhà."
+              : "Theo dõi yêu cầu thuê, thanh toán cọc và các bước nhận nhà theo ngày đã thống nhất."}
           </p>
         </div>
 
@@ -440,7 +414,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
             const isContractDraft = linkedContract?.status === "DRAFT";
             const isContractPaid =
               linkedContract?.paymentStatus === "PAID_MOCK" ||
-              Boolean(linkedContract?.rentalPaymentId);
+              linkedContract?.paymentStatus === "PAID";
             const hasExecutionContract = isContractPending || isContractActive;
 
             const initialPayment = req.initialPayment;
@@ -480,7 +454,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
               : req.status === "ACCEPTED"
               ? isPaymentPaid
                 ? {
-                    label: "Đã thanh toán — chờ hợp đồng",
+                    label: "Đã xác nhận khoản giữ chỗ · Xem tiến trình",
                     badgeClass:
                       "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
                     icon: CheckCircle2,
@@ -606,6 +580,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                   </div>
                 </div>
 
+                {req.status === "PENDING" && req.respondBy && <p className="text-xs text-muted-foreground">Hạn chủ nhà phản hồi: {new Date(req.respondBy).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} (giờ Việt Nam)</p>}
                 {/* Card Info: Renter & Note */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="space-y-1">
@@ -710,183 +685,24 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                   </div>
                 </div>
 
-                {/* Khối Thông Báo Đếm Ngược Giữ Chỗ & Thanh Toán (Khi ACCEPTED và chưa có hợp đồng đã gửi/ký) */}
-                {req.status === "ACCEPTED" && !hasExecutionContract && (
-                  <>
-                    {/* Khách đã gửi chứng từ: khóa CTA thanh toán và chờ chủ nhà đối soát */}
-                    {isPaymentReported && (
-                      <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-2.5 text-xs text-blue-900 dark:text-blue-200">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                            <span>
-                              {mode === "SENT"
-                                ? "Chứng từ đã được gửi thành công. Đang chờ chủ nhà kiểm tra tài khoản và xác nhận số tiền "
-                                : "Khách thuê đã gửi chứng từ chuyển khoản. Vui lòng kiểm tra tài khoản ngân hàng và xác nhận số tiền "}
-                              <strong className="text-foreground">
-                                {formatVND(initialPayment?.totalAmount ?? req.estimatedInitialTotal ?? 0)}
-                              </strong>
-                              .
-                            </span>
-                          </div>
-                          <span className="text-[11px] font-bold uppercase tracking-wider bg-blue-600 text-white px-2.5 py-0.5 rounded-md shrink-0 self-start sm:self-auto">
-                            {mode === "SENT" ? "Chờ chủ nhà xác nhận" : "Cần xác nhận"}
-                          </span>
-                        </div>
+                {req.status === "ACCEPTED" && <p className="rounded-xl border bg-muted/30 p-3 text-sm">Xem chi tiết để theo dõi cọc, thời điểm mở tiền tháng đầu và đề nghị bắt đầu thuê sớm.</p>}
+                {/* Khối giữ chỗ cũ được thay bằng tiến trình nhận nhà ở trên. */}
 
-                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                          <button
-                            type="button"
-                            onClick={() => mode === "SENT" ? setPaymentTarget(req) : setDetailRequestId(req.id)}
-                            className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            <span>{mode === "SENT" ? "Xem chứng từ đã gửi" : "Xem chứng từ & xác nhận"}</span>
-                          </button>
-                          {mode === "RECEIVED" && (
-                            <span className="text-[11px] text-muted-foreground italic">
-                              Xác nhận sau khi tiền thực tế đã vào tài khoản của bạn.
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
 
-                    {/* Chưa gửi chứng từ hoặc chứng từ đã bị từ chối */}
-                    {isPaymentPending && !isPaymentReported && (
-                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2.5 text-xs text-amber-900 dark:text-amber-200">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-pulse shrink-0" />
-                            <span>
-                              {isPaymentRejected
-                                ? mode === "SENT"
-                                  ? "Chủ nhà chưa xác nhận chứng từ. Vui lòng kiểm tra và gửi lại: "
-                                  : "Đã yêu cầu khách kiểm tra và gửi lại chứng từ: "
-                                : mode === "SENT"
-                                ? "Chờ bạn thanh toán ban đầu: "
-                                : "Chờ khách thanh toán ban đầu: "}
-                              <strong className="text-foreground">
-                                {formatVND(initialPayment?.totalAmount ?? req.estimatedInitialTotal ?? 0)}
-                              </strong>
-                              {req.holdExpiresAt && (
-                                <>
-                                  {" "}· Thời hạn còn lại:{" "}
-                                  <strong>{formatHoldRemaining(initialPayment?.expiresAt ?? req.holdExpiresAt, nowMs)}</strong>
-                                </>
-                              )}
-                            </span>
-                          </div>
-                          <span className="text-[11px] font-bold uppercase tracking-wider bg-amber-600 text-white px-2.5 py-0.5 rounded-md shrink-0 self-start sm:self-auto">
-                            {isPaymentRejected ? "Cần gửi lại chứng từ" : "Chờ thanh toán"}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                          {mode === "SENT" ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => setPaymentTarget(req)}
-                                className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
-                              >
-                                <CreditCard className="w-3.5 h-3.5" />
-                                <span>{isPaymentRejected ? "Gửi lại chứng từ" : "Thanh toán ban đầu"}</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDetailRequestId(req.id)}
-                                className="px-3.5 py-2 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold text-foreground transition-all cursor-pointer inline-flex items-center gap-1.5"
-                              >
-                                <FileText className="w-3.5 h-3.5" />
-                                <span>Xem chi tiết dự toán</span>
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                disabled
-                                title={isPaymentRejected
-                                  ? "Đang chờ khách gửi lại chứng từ hợp lệ."
-                                  : "Chỉ có thể tạo hợp đồng sau khi khách thanh toán ban đầu và chủ nhà xác nhận đã nhận tiền."}
-                                className="px-3.5 py-1.5 rounded-xl bg-muted text-muted-foreground border border-border text-xs font-semibold cursor-not-allowed inline-flex items-center gap-1.5 opacity-60"
-                              >
-                                <FileText className="w-3.5 h-3.5" />
-                                <span>Tạo hợp đồng</span>
-                              </button>
-                              <span className="text-[11px] text-muted-foreground italic">
-                                {isPaymentRejected
-                                  ? "* Đang chờ khách gửi lại chứng từ hợp lệ."
-                                  : "* Chỉ có thể tạo hợp đồng sau khi khách chuyển khoản và chủ nhà xác nhận đã nhận tiền."}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* TRƯỜNG HỢP 2: Khách đã thanh toán ban đầu -> Chờ chủ nhà tạo/gửi hợp đồng */}
-                    {isPaymentPaid && (
-                      <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-2.5 text-xs text-emerald-800 dark:text-emerald-300">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                            <span>
-                              {mode === "SENT"
-                                ? "Đã thanh toán — chờ chủ nhà tạo hợp đồng. "
-                                : "Khách đã thanh toán ban đầu: "}
-                              <strong className="text-foreground">
-                                {formatVND(initialPayment?.totalAmount ?? req.estimatedInitialTotal ?? 0)}
-                              </strong>
-                              {initialPayment?.paidAt && (
-                                <> (lúc {format(new Date(initialPayment.paidAt), "HH:mm:ss, dd/MM/yyyy")})</>
-                              )}
-                              {mode === "RECEIVED" && initialPayment?.contractDueAt && (
-                                <> · Hạn tạo hợp đồng: <strong>còn {formatHoldRemaining(initialPayment.contractDueAt, nowMs)}</strong></>
-                              )}
-                            </span>
-                          </div>
-                          <span className="text-[11px] font-bold uppercase tracking-wider bg-emerald-600 text-white px-2.5 py-0.5 rounded-md shrink-0 self-start sm:self-auto">
-                            Đã thanh toán
-                          </span>
-                        </div>
-
-                        {mode === "RECEIVED" ? (
-                          <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                            {linkedContract ? (
-                              <button
-                                type="button"
-                                disabled={openingContractId === req.id}
-                                onClick={() => {
-                                  setOpeningContractId(req.id);
-                                  router.push(contractDetailPath(mode === "RECEIVED" ? "landlord" : "tenant", linkedContract.id));
-                                }}
-                                className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
-                              >
-                                <FileText className="w-3.5 h-3.5" />
-                                Xem / tiếp tục hợp đồng
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                disabled={creatingContractRequestId !== null}
-                                onClick={() => void handleCreateContract(req)}
-                                className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
-                              >
-                                <FileText className="w-3.5 h-3.5" />
-                                {creatingContractRequestId === req.id ? "Đang tạo hợp đồng..." : "Tạo hợp đồng"}
-                              </button>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-[11px] opacity-90 leading-relaxed">
-                            Yêu cầu thuê đã được giữ chỗ độc quyền và bảo vệ. Chủ nhà đang tiến hành chuẩn bị hợp đồng thuê cho bạn.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </>
+                {mode !== "RECEIVED" && isContractDraft && linkedContract && (
+                  <div className="p-3 rounded-lg border border-sky-200 bg-sky-50 text-sky-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <span>
+                      <strong>Bản nháp · Chưa có hiệu lực.</strong> Chủ nhà đã tạo hợp đồng sau khi xác nhận cọc. Bạn xem được nội dung và đề nghị bắt đầu thuê sớm; chỉ ký được khi đến ngày thuê và đủ điều kiện.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => router.push(contractDetailPath("tenant", linkedContract.id))}
+                      className="h-8 px-3 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      Xem bản nháp hợp đồng
+                    </button>
+                  </div>
                 )}
 
                 {hasExecutionContract && linkedContract && (
@@ -904,11 +720,11 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                           ? "Hợp đồng đã có hiệu lực, giao dịch thuê đã hoàn tất."
                           : mode === "RECEIVED"
                             ? isPaymentPaid
-                              ? "Người thuê đã thanh toán ban đầu. Đang chờ người thuê kiểm tra và ký hợp đồng."
-                              : "Đang chờ người thuê thanh toán và ký hợp đồng."
+                              ? "Đã xác nhận khoản thanh toán. Kiểm tra tiến trình nhận nhà để biết bước tiếp theo và thời điểm mở ký."
+                              : "Theo dõi cọc, tiền tháng đầu và thời điểm mở ký trong tiến trình nhận nhà."
                             : isPaymentPaid
-                              ? "Bạn đã thanh toán ban đầu. Hãy mở hợp đồng để kiểm tra và ký."
-                              : "Hợp đồng đang chờ bạn thanh toán và ký."}
+                              ? "Khoản thanh toán đã được xác nhận. Mở hồ sơ để xem bước tiếp theo; chỉ ký khi đủ điều kiện."
+                              : "Mở hồ sơ để theo dõi từng khoản và ngày bắt đầu thuê."}
                       </span>
                     </div>
                     <button
@@ -1055,13 +871,13 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
               </p>
               <ul className="list-disc list-inside space-y-1 text-[11px] text-muted-foreground leading-relaxed">
                 <li>
-                  Bài đăng sẽ chuyển sang trạng thái <strong>&quot;Đang giữ chỗ&quot; (RESERVED)</strong> trong {RENTAL_HOLD_DURATION_LABEL}.
+                  Bài đăng chuyển sang <strong>Đang giữ chỗ</strong>. Người thuê cần báo chuyển trước hạn trên yêu cầu thanh toán.
                 </li>
                 <li>
-                  Toàn bộ các yêu cầu thuê khác đang chờ xét duyệt của căn này sẽ <strong>tự động bị hủy</strong>.
+                  Nếu ngày vào ở còn ở phía trước, chỉ thu cọc trước; tiền tháng đầu và ký hợp đồng mở vào ngày bắt đầu thuê.
                 </li>
                 <li>
-                  Nếu sau {RENTAL_HOLD_DURATION_LABEL} người thuê không hoàn tất thủ tục, hệ thống sẽ tự động mở lại bài đăng sang trạng thái Đang hiển thị.
+                  Chưa báo chuyển khi hết hạn thì giải phóng giữ chỗ nếu tin còn hạn đăng. Đã báo chuyển, có tranh chấp hoặc đã nhận cọc thì không tự giải phóng phòng; các yêu cầu chờ khác vẫn giữ hạn phản hồi riêng.
                 </li>
               </ul>
             </div>

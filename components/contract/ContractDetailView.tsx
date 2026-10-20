@@ -1,5 +1,8 @@
 "use client";
 
+import RentalOnboardingPanel from "@/components/rental-request/RentalOnboardingPanel";
+import type { RentalOnboarding } from "@/services/rental-onboarding.service";
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -49,6 +52,8 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   const contractId = String(params?.id || "");
 
   const [contract, setContract] = useState<ContractResponse | null>(null);
+  const [onboarding, setOnboarding] = useState<RentalOnboarding | null>(null);
+  useEffect(() => { setOnboarding(null); }, [contractId]);
   const [revision, setRevision] = useState<ContractRevisionResponse | null>(null);
   const [completeness, setCompleteness] = useState<ContractCompletenessResponse | null>(null);
   const [documents, setDocuments] = useState<ContractDocumentResponse[]>([]);
@@ -480,6 +485,11 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         </div>
       )}
 
+      {isTenant && isDraft && <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+        <p className="font-semibold">Bản nháp để xem trước · Chưa có hiệu lực</p>
+        <p className="mt-1">Chủ nhà vẫn có thể cập nhật nội dung. Bạn có thể xem văn bản và đề nghị nhận nhà, bắt đầu hợp đồng sớm trong phần bên dưới. Chấp nhận đề nghị sẽ đổi ngày thuê và các kỳ hóa đơn; không chỉ mở ký trước ngày thuê cũ.</p>
+      </div>}
+      {!contract.parentContractId && !["ACTIVE","EXPIRED","CLOSED","TERMINATED","CANCELLED"].includes(contract.status) && <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} onSnapshot={setOnboarding} onUpdated={refreshSignedState} />}
       {/* 3. SIGNATURE & CONFIRMATION PANEL (PROMINENT AT TOP / BOTTOM) */}
       {contract.parentContractId && <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
         {isAmendment ? "Phụ lục này ghi nhận điều khoản đã thống nhất với ngày áp dụng riêng. Xem bảng thay đổi và PDF trước khi ký. Hợp đồng gốc và lịch sử thanh toán được giữ nguyên."
@@ -489,6 +499,8 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       {isAmendment && contract.parentContractId && <ContractAmendmentPanel contractId={contract.parentContractId} actorId={profile.id} perspective={perspective} agreementId={contract.id} />}
       {signatureState?.signatureMode === "SMARTCA" ? <SmartCaSignaturePanel
         contract={contract}
+        signingAllowed={Boolean(contract.parentContractId || onboarding?.canSign)}
+        blockedReason={onboarding?.message ?? "Đang kiểm tra ngày bắt đầu thuê và trạng thái thanh toán…"}
         state={signatureState}
         isLandlord={isLandlord}
         isTenant={isTenant}
@@ -496,6 +508,8 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         onUpdated={refreshSignedState}
       /> : <ContractSignaturePanel
         contract={contract}
+        signingAllowed={Boolean(contract.parentContractId || onboarding?.canSign)}
+        blockedReason={onboarding?.message ?? "Đang kiểm tra ngày bắt đầu thuê và trạng thái thanh toán…"}
         isLandlord={isLandlord}
         isTenant={isTenant}
         canSend={Boolean(!rendering && !metersDirty && completeness?.complete && hasReadyCurrentDocument)}

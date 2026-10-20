@@ -18,12 +18,14 @@ interface Props {
   isLandlord: boolean;
   isTenant: boolean;
   hasReadyPdf: boolean;
+  signingAllowed?: boolean;
+  blockedReason?: string;
   onUpdated: () => Promise<void>;
 }
 
 const inProgress = new Set(["CREATED", "PENDING_USER_CONFIRMATION", "PROVIDER_SIGNED", "EMBEDDING"]);
 
-export default function SmartCaSignaturePanel({ contract, state, isLandlord, isTenant, hasReadyPdf, onUpdated }: Props) {
+export default function SmartCaSignaturePanel({ contract, state, isLandlord, isTenant, hasReadyPdf, onUpdated, signingAllowed = true, blockedReason }: Props) {
   const [localCurrent, setCurrent] = useState<SignatureRequestResponse | null>(null);
   const [certificates, setCertificates] = useState<CertificateOptionResponse[]>([]);
   const [serial, setSerial] = useState("");
@@ -107,6 +109,9 @@ export default function SmartCaSignaturePanel({ contract, state, isLandlord, isT
     return <section className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
       {current.failureReason || "Xử lý chữ ký số thất bại."} Không gửi yêu cầu ký mới cho tới khi giao dịch cũ được đối soát.
     </section>;
+  }
+  if (!signingAllowed && !pending) {
+    return <section className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">{blockedReason || "Chưa đủ điều kiện ký. Xem tiến trình nhận nhà phía trên."}</section>;
   }
 
   if (!myTurn && !pending) {

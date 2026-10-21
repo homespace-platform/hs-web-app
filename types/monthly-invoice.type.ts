@@ -1,4 +1,4 @@
-export type MonthlyInvoiceStatus = "DRAFT" | "UNPAID" | "OVERDUE" | "PAID" | "ROLLED_OVER";
+export type MonthlyInvoiceStatus = "DRAFT" | "UNPAID" | "OVERDUE" | "PAID" | "ROLLED_OVER" | "CANCELLED";
 
 export interface InvoiceLine {
   type: string;
@@ -24,7 +24,7 @@ export interface OverdueAction {
 }
 
 export interface BillingPeriodView {
-  kind: "RECURRING" | "FINAL_SETTLEMENT" | "SUPPLEMENT" | "COSTS_ONLY";
+  kind: "INITIAL_RENT" | "RECURRING" | "FINAL_SETTLEMENT" | "SUPPLEMENT" | "COSTS_ONLY";
   paymentPeriodNumber: number | null;
   rentPeriodStart: string | null;
   rentPeriodEndExclusive: string | null;
@@ -53,7 +53,7 @@ export interface MonthlyInvoice {
   lateFeeAmount: number;
   serverNow: string;
   meterDeadlineAt: string;
-  workflowState: "UPCOMING" | "METER_REQUIRED" | "READY_FOR_ISSUE" | "METER_DEADLINE_MISSED" | "UNPAID" | "PAYMENT_REMINDER" | "OVERDUE" | "OVERDUE_ACTION_REQUIRED" | "UNDER_REVIEW" | "PAID" | "DEFERRED" | "ROLLED_OVER" | "EXTENSION_PENDING" | "PAYMENT_EXTENDED";
+  workflowState: "CANCELLED" | "UPCOMING" | "METER_REQUIRED" | "READY_FOR_ISSUE" | "METER_DEADLINE_MISSED" | "UNPAID" | "PAYMENT_REMINDER" | "OVERDUE" | "OVERDUE_ACTION_REQUIRED" | "UNDER_REVIEW" | "PAID" | "DEFERRED" | "ROLLED_OVER" | "EXTENSION_PENDING" | "PAYMENT_EXTENDED";
   draftExtraCharges: { description: string; amount: number }[];
   overdueActions: OverdueAction[];
   deferredAt?: string;

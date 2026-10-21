@@ -13,10 +13,16 @@ export interface RentalOnboarding {
   canPrepareContract: boolean; canSign: boolean; canRequestEarlierStart: boolean;
   holdMinutes: number; payments: PaymentRequest[]; startChanges: RentalStartChange[]; message: string; askerRole: "LANDLORD" | "TENANT";
   cancellationRequestedAt?: string; cancellationReason?: string;
+  canRequestCancellation?: boolean;
+  deposit?: {status:string;heldAmount:number;retainedAmount?:number;refundableAmount:number;retainedReason?:string};
+  defaultCase?: {eligibleKind?:"FIRST_RENT"|"TENANT_SIGNING";notifiedAt?:string;respondBy?:string;reason?:string;disputedAt?:string;completedAt?:string;canComplete:boolean;policyVersion?:string};
   history: { id: string; occurredAt: string; action: string; note?: string }[];
 }
 const base = (id: string) => `/api/v1/rental-requests/${id}/onboarding`;
 export const rentalOnboardingService = {
+  async notifyDefault(id:string,reason:string) {return (await axiosClient.post<ApiResponse<RentalOnboarding>>(`${base(id)}/default-notice`,{reason})).data.result;},
+  async disputeDefault(id:string,reason:string) {return (await axiosClient.post<ApiResponse<RentalOnboarding>>(`${base(id)}/default-dispute`,{reason})).data.result;},
+  async completeDefault(id:string,reason:string) {return (await axiosClient.post<ApiResponse<RentalOnboarding>>(`${base(id)}/default-completion`,{reason,tenantNotified:true,vacantPossessionConfirmed:true})).data.result;},
   async refresh(id: string) {
     return (await axiosClient.post<ApiResponse<RentalOnboarding>>(`${base(id)}/refresh`)).data.result;
   },

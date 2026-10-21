@@ -28,7 +28,6 @@ import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
-import ListingPreviewModal from "@/components/listing/ListingPreviewModal";
 import RentalRequestDetailModal from "./RentalRequestDetailModal";
 import RentalPaymentModal from "./RentalPaymentModal";
 import { contractService } from "@/services/contract.service";
@@ -44,6 +43,8 @@ import {
 import { useRouter } from "next/navigation";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { contractDetailPath } from "@/lib/contract-routes";
+import { canCancelRentalRequest } from "@/lib/rental-request-actions";
+import { listingDetailPath } from "@/lib/listing-detail-access";
 interface RentalRequestsManagementProps {
   mode: "RECEIVED" | "SENT";
 }
@@ -74,6 +75,11 @@ const STATUS_CONFIG: Record<
   },
   CANCELLED_BY_RENTER: {
     label: "Khách đã hủy",
+    badgeClass: "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700",
+    icon: Ban,
+  },
+  CANCELLED_BY_OWNER: {
+    label: "Chủ nhà đã hủy",
     badgeClass: "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700",
     icon: Ban,
   },
@@ -134,7 +140,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const [cancelTarget, setCancelTarget] = useState<RentalRequestResponse | null>(null);
   const [rejectReason, setRejectReason] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [previewListingId, setPreviewListingId] = useState<string | null>(null);
+  const cancelActionLock=useRef(false);
   const [creatingContractRequestId, setCreatingContractRequestId] = useState<string | null>(null);
   const creatingContractRef = useRef<string | null>(null);
   const [contractsByRequest, setContractsByRequest] = useState<Record<string, ContractResponse | null>>({});
@@ -214,7 +220,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   useEffect(() => {
     const contractRequests = requests.filter(
       (request) =>
-        (request.status === "ACCEPTED" || request.status === "COMPLETED") &&
+        ["ACCEPTED","COMPLETED","CANCELLED_BY_SYSTEM","CANCELLED_BY_RENTER","CANCELLED_BY_OWNER"].includes(request.status) &&
         !(request.id in contractsByRequest)
     );
     if (contractRequests.length === 0) return;
@@ -303,16 +309,22 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
 
   // Handle Cancel
   const handleConfirmCancel = async () => {
-    if (!cancelTarget) return;
+    if (!cancelTarget || cancelActionLock.current) return;
+    cancelActionLock.current=true;
     setIsProcessing(true);
     try {
       await rentalRequestService.cancelRentalRequest(cancelTarget.id);
       toast.success("Đã hủy yêu cầu thuê của bạn.");
       setCancelTarget(null);
-      fetchRequests();
+      setPaymentTarget(null);
+      setDetailRequestId(null);
+      await fetchRequests();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, "Hủy yêu cầu thất bại."));
+      setCancelTarget(null);
+      await fetchRequests();
     } finally {
+      cancelActionLock.current=false;
       setIsProcessing(false);
     }
   };
@@ -497,8 +509,8 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                 {/* Card Top: Property & Status Badge */}
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-border/60">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      onClick={() => setPreviewListingId(req.listingId)}
+                    <Link
+                      href={listingDetailPath(req.listingId)}
                       className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-muted border border-border/50 cursor-pointer hover:opacity-85 transition-opacity"
                       title="Xem chi tiết bài đăng"
                     >
@@ -514,17 +526,16 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                           <Home className="w-6 h-6 opacity-40" />
                         </div>
                       )}
-                    </div>
+                    </Link>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setPreviewListingId(req.listingId)}
+                        <Link
+                          href={listingDetailPath(req.listingId)}
                           className="font-bold text-sm text-foreground hover:text-primary transition-colors line-clamp-1 text-left cursor-pointer"
                           title="Xem chi tiết bài đăng"
                         >
                           {req.listingTitle}
-                        </button>
+                        </Link>
                       </div>
                       {req.listingAddress && (
                         <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
@@ -641,7 +652,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                     )}
 
                     {/* Khách thuê hủy đơn khi PENDING */}
-                    {mode === "SENT" && req.status === "PENDING" && (
+                    {canCancelRentalRequest(req,linkedContract) && (
                       <button
                         type="button"
                         onClick={() => setCancelTarget(req)}
@@ -675,13 +686,12 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                     </button>
 
                     {/* Nút xem tin đăng */}
-                    <button
-                      type="button"
-                      onClick={() => setPreviewListingId(req.listingId)}
+                    <Link
+                      href={listingDetailPath(req.listingId)}
                       className="px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                     >
                       Xem bài đăng
-                    </button>
+                    </Link>
                   </div>
                 </div>
 
@@ -963,7 +973,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         </div>
       )}
 
-      {/* DIALOG HỦY YÊU CẦU (KHÁCH THUÊ) */}
+      {/* DIALOG HỦY YÊU CẦU (CẢ HAI BÊN) */}
       {cancelTarget && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in"
@@ -984,6 +994,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                 <p className="text-xs text-muted-foreground">
                   Bạn có chắc chắn muốn hủy yêu cầu thuê cho căn <strong>{cancelTarget.listingTitle}</strong>?
                 </p>
+                {cancelTarget.status === "ACCEPTED" && <p className="mt-2 text-xs text-muted-foreground">Hủy ngay lượt giữ chỗ chưa chuyển tiền, không cần chờ hết hạn. Tin đăng và chỗ xe sẽ được trả lại nếu đủ điều kiện. Nếu người thuê đã chuyển hoặc chủ nhà đã nhận tiền, không xác nhận hủy ở đây; hãy báo chuyển hoặc yêu cầu đối soát.</p>}
               </div>
             </div>
 
@@ -1009,12 +1020,6 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         </div>
       )}
 
-      {/* Modal Xem Trước Bài Đăng */}
-      <ListingPreviewModal
-        listingId={previewListingId}
-        isOpen={Boolean(previewListingId)}
-        onClose={() => setPreviewListingId(null)}
-      />
 
       {/* Modal Thanh Toán Ban Đầu */}
       {paymentTarget && (
@@ -1034,7 +1039,6 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         mode={mode}
         linkedContract={detailRequestId ? contractsByRequest[detailRequestId] : null}
         isProcessingAction={isProcessing || creatingContractRequestId !== null}
-        onViewListing={(listingId) => setPreviewListingId(listingId)}
         onPaymentStatusChange={() => {
           void fetchRequests();
         }}

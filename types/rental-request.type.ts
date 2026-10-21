@@ -4,6 +4,7 @@ export type RentalRequestStatus =
   | "REJECTED"
   | "CANCELLED_BY_SYSTEM"
   | "CANCELLED_BY_RENTER"
+  | "CANCELLED_BY_OWNER"
   | "EXPIRED"
   | "COMPLETED";
 
@@ -20,6 +21,7 @@ export interface CreateRentalRequestPayload {
   depositAmount?: number | null;
   negotiatedDepositAmount?: number | null;
   renterNote?: string;
+  reservationPolicyAccepted?: boolean;
 }
 
 export interface RentalRequestResponse {
@@ -113,4 +115,13 @@ export interface RentalEstimateResponse {
   estimatedLeaseTotal: number;
   excludedCharges: ExcludedChargeItem[];
   disclaimer: string;
+  paymentPlan?: {
+    calculatedAt: string;
+    businessDate: string;
+    moveInDate: string;
+    depositOnly: boolean;
+    amountAfterApproval: number;
+    firstRentAmount: number;
+    firstRentOpensOn: string;
+  } | null;
 }

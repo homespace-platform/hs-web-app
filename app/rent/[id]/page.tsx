@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { isAxiosError } from "axios";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import RentDetailView from "@/components/rent/RentDetailView";
@@ -16,61 +17,50 @@ import { recordHistoryItem } from "@/features/history/historySlice";
 import { RENTAL_HOLD_DURATION_LABEL } from "@/config/rental-hold.config";
 
 import { getListingStatusConfig } from "@/config/listing-status.config";
+import { fetchListingForViewer } from "@/lib/listing-detail-access";
 
 export default function RentDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { authenticated } = useAuth();
+  const { initialized, authenticated, userId } = useAuth();
   const dispatch = useAppDispatch();
   const [property, setProperty] = useState<RentPropertyItem | null>(null);
   const [listingStatus, setListingStatus] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const requestKey = JSON.stringify([id, authenticated, userId, retry]);
+  const loading = !initialized || loadedFor !== requestKey;
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !initialized) return;
     let cancelled = false;
 
     const loadDetail = async () => {
       let listingDetail = null;
-      let isOwnerView = false;
-
-      // 1. Thử gọi API chính chủ getMyListingById trước (cho phép chủ tin xem bài đăng ở mọi trạng thái: Đã ẩn, Tin nháp, Chờ duyệt...)
-      if (authenticated) {
-        try {
-          listingDetail = await listingService.getMyListingById(id);
-          isOwnerView = true;
-        } catch {
-          // Không phải chủ tin hoặc chưa đăng nhập -> fallback
-        }
-      }
-
-      // 2. Nếu chưa lấy được bằng API cá nhân, gọi API công khai getById
-      if (!listingDetail) {
-        try {
-          listingDetail = await listingService.getById(id);
-        } catch {
-          listingDetail = null;
-        }
+      let failed = false;
+      try {
+        listingDetail = await fetchListingForViewer(id, authenticated, listingService);
+      } catch (error) {
+        const status = isAxiosError(error) ? error.response?.status : undefined;
+        failed = status !== 403 && status !== 404;
       }
 
       if (cancelled) return;
 
       if (!listingDetail) {
         setProperty(null);
-        setLoading(false);
+        setListingStatus(null);
+        setLoadError(failed);
+        setLoadedFor(requestKey);
         return;
       }
 
       const isVisible = listingDetail.status === "PUBLISHED" || listingDetail.status === "RESERVED";
 
-      // Nếu tin không thuộc dạng công khai VÀ người dùng không phải là chủ tin -> Trả về 404 không tìm thấy
-      if (!isVisible && !isOwnerView) {
-        setProperty(null);
-        setLoading(false);
-        return;
-      }
-
+      // Successful API response is authorized by Core, including related tenants.
       setListingStatus(listingDetail.status);
       setProperty(toRentProperty(listingDetail));
+      setLoadError(false);
 
       // Ghi nhận lượt xem (chỉ áp dụng cho tin công khai)
       if (isVisible) {
@@ -84,11 +74,11 @@ export default function RentDetailPage() {
       }
 
       // Ghi nhận lịch sử xem tin cho user đã đăng nhập
-      if (authenticated) {
+      if (authenticated && isVisible) {
         dispatch(recordHistoryItem(id));
       }
 
-      setLoading(false);
+      setLoadedFor(requestKey);
     };
 
     loadDetail();
@@ -96,7 +86,7 @@ export default function RentDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, authenticated, dispatch]);
+  }, [id, initialized, authenticated, userId, requestKey, dispatch]);
 
   if (loading) {
     return (
@@ -124,13 +114,14 @@ export default function RentDetailPage() {
             </div>
             <div className="space-y-2">
               <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground">
-                Không tìm thấy bài đăng
+                {loadError ? "Chưa tải được bài đăng" : "Không tìm thấy bài đăng"}
               </h1>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Bài đăng có thể đã bị ẩn, hết hạn hoặc không còn hiển thị công khai.
+                {loadError ? "Không thể kết nối hoặc phiên đăng nhập chưa sẵn sàng. Vui lòng thử lại." : "Bài đăng không tồn tại, đã bị xóa hoặc bạn không có quyền truy cập."}
               </p>
             </div>
             <div className="pt-2">
+              {loadError && <button type="button" onClick={() => setRetry(value => value + 1)} className="mb-3 w-full rounded-full border border-border px-6 py-2.5 text-sm font-semibold">Thử lại</button>}
               <Link
                 href="/rent"
                 className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-xs sm:text-sm font-bold text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 transition-all hover:scale-105 active:scale-95"
@@ -148,6 +139,7 @@ export default function RentDetailPage() {
 
   const currentStatus = listingStatus || property.status;
   const statusCfg = getListingStatusConfig(currentStatus);
+  const isOwnerView = authenticated && !!userId && userId === property.ownerId;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -157,6 +149,7 @@ export default function RentDetailPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           {/* Reusable Core Detail View */}
           <RentDetailView
+            key={property.id}
             property={property}
             alertBanner={
               currentStatus === "RESERVED" ? (
@@ -165,7 +158,7 @@ export default function RentDetailPage() {
                   <div>
                     <p className="font-bold text-sm">Tin đăng đang trong thời gian giữ chỗ</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Chủ nhà đã duyệt một yêu cầu thuê và tin đăng đang tạm thời được giữ chỗ trong {RENTAL_HOLD_DURATION_LABEL}.
+                      Tin đang được giữ cho một yêu cầu thuê. Hạn thanh toán giữ chỗ ban đầu là {RENTAL_HOLD_DURATION_LABEL}; nếu cọc đã được xác nhận, xem tiến trình nhận nhà để biết bước tiếp theo.
                     </p>
                   </div>
                 </div>
@@ -173,9 +166,9 @@ export default function RentDetailPage() {
                 <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-800 dark:text-blue-200 flex items-center gap-3 text-xs sm:text-sm shadow-xs">
                   <Building className="w-5 h-5 text-blue-600 shrink-0" />
                   <div>
-                    <p className="font-bold text-sm">Xem trước tin đăng ({statusCfg.label})</p>
+                    <p className="font-bold text-sm">{isOwnerView ? "Xem trước tin đăng" : "Tin đăng liên quan đến yêu cầu thuê của bạn"} ({statusCfg.label})</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Tin đăng này hiện đang ở trạng thái &quot;{statusCfg.label}&quot; và không hiển thị công khai với khách thuê. Chỉ có bạn (chủ tin đăng) mới có quyền truy cập xem trước.
+                      {isOwnerView ? "Bạn có quyền xem với tư cách chủ tin đăng." : "Bạn có quyền xem vì có yêu cầu thuê liên quan. Quyền xem này không cấp quyền chỉnh sửa hoặc gửi yêu cầu thuê mới khi tin không còn nhận khách."} Tin hiện không hiển thị công khai.
                     </p>
                   </div>
                 </div>

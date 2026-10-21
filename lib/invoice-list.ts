@@ -33,7 +33,7 @@ export function invoiceNeedsAction(
   invoice: Pick<MonthlyInvoice, "status" | "workflowState" | "paymentExtensions" | "activeResolution">,
   paymentStatus?: PaymentStatus | null,
 ): boolean {
-  if (invoice.status === "ROLLED_OVER" || invoice.status === "PAID") return false;
+  if (["ROLLED_OVER","PAID","CANCELLED"].includes(invoice.status)) return false;
 
   const hasPendingExtension =
     invoice.activeResolution === "EXTENSION_REQUEST"
@@ -61,7 +61,7 @@ export function invoiceAwaitingConfirmation(
   invoice: Pick<MonthlyInvoice, "status" | "workflowState">,
   paymentStatus?: PaymentStatus | null,
 ): boolean {
-  if (invoice.status === "PAID" || invoice.status === "ROLLED_OVER" || invoice.status === "DRAFT") {
+  if (["PAID","ROLLED_OVER","DRAFT","CANCELLED"].includes(invoice.status)) {
     return false;
   }
   if (paymentStatus === "TRANSFER_REPORTED") {
@@ -79,6 +79,7 @@ export function invoiceCompleted(
   paymentStatus?: PaymentStatus | null,
 ): boolean {
   return invoice.status === "PAID"
+    || invoice.status === "CANCELLED"
     || invoice.status === "ROLLED_OVER"
     || paymentStatus === "CONFIRMED";
 }

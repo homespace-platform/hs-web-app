@@ -81,7 +81,7 @@ const rentalRequestService = {
   },
 
   /**
-   * Khách hàng tự hủy yêu cầu thuê (khi còn PENDING)
+   * Hai bên hủy yêu cầu chờ duyệt / giữ chỗ chưa báo chuyển. Server kiểm tra lại giao dịch.
    */
   async cancelRentalRequest(id: string): Promise<RentalRequestResponse> {
     const response = await axiosClient.put<ApiResponse<RentalRequestResponse>>(

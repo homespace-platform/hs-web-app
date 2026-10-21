@@ -20,22 +20,23 @@ export function RentalCostSummary({
   error,
   depositBadge,
 }: RentalCostSummaryProps) {
-  if (!estimate) {
+  if (loading || error || !estimate || !estimate.paymentPlan) {
     return (
       <div className="rounded-2xl border border-border bg-card p-4 text-xs shadow-xs">
         <div className="flex items-center gap-2 font-bold text-foreground">
           {loading ? <RefreshCw className="h-4 w-4 animate-spin text-primary" /> : <AlertCircle className="h-4 w-4 text-rose-600" />}
-          {loading ? "Đang tính khoản thanh toán ban đầu..." : "Chưa thể tính khoản thanh toán ban đầu"}
+          {loading ? "Đang tính lịch thanh toán..." : "Chưa thể xác định khoản thanh toán"}
         </div>
         {error && <p className="mt-2 text-rose-700 dark:text-rose-300">{error}</p>}
+        {!loading && !error && estimate && !estimate.paymentPlan && <p className="mt-2 text-muted-foreground">Chưa có lịch thanh toán từ hệ thống. Vui lòng tải lại dự toán trước khi gửi yêu cầu.</p>}
       </div>
     );
   }
 
-  const rent = estimate.effectiveMonthlyRent ?? 0;
-  const deposit = estimate.depositAmount ?? 0;
-  // Derive this from the two payable items so a stale estimate API cannot re-add service fees.
-  const upfrontTotal = rent + deposit;
+  const plan = estimate.paymentPlan;
+  const rent = plan.firstRentAmount;
+  const deposit = estimate.depositAmount;
+  const dateLabel = (value: string) => value.split("-").reverse().join("/");
 
   return (
     <section className="space-y-3">
@@ -44,26 +45,21 @@ export function RentalCostSummary({
           <div>
             <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
               <ShieldCheck className="h-4 w-4 text-primary" />
-              Thanh toán ban đầu
+              {plan.depositOnly ? "Đặt cọc trước ngày nhận nhà" : "Thanh toán ban đầu"}
             </h3>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Chỉ thanh toán sau khi chủ nhà chấp thuận yêu cầu.
+              {plan.depositOnly
+                ? "Sau khi chủ nhà chấp thuận, chỉ thanh toán tiền cọc giữ chỗ. Chưa thu tiền thuê tháng đầu."
+                : "Dọn vào cùng ngày: thanh toán tiền cọc và tiền thuê tháng đầu sau khi chủ nhà chấp thuận yêu cầu."}
             </p>
           </div>
-          {loading && <RefreshCw className="h-4 w-4 shrink-0 animate-spin text-primary" />}
         </div>
 
-        {error && (
-          <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-2 text-[11px] text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300">
-            {error}
-          </p>
-        )}
-
         <div className="space-y-2.5 py-3 text-xs">
-          <div className="flex items-center justify-between gap-2">
+          {!plan.depositOnly && <div className="flex items-center justify-between gap-2">
             <span className="text-foreground">Tiền thuê kỳ đầu</span>
             <span className="font-semibold text-foreground">{formatVND(rent)}</span>
-          </div>
+          </div>}
           <div className="flex items-center justify-between gap-2">
             <span className="text-foreground">Tiền đặt cọc {deposit > 0 ? `(${depositBadge})` : "(không có)"}</span>
             <span className="font-semibold text-foreground">{formatVND(deposit)}</span>
@@ -71,15 +67,25 @@ export function RentalCostSummary({
         </div>
 
         <div className="flex items-baseline justify-between gap-2 border-t border-primary/20 pt-3">
-          <span className="text-xs font-bold text-foreground">Tổng cần thanh toán ban đầu</span>
+          <span className="text-xs font-bold text-foreground">{plan.depositOnly ? "Cọc cần thanh toán sau khi được duyệt" : "Tổng cần thanh toán ban đầu"}</span>
           <strong className="shrink-0 text-base font-extrabold text-primary sm:text-lg">
-            {formatVND(upfrontTotal)}
+            {formatVND(plan.amountAfterApproval)}
           </strong>
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Chuyển trực tiếp cho chủ nhà để giữ chỗ. HomeSpace không nhận hoặc giữ tiền.
+          {plan.depositOnly && deposit === 0 ? "Bạn được miễn cọc, không cần chuyển tiền giữ chỗ. " : "Chuyển trực tiếp cho chủ nhà. "}HomeSpace không nhận hoặc giữ tiền.
         </p>
       </div>
+
+      {plan.depositOnly && <div className="rounded-2xl border border-border bg-card p-4 text-xs shadow-xs">
+        <h4 className="font-bold text-foreground">Tiền thuê tháng đầu — thanh toán sau</h4>
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <span>Mở thanh toán từ {dateLabel(plan.firstRentOpensOn)}</span>
+          <strong className="shrink-0 text-sm">{formatVND(rent)}</strong>
+        </div>
+        <p className="mt-2 text-muted-foreground">Đến ngày bắt đầu dọn vào {dateLabel(plan.moveInDate)}, hệ thống mới mở thanh toán tiền phòng tháng đầu. Không thu lại khoản cọc đã xác nhận. Ký hợp đồng mở sau khi đã xác nhận đủ tiền theo tiến trình nhận nhà.</p>
+      </div>}
+      <p className="text-[11px] text-muted-foreground">Dự toán theo ngày {dateLabel(plan.businessDate)} của hệ thống. Khoản cần thanh toán được xác định lại khi chủ nhà chấp thuận; nếu thời điểm đó trùng ngày dọn vào thì thu cọc + tháng đầu. Ngày thuê có thể thay đổi nếu hai bên đồng ý bắt đầu sớm.</p>
 
       <EndOfPeriodCharges
         predictableCharges={estimate.predictableCharges}

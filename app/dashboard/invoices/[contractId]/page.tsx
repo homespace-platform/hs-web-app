@@ -2,9 +2,9 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, ReceiptText, RotateCcw, Wallet } from "lucide-react";
+import { ArrowLeft, Loader2, ReceiptText, RotateCcw } from "lucide-react";
 import MonthlyInvoicesSection from "@/components/contract/detail/MonthlyInvoicesSection";
-import InitialPaymentHistory from "@/components/contract/detail/InitialPaymentHistory";
+import RentalOnboardingPanel from "@/components/rental-request/RentalOnboardingPanel";
 import ContractLifecyclePanel from "@/components/contract/detail/ContractLifecyclePanel";
 import { DepositAdjustmentPayments } from "@/components/contract/detail/SettlementPaymentPanel";
 import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
@@ -14,7 +14,7 @@ import { contractDetailPath } from "@/lib/contract-routes";
 import { contractStateLabels, paymentSections, paymentSection, paymentModulePath } from "@/lib/payment-module";
 import type { ContractResponse, ContractRevisionResponse } from "@/types/contract.type";
 import { getApiErrorMessage } from "@/utils/apiError";
-const icons = [Wallet, ReceiptText, RotateCcw];
+const icons = [ReceiptText, RotateCcw];
 function Loading() { return <p className="flex items-center gap-2 p-5 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />Đang tải hồ sơ thanh toán…</p>; }
 
 function ContractInvoicesPage() {
@@ -52,7 +52,6 @@ function ContractInvoicesPage() {
   const isTenant = role === "tenant" && profile.id === contract.tenantId;
   if (!isLandlord && !isTenant) return <div className="rounded-xl border p-5">Hồ sơ này không thuộc vai trò hiện tại. <Link href="/dashboard/invoices" className="text-primary underline">Về danh sách</Link></div>;
   if (contract.parentContractId) return <div className="rounded-xl border p-5">Các khoản thanh toán được quản lý trên hợp đồng gốc. <Link href={paymentModulePath(contract.parentContractId, section)} className="font-semibold text-primary underline">Mở hồ sơ thanh toán hợp đồng gốc</Link></div>;
-  if (!["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status)) return <div className="rounded-xl border p-5">Hoàn tất ký hợp đồng để mở hồ sơ hóa đơn theo kỳ. <Link href={contractDetailPath(role, contract.id)} className="font-semibold text-primary underline">Xem hợp đồng</Link></div>;
   const charges = revision.charges || [];
   return <div className="mx-auto max-w-6xl space-y-5 pb-12">
     <Link href="/dashboard/invoices" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary"><ArrowLeft className="size-4" />Tất cả hồ sơ thanh toán</Link>
@@ -60,16 +59,12 @@ function ContractInvoicesPage() {
       <div><h1 className="flex items-center gap-2 text-xl font-bold"><ReceiptText className="size-5 text-primary" />Hóa đơn & thanh toán</h1><p className="mt-2 text-sm font-semibold">{contract.contractNumber}</p><p className="mt-1 text-sm text-muted-foreground">{contractStateLabels[contract.status]}</p></div>
       <Link href={contractDetailPath(role, contract.id)} className="rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-muted">Xem hợp đồng</Link>
     </header>
-    <nav aria-label="Các mục thanh toán của hợp đồng" className="grid grid-cols-3 gap-2">{paymentSections.map((item, index) => {
+    <nav aria-label="Các mục thanh toán của hợp đồng" className="grid grid-cols-2 gap-2">{paymentSections.map((item, index) => {
       const Icon = icons[index], selected = section === item.id;
       return <Link key={item.id} href={paymentModulePath(contractId, item.id)} aria-current={selected ? "page" : undefined} className={selected ? "min-w-0 rounded-xl border border-primary bg-primary/5 p-3 ring-1 ring-primary sm:p-4" : "min-w-0 rounded-xl border bg-card p-3 hover:bg-muted/40 sm:p-4"}>
         <span className="flex flex-col items-center gap-2 text-center text-sm font-bold sm:flex-row sm:text-left"><Icon className="size-4 shrink-0 text-primary" />{item.title}</span><span className="mt-2 hidden text-sm text-muted-foreground sm:block">{item.description}</span>
       </Link>;
     })}</nav>
-    {section === "initial" && <div className="space-y-4">
-      <div className="rounded-xl bg-primary/5 p-4 text-sm">Khoản tiền cọc và tiền phòng tháng đầu khi bắt đầu thuê. Xem số tiền, trạng thái xác nhận và chứng từ tại đây.</div>
-      <InitialPaymentHistory key={role + ":" + contract.rentalRequestId} rentalRequestId={contract.rentalRequestId} contractNumber={contract.contractNumber} defaultOpen />
-    </div>}
     {section === "monthly" && <MonthlyInvoicesSection key={role + ":" + contract.id}
       contractId={contract.id} rentalRequestId={contract.rentalRequestId} contractActive={contract.status === "ACTIVE"}
       isLandlord={isLandlord} isTenant={isTenant} showInitialPayment={false} requestedInvoiceId={params.get("invoice")} onUpdated={refresh}
@@ -79,9 +74,10 @@ function ContractInvoicesPage() {
       initialElectricity={revision.meters?.electricityInitial == null ? undefined : String(revision.meters.electricityInitial)}
       initialWater={revision.meters?.waterInitial == null ? undefined : String(revision.meters.waterInitial)} />}
     {section === "deposit" && <DepositAdjustmentPayments contractId={contract.id} isLandlord={isLandlord}/>}
+    {section === "deposit" && <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} onUpdated={async()=>{await refresh();}} />}
     {section === "deposit" && (contract.status === "TERMINATED"
       ? <div className="rounded-xl border bg-card p-5 text-sm">Hợp đồng đã chấm dứt theo phương án xử lý riêng. Kiểm tra điều khoản và kết quả xử lý tiền cọc trong <Link href={contractDetailPath(role, contract.id)} className="text-primary underline">hồ sơ hợp đồng</Link>.</div>
-      : <ContractLifecyclePanel key={role + ":" + contract.id} contractId={contract.id} isLandlord={isLandlord} mode="settlement" onUpdated={refresh} />)}
+      : ["ACTIVE","EXPIRED","CLOSED"].includes(contract.status) ? <ContractLifecyclePanel key={role + ":" + contract.id} contractId={contract.id} isLandlord={isLandlord} mode="settlement" onUpdated={refresh} /> : null)}
   </div>;
 }
 export default function Page() { return <Suspense fallback={<Loading />}><ContractInvoicesPage /></Suspense>; }

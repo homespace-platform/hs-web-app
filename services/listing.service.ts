@@ -75,8 +75,16 @@ const listingService = {
     return response.data.result;
   },
 
+  /** Server checks public visibility, ownership or the viewer's related rental request. */
+  async getAccessibleById(listingId: string): Promise<ListingDetailResponse> {
+    const response = await axiosClient.get<ApiResponse<ListingDetailResponse>>(
+      `/api/v1/listings/${encodeURIComponent(listingId)}`,
+    );
+    return response.data.result;
+  },
+
   /**
-   * Lấy chi tiết bài đăng công khai theo ID (chỉ hiển thị tin ở trạng thái Đang hiển thị - PUBLISHED)
+   * Lấy chi tiết bài đăng công khai (PUBLISHED hoặc RESERVED); không cấp quyền xem tin riêng tư.
    */
   async getById(listingId: string): Promise<ListingDetailResponse> {
     const baseUrl = process.env.NEXT_PUBLIC_GATEWAY_BASE_URL || "";

@@ -26,6 +26,7 @@ export interface InitialPaymentSummary {
   paidAt?: string | null;
   confirmedAt?: string | null;
   contractDueAt?: string | null;
+  canCancelImmediately?: boolean;
 }
 
 export interface RentalPaymentResponse {

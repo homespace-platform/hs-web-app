@@ -147,6 +147,8 @@ export default function RentDetailView({
   const isNegotiable = Boolean(
     pricing?.negotiable ?? property.details?.negotiable
   );
+  const acceptsNewRequests = property.status === "PUBLISHED";
+  const publicListing = acceptsNewRequests || property.status === "RESERVED";
 
   const [quickMessage, setQuickMessage] = useState("");
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -597,6 +599,10 @@ export default function RentDetailView({
                     <ShieldCheck className="w-4 h-4" />
                     <span>Đang giữ chỗ (Tạm khóa)</span>
                   </button>
+                ) : !acceptsNewRequests ? (
+                  <div className="rounded-xl border border-border bg-muted p-3 text-center text-sm font-medium text-muted-foreground">
+                    Tin hiện không nhận yêu cầu thuê mới
+                  </div>
                 ) : (
                   <button
                     type="button"
@@ -628,7 +634,12 @@ export default function RentDetailView({
                 <div className={`grid gap-2.5 ${isNegotiable ? "grid-cols-2" : "grid-cols-1"}`}>
                   <button
                     type="button"
+                    disabled={!publicListing && !hasActiveBooking}
                     onClick={() => {
+                      if (!publicListing) {
+                        if (hasActiveBooking) router.push("/dashboard/viewing-schedules/my-bookings");
+                        return;
+                      }
                       if (isOwner) {
                         toast.info("Bạn là chủ bài đăng này, không thể tự đặt lịch xem nhà.");
                         return;
@@ -663,7 +674,7 @@ export default function RentDetailView({
                     )}
                   </button>
 
-                  {isNegotiable && (
+                  {isNegotiable && publicListing && (
                     <button
                       type="button"
                       onClick={() => {

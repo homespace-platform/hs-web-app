@@ -100,13 +100,15 @@ export default function RentalRequestModal({
   const [renterPhone, setRenterPhone] = useState("");
   const [renterEmail, setRenterEmail] = useState("");
   const [renterNote, setRenterNote] = useState("");
+  const [reservationPolicyAccepted,setReservationPolicyAccepted]=useState(false);
   const [customDepositInput, setCustomDepositInput] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Estimate state from backend calculation
-  const [estimate, setEstimate] = useState<RentalEstimateResponse | null>(null);
-  const [loadingEstimate, setLoadingEstimate] = useState(false);
-  const [estimateError, setEstimateError] = useState<string | null>(null);
+  const [estimateResult, setEstimate] = useState<RentalEstimateResponse | null>(null);
+  const [estimateLoading, setLoadingEstimate] = useState(false);
+  const [estimateFailure, setEstimateError] = useState<string | null>(null);
+  const [estimateFor, setEstimateFor] = useState<string | null>(null);
   const estimateSeqRef = useRef(0);
 
   // Prefill user information from auth profile
@@ -177,6 +179,7 @@ export default function RentalRequestModal({
         setRenterNote("");
         setIsDatePickerOpen(false);
         setEstimate(null);
+        setEstimateFor(null);
         setEstimateError(null);
         setCustomDepositInput(
           listingPrice ? new Intl.NumberFormat("vi-VN").format(listingPrice) : "",
@@ -263,10 +266,16 @@ export default function RentalRequestModal({
   ]);
 
   // Backend Estimate Fetching (debounced)
+  const estimateKey=JSON.stringify([listingId,format(moveInDate,"yyyy-MM-dd"),leaseMonths,occupantCount,
+    motorbikeCount,carCount,depositInfo.isNegotiable,depositInfo.amount]);
+  const estimate=estimateFor===estimateKey?estimateResult:null;
+  const estimateError=estimateFor===estimateKey?estimateFailure:null;
+  const loadingEstimate=estimateFor!==estimateKey || estimateLoading;
   useEffect(() => {
     if (!isOpen || !listingId || !moveInDate || !leaseMonths) return;
 
     const seq = ++estimateSeqRef.current;
+    let active = true;
 
     const timer = setTimeout(() => {
       setLoadingEstimate(true);
@@ -284,8 +293,9 @@ export default function RentalRequestModal({
           negotiatedDepositAmount: negotiatedAmt,
         })
         .then((res) => {
-          if (seq === estimateSeqRef.current) {
+          if (active && seq === estimateSeqRef.current) {
             setEstimate(res);
+            setEstimateFor(estimateKey);
             setLoadingEstimate(false);
 
             // Tự động reset hoặc clamp khi sức chứa hoặc quyền gửi xe thay đổi
@@ -317,7 +327,9 @@ export default function RentalRequestModal({
           }
         })
         .catch((err) => {
-          if (seq === estimateSeqRef.current) {
+          if (active && seq === estimateSeqRef.current) {
+            setEstimate(null);
+            setEstimateFor(estimateKey);
             setLoadingEstimate(false);
             const msg =
               err?.response?.data?.message ||
@@ -327,7 +339,10 @@ export default function RentalRequestModal({
         });
     }, 250);
 
-    return () => clearTimeout(timer);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [
     isOpen,
     listingId,
@@ -338,6 +353,7 @@ export default function RentalRequestModal({
     carCount,
     depositInfo.amount,
     depositInfo.isNegotiable,
+    estimateKey,
   ]);
 
 
@@ -360,6 +376,11 @@ export default function RentalRequestModal({
 
     if (!moveInDate) {
       toast.error("Vui lòng chọn ngày bắt đầu dọn vào");
+      return;
+    }
+
+    if(loadingEstimate || estimateError || !estimate?.paymentPlan) {
+      toast.error("Vui lòng chờ hệ thống xác định lịch và khoản thanh toán trước khi gửi yêu cầu.");
       return;
     }
 
@@ -429,6 +450,7 @@ export default function RentalRequestModal({
         depositAmount: depositAmount,
         negotiatedDepositAmount: depositInfo.isNegotiable ? depositAmount : undefined,
         renterNote: renterNote.trim() || undefined,
+        reservationPolicyAccepted,
       });
 
       toast.success(
@@ -488,7 +510,7 @@ export default function RentalRequestModal({
           <Clock className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
           <p>
             Sau khi chủ nhà chấp thuận, bạn có{" "}
-            <strong>{holdMinutes ? `${holdMinutes} phút` : "thời hạn hiển thị trên yêu cầu thanh toán"}</strong> để thanh toán giữ chỗ. Nếu ngày vào ở còn ở tương lai, chỉ thu cọc; tiền tháng đầu và ký hợp đồng mở vào ngày bắt đầu thuê. Bạn có thể đề nghị chủ nhà đồng ý bắt đầu thuê sớm.
+            <strong>{holdMinutes ? `${holdMinutes} phút` : "thời hạn hiển thị trên yêu cầu thanh toán"}</strong> để hoàn tất khoản giữ chỗ được mở. Dọn vào cùng ngày: thu cọc + tiền thuê tháng đầu. Dọn vào sau: chỉ thu cọc trước, đến ngày dọn vào mới mở tiền thuê tháng đầu. Ký hợp đồng sau khi đã xác nhận đủ tiền. Bạn có thể đề nghị chủ nhà đồng ý bắt đầu thuê sớm.
           </p>
         </div>
 
@@ -1110,6 +1132,10 @@ export default function RentalRequestModal({
           </div>
 
           {/* 10. FOOTER ACTIONS */}
+          <label className="flex items-start gap-2 rounded-xl border p-3 text-xs leading-relaxed">
+            <input type="checkbox" checked={reservationPolicyAccepted} onChange={e=>setReservationPolicyAccepted(e.target.checked)} className="mt-1" />
+            <span>Tôi đã đọc điều kiện giữ chỗ: cọc và tiền thuê được theo dõi riêng. Nếu tôi quá hạn trả tháng đầu hoặc quá hạn ký sau khi chủ nhà đã ký và cung cấp văn bản, chủ nhà có thể giữ 100% cọc thực nhận và hủy hồ sơ sau thông báo cuối cùng ít nhất 24 giờ. Tôi có quyền phản hồi, yêu cầu đối soát; tiền thuê đã nhận phải hoàn riêng, không bị giữ cùng cọc.</span>
+          </label>
           <div className="pt-3 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2.5">
             {estimateError ? (
               <span className="text-[11px] text-rose-500 font-medium">
@@ -1134,7 +1160,7 @@ export default function RentalRequestModal({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || loadingEstimate || Boolean(estimateError) || !estimate}
+                disabled={isSubmitting || loadingEstimate || Boolean(estimateError) || !estimate?.paymentPlan}
                 className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
               >
                 <Sparkles className="w-3.5 h-3.5" />

@@ -79,6 +79,16 @@ function detail(category, status, furnishings) {
     [category === "HOUSE" ? "houseDetail" : category === "APARTMENT" ? "apartmentDetail" : "roomDetail"]: { furnishingStatus: status },
     address: { fullAddress: "Địa chỉ mẫu", provinceName: "Thành phố Hồ Chí Minh", wardName: "Phường mẫu" } };
 }
+test("non-public listing access is read-only for a non-owner, not a new rental offer",()=>{
+  for(const status of ["RENTED","HIDDEN","EXPIRED","DRAFT","VIOLATION"]) {
+    const data=detail("ROOM","BASIC",[]);data.status=status;
+    const html=renderToStaticMarkup(React.createElement(View,{property:toRentProperty(data)}));
+    assert.match(html,/Tin hiện không nhận yêu cầu thuê mới/);
+    assert.doesNotMatch(html,/title="Gửi yêu cầu thuê nhà trực tiếp tới chủ nhà"/);
+    assert.doesNotMatch(html,/Chỉnh sửa bài đăng|Nhân bản bài đăng/);
+    assert.match(html,/disabled=""/);
+  }
+});
 for (const category of ["HOUSE", "APARTMENT", "ROOM"]) {
   test(`${category}: API furniture reaches the actual listing table with quantity and condition`, () => {
     const furnishings = [{ index: 1, itemCode: "BED", assetName: "Giường", quantity: 2, conditionNote: "Xước nhỏ", conditionText: "Còn tốt — Xước nhỏ" }];

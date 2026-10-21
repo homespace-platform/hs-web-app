@@ -489,7 +489,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         <p className="font-semibold">Bản nháp để xem trước · Chưa có hiệu lực</p>
         <p className="mt-1">Chủ nhà vẫn có thể cập nhật nội dung. Bạn có thể xem văn bản và đề nghị nhận nhà, bắt đầu hợp đồng sớm trong phần bên dưới. Chấp nhận đề nghị sẽ đổi ngày thuê và các kỳ hóa đơn; không chỉ mở ký trước ngày thuê cũ.</p>
       </div>}
-      {!contract.parentContractId && !["ACTIVE","EXPIRED","CLOSED","TERMINATED","CANCELLED"].includes(contract.status) && <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} onSnapshot={setOnboarding} onUpdated={refreshSignedState} />}
+      {!contract.parentContractId && !["ACTIVE","EXPIRED","CLOSED","TERMINATED"].includes(contract.status) && <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} onSnapshot={setOnboarding} onUpdated={refreshSignedState} />}
       {/* 3. SIGNATURE & CONFIRMATION PANEL (PROMINENT AT TOP / BOTTOM) */}
       {contract.parentContractId && <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
         {isAmendment ? "Phụ lục này ghi nhận điều khoản đã thống nhất với ngày áp dụng riêng. Xem bảng thay đổi và PDF trước khi ký. Hợp đồng gốc và lịch sử thanh toán được giữ nguyên."

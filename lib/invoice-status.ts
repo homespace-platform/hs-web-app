@@ -16,6 +16,7 @@ const styles = {
 };
 
 export function invoicePeriodLabel(invoice: InvoicePeriod) {
+  if (invoice.billingPeriod?.kind === "INITIAL_RENT") return "Tiền thuê tháng 1";
   if (invoice.billingPeriod?.kind === "COSTS_ONLY") return `Chi phí tháng ${invoice.periodIndex + 1} · Tiền thuê đã thu trước`;
   if (invoice.finalCostSupplement || invoice.billingPeriod?.kind === "SUPPLEMENT") {
     return "Chi phí bổ sung kỳ cuối";
@@ -25,7 +26,7 @@ export function invoicePeriodLabel(invoice: InvoicePeriod) {
   }
   if (invoice.billingPeriod?.kind === "RECURRING") {
     const number = invoice.billingPeriod.paymentPeriodNumber;
-    if (number === 1) return "Cọc + tiền phòng tháng 1";
+    if (number === 1) return "Tiền thuê tháng 1";
     return `Kỳ thanh toán ${number}`;
   }
   // Compatibility during rolling deployment: never guess the final month from a fixed lease length.
@@ -47,6 +48,7 @@ export function invoicePeriodSecondaryLabel(invoice: InvoicePeriod): string | nu
 
 export function invoicePeriodDateSummary(invoice: Pick<MonthlyInvoice, "periodStart" | "periodEndExclusive" | "billingPeriod">): string {
   const cost = `Chi phí: ${formatInvoiceDate(invoice.periodStart)} – trước ${formatInvoiceDate(invoice.periodEndExclusive)}`;
+  if(invoice.billingPeriod?.kind === "INITIAL_RENT") return `Tiền thuê: ${formatInvoiceDate(invoice.periodStart)} – trước ${formatInvoiceDate(invoice.periodEndExclusive)}`;
   if (invoice.billingPeriod?.kind !== "RECURRING") return cost;
   const rent = `Tiền phòng: ${formatInvoiceDate(invoice.billingPeriod.rentPeriodStart || undefined)} – trước ${formatInvoiceDate(invoice.billingPeriod.rentPeriodEndExclusive || undefined)}`;
   return `${cost}. ${rent}`;
@@ -72,6 +74,7 @@ export function invoiceStatusPresentation(
   paymentStatus?: PaymentStatus | null,
   options?: { paymentLoadFailed?: boolean },
 ) {
+  if (invoice.status === "CANCELLED") return {label:"Đã hủy / hết hạn",className:styles.rolled,kind:"cancelled" as const};
   if (invoice.status === "DRAFT") {
     return { label: "Nháp / Chờ phát hành", className: styles.draft, kind: "draft" as const };
   }
@@ -82,7 +85,7 @@ export function invoiceStatusPresentation(
     return { label: "Đã thanh toán", className: styles.paid, kind: "paid" as const };
   }
   if (paymentStatus === "TRANSFER_REPORTED") {
-    return { label: "Đã thanh toán · Chờ xác nhận", className: styles.pending, kind: "awaiting_confirm" as const };
+    return { label: "Đã báo chuyển · Chờ xác nhận", className: styles.pending, kind: "awaiting_confirm" as const };
   }
   if (paymentStatus === "DISPUTED") {
     return { label: "Đang đối soát", className: styles.overdue, kind: "disputed" as const };

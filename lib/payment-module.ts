@@ -3,16 +3,16 @@ import type { ContractLifecycle } from "@/types/contract-lifecycle.type";
 import type { MonthlyInvoice } from "@/types/monthly-invoice.type";
 import type { PaymentRequest, PaymentStatus } from "@/types/payment-request.type";
 import type { DashboardRole } from "@/lib/dashboard-role";
+import type { RentalOnboarding } from "@/services/rental-onboarding.service";
 import { invoiceNeedsAction, findInvoicePayment } from "@/lib/invoice-list";
 import { invoiceDetailPath } from "@/lib/contract-routes";
-export type PaymentSection = "initial" | "monthly" | "deposit";
+export type PaymentSection = "monthly" | "deposit";
 export type PaymentSummary = { label: string; detail: string; amount?: number; tone: "success" | "warning" | "info" | "muted" };
 export const paymentSections: { id: PaymentSection; title: string; description: string }[] = [
-  { id: "initial", title: "Thanh toán ban đầu", description: "Tiền cọc và tiền phòng tháng 1" },
-  { id: "monthly", title: "Hóa đơn theo kỳ", description: "Tiền phòng, điện nước và chi phí cuối" },
+  { id: "monthly", title: "Hóa đơn theo kỳ", description: "Từ tiền thuê tháng 1 đến chi phí cuối hợp đồng" },
   { id: "deposit", title: "Cọc & hoàn cọc", description: "Bổ sung/hoàn chênh lệch, bàn giao và quyết toán" },
 ];
-export function paymentSection(value: string | null): PaymentSection { return value === "initial" || value === "deposit" ? value : "monthly"; }
+export function paymentSection(value: string | null): PaymentSection { return value === "deposit" ? value : "monthly"; }
 export function paymentModulePath(id: string, section: PaymentSection, invoiceId?: string) {
   const query = new URLSearchParams({ section });
   if (invoiceId) query.set("invoice", invoiceId);
@@ -35,7 +35,7 @@ export function monthlySummary(bills?: MonthlyInvoice[], payments?: PaymentReque
   if (!bills.length) return { label: "Chưa đến kỳ thu", detail: "Hóa đơn xuất hiện khi đến kỳ chốt chỉ số", tone: "muted" };
   let due = 0, pending = 0, drafts = 0, unresolved = 0;
   for (const bill of bills) {
-    if (bill.status === "PAID" || bill.status === "ROLLED_OVER") continue;
+    if (["PAID","ROLLED_OVER","CANCELLED"].includes(bill.status)) continue;
     const status = findInvoicePayment(bill, payments)?.status;
     if (status === "CONFIRMED") continue;
     unresolved++;
@@ -49,7 +49,10 @@ export function monthlySummary(bills?: MonthlyInvoice[], payments?: PaymentReque
   if (unresolved) return { label: "Cần kiểm tra", detail: "Mở hóa đơn để xem trạng thái mới nhất", tone: "warning" };
   return { label: "Đã thanh toán đủ", detail: `${bills.length} hóa đơn đã hoàn tất / chuyển nợ`, tone: "success" };
 }
-export function depositSummary(data?: ContractLifecycle): PaymentSummary {
+export function depositSummary(data?: ContractLifecycle, onboarding?: RentalOnboarding): PaymentSummary {
+  const deposit=onboarding?.deposit;
+  if(deposit?.status === "RETAINED_BY_LANDLORD") return {label:"Chủ nhà đã giữ cọc",amount:deposit.retainedAmount,detail:deposit.retainedReason || "Đã chốt xử lý vi phạm trước khi thuê",tone:"info"};
+  if(!data?.closure && deposit) return {label:deposit.status === "REFUNDED" ? "Đã hoàn cọc" : deposit.status === "HELD" ? "Đang giữ cọc" : deposit.status === "PENDING" ? "Chưa xác nhận cọc" : "Cọc cần xử lý / hoàn trả",amount:deposit.heldAmount,detail:"Xem trạng thái, chứng từ và nghĩa vụ hoàn tiền",tone:"info"};
   if (!data) return { label: "Chưa tải được", detail: "Mở hồ sơ hoàn cọc để kiểm tra", tone: "muted" };
   const closure = data.closure;
   if (!closure) return { label: "Đang giữ cọc", detail: "Hoàn cọc sau khi kết thúc thuê và bàn giao", amount: data.heldDeposit, tone: "muted" };
@@ -66,7 +69,7 @@ export function chooseInvoice(bills: MonthlyInvoice[], payments: PaymentRequest[
   if (requested && bills.some(bill => bill.id === requested)) return requested;
   return [...bills].sort((a, b) => {
     const priority = (bill: MonthlyInvoice) => invoiceNeedsAction(role, bill, findInvoicePayment(bill, payments)?.status) ? 0
-      : bill.status !== "PAID" && bill.status !== "ROLLED_OVER" ? 1 : 2;
+      : !["PAID","ROLLED_OVER","CANCELLED"].includes(bill.status) ? 1 : 2;
     return priority(a) - priority(b) || b.periodIndex - a.periodIndex || a.id.localeCompare(b.id);
   })[0]?.id;
 }

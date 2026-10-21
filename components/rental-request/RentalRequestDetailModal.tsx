@@ -5,6 +5,7 @@ import type { RentalOnboarding } from "@/services/rental-onboarding.service";
 
 import React, { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   X,
   Home,
@@ -57,6 +58,8 @@ import { EndOfPeriodCharges } from "./EndOfPeriodCharges";
 import {
   RENTAL_HOLD_DURATION_SHORT,
 } from "@/config/rental-hold.config";
+import { canCancelRentalRequest } from "@/lib/rental-request-actions";
+import { listingDetailPath } from "@/lib/listing-detail-access";
 
 interface RentalRequestDetailModalProps {
   requestId: string | null;
@@ -70,7 +73,6 @@ interface RentalRequestDetailModalProps {
   onPayMock?: (req: RentalRequestResponse) => void;
   onOpenContract?: (contractId: string) => void;
   onCreateContract?: (req: RentalRequestResponse) => void;
-  onViewListing?: (listingId: string) => void;
   onPaymentStatusChange?: () => void;
   isProcessingAction?: boolean;
 }
@@ -119,6 +121,11 @@ const STATUS_CONFIG: Record<
       "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700",
     icon: Ban,
   },
+  CANCELLED_BY_OWNER: {
+    label: "Chủ nhà đã hủy",
+    badgeClass: "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700",
+    icon: Ban,
+  },
   EXPIRED: {
     label: "Hết hạn giữ chỗ",
     badgeClass:
@@ -145,7 +152,6 @@ export default function RentalRequestDetailModal({
   onPayMock,
   onOpenContract,
   onCreateContract,
-  onViewListing,
   onPaymentStatusChange,
   isProcessingAction = false,
 }: RentalRequestDetailModalProps) {
@@ -213,7 +219,7 @@ export default function RentalRequestDetailModal({
       .then((res) => {
         if (isMounted) {
           setDetail(res);
-          if (res.status === "ACCEPTED" || res.status === "COMPLETED") {
+          if (["ACCEPTED","COMPLETED","CANCELLED_BY_SYSTEM","CANCELLED_BY_RENTER","CANCELLED_BY_OWNER"].includes(res.status)) {
             loadDetailedPayment(res.id);
           }
         }
@@ -467,7 +473,7 @@ export default function RentalRequestDetailModal({
             </div>
           ) : (
             <>
-              {["ACCEPTED", "COMPLETED", "CANCELLED_BY_RENTER"].includes(detail.status) && <RentalOnboardingPanel rentalRequestId={detail.id} isLandlord={mode === "RECEIVED"} onSnapshot={setOnboarding} onUpdated={async () => {
+              {["ACCEPTED", "COMPLETED", "CANCELLED_BY_RENTER","CANCELLED_BY_SYSTEM","CANCELLED_BY_OWNER"].includes(detail.status) && <RentalOnboardingPanel rentalRequestId={detail.id} isLandlord={mode === "RECEIVED"} onSnapshot={setOnboarding} onUpdated={async () => {
                 const fresh = await rentalRequestService.getRequestById(detail.id);
                 setDetail(fresh);
                 await loadDetailedPayment(detail.id);
@@ -516,14 +522,13 @@ export default function RentalRequestDetailModal({
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => onViewListing?.(detail.listingId)}
+                <Link
+                  href={listingDetailPath(detail.listingId)}
                   className="px-3.5 py-2 rounded-xl border border-border bg-card text-xs font-semibold text-foreground hover:text-primary hover:border-primary/50 transition-colors flex items-center gap-1.5 shrink-0 self-end sm:self-auto shadow-2xs cursor-pointer"
                 >
                   <span>Xem bài đăng</span>
                   <ExternalLink className="w-3.5 h-3.5" />
-                </button>
+                </Link>
               </div>
 
               {/* 2. THÔNG TIN KHÁCH THUÊ */}
@@ -819,7 +824,7 @@ export default function RentalRequestDetailModal({
               )}
 
               {/* Khách thuê PENDING -> Hủy yêu cầu */}
-              {mode === "SENT" && detail.status === "PENDING" && (
+              {onCancel && canCancelRentalRequest(detail,linkedContract,currentPaymentStatus) && (
                 <button
                   type="button"
                   disabled={isProcessingAction}

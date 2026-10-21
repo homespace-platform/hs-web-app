@@ -24,10 +24,14 @@ function moduleImports(name) {
   return require(name);
 }
 const state = (status = "UNPAID", workflowState = "UNDER_REVIEW") => ({ status, workflowState });
+test("first rent has its own label without deposit or expense month zero; cancelled receipt is not due",()=>{
+  assert.equal(invoicePeriodLabel({periodIndex:-1,billingPeriod:{kind:"INITIAL_RENT",paymentPeriodNumber:1}}),"Tiền thuê tháng 1");
+  assert.equal(presentation(state("CANCELLED","CANCELLED"),"CANCELLED").kind,"cancelled");
+});
 test("submitted proof takes priority over unpaid/overdue badge without marking invoice paid", () => {
   for (const status of ["UNPAID", "OVERDUE"]) {
     const invoice = state(status);
-    assert.equal(presentation(invoice, "TRANSFER_REPORTED").label, "Đã thanh toán · Chờ xác nhận");
+    assert.equal(presentation(invoice, "TRANSFER_REPORTED").label, "Đã báo chuyển · Chờ xác nhận");
     assert.match(presentation(invoice, "TRANSFER_REPORTED").className, /blue/);
     assert.equal(invoice.status, status);
   }
@@ -74,7 +78,7 @@ test("both parties see pending badge on actual detail component, owner retains c
     initialStates = [[invoice], [payment], false]; stateIndex = 0;
     const html = renderToStaticMarkup(React.createElement(Detail, { contractId: "contract", contractActive: true,
       isLandlord, isTenant: !isLandlord, electricityRequired: false, waterRequired: false, unsupportedWaterRate: false }));
-    assert.match(html, /Đã thanh toán · Chờ xác nhận/);
+    assert.match(html, /Đã báo chuyển · Chờ xác nhận/);
     assert.doesNotMatch(html, />Chưa thanh toán</);
     if (isLandlord) assert.match(html, /Xác nhận đã nhận tiền/);
     else assert.doesNotMatch(html, />Xác nhận đã nhận tiền</);
@@ -86,6 +90,18 @@ test("list and detail share the same status mapper; list reads actual payment st
   assert.match(listSource, /getContractPayments\(contract.id\)/);
   assert.match(read("components/dashboard/invoices/ContractPaymentCard.tsx"), /monthlySummary/);
   assert.match(listSource, /cancelled|refreshKey/);
+});
+
+test("actual month-one view uses original combined transfer without monthly penalty or month-zero expenses",()=>{
+  const invoice={...state("UNPAID","UNPAID"),id:"first-rent:original",periodIndex:-1,periodStart:"2026-11-01",periodEndExclusive:"2026-12-01",
+    billingPeriod:{kind:"INITIAL_RENT",paymentPeriodNumber:1},paymentRequestId:"original",totalAmount:5000000,lateFeeAmount:0,
+    serverNow:"2026-11-01T03:00:00Z",dueAt:"2026-11-02T03:00:00Z",lines:[{type:"RENT",description:"Tiền thuê tháng 1",amount:5000000}],overdueActions:[],paymentExtensions:[]};
+  const payment={id:"original",status:"AWAITING_TRANSFER",totalAmount:15000000,evidences:[],dueAt:invoice.dueAt};
+  initialStates=[[invoice],[payment],false];stateIndex=0;
+  const html=renderToStaticMarkup(React.createElement(Detail,{contractId:"root",rentalRequestId:"rental",isTenant:true,isLandlord:false}));
+  assert.match(html,/Tiền thuê tháng 1/);assert.match(html,/Chỉ chuyển một lần theo QR gốc/);
+  assert.doesNotMatch(html,/Chi phí tháng 0|Phạt chậm thanh toán tối đa|Thanh toán ban đầu/);
+  assert.match(html,/Tôi đã chuyển khoản/);
 });
 test("supplementary final costs are never labeled as rent period four", () => {
   assert.equal(invoicePeriodLabel({ periodIndex: 3, finalCostSupplement: true }), "Chi phí bổ sung kỳ cuối");

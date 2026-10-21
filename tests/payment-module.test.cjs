@@ -54,6 +54,15 @@ test("invoice selection follows deep link or party action, preserving newest his
   assert.deepEqual(bills.map(b => b.id), ["paid", "pending", "last"]);
 });
 test("module URLs encode contract and invoice identity and default to monthly safely", () => {
+  assert.deepEqual(api.paymentSections.map(s=>s.id),["monthly","deposit"]);
+  assert.equal(api.paymentSection("initial"),"monthly");
   assert.equal(api.paymentModulePath("a/b", "monthly", "x y"), "/dashboard/invoices/a%2Fb?section=monthly&invoice=x+y");
   assert.equal(api.paymentSection("deposit"), "deposit");assert.equal(api.paymentSection("unknown"), "monthly");
+});
+
+test("first rent is counted without deposit, cancelled bills are not outstanding, retained deposit stays visible",()=>{
+  const first={...bill("first","PAID",5000000,-1),billingPeriod:{kind:"INITIAL_RENT",paymentPeriodNumber:1}};
+  assert.equal(api.monthlySummary([first,bill("cancelled","CANCELLED",5000000)],[]).tone,"success");
+  const summary=api.depositSummary(undefined,{deposit:{status:"RETAINED_BY_LANDLORD",heldAmount:0,retainedAmount:10000000,retainedReason:"Quá hạn ký sau thông báo"}});
+  assert.equal(summary.amount,10000000);assert.match(summary.label,/giữ cọc/);
 });

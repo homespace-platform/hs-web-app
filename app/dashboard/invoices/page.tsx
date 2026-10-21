@@ -6,6 +6,7 @@ import ContractPaymentCard, { type ContractPaymentBundle } from "@/components/da
 import { contractService } from "@/services/contract.service";
 import { monthlyInvoiceService } from "@/services/monthly-invoice.service";
 import paymentRequestService from "@/services/payment-request.service";
+import { rentalOnboardingService } from "@/services/rental-onboarding.service";
 import { contractLifecycleService } from "@/services/contract-lifecycle.service";
 import type { ContractStatus } from "@/types/contract.type";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -36,12 +37,12 @@ export default function InvoicesPage() {
           // Read payment amounts after invoice sync has updated fees and transfer obligations.
           const [invoiceResult, lifecycleResult, initialResult] = await Promise.allSettled([
             monthlyInvoiceService.list(contract.id), contractLifecycleService.get(contract.id),
-            paymentRequestService.getInitialPaymentByRentalRequestId(contract.rentalRequestId),
+            rentalOnboardingService.refresh(contract.rentalRequestId),
           ]);
           const paymentResult = await Promise.allSettled([paymentRequestService.getContractPayments(contract.id)]);
           return { contract, invoices: invoiceResult.status === "fulfilled" ? invoiceResult.value : undefined,
             lifecycle: lifecycleResult.status === "fulfilled" ? lifecycleResult.value : undefined,
-            initial: initialResult.status === "fulfilled" ? initialResult.value : undefined,
+            onboarding: initialResult.status === "fulfilled" ? initialResult.value : undefined,
             payments: paymentResult[0].status === "fulfilled" ? paymentResult[0].value : undefined };
         }));
         if (cancelled) return;
@@ -62,12 +63,12 @@ export default function InvoicesPage() {
     </header>
     <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 sm:flex-row sm:items-end">
       <label className="flex-1 text-sm font-medium">Tìm hợp đồng trong trang này<div className="relative mt-2"><Search className="absolute left-3 top-3 size-4 text-muted-foreground" /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Nhập mã hợp đồng…" className="h-10 w-full rounded-xl border bg-background pl-9 pr-3" /></div></label>
-      <label className="text-sm font-medium">Trạng thái hợp đồng<select value={status} onChange={event => { setStatus(event.target.value as ContractStatus | ""); setPage(1); }} className="mt-2 block h-10 w-full rounded-xl border bg-background px-3 sm:w-60"><option value="">Tất cả hợp đồng</option><option value="ACTIVE">Đang thuê</option><option value="EXPIRED">Đã hết thời hạn thuê</option><option value="CLOSED">Đã kết thúc hợp đồng</option><option value="TERMINATED">Đã chấm dứt</option></select></label>
+      <label className="text-sm font-medium">Trạng thái hợp đồng<select value={status} onChange={event => { setStatus(event.target.value as ContractStatus | ""); setPage(1); }} className="mt-2 block h-10 w-full rounded-xl border bg-background px-3 sm:w-60"><option value="">Tất cả hợp đồng</option><option value="DRAFT">Chờ nhận nhà / Bản nháp</option><option value="LANDLORD_SIGNATURE_PENDING">Chờ chủ nhà ký</option><option value="TENANT_SIGNATURE_PENDING">Chờ người thuê ký</option><option value="ACTIVE">Đang thuê</option><option value="EXPIRED">Đã hết thời hạn thuê</option><option value="CLOSED">Đã kết thúc hợp đồng</option><option value="TERMINATED">Đã chấm dứt</option><option value="CANCELLED">Đã hủy</option></select></label>
     </div>
     {error ? <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{error === "Network Error" ? "Chưa kết nối được máy chủ. Kiểm tra kết nối và phiên đăng nhập rồi thử lại." : error} <button type="button" onClick={() => setRefreshKey(key => key + 1)} className="underline">Thử lại</button></div>
       : loading ? <div aria-busy="true" className="space-y-4">{[0, 1].map(key => <div key={key} className="h-56 animate-pulse rounded-2xl border bg-muted/40" />)}</div>
       : visible.length ? visible.map(bundle => <ContractPaymentCard key={role + ":" + bundle.contract.id} bundle={bundle} role={role} />)
-      : <div className="rounded-2xl border border-dashed bg-card p-8 text-center"><p className="font-semibold">{search ? "Không tìm thấy mã hợp đồng trên trang này" : "Chưa có hợp đồng phù hợp"}</p><p className="mt-2 text-sm text-muted-foreground">Mỗi hợp đồng có hồ sơ riêng cho thanh toán ban đầu, hóa đơn theo kỳ và hoàn cọc.</p>{(search || status) && <button type="button" onClick={() => { setSearch(""); setStatus(""); setPage(1); }} className="mt-3 text-sm font-semibold text-primary">Xóa bộ lọc</button>}</div>}
+      : <div className="rounded-2xl border border-dashed bg-card p-8 text-center"><p className="font-semibold">{search ? "Không tìm thấy mã hợp đồng trên trang này" : "Chưa có hợp đồng phù hợp"}</p><p className="mt-2 text-sm text-muted-foreground">Mỗi hợp đồng có hóa đơn theo kỳ (gồm tháng 1) và hồ sơ cọc & hoàn cọc riêng.</p>{(search || status) && <button type="button" onClick={() => { setSearch(""); setStatus(""); setPage(1); }} className="mt-3 text-sm font-semibold text-primary">Xóa bộ lọc</button>}</div>}
     {!loading && !error && totalPages > 1 && <nav aria-label="Phân trang hợp đồng" className="flex items-center justify-end gap-3 text-sm"><button type="button" disabled={page === 1} onClick={() => { setPage(value => value - 1); setSearch(""); }} className="rounded-lg border px-3 py-2 disabled:opacity-40">Trước</button><span>Trang {page}/{totalPages}</span><button type="button" disabled={page >= totalPages} onClick={() => { setPage(value => value + 1); setSearch(""); }} className="rounded-lg border px-3 py-2 disabled:opacity-40">Sau</button></nav>}
   </div>;
 }

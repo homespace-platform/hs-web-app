@@ -16,7 +16,6 @@ import OverdueActionsPanel from "./OverdueActionsPanel";
 import PaymentExtensionPanel from "./PaymentExtensionPanel";
 import { MeterReadingInput, MeterReadingSummary } from "./MeterReading";
 import InvoiceLineCalculation from "./InvoiceLineCalculation";
-import InitialPaymentHistory from "./InitialPaymentHistory";
 import { chooseInvoice, paymentModulePath } from "@/lib/payment-module";
 import { findInvoicePayment } from "@/lib/invoice-list";
 
@@ -43,9 +42,9 @@ const money = (n: number) => new Intl.NumberFormat("vi-VN", {
 const date = (s?: string) => s ? new Date(s).toLocaleDateString("vi-VN") : "—";
 const dateTime = (s?: string) => s ? new Date(s).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 
-export default function MonthlyInvoicesSection({ contractId, rentalRequestId, contractActive, isLandlord, isTenant,
+export default function MonthlyInvoicesSection({ contractId, contractActive, isLandlord, isTenant,
   electricityRequired, waterRequired, unsupportedWaterRate, initialElectricity, initialWater,
-  showInitialPayment = true, requestedInvoiceId, onUpdated }: Props) {
+  requestedInvoiceId, onUpdated }: Props) {
   const [invoices, setInvoices] = useState<MonthlyInvoice[]>([]);
   const [payments, setPayments] = useState<PaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -190,7 +189,6 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
       <button type="button" onClick={() => void refresh()} aria-label="Làm mới hóa đơn"
         className="rounded-lg border border-border p-2 hover:bg-muted"><RefreshCw className="h-4 w-4" /></button>
     </div>
-    {showInitialPayment && <InitialPaymentHistory key={rentalRequestId} rentalRequestId={rentalRequestId} defaultOpen />}
     {outstanding > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
       Tổng chưa xác nhận thanh toán: <strong>{money(outstanding)}</strong>. Khoản đã chuyển nợ chỉ tính trong hóa đơn mới.
     </div>}
@@ -219,9 +217,11 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
         const payment = payments.find((p) => p.invoiceId === invoice.id || p.id === invoice.paymentRequestId);
         const presentation = invoiceStatusPresentation(invoice, payment?.status);
         const rows = extras[invoice.id] || [];
+        const firstRent=invoice.billingPeriod?.kind === "INITIAL_RENT";
         const canIssue = new Date(invoice.serverNow).getTime() >=
           new Date(`${invoice.periodEndExclusive}T00:00:00+07:00`).getTime() - 86_400_000;
         const workflowMessage: Record<MonthlyInvoice["workflowState"], string> = {
+          CANCELLED: "Khoản tiền thuê này đã hủy / hết hạn. Kiểm tra nghĩa vụ hoàn tiền ở mục Cọc & hoàn cọc.",
           UPCOMING: "Kỳ thuê chưa đến ngày chốt chỉ số.",
           METER_REQUIRED: `Chủ nhà cần lưu chỉ số và phí phát sinh trước ${dateTime(invoice.meterDeadlineAt)}.`,
           READY_FOR_ISSUE: `Đã lưu bản nháp. Bạn có thể chốt và phát hành ngay; nếu không, hệ thống tự phát hành từ ${dateTime(invoice.meterDeadlineAt)}.`,
@@ -233,7 +233,7 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
           OVERDUE: invoice.lateFeeExempt ? "Đã trễ hạn gia hạn. Khoản phạt đã chốt không tăng; nghĩa vụ thanh toán vẫn còn." : "Hóa đơn quá hạn. Khoản phạt (nếu có trong hợp đồng) sẽ được tính riêng và cập nhật trên QR.",
           OVERDUE_ACTION_REQUIRED: "Đã quá hạn 5 ngày: chủ nhà cần ghi nhận phương án xử lý bên dưới; hợp đồng, tiền cọc và tin đăng không tự thay đổi.",
           UNDER_REVIEW: payment?.status === "TRANSFER_REPORTED"
-            ? "Đã thanh toán và gửi chứng từ, đang chờ chủ nhà xác nhận nhận tiền. Phí phạt tạm dừng tăng trong lúc chờ xử lý."
+            ? "Đã báo chuyển và gửi chứng từ, đang chờ chủ nhà xác nhận nhận tiền. Phí phạt tạm dừng tăng trong lúc chờ xử lý."
             : "Khoản thanh toán đang chờ xác nhận hoặc đối soát; phí phạt tạm dừng tăng trong lúc chờ xử lý.",
           PAID: "Đã xác nhận thanh toán.",
           DEFERRED: `${invoice.overdueActions.some((action) => action.type === "AUTOMATIC_ROLLOVER") ? "Hệ thống đã tự chốt công nợ sau 10 ngày quá hạn" : "Chủ nhà đã cho phép cộng dồn khoản nợ này"} để cộng vào hóa đơn kỳ kế tiếp. Phí phạt đã dừng tăng; bạn vẫn có thể thanh toán hóa đơn này trước khi chuyển nợ.`,
@@ -243,7 +243,7 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div><h3 className="font-semibold">{invoicePeriodLabel(invoice)}</h3>
               {invoicePeriodSecondaryLabel(invoice) && <p className="text-xs text-muted-foreground">{invoicePeriodSecondaryLabel(invoice)}</p>}
-              <p className="text-xs text-muted-foreground">{invoice.finalCostSupplement ? "Chi phí bổ sung" : `Chi phí tháng ${invoice.periodIndex + 1}`}: {date(invoice.periodStart)} – trước {date(invoice.periodEndExclusive)}</p>
+              <p className="text-xs text-muted-foreground">{firstRent ? "Tiền thuê tháng 1" : invoice.finalCostSupplement ? "Chi phí bổ sung" : `Chi phí tháng ${invoice.periodIndex + 1}`}: {date(invoice.periodStart)} – trước {date(invoice.periodEndExclusive)}</p>
               {invoice.billingPeriod?.kind === "RECURRING" && <p className="text-xs text-muted-foreground">Tiền phòng tháng {invoice.billingPeriod.paymentPeriodNumber}: {date(invoice.billingPeriod.rentPeriodStart || undefined)} – trước {date(invoice.billingPeriod.rentPeriodEndExclusive || undefined)}</p>}
               {invoice.billingPeriod?.kind === "FINAL_SETTLEMENT" && <p className="text-xs font-semibold text-primary">Chỉ thu chi phí kỳ cuối và công nợ (nếu có), không thu tiền phòng tháng kế tiếp. Thanh toán đủ trước khi hoàn cọc.</p>}
               <p className="text-xs text-muted-foreground">{invoice.status === "DRAFT" ? "Chỉ chủ nhà thấy bản nháp; người thuê sẽ thấy sau khi phát hành" : `Hạn thanh toán: ${dateTime(invoice.dueAt)}`}</p></div>
@@ -252,9 +252,9 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
             </span>
           </div>
           <p className={`rounded-lg px-3 py-2 text-xs ${["OVERDUE", "OVERDUE_ACTION_REQUIRED", "METER_DEADLINE_MISSED"].includes(invoice.workflowState) ? "bg-amber-50 text-amber-900" : "bg-blue-50 text-blue-800"}`}>
-            {workflowMessage[invoice.workflowState]}
+            {firstRent ? invoice.status === "PAID" ? "Đã xác nhận tiền thuê tháng 1. Không thu lại trong các kỳ sau; cọc theo dõi riêng." : invoice.status === "CANCELLED" ? workflowMessage.CANCELLED : "Tiền thuê tháng đầu được mở theo tiến trình nhận nhà. Quá hạn cần đối soát, không áp dụng cộng dồn nợ hay phạt của kỳ thuê đang có hiệu lực." : workflowMessage[invoice.workflowState]}
           </p>
-          {["UNPAID", "PAYMENT_REMINDER", "OVERDUE", "OVERDUE_ACTION_REQUIRED"].includes(invoice.workflowState) && <p className="text-xs text-muted-foreground">
+          {!firstRent && ["UNPAID", "PAYMENT_REMINDER", "OVERDUE", "OVERDUE_ACTION_REQUIRED"].includes(invoice.workflowState) && <p className="text-xs text-muted-foreground">
             Phạt chậm thanh toán tối đa 10 ngày theo đơn giá và mức trần của hợp đồng. Hết 10 ngày quá hạn chưa có phương án xử lý, hệ thống tự chốt nợ để cộng dồn nếu còn kỳ sau chưa phát hành; kỳ cuối giữ hóa đơn riêng để quyết toán.
           </p>}
           {invoice.status === "DRAFT" && isLandlord && <div className="space-y-3 rounded-xl bg-muted/40 p-3">
@@ -304,22 +304,24 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
               Chỉ số {invoice.electricityAutoFilled && invoice.waterAutoFilled ? "điện và nước" : invoice.electricityAutoFilled ? "điện" : "nước"} được hệ thống tạm điền bằng chỉ số đầu kỳ do chưa cập nhật trong 24 giờ. Phần tiêu thụ tạm tính bằng 0, không phải số đo thực tế.
             </p>}
             {invoice.lateFeeAmount > 0 && invoice.status !== "ROLLED_OVER" && <p className="text-xs text-rose-700">Trong tổng trên có {money(invoice.lateFeeAmount)} phí chậm thanh toán. {invoice.lateFeeExempt ? "Phí đã chốt, không tăng thêm cho hóa đơn này." : "Nếu đã chuyển tiền, hãy gửi chứng từ để tạm dừng tăng phí."}</p>}
-            <PaymentExtensionPanel invoice={invoice} isLandlord={isLandlord} isTenant={isTenant} refresh={refresh} />
-            <OverdueActionsPanel invoice={invoice} contractActive={contractActive} isLandlord={isLandlord} isTenant={isTenant} refresh={refresh} />
-            {payment && invoice.status !== "PAID" && invoice.status !== "ROLLED_OVER" && <div className="rounded-xl border border-border p-3 space-y-3 text-sm">
+            {!firstRent && <PaymentExtensionPanel invoice={invoice} isLandlord={isLandlord} isTenant={isTenant} refresh={refresh} />}
+            {!firstRent && <OverdueActionsPanel invoice={invoice} contractActive={contractActive} isLandlord={isLandlord} isTenant={isTenant} refresh={refresh} />}
+            {firstRent && payment && payment.totalAmount !== invoice.totalAmount && <p className="rounded-lg bg-muted p-3 text-sm">Khoản chuyển gốc {money(payment.totalAmount)} bao gồm tiền thuê {money(invoice.totalAmount)} và cọc theo bảng kê. Chỉ chuyển một lần theo QR gốc; không cộng cọc vào tổng hóa đơn tiền thuê.</p>}
+            {firstRent && payment && invoice.status === "PAID" && <div className="space-y-2 rounded-xl border p-3 text-sm"><p>Khoản chuyển gốc: <strong>{payment.transferReference}</strong> · Đã xác nhận: {dateTime(payment.confirmedAt)}</p>{payment.evidences?.map((e,index)=><button type="button" key={e.id} className="block text-primary underline" onClick={()=>void viewProof(e.storageObjectId)}>Xem chứng từ {index+1}</button>)}</div>}
+            {payment && !["PAID","ROLLED_OVER","CANCELLED"].includes(invoice.status) && <div className="rounded-xl border border-border p-3 space-y-3 text-sm">
               <p className="font-semibold">Chuyển khoản trực tiếp cho chủ nhà</p>
               <p>Ngân hàng: {payment.payeeBankAccountSnapshot?.bankName || payment.payeeBankAccountSnapshot?.bankCode} • STK: <strong>{payment.payeeBankAccountSnapshot?.accountNumber}</strong></p>
               <p>Người nhận: {payment.payeeBankAccountSnapshot?.accountHolderName}</p>
               <p>Nội dung chuyển khoản: <strong className="font-mono">{payment.transferReference}</strong></p>
               <p>Số tiền: <strong>{money(payment.totalAmount)}</strong></p>
               {isTenant && payment.qrImageUrl && <Image unoptimized src={payment.qrImageUrl} width={180} height={180} alt="VietQR thanh toán hóa đơn" className="rounded-lg border border-border" />}
-              {isTenant && ["AWAITING_TRANSFER", "OVERDUE", "REJECTED"].includes(payment.status) && <div className="flex flex-wrap items-center gap-2">
+              {isTenant && ["AWAITING_TRANSFER", "OVERDUE", "REJECTED"].includes(payment.status) && (!firstRent || !payment.dueAt || new Date(invoice.serverNow)<new Date(payment.dueAt)) && <div className="flex flex-wrap items-center gap-2">
                 <input type="file" accept="image/*,.pdf" aria-label="Chứng từ chuyển khoản"
                   onChange={(e) => setProofs((s) => ({ ...s, [payment.id]: e.target.files?.[0] || null }))} className="text-xs" />
                 <button type="button" disabled={busy === payment.id} onClick={() => void report(payment)}
                   className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">Tôi đã chuyển khoản</button>
               </div>}
-              {payment.status === "TRANSFER_REPORTED" && <p className="text-blue-700">{isLandlord ? "Người thuê đã thanh toán và gửi chứng từ — vui lòng kiểm tra và xác nhận đã nhận tiền." : "Đã thanh toán, đã gửi chứng từ — chờ chủ nhà xác nhận."}</p>}
+              {payment.status === "TRANSFER_REPORTED" && <p className="text-blue-700">{isLandlord ? "Người thuê đã báo chuyển và gửi chứng từ — vui lòng kiểm tra và xác nhận đã nhận tiền." : "Đã báo chuyển, đã gửi chứng từ — chờ chủ nhà xác nhận."}</p>}
               {payment.status === "REJECTED" && <p className="text-rose-700">Chủ nhà từ chối chứng từ: {payment.rejectedReason || "Vui lòng kiểm tra và gửi lại."}</p>}
               {payment.evidences?.length > 0 && <div className="space-y-1">
                 <p className="text-xs font-semibold">Chứng từ đã gửi:</p>
@@ -329,7 +331,7 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
               </div>}
               {isLandlord && payment.status === "TRANSFER_REPORTED" && <div className="flex flex-wrap items-center gap-2">
                 <button type="button" disabled={busy === payment.id} onClick={() => {
-                  if (window.confirm("Bạn đã kiểm tra tài khoản và nhận đủ số tiền của hóa đơn này?")) void perform(payment.id,
+                  if (window.confirm(`Bạn đã kiểm tra tài khoản và nhận đủ ${money(payment.totalAmount)} của khoản chuyển này?`)) void perform(payment.id,
                     () => paymentRequestService.confirmReceipt(payment.id), "Đã xác nhận thanh toán.");
                 }}
                   className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">Xác nhận đã nhận tiền</button>

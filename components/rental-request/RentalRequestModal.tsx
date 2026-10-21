@@ -177,6 +177,7 @@ export default function RentalRequestModal({
         setCarCount(0);
         setCustomMonthsInput(String(defaultLease));
         setRenterNote("");
+        setReservationPolicyAccepted(false);
         setIsDatePickerOpen(false);
         setEstimate(null);
         setEstimateFor(null);
@@ -186,7 +187,7 @@ export default function RentalRequestModal({
         );
       });
     }
-  }, [isOpen, minimumLeaseMonths, listingPrice]);
+  }, [isOpen, listingId, minimumLeaseMonths, listingPrice]);
 
   // Calculate estimated end date
   const estimatedEndDate = useMemo(() => {
@@ -373,6 +374,10 @@ export default function RentalRequestModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(!reservationPolicyAccepted) {
+      toast.error("Bạn cần đồng ý điều kiện giữ chỗ trước khi gửi yêu cầu thuê.");
+      return;
+    }
 
     if (!moveInDate) {
       toast.error("Vui lòng chọn ngày bắt đầu dọn vào");
@@ -1133,11 +1138,13 @@ export default function RentalRequestModal({
 
           {/* 10. FOOTER ACTIONS */}
           <label className="flex items-start gap-2 rounded-xl border p-3 text-xs leading-relaxed">
-            <input type="checkbox" checked={reservationPolicyAccepted} onChange={e=>setReservationPolicyAccepted(e.target.checked)} className="mt-1" />
-            <span>Tôi đã đọc điều kiện giữ chỗ: cọc và tiền thuê được theo dõi riêng. Nếu tôi quá hạn trả tháng đầu hoặc quá hạn ký sau khi chủ nhà đã ký và cung cấp văn bản, chủ nhà có thể giữ 100% cọc thực nhận và hủy hồ sơ sau thông báo cuối cùng ít nhất 24 giờ. Tôi có quyền phản hồi, yêu cầu đối soát; tiền thuê đã nhận phải hoàn riêng, không bị giữ cùng cọc.</span>
+            <input type="checkbox" required checked={reservationPolicyAccepted} onChange={e=>setReservationPolicyAccepted(e.target.checked)} className="mt-1" />
+            <span><strong>Tôi đã đọc và đồng ý điều kiện giữ chỗ (bắt buộc):</strong> cọc và tiền thuê được theo dõi riêng. Nếu tôi quá hạn trả tháng đầu hoặc quá hạn ký sau khi chủ nhà đã ký và cung cấp văn bản, chủ nhà có thể giữ 100% cọc thực nhận và hủy hồ sơ sau thông báo cuối cùng ít nhất 24 giờ. Tôi có quyền phản hồi, yêu cầu đối soát; tiền thuê đã nhận phải hoàn riêng, không bị giữ cùng cọc.</span>
           </label>
           <div className="pt-3 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2.5">
-            {estimateError ? (
+            {!reservationPolicyAccepted ? (
+              <span className="text-[11px] text-muted-foreground font-medium">Vui lòng đọc và tích đồng ý điều kiện giữ chỗ để gửi yêu cầu thuê.</span>
+            ) : estimateError ? (
               <span className="text-[11px] text-rose-500 font-medium">
                 Chưa thể xác nhận dự toán chi phí.
               </span>
@@ -1160,7 +1167,7 @@ export default function RentalRequestModal({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || loadingEstimate || Boolean(estimateError) || !estimate?.paymentPlan}
+                disabled={isSubmitting || !reservationPolicyAccepted || loadingEstimate || Boolean(estimateError) || !estimate?.paymentPlan}
                 className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
               >
                 <Sparkles className="w-3.5 h-3.5" />

@@ -30,6 +30,7 @@ import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
 import RentalRequestDetailModal from "./RentalRequestDetailModal";
 import RentalPaymentModal from "./RentalPaymentModal";
+import RentalDepositQuickViewModal from "./RentalDepositQuickViewModal";
 import { contractService } from "@/services/contract.service";
 import type { ContractResponse } from "@/types/contract.type";
 import type {
@@ -45,6 +46,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { contractDetailPath } from "@/lib/contract-routes";
 import { canCancelRentalRequest } from "@/lib/rental-request-actions";
 import { listingDetailPath } from "@/lib/listing-detail-access";
+import { canOpenDepositQuickView } from "@/lib/rental-deposit-quick-view";
 interface RentalRequestsManagementProps {
   mode: "RECEIVED" | "SENT";
 }
@@ -147,6 +149,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const [openingContractId, setOpeningContractId] = useState<string | null>(null);
   const [detailRequestId, setDetailRequestId] = useState<string | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<RentalRequestResponse | null>(null);
+  const [depositQuickTarget,setDepositQuickTarget]=useState<RentalRequestResponse|null>(null);
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -629,7 +632,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                   </div>
 
                   {/* Card Actions */}
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 self-end sm:self-center">
                     {/* Chủ nhà xét duyệt khi PENDING */}
                     {mode === "RECEIVED" && req.status === "PENDING" && (
                       <>
@@ -662,6 +665,11 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                       </button>
                     )}
 
+                    {mode === "RECEIVED" && canOpenDepositQuickView(req) && <button type="button"
+                      onClick={()=>setDepositQuickTarget(req)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90">
+                      <CreditCard className="h-3.5 w-3.5"/><span>Xem tiền cọc</span>
+                    </button>}
                     {/* Khách thuê mở phiếu thanh toán/chứng từ khi yêu cầu đã được chấp thuận */}
                     {mode === "SENT" && req.status === "ACCEPTED" && isPaymentPending && (
                       <button
@@ -1020,6 +1028,10 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         </div>
       )}
 
+
+      {depositQuickTarget && <RentalDepositQuickViewModal key={depositQuickTarget.id} request={depositQuickTarget}
+        onClose={()=>setDepositQuickTarget(null)} onUpdated={fetchRequests}
+        onOpenDetail={()=>{setDetailRequestId(depositQuickTarget.id);setDepositQuickTarget(null);}}/>}
 
       {/* Modal Thanh Toán Ban Đầu */}
       {paymentTarget && (

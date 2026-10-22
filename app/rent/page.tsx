@@ -1,6 +1,6 @@
 "use client";
 
-import React, { startTransition, useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -12,7 +12,11 @@ import { RentPropertyItem } from "@/types/rent.type";
 import listingLocationService from "@/services/listing-location.service";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
-import { District } from "@/types/province.type";
+import type { AdministrativeCity, AdministrativeWard } from "@/types/administrative-location.type";
+import { locationMatches } from "@/lib/administrative-location";
+import { DEFAULT_RENT_FILTER, changeRentCity, writeRentState } from "@/lib/rent-filter-state";
+import { useRentUrlState, updateRentQuery } from "@/hooks/useRentUrlState";
+import type { PublicListingQueryParams } from "@/types/listing.type";
 import type { ListingCategory } from "@/types/listing.type";
 import { useAuth } from "@/features/auth/useAuth";
 import { useAppSelector } from "@/store/hooks";
@@ -44,7 +48,6 @@ export default function RentPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const listContainerRef = useRef<HTMLDivElement>(null);
 
@@ -52,48 +55,23 @@ export default function RentPage() {
   const favoriteIdsList = useAppSelector((state) => state.favorite.ids);
   const favoriteIds = useMemo(() => new Set(favoriteIdsList), [favoriteIdsList]);
 
-  // Dynamic Province & Districts synced with Header
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | string>("");
-  const [selectedProvinceName, setSelectedProvinceName] = useState<string>(
-    "Toàn quốc"
-  );
-  const [districts, setDistricts] = useState<District[]>([]);
-  const [isDistrictDropdownOpen, setIsDistrictDropdownOpen] = useState(false);
-  const [districtSearch, setDistrictSearch] = useState("");
-  const [loadingDistricts, setLoadingDistricts] = useState(false);
-  const districtDropdownRef = useRef<HTMLDivElement>(null);
+  const { cityId: selectedProvinceCode, filter, setFilter, page: currentPage, setPage: setCurrentPage, ready: queryReady } = useRentUrlState();
+  const [cities, setCities] = useState<AdministrativeCity[]>([]);
+  const [catalogError, setCatalogError] = useState("");
+  const [wardError, setWardError] = useState("");
+  const selectedProvinceName = cities.find(city => city.code === selectedProvinceCode)?.name ?? (selectedProvinceCode ? "Đang tải khu vực…" : "Toàn quốc");
+  const [wards, setWards] = useState<AdministrativeWard[]>([]);
+  const [isWardDropdownOpen, setIsWardDropdownOpen] = useState(false);
+  const [wardSearch, setWardSearch] = useState("");
+  const [loadingWards, setLoadingWards] = useState(false);
+  const wardDropdownRef = useRef<HTMLDivElement>(null);
 
   // Search input state (chỉ gửi API khi bấm Tìm kiếm hoặc Enter để tránh quá tải CSDL)
   const [searchInput, setSearchInput] = useState("");
 
-  // Active Filter State (CHỈ cập nhật khi bấm "Áp dụng bộ lọc" hoặc submit search/district)
-  const [filter, setFilter] = useState<FilterState>({
-    category: "all",
-    minPrice: 0,
-    maxPrice: 100,
-    areaRange: "all",
-    district: "all",
-    beds: "all",
-    baths: "all",
-    furnishingStatus: "all",
-    direction: "all",
-    balconyDirection: "all",
-    restroomType: "all",
-    kitchenType: "all",
-    accessType: "all",
-    legalStatus: "all",
-    hasMezzanine: false,
-    hasRooftop: false,
-    hasGarage: false,
-    tab: "all",
-    hasVideoOnly: false,
-    sortBy: "newest",
-    viewMode: "grid",
-    searchQuery: "",
-  });
-
-  // Call Public API whenever active filter, page, or provinceCode changes
+  // Exact administrative codes are separate from free-text search.
   useEffect(() => {
+    if (!queryReady) return;
     let cancelled = false;
 
     const runFetch = async () => {
@@ -147,21 +125,7 @@ export default function RentPage() {
           bedrooms = parseInt(filter.beds, 10);
         }
 
-        // Map provinceCode
-        let pCodeStr: string | undefined = undefined;
-        if (selectedProvinceCode) {
-          pCodeStr = String(selectedProvinceCode).padStart(2, "0");
-        }
-
-        // Keyword: combines search input and district if specified
-        const terms: string[] = [];
-        if (filter.searchQuery.trim()) {
-          terms.push(filter.searchQuery.trim());
-        }
-        if (filter.district && filter.district !== "all") {
-          terms.push(filter.district);
-        }
-        const keyword = terms.length > 0 ? terms.join(" ") : undefined;
+        const keyword = filter.searchQuery.trim() || undefined;
 
         const data = await listingService.getPublicListings({
           page: currentPage,
@@ -174,17 +138,18 @@ export default function RentPage() {
           bedrooms,
           bathrooms: filter.baths !== "all" ? parseInt(filter.baths, 10) : undefined,
           hasVideo: filter.hasVideoOnly ? true : undefined,
-          furnishingStatus: filter.furnishingStatus !== "all" ? (filter.furnishingStatus as any) : undefined,
+          furnishingStatus: filter.furnishingStatus !== "all" ? (filter.furnishingStatus as PublicListingQueryParams["furnishingStatus"]) : undefined,
           direction: filter.direction !== "all" ? filter.direction : undefined,
           balconyDirection: filter.balconyDirection !== "all" ? filter.balconyDirection : undefined,
-          restroomType: filter.restroomType !== "all" ? (filter.restroomType as any) : undefined,
+          restroomType: filter.restroomType !== "all" ? (filter.restroomType as PublicListingQueryParams["restroomType"]) : undefined,
           kitchenType: filter.kitchenType !== "all" ? filter.kitchenType : undefined,
           accessType: filter.accessType !== "all" ? filter.accessType : undefined,
           legalStatus: filter.legalStatus !== "all" ? filter.legalStatus : undefined,
           hasMezzanine: filter.hasMezzanine ? true : undefined,
           hasRooftop: filter.hasRooftop ? true : undefined,
           hasGarage: filter.hasGarage ? true : undefined,
-          cityId: pCodeStr,
+          cityId: selectedProvinceCode || undefined,
+          wardId: filter.wardId || undefined,
           keyword,
           sort: filter.sortBy,
         });
@@ -215,7 +180,7 @@ export default function RentPage() {
     return () => {
       cancelled = true;
     };
-  }, [filter, currentPage, selectedProvinceCode]);
+  }, [filter, currentPage, selectedProvinceCode, queryReady]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -223,133 +188,54 @@ export default function RentPage() {
     setCurrentPage(1);
   };
 
-  // Sync selected province from LocalStorage and Header CustomEvent
   useEffect(() => {
-    const loadProvinceAndDistricts = async (pCode: number | string, pName: string) => {
-      setSelectedProvinceCode(pCode);
-      setSelectedProvinceName(pName);
-      try {
-        setLoadingDistricts(true);
-        const dList = await listingLocationService.getWards(pCode);
-        setDistricts(dList || []);
-      } catch (err) {
-        console.error("Error loading districts for province:", err);
-      } finally {
-        setLoadingDistricts(false);
-      }
-    };
-
-    // 1. URL filter from detail breadcrumb takes precedence.
-    const params = new URLSearchParams(window.location.search);
-    const urlProvinceCode = params.get("cityId");
-    const urlProvinceName = params.get("city");
-    const urlWard = params.get("ward");
-    const urlDistrict = params.get("district");
-    const urlQuery = params.get("q")?.trim();
-    const urlCategory = params.get("category")?.toLowerCase();
-    if (urlQuery) {
-      setSearchInput(urlQuery);
-      startTransition(() => setFilter((prev) => ({ ...prev, searchQuery: urlQuery })));
-    }
-    if (urlCategory === "room" || urlCategory === "house" || urlCategory === "apartment") {
-      startTransition(() => setFilter((prev) => ({ ...prev, category: urlCategory })));
-    }
-    if (params.has("cityId") && urlProvinceName) {
-      loadProvinceAndDistricts(urlProvinceCode ?? "", urlProvinceName);
-      startTransition(() => setFilter((prev) => ({ ...prev, district: urlDistrict || urlWard || "all" })));
-    }
-
-    // 2. Initial read from localStorage
-    if (!urlProvinceCode || !urlProvinceName) {
-      try {
-        const saved = localStorage.getItem("homespace_selected_city_vietmap");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed?.code !== undefined && parsed?.name) {
-            loadProvinceAndDistricts(parsed.code, parsed.name);
-          } else {
-            loadProvinceAndDistricts("", "Toàn quốc");
-          }
-        } else {
-          loadProvinceAndDistricts("", "Toàn quốc");
-        }
-      } catch {
-        loadProvinceAndDistricts("", "Toàn quốc");
-      }
-    }
-
-    // 3. Listen to custom event when user changes province in Header
-    const handleProvinceChanged = (e: Event) => {
-      const customEvent = e as CustomEvent<{ code: number | string; name: string }>;
-      if (customEvent.detail && customEvent.detail.code !== undefined) {
-        loadProvinceAndDistricts(
-          customEvent.detail.code,
-          customEvent.detail.name
-        );
-        // Reset district selection when province changes
-        setFilter((prev) => ({ ...prev, district: "all" }));
-        setCurrentPage(1);
-      }
-    };
-
-    window.addEventListener("provinceChanged", handleProvinceChanged);
-    return () => {
-      window.removeEventListener("provinceChanged", handleProvinceChanged);
-    };
+    let cancelled = false;
+    listingLocationService.getCities().then(data => { if (!cancelled) { setCities(data); setCatalogError(""); } })
+      .catch(() => { if (!cancelled) setCatalogError("Không thể tải danh mục tỉnh/thành phố. Vui lòng tải lại trang."); });
+    return () => { cancelled = true; };
   }, []);
 
-  // Close district dropdown when clicked outside
+  useEffect(() => { setSearchInput(filter.searchQuery); }, [filter.searchQuery]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setWards([]); setWardSearch(""); setIsWardDropdownOpen(false); setWardError("");
+    if (!selectedProvinceCode) { setLoadingWards(false); return; }
+    setLoadingWards(true);
+    listingLocationService.getWards(selectedProvinceCode).then(data => { if (!cancelled) setWards(data); })
+      .catch(() => { if (!cancelled) setWardError("Không thể tải danh mục phường/xã. Vui lòng tải lại trang."); })
+      .finally(() => { if (!cancelled) setLoadingWards(false); });
+    return () => { cancelled = true; };
+  }, [selectedProvinceCode]);
+
+  // Close ward dropdown when clicked outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
-        districtDropdownRef.current &&
-        !districtDropdownRef.current.contains(event.target as Node)
+        wardDropdownRef.current &&
+        !wardDropdownRef.current.contains(event.target as Node)
       ) {
-        setIsDistrictDropdownOpen(false);
+        setIsWardDropdownOpen(false);
       }
     };
-    if (isDistrictDropdownOpen) {
+    if (isWardDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isDistrictDropdownOpen]);
+  }, [isWardDropdownOpen]);
 
-  // Filter districts based on search
-  const filteredDistricts = useMemo(() => {
-    if (!districtSearch.trim()) return districts;
-    return districts.filter((d) =>
-      d.name.toLowerCase().includes(districtSearch.toLowerCase())
+  // Filter wards based on search
+  const filteredWards = useMemo(() => {
+    if (!wardSearch.trim()) return wards;
+    return wards.filter((d) =>
+      locationMatches(d.name, wardSearch)
     );
-  }, [districts, districtSearch]);
+  }, [wards, wardSearch]);
 
   // Handle reset filter
   const handleReset = () => {
     setSearchInput("");
-    setFilter({
-      category: "all",
-      minPrice: 0,
-      maxPrice: 100,
-      areaRange: "all",
-      district: "all",
-      beds: "all",
-      baths: "all",
-      furnishingStatus: "all",
-      direction: "all",
-      balconyDirection: "all",
-      restroomType: "all",
-      kitchenType: "all",
-      accessType: "all",
-      legalStatus: "all",
-      hasMezzanine: false,
-      hasRooftop: false,
-      hasGarage: false,
-      tab: "all",
-      hasVideoOnly: false,
-      sortBy: "newest",
-      viewMode: "grid",
-      searchQuery: "",
-    });
-    setCurrentPage(1);
+    updateRentQuery(writeRentState(changeRentCity(window.location.search, ""), { ...DEFAULT_RENT_FILTER }));
   };
 
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -470,84 +356,86 @@ export default function RentPage() {
                   </div>
                 </form>
 
-                {/* Sub-bar: Left Dropdown Huyện & Right Controls */}
+                {(catalogError || wardError) && <p role="alert" className="text-xs text-destructive">{catalogError || wardError}</p>}
+                {/* Administrative ward dropdown and existing controls */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-                  {/* Left: Dropdown Quận / Huyện (Theo Header tỉnh đã chọn) */}
-                  <div className="relative" ref={districtDropdownRef}>
+                  {/* Left: Dropdown Phường / Xã (Theo Header tỉnh đã chọn) */}
+                  <div className="relative" ref={wardDropdownRef}>
                     <button
                       type="button"
+                      disabled={!selectedProvinceCode}
                       onClick={() =>
-                        setIsDistrictDropdownOpen(!isDistrictDropdownOpen)
+                        setIsWardDropdownOpen(!isWardDropdownOpen)
                       }
-                      className={`h-9 px-3.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 transition-all duration-200 cursor-pointer shadow-2xs ${filter.district !== "all"
+                      className={`h-9 px-3.5 rounded-2xl border disabled:cursor-not-allowed disabled:opacity-60 text-xs font-semibold flex items-center gap-2 transition-all duration-200 cursor-pointer shadow-2xs ${filter.wardId !== ""
                           ? "bg-primary/10 border-primary text-primary font-bold ring-1 ring-primary/20"
                           : "border-border bg-background hover:bg-muted text-foreground"
                         }`}
                     >
                       <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
                       <span className="truncate max-w-[200px]">
-                        {filter.district === "all"
-                          ? `Tất cả Quận/Huyện (${shortProvinceName})`
-                          : filter.district}
+                        {filter.wardId === ""
+                          ? (selectedProvinceCode ? `Tất cả Phường/Xã (${shortProvinceName})` : "Chọn tỉnh/thành phố trước")
+                          : wards.find(ward => ward.code === filter.wardId)?.name ?? "Phường/Xã đã chọn"}
                       </span>
                       <ChevronDown
-                        className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isDistrictDropdownOpen ? "rotate-180" : ""
+                        className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isWardDropdownOpen ? "rotate-180" : ""
                           }`}
                       />
                     </button>
 
                     {/* District Dropdown Menu */}
-                    {isDistrictDropdownOpen && (
+                    {isWardDropdownOpen && (
                       <div className="absolute top-full left-0 mt-2 w-64 bg-popover text-popover-foreground rounded-2xl shadow-2xl border border-border p-2 z-50 animate-in fade-in-50 zoom-in-95">
                         <div className="relative mb-2 px-1">
                           <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                           <input
                             type="text"
-                            value={districtSearch}
-                            onChange={(e) => setDistrictSearch(e.target.value)}
-                            placeholder="Tìm quận/huyện..."
+                            value={wardSearch}
+                            onChange={(e) => setWardSearch(e.target.value)}
+                            placeholder="Tìm phường/xã..."
                             className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted rounded-lg border border-border focus:outline-none focus:border-primary text-foreground"
                             autoFocus
                           />
                         </div>
 
                         <div className="max-h-56 overflow-y-auto space-y-0.5 no-scrollbar">
-                          {/* Option: Tất cả quận huyện */}
+                          {/* Option: Tất cả phường xã */}
                           <button
                             type="button"
                             onClick={() => {
-                              setFilter({ ...filter, district: "all" });
-                              setIsDistrictDropdownOpen(false);
-                              setDistrictSearch("");
+                              setFilter({ ...filter, wardId: "" });
+                              setIsWardDropdownOpen(false);
+                              setWardSearch("");
                               setCurrentPage(1);
                             }}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${filter.district === "all"
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${filter.wardId === ""
                                 ? "bg-primary/10 text-primary font-bold"
                                 : "text-foreground hover:bg-muted"
                               }`}
                           >
-                            <span>Tất cả Quận/Huyện</span>
-                            {filter.district === "all" && (
+                            <span>Tất cả Phường/Xã</span>
+                            {filter.wardId === "" && (
                               <Check className="w-3.5 h-3.5 text-primary shrink-0" />
                             )}
                           </button>
 
-                          {loadingDistricts ? (
+                          {loadingWards ? (
                             <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
                               <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
                               <span>Đang tải danh sách...</span>
                             </div>
-                          ) : filteredDistricts.length > 0 ? (
-                            filteredDistricts.map((d) => {
-                              const isSelected = filter.district === d.name;
+                          ) : filteredWards.length > 0 ? (
+                            filteredWards.map((d) => {
+                              const isSelected = filter.wardId === d.code;
                               return (
                                 <button
                                   key={d.code}
                                   type="button"
                                   onClick={() => {
-                                    setFilter({ ...filter, district: d.name });
-                                    setIsDistrictDropdownOpen(false);
-                                    setDistrictSearch("");
+                                    setFilter({ ...filter, wardId: d.code });
+                                    setIsWardDropdownOpen(false);
+                                    setWardSearch("");
                                     setCurrentPage(1);
                                   }}
                                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${isSelected
@@ -564,7 +452,7 @@ export default function RentPage() {
                             })
                           ) : (
                             <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                              Không tìm thấy quận/huyện
+                              Không tìm thấy phường/xã
                             </div>
                           )}
                         </div>
@@ -665,7 +553,7 @@ export default function RentPage() {
                     Không tìm thấy nhà cho thuê phù hợp
                   </h3>
                   <p className="text-xs sm:text-sm max-w-md text-muted-foreground leading-relaxed">
-                    Hãy thử điều chỉnh lại mức giá, diện tích, quận huyện hoặc nhấn Đặt lại để xem tất cả tin cho thuê đang có sẵn.
+                    Hãy thử điều chỉnh lại mức giá, diện tích, phường/xã hoặc nhấn Đặt lại để xem tất cả tin cho thuê đang có sẵn.
                   </p>
                   <Button
                     type="button"

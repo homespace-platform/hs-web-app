@@ -10,7 +10,9 @@ import UserDropdown from "./UserDropdown";
 import NotificationDropdown from "@/components/notification/NotificationDropdown";
 import UserAvatar from "@/components/common/UserAvatar";
 import listingLocationService from "@/services/listing-location.service";
-import { Province } from "@/types/province.type";
+import type { AdministrativeCity } from "@/types/administrative-location.type";
+import { locationMatches } from "@/lib/administrative-location";
+import { useRentUrlState } from "@/hooks/useRentUrlState";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchFavoriteIds } from "@/features/favorite/favoriteSlice";
 import { fetchHistoryIds } from "@/features/history/historySlice";
@@ -63,9 +65,13 @@ export default function Header() {
   const historyCount = useAppSelector((state) => state.history.count);
 
   // Province States
-  const [provinces, setProvinces] = useState<Province[]>([]);
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | string>("");
-  const [selectedProvinceName, setSelectedProvinceName] = useState<string>("Toàn quốc");
+  const [provinces, setProvinces] = useState<AdministrativeCity[]>([]);
+  const [preferredCity, setPreferredCity] = useState("");
+  const { cityId: urlCityId, setCity } = useRentUrlState();
+  const selectedProvinceCode = pathname === "/rent" ? urlCityId : preferredCity;
+  const selectedProvinceName = provinces.find(city => city.code === selectedProvinceCode)?.name ?? "Toàn quốc";
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogReload, setCatalogReload] = useState(0);
   const [isProvinceOpen, setIsProvinceOpen] = useState(false);
   const [provinceSearch, setProvinceSearch] = useState("");
   const [loadingProvinces, setLoadingProvinces] = useState(false);
@@ -107,8 +113,7 @@ export default function Header() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed?.code !== undefined && parsed?.name) {
-          setSelectedProvinceCode(parsed.code);
-          setSelectedProvinceName(parsed.name);
+          setPreferredCity(String(parsed.code));
         }
       }
     } catch {
@@ -121,10 +126,12 @@ export default function Header() {
         const data = await listingLocationService.getCities();
         if (isMounted && data && data.length > 0) {
           setProvinces(data);
+          setCatalogError("");
 
         }
       } catch (error) {
         console.error("Failed to load provinces in Header:", error);
+        if (isMounted) setCatalogError("Không thể tải danh mục tỉnh/thành phố.");
       } finally {
         if (isMounted) setLoadingProvinces(false);
       }
@@ -134,12 +141,12 @@ export default function Header() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [catalogReload]);
 
   // Save province to LocalStorage on change
-  const handleSelectProvince = (province: Province) => {
-    setSelectedProvinceCode(province.code);
-    setSelectedProvinceName(province.name);
+  const handleSelectProvince = (province: AdministrativeCity) => {
+    setPreferredCity(province.code);
+    if (pathname === "/rent") setCity(province.code);
     setIsProvinceOpen(false);
     setProvinceSearch("");
 
@@ -163,7 +170,7 @@ export default function Header() {
   const filteredProvinces = useMemo(() => {
     if (!provinceSearch.trim()) return provinces;
     return provinces.filter((p) =>
-      p.name.toLowerCase().includes(provinceSearch.toLowerCase())
+      locationMatches(p.name, provinceSearch)
     );
   }, [provinces, provinceSearch]);
 
@@ -265,6 +272,11 @@ export default function Header() {
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
                         <span>Đang tải danh sách...</span>
                       </div>
+                    ) : catalogError ? (
+                      <div role="alert" className="p-3 text-xs text-destructive">
+                        {catalogError}
+                        <button type="button" onClick={() => setCatalogReload(value => value + 1)} className="ml-2 underline">Thử lại</button>
+                      </div>
                     ) : filteredProvinces.length > 0 ? (
                       filteredProvinces.map((p) => {
                         const isSelected = String(selectedProvinceCode) === String(p.code);
@@ -297,7 +309,7 @@ export default function Header() {
 
             {/* Link Nhà Cho Thuê (Dạng text link thanh lịch) */}
             <Link
-              href="/rent"
+              href={selectedProvinceCode ? `/rent?cityId=${encodeURIComponent(selectedProvinceCode)}` : "/rent"}
               className="hidden md:flex items-center text-sm font-semibold text-foreground/90 hover:text-primary transition-colors px-2 py-1"
             >
               <span>Nhà Cho Thuê</span>
@@ -425,7 +437,7 @@ export default function Header() {
             <select
               value={selectedProvinceCode}
               onChange={(e) => {
-                const code = Number(e.target.value);
+                const code = e.target.value;
                 const prov = provinces.find((p) => p.code === code);
                 if (prov) handleSelectProvince(prov);
               }}
@@ -486,7 +498,7 @@ export default function Header() {
 
             {/* Nhà Cho Thuê */}
             <Link
-              href="/rent"
+              href={selectedProvinceCode ? `/rent?cityId=${encodeURIComponent(selectedProvinceCode)}` : "/rent"}
               onClick={() => setMobileMenuOpen(false)}
               className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
             >

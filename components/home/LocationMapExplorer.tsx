@@ -10,6 +10,7 @@ import {
   Loader2,
 } from "lucide-react";
 import listingLocationService from "@/services/listing-location.service";
+import { locationMatches } from "@/lib/administrative-location";
 import { Province } from "@/types/province.type";
 
 const CATEGORIES = [
@@ -22,12 +23,12 @@ export default function LocationMapExplorer() {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState("apartment");
   const [provinces, setProvinces] = useState<Province[]>([]);
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | string>("");
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<string>("");
   const [loadingProvinces, setLoadingProvinces] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // 1. Fetch real provinces from published listing addresses
+  // 1. Fetch the full local Vietmap snapshot served by Next.js.
   useEffect(() => {
     let isMounted = true;
     const fetchProvinces = async () => {
@@ -64,7 +65,7 @@ export default function LocationMapExplorer() {
   const filteredProvinces = useMemo(() => {
     if (!searchQuery.trim()) return provinces;
     return provinces.filter((p) =>
-      p.name.toLowerCase().includes(searchQuery.toLowerCase())
+      locationMatches(p.name, searchQuery)
     );
   }, [provinces, searchQuery]);
 
@@ -82,7 +83,7 @@ export default function LocationMapExplorer() {
               Tham khảo giá thuê nhà
             </h2>
             <p className="text-sm sm:text-base text-muted-foreground mb-6 max-w-2xl">
-              Tìm nhà theo tỉnh/thành phố có tin đăng trên HomeSpace
+              Tìm nhà theo tỉnh/thành phố trên HomeSpace
             </p>
 
             {/* Category Tabs */}
@@ -158,7 +159,7 @@ export default function LocationMapExplorer() {
                               key={p.code}
                               type="button"
                               onClick={() => {
-                                setSelectedProvinceCode(p.code);
+                                setSelectedProvinceCode(String(p.code));
                                 setIsDropdownOpen(false);
                                 setSearchQuery("");
                               }}

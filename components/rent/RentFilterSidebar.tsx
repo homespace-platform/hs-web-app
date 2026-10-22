@@ -25,7 +25,7 @@ export interface FilterState {
   minPrice: number; // in Millions
   maxPrice: number; // in Millions
   areaRange: string;
-  district: string;
+  wardId: string;
   beds: string;
   baths: string;
   furnishingStatus: string;

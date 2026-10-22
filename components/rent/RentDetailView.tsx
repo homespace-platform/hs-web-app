@@ -127,8 +127,8 @@ export default function RentDetailView({
   const wardName = property.ward ?? property.district;
   const provinceLabel = formatLocationLabel(provinceName);
   const wardLabel = formatLocationLabel(wardName);
-  const provinceHref = `/rent?cityId=${encodeURIComponent(provinceCode)}&city=${encodeURIComponent(provinceName)}`;
-  const wardHref = `${provinceHref}&ward=${encodeURIComponent(wardName)}`;
+  const provinceHref = `/rent?cityId=${encodeURIComponent(provinceCode)}`;
+  const wardHref = property.wardCode ? `${provinceHref}&wardId=${encodeURIComponent(property.wardCode)}` : provinceHref;
 
   const { profile, authenticated, login } = useAuth();
   const router = useRouter();

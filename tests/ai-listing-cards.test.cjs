@@ -23,8 +23,11 @@ const { cardListingIds, createListingCardLoader } = load("lib/ai-listing-cards.t
 const ids = Array.from({ length: 7 }, (_, i) => `00000000-0000-0000-0000-${String(i + 1).padStart(12, "0")}`);
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
-test("only validated deduplicated IDs can hydrate cards, capped at five", () => {
-  assert.deepEqual(cardListingIds([ids[0], "javascript:alert(1)", ids[0], ...ids.slice(1)]), ids.slice(0, 5));
+test("validated IDs preserve a requested page larger than five, with an absolute safety ceiling", () => {
+  assert.deepEqual(cardListingIds([ids[0], "javascript:alert(1)", ids[0], ...ids.slice(1)]), ids);
+  const many = Array.from({length: 100}, (_, i) => `00000000-0000-0000-0000-${String(i + 1).padStart(12, "0")}`);
+  assert.deepEqual(cardListingIds(many.slice(0, 10)), many.slice(0, 10));
+  assert.equal(cardListingIds(many).length, 50);
   assert.deepEqual(cardListingIds(undefined), []);
 });
 

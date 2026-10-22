@@ -55,8 +55,8 @@ function ListingCard({ id, position }: { id: string; position: number }) {
           {state.error === "unavailable" ? "Tin này hiện không còn hiển thị công khai." : "Chưa tải được tin đăng. Nội dung tư vấn vẫn được giữ nguyên."}
           {state.error === "network" && <button type="button" onClick={() => setAttempt((value) => value + 1)} className="mt-2 block text-primary underline">Thử lại</button>}
         </div>
-      : <div className="flex min-h-32 gap-3 rounded-xl border border-border bg-muted/40 animate-pulse p-3" role="status" aria-label={`Đang tải tin ${position}`}>
-          <div className="h-24 w-20 shrink-0 rounded-lg bg-muted sm:size-28" />
+      : <div className="flex min-h-[4.5rem] gap-2 rounded-lg border border-border bg-muted/40 animate-pulse p-1.5" role="status" aria-label={`Đang tải tin ${position}`}>
+          <div className="size-16 shrink-0 rounded-md bg-muted" />
           <div className="min-w-0 flex-1"><div className="h-3 w-3/4 rounded bg-muted" /><div className="mt-2 h-3 w-1/3 rounded bg-muted" />
           <p className="mt-3 text-xs text-muted-foreground">Đang tải tin {position}…</p></div>
         </div>}
@@ -66,9 +66,9 @@ function ListingCard({ id, position }: { id: string; position: number }) {
 export default function AiListingCards({ listingIds, positions }: { listingIds: string[]; positions?: Record<string, number> }) {
   const ids = cardListingIds(listingIds);
   if (!ids.length) return null;
-  return <section className="mt-3" aria-label="Tin đăng được đề xuất">
-    <p className="mb-2 text-[11px] text-muted-foreground">Bấm thẻ để mở chi tiết trong tab mới.</p>
-    <div className="grid gap-2">
+  return <section className="mt-2" aria-label="Tin đăng được đề xuất">
+    <p className="mb-1 text-[10px] text-muted-foreground">Bấm thẻ để mở chi tiết trong tab mới.</p>
+    <div className="grid gap-1.5 md:grid-cols-2 2xl:grid-cols-3">
       {ids.map((id, index) => <ListingCard key={id} id={id} position={positions?.[id] || index + 1} />)}
     </div>
   </section>;

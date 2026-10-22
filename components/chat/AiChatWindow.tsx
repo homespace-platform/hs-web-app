@@ -44,6 +44,8 @@ interface AiChatWindowProps {
   notice?: React.ReactNode;
   initialDraft?: string;
   isVisible?: boolean;
+  /** Full chat page renders suggestions in its sidebar instead of above the input. */
+  showSuggestionBar?: boolean;
 }
 
 export default function AiChatWindow({
@@ -66,6 +68,7 @@ export default function AiChatWindow({
   notice,
   initialDraft = "",
   isVisible = true,
+  showSuggestionBar = true,
 }: AiChatWindowProps) {
   const [inputText, setInputText] = useState(initialDraft);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -197,13 +200,13 @@ export default function AiChatWindow({
       {notice}
 
       {/* 2. Chat Stream Area */}
-      <div ref={streamRef} role="log" aria-label="Hội thoại với HomeSpace AI" aria-busy={isSending} className={`flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-5 ${compact ? "" : "md:p-8"}`}>
+      <div ref={streamRef} role="log" aria-label="Hội thoại với HomeSpace AI" aria-busy={isSending} className={`flex-1 min-h-0 overflow-y-auto overscroll-contain ${compact ? "p-3 sm:p-5" : "px-3 py-4 sm:px-6 lg:px-10"}`}>
         {isLoadingHistory ? (
           <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
             Đang tải cuộc trò chuyện...
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto space-y-5 pb-4">
+          <div className={`space-y-4 pb-4 ${compact ? "max-w-3xl mx-auto" : "w-full max-w-6xl mx-auto"}`}>
             {/* Local greeting: not persisted or sent to the model as evidence. */}
             <div className="flex gap-3 justify-start" data-ai-greeting="">
               <div className="w-8 h-8 rounded-full bg-white border border-primary/25 p-1 shrink-0 shadow-2xs flex items-center justify-center mt-0.5">
@@ -343,7 +346,7 @@ export default function AiChatWindow({
       </div>
 
       {/* 3. Quick Suggestions Chips Bar */}
-      <div className="shrink-0 px-3 sm:px-4 py-2 border-t border-border/60 bg-muted/20 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+      {showSuggestionBar && <div className="shrink-0 px-3 sm:px-4 py-2 border-t border-border/60 bg-muted/20 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
         <span className="text-[11px] text-muted-foreground font-medium shrink-0 flex items-center gap-1 pl-1">
           <span>Gợi ý:</span>
         </span>
@@ -359,7 +362,7 @@ export default function AiChatWindow({
             {topic.title}
           </button>
         ))}
-      </div>
+      </div>}
 
       {/* 4. Bottom Message Input Bar */}
       <div className="shrink-0 p-3 sm:p-4 border-t border-border bg-card">

@@ -21,6 +21,7 @@ import {
   ChatChannelType,
   AiChatSession,
 } from "@/types/chat.type";
+import { AI_QUICK_TOPICS } from "@/data/mock-chat-data";
 
 interface ChatSidebarProps {
   channel: ChatChannelType;
@@ -33,6 +34,8 @@ interface ChatSidebarProps {
   onDeleteAiSession?: (id: string) => void;
   onTogglePinAiSession?: (id: string) => void;
   isAiInitializing?: boolean;
+  isAiSending?: boolean;
+  onSelectTopic?: (prompt: string) => void;
   onToggleCollapse?: () => void;
   // Direct P2P Conversations
   directConversations: ChatConversation[];
@@ -58,6 +61,8 @@ export default function ChatSidebar({
   onDeleteAiSession,
   onTogglePinAiSession,
   isAiInitializing = false,
+  isAiSending = false,
+  onSelectTopic,
   onToggleCollapse,
   directConversations,
   activeDirectConversationId,
@@ -324,6 +329,29 @@ export default function ChatSidebar({
               </div>
 
             </div>
+
+            {/* Gợi ý nhanh: ghim cuối sidebar, danh sách lịch sử phía trên tự cuộn */}
+            {onSelectTopic && (
+              <div className="shrink-0 border-t border-border/70 bg-muted/20 p-2">
+                <div className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Gợi ý
+                </div>
+                <div className="flex flex-col gap-1">
+                  {AI_QUICK_TOPICS.slice(0, 5).map((topic) => (
+                    <button
+                      key={topic.id}
+                      type="button"
+                      onClick={() => onSelectTopic(topic.prompt)}
+                      disabled={isAiInitializing || isAiSending}
+                      title={topic.prompt}
+                      className="truncate rounded-lg border border-border/60 bg-card px-2.5 py-1.5 text-left text-xs font-medium text-foreground shadow-2xs transition-all hover:border-primary/30 hover:bg-primary/10 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                    >
+                      {topic.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           /* ========================================================================= */

@@ -499,6 +499,8 @@ function ChatWorkspace() {
                 onDeleteAiSession={handleDeleteAiSession}
                 onTogglePinAiSession={handleTogglePinAiSession}
                 isAiInitializing={isInitializingAi || !authenticated}
+                isAiSending={pendingAiSessionId !== null && pendingAiSessionId === activeAiSessionId}
+                onSelectTopic={handleSelectAiTopic}
                 // Direct P2P
                 directConversations={authenticated ? directConversations : []}
                 activeDirectConversationId={authenticated ? selectedDirectConversationId : null}
@@ -538,6 +540,7 @@ function ChatWorkspace() {
               <AiChatWindow
                 key={`${ownerKey ?? "initializing"}:${resumedDraft ? activeAiSessionId : ""}`}
                 size="full"
+                showSuggestionBar={false}
                 session={activeAiSession}
                 customerName={customerName}
                 isGuest={!authenticated}

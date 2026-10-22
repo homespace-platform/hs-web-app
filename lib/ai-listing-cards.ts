@@ -2,7 +2,8 @@
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function cardListingIds(values: readonly string[] | undefined): string[] {
-  return [...new Set((values || []).filter((id) => typeof id === "string" && UUID.test(id)).map((id) => id.toLowerCase()))].slice(0, 5);
+  // Match the service's absolute safety ceiling; the actual page size comes from the user's request.
+  return [...new Set((values || []).filter((id) => typeof id === "string" && UUID.test(id)).map((id) => id.toLowerCase()))].slice(0, 50);
 }
 
 // Share only in-flight reads. Do not retain successful prices/statuses across chat reopens.

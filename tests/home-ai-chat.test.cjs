@@ -146,6 +146,8 @@ const ChatWindow = load("components/chat/AiChatWindow.tsx", {
   "@/components/chat/GuestAiLoginDialog": () => null,
   "next/image": ({ unoptimized, ...props }) => React.createElement("img", props),
   "@/components/chat/AiListingCards": ({ listingIds, positions }) => React.createElement("div", { "data-card-ids": listingIds.join(","), "data-card-ordinal": positions?.[listingIds[0]] }),
+  "@/components/chat/AiListingLinks": ({ listingIds }) => React.createElement("p", { "data-link-ids": listingIds.join(",") }),
+  "@/lib/ai-listing-cards": load("lib/ai-listing-cards.ts"),
   "@/components/chat/AiContractCards": ({ cards }) => React.createElement("div", { "data-contract-cards": cards.map((card) => card.contractId).join(",") }),
   "@/lib/ai-contract-cards": load("lib/ai-contract-cards.ts"),
   "@/components/chat/AiAppointmentCards": ({ cards }) => React.createElement("div", { "data-appointment-cards": cards.map((card) => card.appointmentId).join(",") }),

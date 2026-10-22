@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import type { AiChatSession } from "@/types/chat.type";
 import AiListingCards from "@/components/chat/AiListingCards";
+import AiListingLinks from "@/components/chat/AiListingLinks";
+import { splitCardsAndLinks } from "@/lib/ai-listing-cards";
 import AiContractCards from "@/components/chat/AiContractCards";
 import AiAppointmentCards from "@/components/chat/AiAppointmentCards";
 import { aiSourceNote, aiStatusNote, safeContractCards } from "@/lib/ai-contract-cards";
@@ -77,6 +79,7 @@ export default function AiChatWindow({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const messages = useMemo(() => session?.messages || [], [session?.messages]);
+  const listingSplit = useMemo(() => splitCardsAndLinks(messages), [messages]);
   const isNewSession = messages.length === 0;
   const compact = size === "compact";
 
@@ -274,7 +277,8 @@ export default function AiChatWindow({
                     <div className={isUser ? "whitespace-pre-wrap leading-relaxed text-xs sm:text-sm" : "leading-relaxed text-xs sm:text-sm"}>
                       {isUser ? msg.content : <AiMarkdownMessage content={msg.content} />}
                     </div>
-                    {!isUser && Boolean(msg.listingIds?.length) && <AiListingCards listingIds={msg.listingIds!} positions={msg.listingPositions} />}
+                    {!isUser && (listingSplit.get(msg.id)?.cards.length ?? 0) > 0 && <AiListingCards listingIds={listingSplit.get(msg.id)!.cards} positions={msg.listingPositions} />}
+                    {!isUser && (listingSplit.get(msg.id)?.links.length ?? 0) > 0 && <AiListingLinks listingIds={listingSplit.get(msg.id)!.links} positions={msg.listingPositions} />}
                     {contractCards.length > 0 && <AiContractCards cards={contractCards} />}
                     {appointmentCards.length > 0 && <AiAppointmentCards cards={appointmentCards} />}
                     {(statusNote || sourceNote) && (
@@ -393,12 +397,6 @@ export default function AiChatWindow({
             >
               <Send className="w-4 h-4" />
             </button>
-          </div>
-
-          <div className="flex items-center justify-end px-1">
-            <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">
-              Tin đăng được tra cứu khi hỏi • Hướng dẫn dựa trên tài liệu được duyệt • {isGuest ? "Khách được hỏi 3 câu • Hội thoại chỉ tồn tại trong phiên này" : "Hội thoại được lưu riêng cho tài khoản của bạn"}
-            </span>
           </div>
         </form>
       </div>

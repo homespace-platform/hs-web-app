@@ -32,3 +32,24 @@ export function createListingCardLoader<T>(fetchListing: (id: string) => Promise
     return request;
   };
 }
+
+/**
+ * First time a listing appears in a conversation it gets a card; later mentions of the same
+ * listing (follow-ups reusing earlier results) become text links so nothing renders twice.
+ */
+export function splitCardsAndLinks(
+  messages: readonly { id: string; sender?: string; listingIds?: string[] }[],
+): Map<string, { cards: string[]; links: string[] }> {
+  const shown = new Set<string>();
+  const result = new Map<string, { cards: string[]; links: string[] }>();
+  for (const message of messages) {
+    if (message.sender === "me") continue;
+    const ids = cardListingIds(message.listingIds);
+    if (!ids.length) continue;
+    const cards = ids.filter((id) => !shown.has(id));
+    const links = ids.filter((id) => shown.has(id));
+    cards.forEach((id) => shown.add(id));
+    result.set(message.id, { cards, links });
+  }
+  return result;
+}

@@ -19,7 +19,21 @@ function load(relativePath, mocks = {}) {
   return module.exports;
 }
 
-const { cardListingIds, createListingCardLoader } = load("lib/ai-listing-cards.ts");
+const { cardListingIds, createListingCardLoader, splitCardsAndLinks } = load("lib/ai-listing-cards.ts");
+
+test("a listing gets a card once; later reuse becomes a link, new ones still get cards", () => {
+  const a = "00000000-0000-0000-0000-00000000000a", b = "00000000-0000-0000-0000-00000000000b";
+  const c = "00000000-0000-0000-0000-00000000000c";
+  const split = splitCardsAndLinks([
+    { id: "u1", sender: "me" },
+    { id: "m1", sender: "ai", listingIds: [a, b] },
+    { id: "m2", sender: "ai", listingIds: [b, a] },
+    { id: "m3", sender: "ai", listingIds: [a, c] },
+  ]);
+  assert.deepEqual(split.get("m1"), { cards: [a, b], links: [] });
+  assert.deepEqual(split.get("m2"), { cards: [], links: [b, a] });
+  assert.deepEqual(split.get("m3"), { cards: [c], links: [a] });
+});
 const ids = Array.from({ length: 7 }, (_, i) => `00000000-0000-0000-0000-${String(i + 1).padStart(12, "0")}`);
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 

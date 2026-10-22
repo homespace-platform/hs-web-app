@@ -56,10 +56,10 @@ export const contractService = {
     return response.data.result ?? null;
   },
 
-  async createDraft(request: CreateContractDraftRequest): Promise<ContractResponse> {
+  async createDraft(request: CreateContractDraftRequest, signal?: AbortSignal): Promise<ContractResponse> {
     const response = await axiosClient.post<ApiResponse<ContractResponse>>(
       "/api/v1/contracts",
-      request
+      request, { signal }
     );
     return response.data.result;
   },

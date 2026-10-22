@@ -5,9 +5,19 @@ export function canOpenDepositQuickView(request: Pick<RentalRequestResponse, "st
   return request.status !== "PENDING" && !!request.initialPayment?.id;
 }
 
-export function selectReservationPayment(payments: PaymentRequest[], rentalRequestId: string) {
-  const incoming=payments.filter(p=>p.rentalRequestId===rentalRequestId && p.direction==="TENANT_TO_LANDLORD");
-  return incoming.find(p=>p.type==="RESERVATION_DEPOSIT") ?? incoming.find(p=>p.type==="INITIAL") ?? null;
+/** Current actionable receipt, not always the already-confirmed reservation deposit. */
+export function selectOnboardingPayment(payments: PaymentRequest[], rentalRequestId: string, paymentId?:string|null) {
+  const incoming=payments.filter(p=>p.rentalRequestId===rentalRequestId && p.direction==="TENANT_TO_LANDLORD"
+    && ["RESERVATION_DEPOSIT","INITIAL"].includes(p.type));
+  if(paymentId)return incoming.find(p=>p.id===paymentId) ?? null;
+  return incoming.find(p=>p.type==="INITIAL" && p.status==="TRANSFER_REPORTED")
+    ?? incoming.find(p=>p.status==="TRANSFER_REPORTED")
+    ?? incoming.find(p=>p.type==="INITIAL") ?? incoming[0] ?? null;
+}
+
+export function paymentSummaryTitle(payment:RentalRequestResponse["initialPayment"]) {
+  if(payment?.displayName)return payment.displayName;
+  return payment?.type==="RESERVATION_DEPOSIT"?"Tiền cọc giữ chỗ":"Khoản thanh toán";
 }
 
 export function canReviewReservationReceipt(payment: PaymentRequest, actorId: string | null, isLandlord: boolean) {

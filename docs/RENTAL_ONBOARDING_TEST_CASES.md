@@ -33,7 +33,7 @@ Các mốc chính: yêu cầu thuê → cọc → chờ ngày vào ở → tiề
 Mỗi nhánh dùng một yêu cầu/Listing riêng. Sau đổi đồng hồ, restart Core, chờ tối đa khoảng 30 giây hoặc bấm Làm mới tiến trình nhận nhà. Các thao tác đối soát, hủy và chuyển tiền cần người dùng chủ động; scheduler không thực hiện thay.
 
 1. Vào ở 21/10: chủ nhà chấp nhận → chỉ một QR gồm cọc + tháng đầu. Báo chuyển, chủ nhà xác nhận rồi mới ký. Không tạo cọc thứ hai.
-2. Vào ở 01/11: chấp nhận ngày 21/10 → QR chỉ có cọc. Chủ nhà xác nhận cọc → có thể tạo bản nháp, chưa ký, chưa thu tháng đầu.
+2. Vào ở 01/11: chấp nhận ngày 22/10 → QR chỉ có cọc. Chủ nhà xác nhận cọc → chưa tạo bản nháp, chưa ký, chưa thu tháng đầu, không hiện nút tạo hợp đồng. Tới 01/11 mở tháng đầu; xác nhận đủ tiền → Core tự tạo bản nháp. Nếu chưa có draft, chủ nhà có nút dự phòng **Tạo hợp đồng** ở danh sách/modal: vẫn cùng endpoint, điều kiện và mẫu hệ thống. Thiếu mẫu phải báo quản trị viên bổ sung; sau khi phát hành mẫu, bấm lại hoặc chờ job sẽ cùng trả về một draft, không tạo trùng. Người thuê không có nút này.
 3. 31/10 23:59:59: ca 2 chưa có tiền tháng đầu. Gọi trực tiếp API ký cũng bị chặn.
 4. 01/11 00:00:00: tiền tháng đầu mở một lần, không kèm cọc. Refresh nhiều lần, scheduler chạy nhiều lần không tạo thêm khoản.
 5. Chủ nhà xác nhận tháng đầu → ký theo đúng thứ tự, Listing RENTED, yêu cầu COMPLETED. PDF thể hiện riêng mã/thời điểm hai khoản.
@@ -62,7 +62,7 @@ Mỗi nhánh dùng một yêu cầu/Listing riêng. Sau đổi đồng hồ, res
 28. Kết thúc tháng đầu: hóa đơn thu chi phí tháng đã ở + tiền thuê kỳ tiếp theo; không thu lại cọc/tháng đầu. Xin bắt đầu sớm phải đổi cả mốc hóa đơn/gia hạn/phụ lục.
 29. Mobile upload: token vẫn hết hạn theo giờ thực 10 phút; tiền cọc/tháng đầu vẫn kiểm tra cửa sổ nghiệp vụ, không vượt hạn nhờ phiên upload còn hạn.
 30. Mở đồng thời hai tab và refresh → số tiền, trạng thái, ngày thuê đồng nhất sau tải lại; retry không tạo trùng nghĩa vụ hoặc quyết định.
-31. Ca 2 (vào ở 01/11), chủ nhà đã xác nhận cọc và tạo bản nháp → người thuê thấy bản nháp ở "Hợp đồng đi thuê" (bộ lọc "Bản nháp để xem trước", nhãn "Bản nháp · Chưa có hiệu lực"), ở thẻ/chi tiết yêu cầu thuê ("Xem bản nháp hợp đồng") và mở được chi tiết, tài liệu, xem/tải PDF, revision, breakdown. Tổng số và phân trang khớp vì lọc ở truy vấn.
+31. Ca 2 (vào ở 01/11): chỉ xác nhận cọc chưa có bản nháp. Sau xác nhận đủ tháng đầu, Core tự tạo bản nháp → người thuê thấy ở "Hợp đồng đi thuê" (nhãn "Bản nháp · Chưa có hiệu lực"), ở thẻ/chi tiết yêu cầu thuê và mở được chi tiết, revision, breakdown; xem/tải PDF sau khi chủ nhà kết xuất. Tổng số và phân trang khớp vì lọc ở truy vấn. Hồ sơ cũ có bản nháp được giữ nguyên, không tự xóa.
 32. Cọc mới ở trạng thái "đã báo chuyển", bị từ chối hoặc tranh chấp; sai người nộp/nhận; yêu cầu thuê chưa ACCEPTED; tài khoản không thuộc hợp đồng → không thấy bản nháp (danh sách, tra theo yêu cầu thuê, chi tiết, tài liệu, storage).
 33. Người thuê xem bản nháp nhưng không sửa, không render/gửi, không đổi ngày thuê, không trả tháng đầu sớm, không ký (UI ẩn nút, API từ chối kể cả ký nội bộ gọi trực tiếp). Chủ nhà vẫn xem/sửa như cũ.
 34. Cọc đã xác nhận không làm `paymentStatus` thành đã thanh toán đủ; chủ nhà thấy riêng "khách báo đã chuyển" và "chủ nhà đã xác nhận nhận tiền", không tự xác nhận thay.

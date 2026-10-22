@@ -57,6 +57,7 @@ export interface RentalRequestResponse {
   holdExpiresAt: string | null;
   respondBy?: string | null;
   initialPayment?: import("./rental-payment.type").InitialPaymentSummary | null;
+  latestStartChange?: import("@/services/rental-onboarding.service").RentalStartChange | null;
   createdAt: string;
   updatedAt: string;
 }

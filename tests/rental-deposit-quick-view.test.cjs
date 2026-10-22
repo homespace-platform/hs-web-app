@@ -14,8 +14,8 @@ function load(file) {
   vm.runInThisContext(`(function(require,module,exports){${output}\n})`)(resolve,mod,mod.exports);
   cache.set(file,mod.exports);return mod.exports;
 }
-const {canOpenDepositQuickView,selectReservationPayment,canReviewReservationReceipt,reservationPaymentTitle}=load("lib/rental-deposit-quick-view.ts");
-const {ReservationReceipt}=load("components/rental-request/RentalDepositQuickViewModal.tsx");
+const {canOpenDepositQuickView,selectOnboardingPayment,canReviewReservationReceipt,reservationPaymentTitle}=load("lib/rental-deposit-quick-view.ts");
+const {ReservationReceipt,RentalReceiptNotice}=load("components/rental-request/RentalDepositQuickViewModal.tsx");
 const deposit={id:"deposit",rentalRequestId:"rental",payeeId:"owner",payerId:"tenant",type:"RESERVATION_DEPOSIT",
   direction:"TENANT_TO_LANDLORD",status:"TRANSFER_REPORTED",totalAmount:12400000,transferReference:"HS123",
   payerReportedAt:"2026-10-22T03:00:00Z",lineItems:[],evidences:[{id:"proof",storageObjectId:"private-proof"}],
@@ -23,10 +23,34 @@ const deposit={id:"deposit",rentalRequestId:"rental",payeeId:"owner",payerId:"te
 const rent={...deposit,id:"rent",type:"INITIAL",status:"AWAITING_TRANSFER"};
 const render=(payment=deposit,extra={})=>renderToStaticMarkup(React.createElement(ReservationReceipt,
   {payment,actorId:"owner",isLandlord:true,onConfirm(){},onReject(){},onProof(){},...extra}));
-test("quick view keeps the reservation deposit selected even when first-month rent already exists",()=>{
-  assert.equal(selectReservationPayment([rent,{...deposit,status:"CONFIRMED"}],"rental").id,"deposit");
-  assert.equal(selectReservationPayment([rent],"rental").id,"rent");
-  assert.equal(selectReservationPayment([{...deposit,rentalRequestId:"other"},{...deposit,type:"INITIAL_PAYMENT_REFUND"}],"rental"),null);
+test("the paid deposit can be selected explicitly without hijacking the default current-payment view",()=>{
+  assert.equal(selectOnboardingPayment([rent,{...deposit,status:"CONFIRMED"}],"rental","deposit").id,"deposit");
+  assert.equal(selectOnboardingPayment([rent],"rental").id,"rent");
+  assert.equal(selectOnboardingPayment([{...deposit,rentalRequestId:"other"},{...deposit,type:"INITIAL_PAYMENT_REFUND"}],"rental"),null);
+});
+
+test("payment quick view opens the reported first month and still allows explicitly viewing the paid deposit",()=>{
+  const paidDeposit={...deposit,status:"CONFIRMED"};const reportedRent={...rent,status:"TRANSFER_REPORTED"};
+  assert.equal(selectOnboardingPayment([paidDeposit,reportedRent],"rental").id,"rent");
+  assert.equal(selectOnboardingPayment([paidDeposit,reportedRent],"rental","deposit").id,"deposit");
+  assert.equal(selectOnboardingPayment([paidDeposit,reportedRent],"rental","rent").id,"rent");
+  assert.equal(selectOnboardingPayment([paidDeposit,rent],"rental").id,"rent");
+  assert.equal(selectOnboardingPayment([paidDeposit],"rental","missing"),null);
+  for(const patch of [{rentalRequestId:"other"},{direction:"LANDLORD_TO_TENANT"},{type:"INITIAL_PAYMENT_REFUND"},{type:"MONTHLY_RENT"}])
+    assert.equal(selectOnboardingPayment([{...reportedRent,...patch}],"rental","rent"),null);
+});
+
+test("first-month transfer notice exposes the exact amount and receipt action directly on the list",()=>{
+  const request={status:"ACCEPTED",initialPayment:{id:"rent",type:"INITIAL",displayName:"Tiền thuê tháng đầu",status:"TRANSFER_REPORTED",
+    totalAmount:24680000,transferReference:"HSFIRSTRENT",payerReportedAt:"2026-10-31T03:00:00Z",confirmationDueAt:"2026-11-01T03:00:00Z"}};
+  const notice=value=>renderToStaticMarkup(React.createElement(RentalReceiptNotice,{request:value,onOpen(){}}));
+  const html=notice(request);assert.match(html,/Tiền thuê tháng đầu/);assert.match(html,/24\.680\.000/);
+  assert.match(html,/HSFIRSTRENT|Hạn xác nhận/);assert.match(html,/Kiểm tra &amp; xác nhận/);
+  assert.doesNotMatch(html,/INITIAL|RESERVATION_DEPOSIT/);
+  assert.equal(notice({...request,status:"CANCELLED_BY_OWNER"}),"");
+  assert.equal(notice({...request,initialPayment:{...request.initialPayment,status:"CONFIRMED"}}),"");
+  const receipt=render({...rent,status:"TRANSFER_REPORTED",totalAmount:24680000,lineItems:[]});
+  assert.match(receipt,/Tiền thuê tháng đầu/);assert.match(receipt,/Xác nhận đã nhận đủ tiền/);assert.doesNotMatch(receipt,/Khoản này chỉ là cọc giữ chỗ/);
 });
 test("owner shortcut is available for receipts, not unaccepted requests or guessed payment data",()=>{
   assert.equal(canOpenDepositQuickView({status:"ACCEPTED",initialPayment:{id:"deposit"}}),true);
@@ -69,4 +93,9 @@ test("shortcut opens an independent quick modal, refreshes the list and retains 
   assert.match(modal,/view.askerRole!=="LANDLORD"/);assert.match(modal,/payment.payeeId!==userId/);
   assert.match(modal,/actionLock.current=true;setBusy\(true\)/);assert.match(modal,/getPaymentProofViewUrl\(storageId\)/);
   assert.match(modal,/Promise.allSettled/);assert.match(modal,/<dialog/);
+  assert.match(modal,/selectOnboardingPayment\(view.payments,request.id,selectedPaymentId \?\? retainedPaymentId.current\)/);
+  assert.match(modal,/confirmReceipt\(current.payment.id\)/);
+  assert.match(modal,/Chọn khoản thanh toán/);
+  assert.match(list,/<RentalReceiptNotice request=\{req\} onOpen=\{\(\)=>setDepositQuickTarget\(req\)\}/);
+  assert.doesNotMatch(list,/<span>Xem tiền cọc<\/span>/);
 });

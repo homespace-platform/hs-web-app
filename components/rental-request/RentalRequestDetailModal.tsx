@@ -1,6 +1,7 @@
 "use client";
 
 import RentalOnboardingPanel from "./RentalOnboardingPanel";
+import RentalContractFallbackButton from "./RentalContractFallbackButton";
 import type { RentalOnboarding } from "@/services/rental-onboarding.service";
 
 import React, { useEffect, useState, useCallback } from "react";
@@ -72,7 +73,8 @@ interface RentalRequestDetailModalProps {
   onCancel?: (req: RentalRequestResponse) => void;
   onPayMock?: (req: RentalRequestResponse) => void;
   onOpenContract?: (contractId: string) => void;
-  onCreateContract?: (req: RentalRequestResponse) => void;
+  onCreateDraft?: (request: RentalRequestResponse) => void;
+  creatingContract?: boolean;
   onPaymentStatusChange?: () => void;
   isProcessingAction?: boolean;
 }
@@ -151,7 +153,8 @@ export default function RentalRequestDetailModal({
   onCancel,
   onPayMock,
   onOpenContract,
-  onCreateContract,
+  onCreateDraft,
+  creatingContract=false,
   onPaymentStatusChange,
   isProcessingAction = false,
 }: RentalRequestDetailModalProps) {
@@ -279,7 +282,7 @@ export default function RentalRequestDetailModal({
     setConfirmingReceipt(true);
     try {
       await paymentRequestService.confirmReceipt(paymentId);
-      toast.success("Đã xác nhận nhận đủ tiền. Chủ nhà có thể tiếp tục tạo hợp đồng.");
+      toast.success("Đã xác nhận khoản thanh toán. Hệ thống tự tạo bản nháp khi đủ cọc và tiền thuê tháng đầu theo tiến trình nhận nhà.");
       onPaymentStatusChange?.();
       if (requestId) {
         const fresh = await rentalRequestService.getRequestById(requestId);
@@ -838,7 +841,7 @@ export default function RentalRequestDetailModal({
               {/* Khách thuê ACCEPTED và PENDING thanh toán -> Nút Chuyển khoản giữ chỗ */}
 
 
-              {/* Chủ nhà ACCEPTED -> Tạo hợp đồng hoặc Xem hợp đồng */}
+              {/* Tự động là luồng chính; nút dự phòng dùng lại endpoint và kiểm tra hiện tại. */}
               {mode === "RECEIVED" && (detail.status === "ACCEPTED" || detail.status === "COMPLETED") && (
                 linkedContract ? (
                   <button
@@ -852,32 +855,15 @@ export default function RentalRequestDetailModal({
                   </button>
                 ) : (
                   detail.status === "ACCEPTED" && (
-                    onboarding?.canPrepareContract ? (
-                      <button
-                        type="button"
-                        disabled={isProcessingAction}
-                        onClick={() => onCreateContract?.(detail)}
-                        className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-40"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        <span>Tạo hợp đồng</span>
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          disabled
-                          title="Chỉ tạo bản nháp khi tiến trình nhận nhà cho phép sau xác nhận cọc."
-                          className="px-4 py-2 rounded-xl bg-muted text-muted-foreground border border-border text-xs font-semibold cursor-not-allowed inline-flex items-center gap-1.5 opacity-60"
-                        >
-                          <FileText className="w-3.5 h-3.5" />
-                          <span>Tạo hợp đồng</span>
-                        </button>
-                        <span className="text-[11px] text-muted-foreground italic hidden sm:inline">
-                          * Xem điều kiện tạo bản nháp trong tiến trình nhận nhà.
-                        </span>
-                      </div>
-                    )
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <p role="status" className="max-w-lg text-xs text-muted-foreground">
+                        {onboarding?.canPrepareContract
+                          ? onboarding.message
+                          : "Hợp đồng được tạo tự động sau khi chủ nhà xác nhận đủ cọc và tiền thuê tháng đầu. Chỉ nhận cọc chưa tạo bản nháp."}
+                      </p>
+                      <RentalContractFallbackButton request={detail} mode={mode} contract={linkedContract} view={onboarding}
+                        busy={creatingContract} disabled={isProcessingAction} onCreate={onCreateDraft} />
+                    </div>
                   )
                 )
               )}

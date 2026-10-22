@@ -17,6 +17,8 @@ interface ContractHandoverSectionProps {
   isLandlord: boolean;
   isDirty: boolean;
   saving: boolean;
+  priority?: boolean;
+  missingFieldsNotice?: React.ReactNode;
   errors?: { electricity?: string; water?: string };
   onElectricityChange?: (val: string) => void;
   onWaterChange?: (val: string) => void;
@@ -35,6 +37,8 @@ export default function ContractHandoverSection({
   isLandlord,
   isDirty,
   saving,
+  priority=false,
+  missingFieldsNotice,
   errors,
   onElectricityChange,
   onWaterChange,
@@ -51,7 +55,9 @@ export default function ContractHandoverSection({
       : "Chưa ghi nhận";
 
   return (
-    <section id="contract-handover" className="rounded-2xl border border-border bg-card p-4.5 space-y-3 shadow-2xs">
+    <section id="contract-handover" aria-label="Chỉ số công tơ ban đầu"
+      className={`rounded-2xl border bg-card p-4.5 space-y-3 shadow-2xs ${priority ? "border-amber-300 dark:border-amber-800" : "border-border"}`}>
+      {priority && missingFieldsNotice}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/70 pb-2">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-primary/10 text-primary">

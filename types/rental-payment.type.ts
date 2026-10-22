@@ -16,6 +16,9 @@ export type RentalPaymentStatus =
 
 export interface InitialPaymentSummary {
   id: string;
+  type?: "RESERVATION_DEPOSIT" | "INITIAL";
+  displayName?: string;
+  confirmationDueAt?: string | null;
   status: RentalPaymentStatus;
   totalAmount: number;
   transferReference?: string | null;

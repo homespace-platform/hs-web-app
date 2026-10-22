@@ -7,7 +7,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
-  AlertTriangle,
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -34,6 +33,7 @@ import ContractChargesSection from "@/components/contract/detail/ContractCharges
 import ContractEquipmentSection from "@/components/contract/detail/ContractEquipmentSection";
 import ContractPoliciesSection from "@/components/contract/detail/ContractPoliciesSection";
 import ContractHandoverSection from "@/components/contract/detail/ContractHandoverSection";
+import ContractMissingFieldsNotice from "@/components/contract/detail/ContractMissingFieldsNotice";
 import ContractInitialPaymentSection from "@/components/contract/detail/ContractInitialPaymentSection";
 import { ContractFieldLegend } from "@/components/contract/detail/ContractFieldState";
 import ContractDocumentSection from "@/components/contract/detail/ContractDocumentSection";
@@ -44,6 +44,7 @@ import ContractAmendmentPanel from "@/components/contract/detail/ContractAmendme
 import ContractAmendmentWorkspace, { ContractTermsNotice } from "@/components/contract/detail/ContractAmendmentWorkspace";
 import { contractListPath, contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
 import { generateContractPreview } from "@/lib/contract-preview";
+import { missingRequiredInitialMeters, validateInitialMeterReading } from "@/lib/contract-initial-meters";
 
 export default function ContractDetailView({ perspective }: { perspective: "landlord" | "tenant" }) {
   const params = useParams();
@@ -179,18 +180,11 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     (!isWaterPerPerson && waterInitial.trim() !== String(revision.meters?.waterInitial ?? "").trim())
   ));
 
-  function validateMeterReading(value: string, required: boolean, label: string): string | undefined {
-    const reading = value.trim();
-    if (!reading) return required ? `Vui lòng nhập ${label}.` : undefined;
-    if (!/^\d+(\.\d+)?$/.test(reading)) return `${label} phải là số không âm (ví dụ: 0 hoặc 1250.5).`;
-    return undefined;
-  }
-
   async function handleSaveMeters() {
     if (!contractId || !revision) return;
     const errors = {
-      electricity: validateMeterReading(electricityInitial, electricityRequired, "chỉ số điện ban đầu"),
-      water: isWaterPerPerson ? undefined : validateMeterReading(waterInitial, waterRequired, "chỉ số nước ban đầu"),
+      electricity: validateInitialMeterReading(electricityInitial, electricityRequired, "chỉ số điện ban đầu"),
+      water: isWaterPerPerson ? undefined : validateInitialMeterReading(waterInitial, waterRequired, "chỉ số nước ban đầu"),
     };
     setMeterErrors(errors);
     if (errors.electricity || errors.water) return;
@@ -419,6 +413,29 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   const charges = revision.charges || [];
   const equipments = revision.equipments || [];
   const policies = revision.policies;
+  const missingMeterReadings = missingRequiredInitialMeters(revision.meters, electricityRequired, waterRequired);
+  const prioritizeMeters = isDraft && missingMeterReadings.length > 0;
+  const missingFieldsNotice = <ContractMissingFieldsNotice completeness={completeness} isLandlord={isLandlord}
+    meterFields={prioritizeMeters ? missingMeterReadings : []} />;
+  const handoverSection = <ContractHandoverSection
+    originalElectricityInitial={String(revision.meters?.electricityInitial??"")}
+    originalWaterInitial={String(revision.meters?.waterInitial??"")}
+    electricityInitial={electricityInitial}
+    waterInitial={waterInitial}
+    isWaterPerPerson={isWaterPerPerson}
+    electricityRequired={electricityRequired}
+    waterRequired={waterRequired}
+    isDraft={isDraft}
+    isLandlord={isLandlord}
+    isDirty={metersDirty}
+    saving={savingMeters}
+    priority={prioritizeMeters}
+    missingFieldsNotice={missingFieldsNotice}
+    errors={meterErrors}
+    onElectricityChange={(value) => { setElectricityInitial(value); setMeterErrors((prev) => ({ ...prev, electricity: undefined })); }}
+    onWaterChange={(value) => { setWaterInitial(value); setMeterErrors((prev) => ({ ...prev, water: undefined })); }}
+    onSave={handleSaveMeters}
+  />;
 
   return (
     <ContractAmendmentWorkspace contractId={contract.id} actorId={profile.id} perspective={perspective} enabled={!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status)}>
@@ -447,43 +464,10 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         smartCaMode={signatureState?.signatureMode === "SMARTCA"}
       />
 
+      {prioritizeMeters && handoverSection}
+
       {/* 2. WARNING BANNER: INCOMPLETE FIELDS FOR TEMPLATE */}
-      {completeness && !completeness.complete && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/30">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <div className="min-w-0 space-y-1">
-              <p className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                Hợp đồng còn {completeness.missingFields.length} thông tin bắt buộc chưa có dữ liệu
-              </p>
-              <p className="text-xs text-amber-800/90 dark:text-amber-300/90">
-                Đã điền {completeness.filledFields}/{completeness.totalFields} trường. Vui lòng bổ sung trước khi kết xuất và gửi hợp đồng.
-              </p>
-              <ul className="text-[11px] text-amber-900 dark:text-amber-200 list-disc pl-4 space-y-0.5 pt-1">
-                {completeness.missingFields.slice(0, 6).map((f) => (
-                  <li key={f.key}>
-                    {f.label} <span className="opacity-70">({f.key})</span>
-                  </li>
-                ))}
-                {completeness.missingFields.length > 6 && (
-                  <li>… và {completeness.missingFields.length - 6} trường khác</li>
-                )}
-              </ul>
-              {isLandlord &&
-                completeness.missingFields.some(
-                  (f) => f.key === "landlord.permanentAddress"
-                ) && (
-                  <Link
-                    href="/settings/profile"
-                    className="inline-flex text-xs font-semibold text-amber-900 underline underline-offset-2 dark:text-amber-200 pt-1"
-                  >
-                    Cập nhật nơi thường trú trong hồ sơ cá nhân
-                  </Link>
-                )}
-            </div>
-          </div>
-        </div>
-      )}
+      {!prioritizeMeters && missingFieldsNotice}
 
       {isTenant && isDraft && <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
         <p className="font-semibold">Bản nháp để xem trước · Chưa có hiệu lực</p>
@@ -563,23 +547,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         />
 
         {/* CHỈ SỐ BAN ĐẦU ĐƯA VÀO HỢP ĐỒNG */}
-        <ContractHandoverSection
-          originalElectricityInitial={String(revision.meters?.electricityInitial??"")}
-          originalWaterInitial={String(revision.meters?.waterInitial??"")}
-          electricityInitial={electricityInitial}
-          waterInitial={waterInitial}
-          isWaterPerPerson={isWaterPerPerson}
-          electricityRequired={electricityRequired}
-          waterRequired={waterRequired}
-          isDraft={isDraft}
-          isLandlord={isLandlord}
-          isDirty={metersDirty}
-          saving={savingMeters}
-          errors={meterErrors}
-          onElectricityChange={(value) => { setElectricityInitial(value); setMeterErrors((prev) => ({ ...prev, electricity: undefined })); }}
-          onWaterChange={(value) => { setWaterInitial(value); setMeterErrors((prev) => ({ ...prev, water: undefined })); }}
-          onSave={handleSaveMeters}
-        />
+        {!prioritizeMeters && handoverSection}
 
         </>
         {/* DANH SÁCH FILE VĂN BẢN KẾT XUẤT */}

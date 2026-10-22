@@ -29,6 +29,7 @@ import type {
 import type { DepositType } from "@/types/listing.type";
 import { Calendar } from "@/components/ui/calendar";
 import axiosClient from "@/lib/axios-client";
+import { clampOccupants, normalizeOccupantLimit, resolveOccupantLimit, type RentalOccupantLimitSnapshot } from "@/lib/rental-occupant-limit";
 import {
   formatVND,
   clampValue,
@@ -49,6 +50,7 @@ interface RentalRequestModalProps {
   depositMonths?: number | null;
   listingThumbnail?: string | null;
   minimumLeaseMonths?: number;
+  listingMaxOccupants?: number | null;
   onSuccess?: (request: RentalRequestResponse) => void;
 }
 
@@ -74,6 +76,7 @@ export default function RentalRequestModal({
   depositMonths,
   listingThumbnail,
   minimumLeaseMonths = 6,
+  listingMaxOccupants,
   onSuccess,
 }: RentalRequestModalProps) {
   const { profile, username } = useAuth();
@@ -94,6 +97,8 @@ export default function RentalRequestModal({
     String(Math.max(minimumLeaseMonths || 6, 12)),
   );
   const [occupantCount, setOccupantCount] = useState<number>(1);
+  const [occupantLimitSnapshot, setOccupantLimitSnapshot] = useState<RentalOccupantLimitSnapshot | null>(null);
+  const occupantLimit = resolveOccupantLimit(listingId, listingMaxOccupants, occupantLimitSnapshot);
   const [motorbikeCount, setMotorbikeCount] = useState<number>(0);
   const [carCount, setCarCount] = useState<number>(0);
   const [renterName, setRenterName] = useState("");
@@ -173,6 +178,7 @@ export default function RentalRequestModal({
         const defaultLease = min > 12 ? min : 12;
         setLeaseMonths(defaultLease);
         setOccupantCount(1);
+        setOccupantLimitSnapshot(null);
         setMotorbikeCount(0);
         setCarCount(0);
         setCustomMonthsInput(String(defaultLease));
@@ -298,6 +304,8 @@ export default function RentalRequestModal({
             setEstimate(res);
             setEstimateFor(estimateKey);
             setLoadingEstimate(false);
+            // Keep capacity even when a new price quote is pending or fails. Do not cache prices this way.
+            setOccupantLimitSnapshot({ listingId, limit: normalizeOccupantLimit(res.occupantLimit) });
 
             // Tự động reset hoặc clamp khi sức chứa hoặc quyền gửi xe thay đổi
             const effectiveOcc = Math.max(1, occupantCount || 1);
@@ -359,7 +367,6 @@ export default function RentalRequestModal({
 
 
   const depositAmount = estimate?.depositAmount ?? depositInfo.amount;
-  const occupantLimit = estimate?.occupantLimit;
   const effectiveOccupants = Math.max(1, occupantCount || 1);
   const maxMotorbikeAllowed = Math.min(
     estimate?.motorbike.available ?? 0,
@@ -406,7 +413,7 @@ export default function RentalRequestModal({
       return;
     }
 
-    if (!occupantCount || occupantCount < 1) {
+    if (!Number.isSafeInteger(occupantCount) || occupantCount < 1) {
       toast.error("Vui lòng nhập số người dọn vào ở (tối thiểu 1 người)");
       return;
     }
@@ -764,18 +771,16 @@ export default function RentalRequestModal({
                 <input
                   type="number"
                   min={1}
-                  max={occupantLimit || 20}
+                  max={occupantLimit ?? 20}
                   step={1}
-                  placeholder={`Nhập số người (tối đa ${occupantLimit || 20})`}
+                  placeholder={`Nhập số người (tối đa ${occupantLimit ?? 20})`}
                   value={occupantCount || ""}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === "") {
                       setOccupantCount(0);
                     } else {
-                      const num = parseInt(val, 10);
-                      const maxLimit = occupantLimit || 20;
-                      const validOccupants = isNaN(num) ? 0 : clampValue(num, 1, maxLimit);
+                      const validOccupants = clampOccupants(Number(val), occupantLimit);
                       setOccupantCount(validOccupants);
                       if (validOccupants > 0) {
                         setMotorbikeCount((m) => Math.min(m, validOccupants));
@@ -784,11 +789,10 @@ export default function RentalRequestModal({
                     }
                   }}
                   onBlur={() => {
-                    if (!occupantCount || occupantCount < 1) {
-                      setOccupantCount(1);
-                      setMotorbikeCount((m) => Math.min(m, 1));
-                      setCarCount((c) => Math.min(c, 1));
-                    }
+                    const count = clampOccupants(occupantCount, occupantLimit);
+                    setOccupantCount(count);
+                    setMotorbikeCount((m) => Math.min(m, count));
+                    setCarCount((c) => Math.min(c, count));
                   }}
                   className="w-full pl-3 pr-16 py-2 text-xs rounded-xl border border-input bg-background focus:outline-hidden focus:ring-1 focus:ring-primary text-foreground font-semibold"
                 />
@@ -815,11 +819,10 @@ export default function RentalRequestModal({
               </button>
               <button
                 type="button"
-                disabled={Boolean(occupantLimit ? occupantCount >= occupantLimit : occupantCount >= 20)}
+                disabled={occupantCount >= (occupantLimit ?? 20)}
                 onClick={() =>
                   setOccupantCount((prev) => {
-                    const max = occupantLimit || 20;
-                    return Math.min(max, Math.max(1, (prev || 0) + 1));
+                    return clampOccupants((prev || 0) + 1, occupantLimit);
                   })
                 }
                 className="px-3 py-2 rounded-xl border border-border bg-card hover:bg-muted disabled:opacity-40 text-xs font-bold transition-colors cursor-pointer"

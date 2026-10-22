@@ -862,6 +862,7 @@ export default function RentDetailView({
         }
         listingThumbnail={property.images?.[0] || null}
         minimumLeaseMonths={Number(property.details?.minimumLeaseMonths) || 6}
+        listingMaxOccupants={typeof property.details?.maxOccupants === "number" ? property.details.maxOccupants : null}
         onSuccess={(req) => {
           setActiveRentalRequest(req);
         }}

@@ -29,8 +29,10 @@ import { format, formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
 import RentalRequestDetailModal from "./RentalRequestDetailModal";
+import RentalContractFallbackButton from "./RentalContractFallbackButton";
 import RentalPaymentModal from "./RentalPaymentModal";
-import RentalDepositQuickViewModal from "./RentalDepositQuickViewModal";
+import RentalDepositQuickViewModal, { RentalReceiptNotice } from "./RentalDepositQuickViewModal";
+import RentalStartChangeQuickModal, { StartChangeNotice } from "./RentalStartChangeQuickModal";
 import { contractService } from "@/services/contract.service";
 import type { ContractResponse } from "@/types/contract.type";
 import type {
@@ -47,6 +49,8 @@ import { contractDetailPath } from "@/lib/contract-routes";
 import { canCancelRentalRequest } from "@/lib/rental-request-actions";
 import { listingDetailPath } from "@/lib/listing-detail-access";
 import { canOpenDepositQuickView } from "@/lib/rental-deposit-quick-view";
+import { createRentalContractFallback } from "@/lib/rental-contract-fallback";
+import { rentalOnboardingService } from "@/services/rental-onboarding.service";
 interface RentalRequestsManagementProps {
   mode: "RECEIVED" | "SENT";
 }
@@ -143,13 +147,49 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const [rejectReason, setRejectReason] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const cancelActionLock=useRef(false);
-  const [creatingContractRequestId, setCreatingContractRequestId] = useState<string | null>(null);
-  const creatingContractRef = useRef<string | null>(null);
+  const contractCreationLock=useRef(false);
+  const contractCreationRequest=useRef<AbortController|null>(null);
+  const [creatingContractFor,setCreatingContractFor]=useState<string|null>(null);
   const [contractsByRequest, setContractsByRequest] = useState<Record<string, ContractResponse | null>>({});
   const [openingContractId, setOpeningContractId] = useState<string | null>(null);
   const [detailRequestId, setDetailRequestId] = useState<string | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<RentalRequestResponse | null>(null);
   const [depositQuickTarget,setDepositQuickTarget]=useState<RentalRequestResponse|null>(null);
+  const [startChangeTarget,setStartChangeTarget]=useState<RentalRequestResponse|null>(null);
+  useEffect(()=>()=>{contractCreationRequest.current?.abort();},[]);
+
+  const handleCreateDraft = async (request: RentalRequestResponse) => {
+    if (contractCreationLock.current || mode!=="RECEIVED" || request.status!=="ACCEPTED" || contractsByRequest[request.id]) return;
+    contractCreationLock.current=true;
+    setCreatingContractFor(request.id);
+    const controller=new AbortController();
+    contractCreationRequest.current=controller;
+    try {
+      const result=await createRentalContractFallback({
+        refresh:()=>rentalOnboardingService.refresh(request.id),
+        create:()=>contractService.createDraft({rentalRequestId:request.id},controller.signal),
+        find:()=>contractService.getByRentalRequest(request.id),
+        completeness:id=>contractService.getCompleteness(id),
+        preview:(id,signal)=>contractService.triggerPreview(id,signal),
+        previewStatus:(id,signal)=>contractService.getPreviewStatus(id,signal),
+      },controller.signal,()=>toast.info("Đang kiểm tra kết quả kết xuất; vui lòng không bấm tạo lại."));
+      if(controller.signal.aborted)return;
+      setContractsByRequest(previous=>({...previous,[request.id]:result.contract}));
+      if(result.fileState==="UNAVAILABLE" || result.fileState==="PENDING")
+        toast.warning("Đã có bản nháp nhưng file chưa sẵn sàng. Mở hợp đồng để kiểm tra; không cần tạo lại hay thanh toán thêm.");
+      else if(result.fileState==="INCOMPLETE") toast.info("Đã có bản nháp. Vui lòng bổ sung thông tin bắt buộc trước khi kết xuất và ký.");
+      else if(result.fileState==="EXISTING") toast.info("Hợp đồng đã tồn tại. Mở để tiếp tục theo trạng thái hiện tại.");
+      else toast.success("Bản nháp hợp đồng đã sẵn sàng để kiểm tra.");
+      setDetailRequestId(null);
+      router.push(contractDetailPath("landlord",result.contract.id));
+    } catch(error) {
+      if(!controller.signal.aborted)toast.error(getApiErrorMessage(error,"Chưa thể tạo bản nháp hợp đồng. Vui lòng kiểm tra tiến trình nhận nhà và mẫu hợp đồng."));
+    } finally {
+      contractCreationLock.current=false;
+      contractCreationRequest.current=null;
+      setCreatingContractFor(null);
+    }
+  };
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -184,36 +224,6 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     void fetchRequests();
   }, [fetchRequests]);
 
-  const handleCreateContract = async (request: RentalRequestResponse) => {
-    if (creatingContractRef.current) return;
-    creatingContractRef.current = request.id;
-    setCreatingContractRequestId(request.id);
-    try {
-      // The backend chooses the published SYSTEM template for this listing category.
-      const draft = await contractService.createDraft({ rentalRequestId: request.id });
-      setContractsByRequest((previous) => ({ ...previous, [request.id]: draft }));
-      try {
-        const completeness = await contractService.getCompleteness(draft.id);
-        if (completeness.complete) {
-          await contractService.triggerPreview(draft.id);
-          toast.success("Đã tạo hợp đồng từ mẫu chuẩn HomeSpace.");
-        } else {
-          toast.warning(`Đã tạo bản nháp. Cần bổ sung ${completeness.missingFields.length} trường trước khi kết xuất.`);
-        }
-      } catch {
-        toast.warning("Đã tạo bản nháp. Mở hợp đồng để kiểm tra dữ liệu trước khi kết xuất.");
-      }
-      router.push(contractDetailPath("landlord", draft.id));
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không thể tạo hợp đồng. Nếu chưa có mẫu phù hợp, vui lòng liên hệ quản trị viên."), {
-        duration: 8000,
-      });
-    } finally {
-      creatingContractRef.current = null;
-      setCreatingContractRequestId(null);
-    }
-  };
-
   const handlePaymentSuccess = () => {
     setPaymentTarget(null);
     void fetchRequests();
@@ -224,11 +234,10 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     const contractRequests = requests.filter(
       (request) =>
         ["ACCEPTED","COMPLETED","CANCELLED_BY_SYSTEM","CANCELLED_BY_RENTER","CANCELLED_BY_OWNER"].includes(request.status) &&
-        !(request.id in contractsByRequest)
+        !contractsByRequest[request.id]
     );
-    if (contractRequests.length === 0) return;
     let cancelled = false;
-    (async () => {
+    const loadContracts = async () => {
       const entries = await Promise.all(
         contractRequests.map(async (r) => {
           try {
@@ -242,14 +251,24 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
       if (cancelled) return;
       setContractsByRequest((prev) => {
         const next = { ...prev };
+        let changed = false;
         for (const [reqId, contract] of entries) {
-          next[reqId] = contract;
+          if (contract && next[reqId]?.id !== contract.id) {
+            next[reqId] = contract;
+            changed = true;
+          }
         }
-        return next;
+        return changed ? next : prev;
       });
-    })();
+    };
+    if (contractRequests.length === 0) return;
+    void loadContracts();
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadContracts();
+    }, 30000);
     return () => {
       cancelled = true;
+      window.clearInterval(interval);
     };
   }, [requests, contractsByRequest]);
 
@@ -269,7 +288,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     try {
       await rentalRequestService.acceptRentalRequest(acceptTarget.id);
       toast.success(
-        "Đã chấp nhận và giữ chỗ. Xem chi tiết để theo dõi hạn chuyển khoản và ngày bắt đầu thuê; các yêu cầu khác chưa bị hủy."
+        "Đã chấp nhận và giữ chỗ. Dùng nút Xem thanh toán trên danh sách để theo dõi khoản chuyển; các yêu cầu khác chưa bị hủy."
       );
       setAcceptTarget(null);
       fetchRequests();
@@ -594,6 +613,9 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                   </div>
                 </div>
 
+                <StartChangeNotice request={req} mode={mode} onOpen={()=>setStartChangeTarget(req)}/>
+                {mode==="RECEIVED" && <RentalReceiptNotice request={req} onOpen={()=>setDepositQuickTarget(req)}/>}
+                {mode==="SENT" && req.status==="ACCEPTED" && !req.latestStartChange && req.initialPayment?.status==="CONFIRMED" && <button type="button" onClick={()=>setStartChangeTarget(req)} className="rounded-xl border border-primary/30 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5">Đề nghị bắt đầu thuê sớm</button>}
                 {req.status === "PENDING" && req.respondBy && <p className="text-xs text-muted-foreground">Hạn chủ nhà phản hồi: {new Date(req.respondBy).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} (giờ Việt Nam)</p>}
                 {/* Card Info: Renter & Note */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
@@ -633,6 +655,9 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
 
                   {/* Card Actions */}
                   <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 self-end sm:self-center">
+                    <RentalContractFallbackButton request={req} mode={mode} contract={linkedContract}
+                      busy={creatingContractFor===req.id} disabled={isProcessing || creatingContractFor!==null}
+                      onCreate={handleCreateDraft} />
                     {/* Chủ nhà xét duyệt khi PENDING */}
                     {mode === "RECEIVED" && req.status === "PENDING" && (
                       <>
@@ -668,7 +693,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                     {mode === "RECEIVED" && canOpenDepositQuickView(req) && <button type="button"
                       onClick={()=>setDepositQuickTarget(req)}
                       className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90">
-                      <CreditCard className="h-3.5 w-3.5"/><span>Xem tiền cọc</span>
+                      <CreditCard className="h-3.5 w-3.5"/><span>{isPaymentReported?"Kiểm tra chuyển khoản":"Xem thanh toán"}</span>
                     </button>}
                     {/* Khách thuê mở phiếu thanh toán/chứng từ khi yêu cầu đã được chấp thuận */}
                     {mode === "SENT" && req.status === "ACCEPTED" && isPaymentPending && (
@@ -703,7 +728,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                   </div>
                 </div>
 
-                {req.status === "ACCEPTED" && <p className="rounded-xl border bg-muted/30 p-3 text-sm">Xem chi tiết để theo dõi cọc, thời điểm mở tiền tháng đầu và đề nghị bắt đầu thuê sớm.</p>}
+                {req.status === "ACCEPTED" && <p className="rounded-xl border bg-muted/30 p-3 text-sm">Dùng các nút thanh toán và đề nghị bên trên để xử lý nhanh. Hợp đồng tự tạo sau khi chủ nhà xác nhận đủ cọc và tiền tháng đầu.</p>}
                 {/* Khối giữ chỗ cũ được thay bằng tiến trình nhận nhà ở trên. */}
 
 
@@ -1032,6 +1057,8 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
       {depositQuickTarget && <RentalDepositQuickViewModal key={depositQuickTarget.id} request={depositQuickTarget}
         onClose={()=>setDepositQuickTarget(null)} onUpdated={fetchRequests}
         onOpenDetail={()=>{setDetailRequestId(depositQuickTarget.id);setDepositQuickTarget(null);}}/>}
+      {startChangeTarget && <RentalStartChangeQuickModal key={startChangeTarget.id} request={startChangeTarget} mode={mode}
+        onClose={()=>setStartChangeTarget(null)} onUpdated={fetchRequests}/>}
 
       {/* Modal Thanh Toán Ban Đầu */}
       {paymentTarget && (
@@ -1050,7 +1077,9 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         onClose={() => setDetailRequestId(null)}
         mode={mode}
         linkedContract={detailRequestId ? contractsByRequest[detailRequestId] : null}
-        isProcessingAction={isProcessing || creatingContractRequestId !== null}
+        isProcessingAction={isProcessing || creatingContractFor!==null}
+        creatingContract={creatingContractFor===detailRequestId}
+        onCreateDraft={handleCreateDraft}
         onPaymentStatusChange={() => {
           void fetchRequests();
         }}
@@ -1069,10 +1098,6 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         onPayMock={(req) => {
           setDetailRequestId(null);
           setPaymentTarget(req);
-        }}
-        onCreateContract={(req) => {
-          setDetailRequestId(null);
-          void handleCreateContract(req);
         }}
         onOpenContract={(contractId) => {
           setDetailRequestId(null);

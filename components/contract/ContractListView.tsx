@@ -130,8 +130,8 @@ export default function ContractListView({ perspective }: { perspective: "landlo
           <p className="text-sm font-semibold text-foreground">Chưa có hợp đồng</p>
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
             {perspective === "landlord"
-              ? "Bạn có thể tạo hợp đồng từ yêu cầu thuê đã được chấp thuận. "
-              : "Bản nháp sẽ xuất hiện sau khi chủ nhà xác nhận cọc và tạo hợp đồng. Bạn vẫn có thể xem tiến trình nhận nhà và đề nghị bắt đầu sớm từ yêu cầu thuê. "}
+              ? "Hệ thống tự tạo bản nháp khi đã xác nhận đủ cọc và tiền thuê tháng đầu, đến ngày bắt đầu thuê và có mẫu hợp đồng đã phát hành. Xem tiến trình yêu cầu thuê nếu chưa có bản nháp. "
+              : "Bản nháp được tạo tự động sau khi xác nhận đủ cọc và tiền thuê tháng đầu theo tiến trình nhận nhà. Bạn có thể xem tiến trình và đề nghị bắt đầu sớm từ yêu cầu thuê. "}
             <Link href={perspective === "landlord" ? "/dashboard/rental-requests" : "/dashboard/rental-requests/my-requests"} className="text-primary font-semibold hover:underline">
               Xem yêu cầu thuê
             </Link>

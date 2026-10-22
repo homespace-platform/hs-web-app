@@ -70,9 +70,7 @@ const VIEWING_SLOT_LABELS: Record<string, string> = {
   EVENING: "Buổi tối (18:00–21:00)",
 };
 
-function inferProvinceCode(city: string) {
-  return /hồ chí minh|ho chi minh|tp\.?\s*(hcm|hồ chí minh|ho chi minh)/i.test(city) ? "79" : "";
-}
+
 
 function formatLocationLabel(value: string) {
   return value.replace(/^(thành phố|tỉnh|tp\.?|p\.?|phường|xã)\s*/i, "").trim();
@@ -124,12 +122,12 @@ export default function RentDetailView({
   sidebarActions,
   showLandlordContact = true,
 }: RentDetailViewProps) {
-  const provinceCode = property.provinceCode ?? inferProvinceCode(property.city);
+  const provinceCode = property.provinceCode ?? "";
   const provinceName = property.provinceName ?? property.city;
   const wardName = property.ward ?? property.district;
   const provinceLabel = formatLocationLabel(provinceName);
   const wardLabel = formatLocationLabel(wardName);
-  const provinceHref = `/rent?provinceCode=${encodeURIComponent(provinceCode)}&provinceName=${encodeURIComponent(provinceName)}`;
+  const provinceHref = `/rent?cityId=${encodeURIComponent(provinceCode)}&city=${encodeURIComponent(provinceName)}`;
   const wardHref = `${provinceHref}&ward=${encodeURIComponent(wardName)}`;
 
   const { profile, authenticated, login } = useAuth();

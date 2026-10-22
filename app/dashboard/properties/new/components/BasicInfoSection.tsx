@@ -162,7 +162,7 @@ export default function BasicInfoSection({
             <option value="">-- Bất động sản độc lập (Không chọn chi nhánh) --</option>
             {(branches || []).map((b) => (
               <option key={b.id} value={b.id}>
-                {b.name} {b.code ? `(${b.code})` : ""} - {b.fullAddress}
+                {b.name} {b.code ? `(${b.code})` : ""} - {b.display}
               </option>
             ))}
           </select>

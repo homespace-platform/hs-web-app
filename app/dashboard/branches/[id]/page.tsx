@@ -193,7 +193,7 @@ export default function BranchDetailPage() {
               </h1>
               <p className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground">
                 <MapPin className="h-4 w-4 shrink-0 text-primary/70" />
-                <span>{branch.fullAddress}</span>
+                <span>{branch.display}</span>
               </p>
             </div>
 

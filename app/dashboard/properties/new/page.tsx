@@ -6,11 +6,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Copy, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/features/auth/useAuth";
-import provinceService from "@/services/province.service";
+import type { VietmapAddress } from "@/services/vietmap.service";
 import listingService from "@/services/listing.service";
 import storageService from "@/services/storage.service";
 import branchService, { type PropertyBranch } from "@/services/branch.service";
-import type { Province, Ward } from "@/types/province.type";
 import type { ListingOptionsResponse, ListingSubmissionAction, ListingDetailResponse } from "@/types/listing.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { isKycSatisfied, requireKyc } from "@/lib/kyc-gate";
@@ -200,15 +199,7 @@ function CreatePropertyListingContent() {
   // Section 6: Location
   const savedUserAddress = profile?.address ?? null;
   const [addressMode, setAddressMode] = useState<AddressMode>(savedUserAddress ? "saved" : "new");
-  const [streetLine, setStreetLine] = useState("");
-  const [provinces, setProvinces] = useState<Province[]>([]);
-  const [wards, setWards] = useState<Ward[]>([]);
-  const [provinceCode, setProvinceCode] = useState("79");
-  const [wardCode, setWardCode] = useState("");
-  const [provinceQuery, setProvinceQuery] = useState("");
-  const [wardQuery, setWardQuery] = useState("");
-  const [wardLoading, setWardLoading] = useState(true);
-  const [locationError, setLocationError] = useState("");
+  const [selectedAddress, setSelectedAddress] = useState<VietmapAddress | null>(null);
 
   // Section 7: Viewing Schedule (Không tự check mặc định)
   const [selectedViewingDays, setSelectedViewingDays] = useState<string[]>([]);
@@ -271,31 +262,9 @@ function CreatePropertyListingContent() {
       setBasicInfo((prev) => ({ ...prev, branchId }));
     }
 
-    if (branch.fullAddress || branch.streetLine) {
+    if (branch.refId) {
       setAddressMode("new");
-      if (branch.provinceCode) {
-        const pCodeStr = String(branch.provinceCode);
-        setProvinceCode(pCodeStr);
-        const foundP = provinces.find((p) => String(p.code) === pCodeStr);
-        setProvinceQuery(branch.provinceName || (foundP ? foundP.name : ""));
-        provinceService
-          .getCurrentWardsByProvince(pCodeStr)
-          .then((data) => {
-            if (data && data.length) {
-              setWards(data);
-              setWardLoading(false);
-            }
-          })
-          .catch(() => {});
-      }
-      if (branch.wardCode) {
-        const wCodeStr = String(branch.wardCode);
-        setWardCode(wCodeStr);
-        const foundW = wards.find((w) => String(w.code) === wCodeStr);
-        setWardQuery(branch.wardName || (foundW ? foundW.name : ""));
-      }
-      if (branch.streetLine) setStreetLine(branch.streetLine);
-
+      setSelectedAddress(branch);
       setErrors((prev) => {
         const next = { ...prev };
         delete next.province;
@@ -419,25 +388,6 @@ function CreatePropertyListingContent() {
     }
   }
 
-  // Fetch provinces
-  useEffect(() => {
-    let cancelled = false;
-    provinceService
-      .getCurrentProvinces()
-      .then((data) => {
-        if (cancelled) return;
-        setProvinces(data);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setLocationError("Không tải được danh sách tỉnh/thành phố.");
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   // Fetch public listing options catalog
   useEffect(() => {
     let cancelled = false;
@@ -467,30 +417,6 @@ function CreatePropertyListingContent() {
       cancelled = true;
     };
   }, [basicInfo.category]);
-
-  // Fetch wards when province changes
-  useEffect(() => {
-    let cancelled = false;
-    if (!provinceCode) return;
-
-    provinceService
-      .getCurrentWardsByProvince(provinceCode)
-      .then((data) => {
-        if (cancelled) return;
-        setWards(data);
-        setWardLoading(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setWards([]);
-        setWardLoading(false);
-        setLocationError("Không tải được danh sách phường/xã.");
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [provinceCode]);
 
   // Load existing listing data (for edit or duplicate mode) or branch
   useEffect(() => {
@@ -563,11 +489,7 @@ function CreatePropertyListingContent() {
           setMonthlyExpenses(formState.monthlyExpenses);
           setPricing(formState.pricing);
           setAddressMode(formState.addressMode);
-          setStreetLine(formState.streetLine);
-          setProvinceCode(formState.provinceCode);
-          setProvinceQuery(formState.provinceQuery);
-          setWardCode(formState.wardCode);
-          setWardQuery(formState.wardQuery);
+          setSelectedAddress(branchList.find(branch => branch.id === formState.basicInfo.branchId) ?? detail.address ?? null);
           setSelectedViewingDays(formState.selectedViewingDays);
           setSelectedViewingSlots(formState.selectedViewingSlots);
 
@@ -606,69 +528,6 @@ function CreatePropertyListingContent() {
     () => branches.find((b) => b.id === basicInfo.branchId) ?? null,
     [branches, basicInfo.branchId]
   );
-
-  const selectedProvince = useMemo(() => {
-    const fromList = provinces.find(
-      (p) =>
-        String(p.code) === String(provinceCode) ||
-        (provinceQuery && p.name.toLowerCase().trim() === provinceQuery.toLowerCase().trim())
-    );
-    if (fromList) return fromList;
-    if (provinceCode || provinceQuery || selectedBranch?.provinceName) {
-      return {
-        code: provinceCode || selectedBranch?.provinceCode || "79",
-        name: provinceQuery || selectedBranch?.provinceName || "Hồ Chí Minh",
-      } as Province;
-    }
-    return undefined;
-  }, [provinces, provinceCode, provinceQuery, selectedBranch?.provinceCode, selectedBranch?.provinceName]);
-
-  const selectedWard = useMemo(() => {
-    const fromList = wards.find(
-      (w) =>
-        String(w.code) === String(wardCode) ||
-        (wardQuery && w.name.toLowerCase().trim() === wardQuery.toLowerCase().trim())
-    );
-    if (fromList) return fromList;
-    if (wardCode || wardQuery || selectedBranch?.wardName) {
-      return {
-        code: wardCode || selectedBranch?.wardCode || "",
-        name: wardQuery || selectedBranch?.wardName || "",
-      } as Ward;
-    }
-    return undefined;
-  }, [wards, wardCode, wardQuery, selectedBranch?.wardCode, selectedBranch?.wardName]);
-
-  const previewFullAddress = useMemo(() => {
-    if (addressMode === "saved" && savedUserAddress) {
-      return (
-        savedUserAddress.fullAddress ||
-        [
-          savedUserAddress.streetLine,
-          savedUserAddress.wardName,
-          savedUserAddress.provinceName,
-        ]
-          .filter(Boolean)
-          .join(", ")
-      );
-    }
-    if (selectedBranch?.fullAddress) {
-      return selectedBranch.fullAddress;
-    }
-    const street = streetLine.trim() || selectedBranch?.streetLine || "";
-    const ward = selectedWard?.name || wardQuery || selectedBranch?.wardName || "";
-    const prov = selectedProvince?.name || provinceQuery || selectedBranch?.provinceName || "";
-    return [street, ward, prov].filter(Boolean).join(", ");
-  }, [
-    addressMode,
-    savedUserAddress,
-    selectedBranch,
-    streetLine,
-    selectedWard?.name,
-    wardQuery,
-    selectedProvince?.name,
-    provinceQuery,
-  ]);
 
   // Bàn giao thô được phép bỏ trống bảng thiết bị; mọi mức có nội thất đều phải
   // kê khai để dùng làm biên bản bàn giao trong hợp đồng.
@@ -725,17 +584,7 @@ function CreatePropertyListingContent() {
     setPendingCategory(null);
   }
 
-  const handleProvinceSelect = (province: Province) => {
-    setProvinceCode(String(province.code));
-    setProvinceQuery(province.name);
-    setWardCode("");
-    setWardQuery("");
-  };
 
-  const handleWardSelect = (ward: Ward) => {
-    setWardCode(String(ward.code));
-    setWardQuery(ward.name);
-  };
 
   const scrollToField = (elementId: string) => {
     const el = document.getElementById(elementId);
@@ -848,35 +697,10 @@ function CreatePropertyListingContent() {
       addError("field-deposit-months", "depositMonths", "Vui lòng nhập số tháng đặt cọc.");
     }
 
-    // 4. Location
-    if (basicInfo.branchId && selectedBranch) {
-      // Khi chọn chi nhánh, địa chỉ kế thừa từ chi nhánh đã chọn
-      const hasProv = Boolean(provinceCode || selectedBranch.provinceCode || selectedBranch.provinceName);
-      const hasWard = Boolean(wardCode || selectedBranch.wardCode || selectedBranch.wardName);
-      const hasStreet = Boolean(streetLine.trim() || selectedBranch.streetLine || selectedBranch.fullAddress);
-      if (!hasProv) {
-        addError("field-province", "province", "Chi nhánh chưa có thông tin Tỉnh / Thành phố.");
-      }
-      if (!hasWard) {
-        addError("field-ward", "ward", "Chi nhánh chưa có thông tin Phường / Xã.");
-      }
-      if (!hasStreet) {
-        addError("field-street-line", "streetLine", "Chi nhánh chưa có địa chỉ cụ thể.");
-      }
-    } else if (addressMode === "new") {
-      if (!provinceCode || !selectedProvince) {
-        addError("field-province", "province", "Vui lòng chọn Tỉnh / Thành phố.");
-      }
-      if (!wardCode || !selectedWard) {
-        addError("field-ward", "ward", "Vui lòng chọn Phường / Xã.");
-      }
-      if (!streetLine.trim()) {
-        addError("field-street-line", "streetLine", "Vui lòng nhập địa chỉ cụ thể (Số nhà, tên đường).");
-      }
-    } else if (!savedUserAddress) {
-      addError("field-street-line", "streetLine", "Không tìm thấy địa chỉ tài khoản đã lưu.");
+    // 4. A selected and server-resolvable Vietmap address is required.
+    if (addressMode === "saved" ? !savedUserAddress?.refId : !selectedAddress?.refId) {
+      addError("field-street-line", "streetLine", "Vui lòng chọn địa chỉ từ kết quả Vietmap.");
     }
-
     // 5. Viewing Schedule
     if (selectedViewingDays.length === 0) {
       addError("field-viewing-days", "viewingDays", "Vui lòng chọn ít nhất một ngày trong tuần.");
@@ -1026,12 +850,8 @@ function CreatePropertyListingContent() {
         pricing,
         addressMode,
         savedAddressId: savedUserAddress?.id,
-        provinceCode: provinceCode || selectedBranch?.provinceCode || "79",
-        provinceName: selectedProvince?.name || provinceQuery || selectedBranch?.provinceName || "Hồ Chí Minh",
-        wardCode: wardCode || selectedBranch?.wardCode || "",
-        wardName: selectedWard?.name || wardQuery || selectedBranch?.wardName || "",
-        streetLine: streetLine || selectedBranch?.streetLine || "",
-        fullAddress: previewFullAddress || selectedBranch?.fullAddress || "",
+        refId: selectedAddress?.refId,
+        addressNote: selectedAddress?.addressNote ?? undefined,
         uploadedMediaList,
         selectedViewingDays,
         selectedViewingSlots,
@@ -1303,41 +1123,9 @@ function CreatePropertyListingContent() {
         />
 
         {/* Section 6: Vị trí */}
-        <LocationSection
-          addressMode={addressMode}
-          savedUserAddress={savedUserAddress}
-          streetLine={streetLine}
-          provinceCode={provinceCode}
-          provinceQuery={provinceQuery}
-          wardCode={wardCode}
-          wardQuery={wardQuery}
-          provinces={provinces}
-          wards={wards}
-          wardLoading={wardLoading}
-          locationError={locationError}
-          previewFullAddress={previewFullAddress}
-          errors={errors}
-          isBranchSelected={Boolean(basicInfo.branchId)}
-          onAddressModeChange={setAddressMode}
-          onStreetLineChange={setStreetLine}
-          onProvinceSelect={handleProvinceSelect}
-          onProvinceQueryChange={(val) => {
-            setProvinceQuery(val);
-            if (val !== selectedProvince?.name) {
-                    setProvinceCode("");
-                    setWardCode("");
-                    setWardQuery("");
-                    setWards([]);
-                  }
-                }}
-          onWardSelect={handleWardSelect}
-          onWardQueryChange={(val) => {
-            setWardQuery(val);
-            if (val !== selectedWard?.name) {
-              setWardCode("");
-            }
-          }}
-        />
+        <LocationSection addressMode={addressMode} savedUserAddress={savedUserAddress}
+          value={selectedAddress} errors={errors} isBranchSelected={Boolean(basicInfo.branchId)}
+          onAddressModeChange={setAddressMode} onChange={setSelectedAddress} />
 
         {/* Section 7: Lịch xem nhà */}
         <ViewingScheduleSection

@@ -42,12 +42,8 @@ export interface BuildPayloadParams {
   pricing: PricingData;
   addressMode: "saved" | "new";
   savedAddressId?: string | null;
-  provinceCode: string;
-  provinceName: string;
-  wardCode: string;
-  wardName: string;
-  streetLine: string;
-  fullAddress: string;
+  refId?: string;
+  addressNote?: string;
   uploadedMediaList: { storageObjectId?: string; sourceMediaId?: string; mediaType: "IMAGE" | "VIDEO" }[];
   selectedViewingDays?: string[];
   selectedViewingSlots?: string[];
@@ -145,12 +141,6 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
     pricing,
     addressMode,
     savedAddressId,
-    provinceCode,
-    provinceName,
-    wardCode,
-    wardName,
-    streetLine,
-    fullAddress,
     uploadedMediaList,
   } = params;
 
@@ -415,12 +405,8 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
       : {
           type: "NEW" as const,
           address: {
-            provinceCode: provinceCode || "79",
-            provinceName: provinceName || "Hồ Chí Minh",
-            wardCode: wardCode || "default",
-            wardName: wardName || "",
-            streetLine: streetLine.trim() || "Chưa cập nhật",
-            fullAddress: fullAddress || streetLine.trim(),
+            refId: params.refId || "",
+            addressNote: params.addressNote,
           },
         };
 

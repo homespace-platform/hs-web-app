@@ -1,219 +1,45 @@
 "use client";
-
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
-import { Check, LoaderCircle, MapPin } from "lucide-react";
 import { toast } from "sonner";
-import SearchableSelect from "@/components/ui/searchable-select";
+import VietmapAddressPicker from "@/components/address/VietmapAddressPicker";
 import AddressMapPreview from "@/components/address/AddressMapPreview";
-import provinceService from "@/services/province.service";
+import type { VietmapAddress } from "@/services/vietmap.service";
 import userService from "@/services/user.service";
-import type { Province, Ward } from "@/types/province.type";
 import type { UserAddress } from "@/types/user.type";
 
-type AddressEditorProps = {
-  initialAddress?: UserAddress | null;
-  onSaved?: () => Promise<void> | void;
-  /** Compact layout for onboarding modal (full-width continue button). */
-  embedded?: boolean;
-  saveButtonLabel?: string;
-  /** Allow save without editing when an initial address already exists. */
-  alwaysAllowSave?: boolean;
-};
-
-function codeOf(value: string | number) {
-  return String(value);
-}
-
-export default function AddressEditor({
-  initialAddress,
-  onSaved,
-  embedded = false,
-  saveButtonLabel = "Lưu địa chỉ",
-  alwaysAllowSave = false,
-}: AddressEditorProps) {
-  const [provinces, setProvinces] = useState<Province[]>([]);
-  const [wards, setWards] = useState<Ward[]>([]);
-  const [provinceCode, setProvinceCode] = useState(initialAddress?.provinceCode ?? "");
-  const [wardCode, setWardCode] = useState(initialAddress?.wardCode ?? "");
-  const [streetLine, setStreetLine] = useState(initialAddress?.streetLine ?? "");
-  const [loadingCatalog, setLoadingCatalog] = useState(true);
+type Props = { initialAddress?: UserAddress | null; onSaved?: () => Promise<void> | void; embedded?: boolean; saveButtonLabel?: string; alwaysAllowSave?: boolean };
+export default function AddressEditor({ initialAddress, onSaved, embedded = false, saveButtonLabel = "Lưu địa chỉ", alwaysAllowSave = false }: Props) {
+  const [selected, setSelected] = useState<VietmapAddress | null>(initialAddress ?? null);
+  const [note, setNote] = useState(initialAddress?.addressNote ?? "");
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-
-  const selectedProvince = useMemo(
-    () => provinces.find((item) => codeOf(item.code) === provinceCode),
-    [provinces, provinceCode],
-  );
-  const selectedWard = useMemo(
-    () => wards.find((item) => codeOf(item.code) === wardCode),
-    [wards, wardCode],
-  );
-
-  const fullAddress = [streetLine.trim(), selectedWard?.name, selectedProvince?.name]
-    .filter(Boolean)
-    .join(", ");
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        setLoadingCatalog(true);
-        const list = await provinceService.getProvinces();
-        if (cancelled) return;
-        setProvinces(list);
-        if (initialAddress?.provinceCode) {
-          const nextWards = await provinceService.getWardsByProvince(initialAddress.provinceCode);
-          if (!cancelled) setWards(nextWards);
-        }
-      } catch {
-        if (!cancelled) toast.error("Không thể tải danh mục tỉnh/thành.");
-      } finally {
-        if (!cancelled) setLoadingCatalog(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [initialAddress?.provinceCode]);
-
-  const handleProvinceChange = useCallback(async (code: string) => {
-    setProvinceCode(code);
-    setWardCode("");
-    setWards([]);
-    setDirty(true);
-    if (!code) return;
-    try {
-      setLoadingCatalog(true);
-      setWards(await provinceService.getWardsByProvince(code));
-    } catch {
-      toast.error("Không thể tải phường/xã.");
-    } finally {
-      setLoadingCatalog(false);
-    }
-  }, []);
-
-  async function handleSave() {
-    if (!selectedProvince || !selectedWard || !streetLine.trim()) {
-      toast.error("Chọn tỉnh/thành, phường/xã và nhập số nhà, tên đường.");
-      return;
-    }
-
+  useEffect(() => { setSelected(initialAddress ?? null); setNote(initialAddress?.addressNote ?? ""); setDirty(false); }, [initialAddress]);
+  async function save() {
+    if (!selected || saving) return;
     setSaving(true);
     try {
-      await userService.saveAddress({
-        provinceCode: codeOf(selectedProvince.code),
-        provinceName: selectedProvince.name,
-        wardCode: codeOf(selectedWard.code),
-        wardName: selectedWard.name,
-        streetLine: streetLine.trim(),
-      });
+      const saved = await userService.saveAddress({ refId: selected.refId, addressNote: note.trim() || undefined });
+      setSelected(saved);
+      setNote(saved.addressNote ?? "");
       setDirty(false);
-      if (!embedded) {
-        toast.success("Đã lưu địa chỉ.");
-      }
+      if (!embedded) toast.success("Đã lưu địa chỉ.");
       await onSaved?.();
     } catch (error) {
-      const message = axios.isAxiosError(error)
-        ? error.response?.data?.message
-        : null;
-      toast.error(typeof message === "string" && message.trim() ? message : "Không thể lưu địa chỉ.");
-    } finally {
-      setSaving(false);
-    }
+      const detail = axios.isAxiosError(error) ? error.response?.data?.message : null;
+      toast.error(typeof detail === "string" ? detail : "Không thể lưu địa chỉ. Vui lòng thử lại.");
+    } finally { setSaving(false); }
   }
-
-  const provinceOptions = provinces.map((province) => ({
-    value: codeOf(province.code),
-    label: province.name,
-  }));
-  const wardOptions = wards.map((ward) => ({
-    value: codeOf(ward.code),
-    label: ward.name,
-  }));
-
-  return (
-    <section
-      className={
-        embedded
-          ? "space-y-4"
-          : "bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-4 shadow-2xs"
-      }
-    >
-      <div>
-        <h4 className="text-sm font-bold text-foreground">Địa chỉ hiện tại</h4>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">
-          Chọn tỉnh/thành, phường/xã và nhập số nhà. Bản đồ chỉ để xem trước, không lưu tọa độ.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-        <div className="space-y-1.5">
-          <label className="block text-[11px] font-semibold text-foreground">Tỉnh/Thành phố</label>
-          <SearchableSelect
-            value={provinceCode}
-            options={provinceOptions}
-            onChange={handleProvinceChange}
-            disabled={loadingCatalog && provinces.length === 0}
-            loading={loadingCatalog && provinces.length === 0}
-            placeholder="Chọn tỉnh/thành"
-            searchPlaceholder="Tìm tỉnh thành..."
-            emptyText="Không tìm thấy tỉnh thành"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <label className="block text-[11px] font-semibold text-foreground">Phường/Xã</label>
-          <SearchableSelect
-            value={wardCode}
-            options={wardOptions}
-            onChange={(code) => {
-              setWardCode(code);
-              setDirty(true);
-            }}
-            disabled={!provinceCode || loadingCatalog}
-            loading={Boolean(provinceCode) && loadingCatalog}
-            placeholder="Chọn phường/xã"
-            searchPlaceholder="Tìm phường/xã..."
-            emptyText="Không tìm thấy phường/xã"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <label className="block text-[11px] font-semibold text-foreground">Số nhà, tên đường</label>
-        <input
-          value={streetLine}
-          onChange={(event) => {
-            setStreetLine(event.target.value);
-            setDirty(true);
-          }}
-          placeholder="Ví dụ: 460/6 Nơ Trang Long"
-          className="w-full h-10 px-3.5 bg-muted/50 focus:bg-background rounded-xl border border-border focus:border-primary text-xs sm:text-sm text-foreground outline-none transition-all"
-        />
-      </div>
-
-      {fullAddress && (
-        <div className="flex items-start gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs font-medium text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-100">
-          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-          <span>{fullAddress}</span>
-        </div>
-      )}
-
-      {fullAddress && <AddressMapPreview fullAddress={fullAddress} />}
-
-      <div className={`flex pt-1 ${embedded ? "justify-stretch" : "justify-end"}`}>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving || (!alwaysAllowSave && !dirty && Boolean(initialAddress))}
-          className={`h-10 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-md shadow-primary/20 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60 ${
-            embedded ? "w-full h-11 text-sm" : "px-5"
-          }`}
-        >
-          {saving ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-          <span>{saving ? "Đang lưu..." : saveButtonLabel}</span>
-        </button>
-      </div>
-    </section>
-  );
+  return <section className={embedded ? "space-y-4" : "space-y-4 rounded-2xl border border-border bg-card p-5"}>
+    <h4 className="text-sm font-bold">Địa chỉ hiện tại</h4>
+    <VietmapAddressPicker value={selected} disabled={saving} onChange={value => { setSelected(value); setDirty(true); }} />
+    <label className="block text-sm">Thông tin bổ sung (căn/phòng, tầng…)
+      <input value={note} disabled={saving} maxLength={255} onChange={e => { setNote(e.target.value); setDirty(true); }} className="mt-2 w-full rounded-xl border border-border bg-background p-3 text-sm" />
+    </label>
+    <button type="button" disabled={saving || !selected || (!alwaysAllowSave && !dirty && Boolean(initialAddress))}
+      onClick={() => void save()} className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+      {saving ? "Đang lưu…" : saveButtonLabel}
+    </button>
+    <AddressMapPreview latitude={selected?.latitude} longitude={selected?.longitude} />
+  </section>;
 }

@@ -337,10 +337,10 @@ export default function ListingPreviewModal({
                   {listing.title}
                 </h2>
 
-                {listing.address?.fullAddress && (
+                {listing.address?.display && (
                   <div className="flex items-start gap-2 text-xs sm:text-sm text-muted-foreground pt-1">
                     <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                    <span>{listing.address.fullAddress}</span>
+                    <span>{listing.address.display}</span>
                   </div>
                 )}
               </div>

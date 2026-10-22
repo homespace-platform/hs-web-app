@@ -1,3 +1,4 @@
+import type { VietmapAddress } from "@/services/vietmap.service";
 import axiosClient from "@/lib/axios-client";
 import type { ApiResponse } from "@/types/api.type";
 import type { PropertyCategoryKey } from "@/app/dashboard/properties/new/types";
@@ -15,18 +16,14 @@ export interface BranchCharge {
   sortOrder?: number;
 }
 
-export interface PropertyBranch {
+export interface PropertyBranch extends VietmapAddress {
   id: string;
   ownerId: string;
   name: string;
   code?: string;
   category: PropertyCategoryKey;
-  streetLine?: string;
-  wardCode?: string;
-  wardName?: string;
-  provinceCode?: string;
-  provinceName?: string;
-  fullAddress: string;
+  refId: string;
+  addressNote?: string;
   description?: string;
   buildingRules?: string;
   totalUnits?: number;
@@ -44,15 +41,11 @@ export interface PropertyBranch {
 }
 
 export interface CreatePropertyBranchPayload {
+  refId: string;
+  addressNote?: string;
   name: string;
   code?: string;
   category: PropertyCategoryKey;
-  streetLine?: string;
-  wardCode?: string;
-  wardName?: string;
-  provinceCode?: string;
-  provinceName?: string;
-  fullAddress: string;
   description?: string;
   buildingRules?: string;
   motorbikeParkingCapacity?: number;

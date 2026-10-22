@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import UserDropdown from "./UserDropdown";
 import NotificationDropdown from "@/components/notification/NotificationDropdown";
 import UserAvatar from "@/components/common/UserAvatar";
-import provinceService from "@/services/province.service";
+import listingLocationService from "@/services/listing-location.service";
 import { Province } from "@/types/province.type";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchFavoriteIds } from "@/features/favorite/favoriteSlice";
@@ -64,8 +64,8 @@ export default function Header() {
 
   // Province States
   const [provinces, setProvinces] = useState<Province[]>([]);
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | string>(79);
-  const [selectedProvinceName, setSelectedProvinceName] = useState<string>("Thành phố Hồ Chí Minh");
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | string>("");
+  const [selectedProvinceName, setSelectedProvinceName] = useState<string>("Toàn quốc");
   const [isProvinceOpen, setIsProvinceOpen] = useState(false);
   const [provinceSearch, setProvinceSearch] = useState("");
   const [loadingProvinces, setLoadingProvinces] = useState(false);
@@ -103,10 +103,10 @@ export default function Header() {
     let isMounted = true;
 
     try {
-      const saved = localStorage.getItem("homespace_selected_province");
+      const saved = localStorage.getItem("homespace_selected_city_vietmap");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed?.code && parsed?.name) {
+        if (parsed?.code !== undefined && parsed?.name) {
           setSelectedProvinceCode(parsed.code);
           setSelectedProvinceName(parsed.name);
         }
@@ -118,17 +118,10 @@ export default function Header() {
     const fetchProvinces = async () => {
       try {
         setLoadingProvinces(true);
-        const data = await provinceService.getProvinces();
+        const data = await listingLocationService.getCities();
         if (isMounted && data && data.length > 0) {
           setProvinces(data);
-          const saved = localStorage.getItem("homespace_selected_province");
-          if (!saved) {
-            const hcm = data.find((p) => String(p.code) === "79" || p.code === 79);
-            if (hcm) {
-              setSelectedProvinceCode(hcm.code);
-              setSelectedProvinceName(hcm.full_name || hcm.name);
-            }
-          }
+
         }
       } catch (error) {
         console.error("Failed to load provinces in Header:", error);
@@ -152,10 +145,10 @@ export default function Header() {
 
     try {
       localStorage.setItem(
-        "homespace_selected_province",
+        "homespace_selected_city_vietmap",
         JSON.stringify({ code: province.code, name: province.name })
       );
-      localStorage.removeItem("homespace_selected_district");
+      localStorage.removeItem("homespace_selected_ward_vietmap");
       window.dispatchEvent(
         new CustomEvent("provinceChanged", {
           detail: { code: province.code, name: province.name },

@@ -9,7 +9,7 @@ import RentFilterSidebar, {
   FilterState,
 } from "@/components/rent/RentFilterSidebar";
 import { RentPropertyItem } from "@/types/rent.type";
-import provinceService from "@/services/province.service";
+import listingLocationService from "@/services/listing-location.service";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
 import { District } from "@/types/province.type";
@@ -53,9 +53,9 @@ export default function RentPage() {
   const favoriteIds = useMemo(() => new Set(favoriteIdsList), [favoriteIdsList]);
 
   // Dynamic Province & Districts synced with Header
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | string>(79);
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | string>("");
   const [selectedProvinceName, setSelectedProvinceName] = useState<string>(
-    "Thành phố Hồ Chí Minh"
+    "Toàn quốc"
   );
   const [districts, setDistricts] = useState<District[]>([]);
   const [isDistrictDropdownOpen, setIsDistrictDropdownOpen] = useState(false);
@@ -184,7 +184,7 @@ export default function RentPage() {
           hasMezzanine: filter.hasMezzanine ? true : undefined,
           hasRooftop: filter.hasRooftop ? true : undefined,
           hasGarage: filter.hasGarage ? true : undefined,
-          provinceCode: pCodeStr,
+          cityId: pCodeStr,
           keyword,
           sort: filter.sortBy,
         });
@@ -230,7 +230,7 @@ export default function RentPage() {
       setSelectedProvinceName(pName);
       try {
         setLoadingDistricts(true);
-        const dList = await provinceService.getDistrictsByProvince(pCode);
+        const dList = await listingLocationService.getWards(pCode);
         setDistricts(dList || []);
       } catch (err) {
         console.error("Error loading districts for province:", err);
@@ -241,8 +241,8 @@ export default function RentPage() {
 
     // 1. URL filter from detail breadcrumb takes precedence.
     const params = new URLSearchParams(window.location.search);
-    const urlProvinceCode = params.get("provinceCode");
-    const urlProvinceName = params.get("provinceName");
+    const urlProvinceCode = params.get("cityId");
+    const urlProvinceName = params.get("city");
     const urlWard = params.get("ward");
     const urlDistrict = params.get("district");
     const urlQuery = params.get("q")?.trim();
@@ -254,34 +254,34 @@ export default function RentPage() {
     if (urlCategory === "room" || urlCategory === "house" || urlCategory === "apartment") {
       startTransition(() => setFilter((prev) => ({ ...prev, category: urlCategory })));
     }
-    if (urlProvinceCode && urlProvinceName) {
-      loadProvinceAndDistricts(urlProvinceCode, urlProvinceName);
+    if (params.has("cityId") && urlProvinceName) {
+      loadProvinceAndDistricts(urlProvinceCode ?? "", urlProvinceName);
       startTransition(() => setFilter((prev) => ({ ...prev, district: urlDistrict || urlWard || "all" })));
     }
 
     // 2. Initial read from localStorage
     if (!urlProvinceCode || !urlProvinceName) {
       try {
-        const saved = localStorage.getItem("homespace_selected_province");
+        const saved = localStorage.getItem("homespace_selected_city_vietmap");
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed?.code && parsed?.name) {
+          if (parsed?.code !== undefined && parsed?.name) {
             loadProvinceAndDistricts(parsed.code, parsed.name);
           } else {
-            loadProvinceAndDistricts(79, "Thành phố Hồ Chí Minh");
+            loadProvinceAndDistricts("", "Toàn quốc");
           }
         } else {
-          loadProvinceAndDistricts(79, "Thành phố Hồ Chí Minh");
+          loadProvinceAndDistricts("", "Toàn quốc");
         }
       } catch {
-        loadProvinceAndDistricts(79, "Thành phố Hồ Chí Minh");
+        loadProvinceAndDistricts("", "Toàn quốc");
       }
     }
 
     // 3. Listen to custom event when user changes province in Header
     const handleProvinceChanged = (e: Event) => {
       const customEvent = e as CustomEvent<{ code: number | string; name: string }>;
-      if (customEvent.detail?.code) {
+      if (customEvent.detail && customEvent.detail.code !== undefined) {
         loadProvinceAndDistricts(
           customEvent.detail.code,
           customEvent.detail.name

@@ -9,7 +9,7 @@ import {
   Check,
   Loader2,
 } from "lucide-react";
-import provinceService from "@/services/province.service";
+import listingLocationService from "@/services/listing-location.service";
 import { Province } from "@/types/province.type";
 
 const CATEGORIES = [
@@ -22,27 +22,20 @@ export default function LocationMapExplorer() {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState("apartment");
   const [provinces, setProvinces] = useState<Province[]>([]);
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | string>(79);
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | string>("");
   const [loadingProvinces, setLoadingProvinces] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // 1. Fetch real provinces from hs-location-service
+  // 1. Fetch real provinces from published listing addresses
   useEffect(() => {
     let isMounted = true;
     const fetchProvinces = async () => {
       try {
         setLoadingProvinces(true);
-        const data = await provinceService.getProvinces();
+        const data = await listingLocationService.getCities();
         if (isMounted && data && data.length > 0) {
           setProvinces(data);
-          // Set default to Ho Chi Minh (code 79)
-          const defaultHcm = data.find((p) => String(p.code) === "79" || p.code === 79);
-          if (defaultHcm) {
-            setSelectedProvinceCode(defaultHcm.code);
-          } else {
-            setSelectedProvinceCode(data[0].code);
-          }
         }
       } catch (error) {
         console.error("Failed to load provinces:", error);
@@ -61,8 +54,8 @@ export default function LocationMapExplorer() {
   const currentProvince = useMemo(() => {
     return (
       provinces.find((p) => p.code === selectedProvinceCode) || {
-        code: 79,
-        name: "Thành phố Hồ Chí Minh",
+        code: "",
+        name: "Toàn quốc",
       }
     );
   }, [provinces, selectedProvinceCode]);
@@ -89,8 +82,7 @@ export default function LocationMapExplorer() {
               Tham khảo giá thuê nhà
             </h2>
             <p className="text-sm sm:text-base text-muted-foreground mb-6 max-w-2xl">
-              Cập nhật dữ liệu biến động giá thuê mới nhất tháng 01/2026 tại 63
-              tỉnh thành
+              Tìm nhà theo tỉnh/thành phố có tin đăng trên HomeSpace
             </p>
 
             {/* Category Tabs */}
@@ -150,7 +142,7 @@ export default function LocationMapExplorer() {
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Tìm kiếm trong 63 tỉnh thành..."
+                        placeholder="Tìm tỉnh/thành có tin đăng…"
                         className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted rounded-lg border border-border focus:outline-none focus:border-primary text-foreground"
                         autoFocus
                       />

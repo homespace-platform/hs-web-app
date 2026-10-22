@@ -99,7 +99,7 @@ test("normal rent-page cards retain their existing navigation by default", () =>
 const CompactCard = load("components/chat/AiListingCompactCard.tsx", { "next/link": mocks["next/link"], "next/image": mocks["next/image"] }).default;
 const listing = { id: ids[0], title: "Cho thuê phòng trọ có ban công tại Phường Phú Lợi", category: "ROOM",
   areaM2: 23.5, pricing: { amount: 2200000, unit: "PERSON_MONTH", currency: "VND" },
-  roomDetail: { maxOccupants: 3 }, address: { wardName: "Phường Phú Lợi", provinceName: "Hồ Chí Minh", streetLine: "48/19 Lê Lợi" },
+  roomDetail: { maxOccupants: 3 }, address: { ward: "Phường Phú Lợi", city: "Hồ Chí Minh", streetLine: "48/19 Lê Lợi" },
   owner: { displayName: "PRIVATE OWNER" }, media: [{ mediaType: "IMAGE", url: "https://example.com/huge.jpg" }], viewCount: 123 };
 const renderCompact = (data = listing) => renderToStaticMarkup(React.createElement(CompactCard, { listing: data, position: 3 }));
 

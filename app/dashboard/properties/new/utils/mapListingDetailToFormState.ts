@@ -24,11 +24,6 @@ export interface MappedListingFormState {
   monthlyExpenses: MonthlyExpensesData;
   pricing: PricingData;
   addressMode: "saved" | "new";
-  streetLine: string;
-  provinceCode: string;
-  provinceQuery: string;
-  wardCode: string;
-  wardQuery: string;
   selectedViewingDays: string[];
   selectedViewingSlots: string[];
   notice?: {
@@ -384,31 +379,7 @@ export function mapListingDetailToFormState(
 
   // 7. Monthly Expenses & Location
   let monthlyExpenses: MonthlyExpensesData;
-  let streetLine = "";
-  let provinceCode = "79";
-  let provinceQuery = "";
-  let wardCode = "";
-  let wardQuery = "";
-
-  if (branch) {
-    // Current branch data is ALWAYS the single source of truth for branch listings!
-    monthlyExpenses = buildExpensesFromBranch(branch, category);
-    streetLine = branch.streetLine || "";
-    provinceCode = branch.provinceCode ? String(branch.provinceCode) : "79";
-    provinceQuery = branch.provinceName || "";
-    wardCode = branch.wardCode ? String(branch.wardCode) : "";
-    wardQuery = branch.wardName || "";
-  } else {
-    // Independent listing: use charges and address from source
-    monthlyExpenses = buildExpensesFromListingCharges(detail.charges, category);
-    if (detail.address) {
-      streetLine = detail.address.streetLine || "";
-      provinceCode = detail.address.provinceCode || "79";
-      provinceQuery = detail.address.provinceName || "";
-      wardCode = detail.address.wardCode || "";
-      wardQuery = detail.address.wardName || "";
-    }
-  }
+  monthlyExpenses = branch ? buildExpensesFromBranch(branch, category) : buildExpensesFromListingCharges(detail.charges, category);
 
   // 8. Pricing
   const pricing: PricingData = {
@@ -448,11 +419,6 @@ export function mapListingDetailToFormState(
     monthlyExpenses,
     pricing,
     addressMode: "new",
-    streetLine,
-    provinceCode,
-    provinceQuery,
-    wardCode,
-    wardQuery,
     selectedViewingDays: detail.viewingDays ? (detail.viewingDays as string[]) : [],
     selectedViewingSlots: detail.viewingSlots ? (detail.viewingSlots as string[]) : [],
     notice: branchNotice,

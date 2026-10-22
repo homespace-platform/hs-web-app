@@ -50,13 +50,13 @@ export function toRentProperty(
       ownerId: pub.ownerId || undefined,
       title: pub.title,
       description: undefined,
-      location: pub.fullAddress || [pub.wardName, pub.provinceName].filter(Boolean).join(", "),
-      district: pub.wardName || "",
-      ward: pub.wardName || "",
-      provinceCode: pub.provinceCode || undefined,
-      provinceName: pub.provinceName || undefined,
-      wardCode: pub.wardCode || undefined,
-      city: pub.provinceName || "",
+      location: pub.fullAddress || [pub.ward, pub.city].filter(Boolean).join(", "),
+      district: pub.ward || "",
+      ward: pub.ward || "",
+      provinceCode: pub.cityId || undefined,
+      provinceName: pub.city || undefined,
+      wardCode: pub.wardId || undefined,
+      city: pub.city || "",
       priceMillion: rawPrice / 1_000_000,
       depositType: (pub as any).depositType,
       depositAmount: (pub as any).depositAmount != null ? Number((pub as any).depositAmount) : null,
@@ -147,10 +147,10 @@ export function toRentProperty(
     minimumLeaseMonths: detail?.pricing?.minimumLeaseMonths ?? (summary as any)?.minimumLeaseMonths ?? 6,
   };
 
-  const address = listing.address;
-  const provinceName = address?.provinceName ?? "";
-  const wardName = address?.wardName ?? "";
-  const streetLine = address?.streetLine ?? "";
+  const address = listing.address && "display" in listing.address ? listing.address : undefined;
+  const provinceName = address?.city ?? "";
+  const wardName = address?.ward ?? "";
+  const streetLine = address?.street ?? "";
   const categoryMap: Record<string, "apartment" | "house" | "room"> = {
     APARTMENT: "apartment",
     HOUSE: "house",
@@ -222,12 +222,12 @@ export function toRentProperty(
     status: listing.status,
     title: listing.title,
     description: listing.description ?? undefined,
-    location: address?.fullAddress ?? [streetLine, wardName, provinceName].filter(Boolean).join(", "),
+    location: address?.display ?? [streetLine, wardName, provinceName].filter(Boolean).join(", "),
     district: wardName,
     ward: wardName,
-    provinceCode: address?.provinceCode,
+    provinceCode: address?.cityId,
     provinceName,
-    wardCode: address?.wardCode,
+    wardCode: address?.wardId,
     city: provinceName,
     priceMillion: rawPrice / 1_000_000,
     depositType: detail?.pricing?.depositType ?? (summary as any)?.depositType ?? (listing as any).depositType,

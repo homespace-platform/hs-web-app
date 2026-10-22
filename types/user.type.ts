@@ -1,14 +1,4 @@
-export type UserAddress = {
-  id: string;
-  provinceCode: string;
-  provinceName: string;
-  wardCode: string;
-  wardName: string;
-  streetLine: string;
-  fullAddress: string;
-  createdAt?: string | null;
-  updatedAt?: string | null;
-};
+export type UserAddress = import("@/services/vietmap.service").VietmapAddress & { id: string; createdAt?: string | null; updatedAt?: string | null };
 
 export type UserProfile = {
   id: string;
@@ -45,13 +35,7 @@ export type PublicUserProfile = {
   createdAt?: string | null;
 };
 
-export type UpsertUserAddressRequest = {
-  provinceCode: string;
-  provinceName: string;
-  wardCode: string;
-  wardName: string;
-  streetLine: string;
-};
+export type UpsertUserAddressRequest = { refId: string; addressNote?: string };
 
 export type UpdateUserProfileRequest = {
   username: string;

@@ -44,7 +44,7 @@ export default function AiListingCompactCard({ listing, position }: {
   if (bedrooms != null && bedrooms > 0) facts.push(`${bedrooms} phòng ngủ`);
   else if (listing.category === "APARTMENT" && bedrooms === 0) facts.push("Không phòng ngủ riêng");
   if (occupants != null && occupants > 0) facts.push(`Tối đa ${occupants} người`);
-  const location = [listing.address?.wardName, listing.address?.provinceName].filter(Boolean).join(", ");
+  const location = [listing.address?.ward, listing.address?.city].filter(Boolean).join(", ");
 
   return (
     <Link href={`/rent/${listing.id}`} target="_blank" rel="noopener noreferrer" prefetch={false}

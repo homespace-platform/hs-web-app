@@ -34,41 +34,10 @@ import branchService, {
   BranchCharge,
 } from "@/services/branch.service";
 import storageService from "@/services/storage.service";
-import provinceService from "@/services/province.service";
-import type { Province, Ward } from "@/types/province.type";
-import AddressMapPreview from "@/components/address/AddressMapPreview";
+import VietmapAddressPicker from "@/components/address/VietmapAddressPicker";
+import type { VietmapAddress } from "@/services/vietmap.service";
 import { PROPERTY_CATEGORIES } from "../properties/new/constants";
 import type { PropertyCategoryKey } from "../properties/new/types";
-
-interface LocationOption {
-  code: string | number;
-  name: string;
-  full_name?: string;
-}
-
-function matchesLocation(option: LocationOption, query: string) {
-  const normalizedQuery = query.trim().toLowerCase();
-  if (!normalizedQuery) return true;
-  return `${option.name} ${option.full_name ?? ""}`
-    .toLowerCase()
-    .includes(normalizedQuery);
-}
-
-function getFilteredLocationOptions(
-  options: LocationOption[],
-  query: string,
-  selectedCode?: string,
-) {
-  const selected = options.find((o) => String(o.code) === String(selectedCode));
-  if (
-    selected &&
-    (query.trim() === selected.name.trim() ||
-      query.trim() === (selected.full_name ?? "").trim())
-  ) {
-    return options;
-  }
-  return options.filter((o) => matchesLocation(o, query));
-}
 
 export function getChargeDisplay(c: BranchCharge) {
   if (c.billingMethod === "INCLUDED" || c.includedInRent)
@@ -113,95 +82,7 @@ export function getChargeMeta(chargeType: string) {
   }
 }
 
-function SearchableLocationDropdown({
-  name,
-  placeholder,
-  value,
-  onChange,
-  open,
-  onOpen,
-  onClose,
-  options,
-  selectedCode,
-  onSelect,
-  disabled,
-  emptyText,
-}: {
-  name: string;
-  placeholder: string;
-  value: string;
-  onChange: (value: string) => void;
-  open: boolean;
-  onOpen: () => void;
-  onClose: () => void;
-  options: LocationOption[];
-  selectedCode: string;
-  onSelect: (option: LocationOption) => void;
-  disabled: boolean;
-  emptyText: string;
-}) {
-  return (
-    <div className="relative">
-      <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-      <input
-        name={name}
-        value={value}
-        disabled={disabled}
-        placeholder={placeholder}
-        autoComplete="off"
-        onFocus={onOpen}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-border bg-background pl-8 pr-8 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-      />
-      <ChevronDown
-        className={`pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground transition-transform ${
-          open ? "rotate-180" : ""
-        }`}
-      />
-      {open && !disabled && (
-        <>
-          <div className="fixed inset-0 z-20" onClick={onClose} />
-          <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-52 overflow-y-auto rounded-xl border border-border bg-popover p-1.5 shadow-xl">
-            {options.length ? (
-              options.map((option) => (
-                <button
-                  key={option.code}
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    onSelect(option);
-                    onClose();
-                  }}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs font-semibold transition-colors hover:bg-muted ${
-                    String(option.code) === selectedCode
-                      ? "bg-primary/10 text-primary"
-                      : "text-foreground"
-                  }`}
-                >
-                  <span className="truncate">{option.name}</span>
-                  {String(option.code) === selectedCode && (
-                    <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
-                  )}
-                </button>
-              ))
-            ) : (
-              <p className="px-3 py-2 text-center text-xs text-muted-foreground">
-                {emptyText}
-              </p>
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-interface CustomFeeRow {
-  id: string;
-  name: string;
-  amount: number | string;
-  unit: string;
-}
+interface CustomFeeRow { id: string; name: string; amount: number | string; unit: string; }
 
 export default function BranchesPage() {
   const router = useRouter();
@@ -216,15 +97,7 @@ export default function BranchesPage() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [category, setCategory] = useState<PropertyCategoryKey>("house");
-  const [provinces, setProvinces] = useState<Province[]>([]);
-  const [wards, setWards] = useState<Ward[]>([]);
-  const [provinceCode, setProvinceCode] = useState("79");
-  const [provinceQuery, setProvinceQuery] = useState("Thành phố Hồ Chí Minh");
-  const [wardCode, setWardCode] = useState("");
-  const [wardQuery, setWardQuery] = useState("");
-  const [streetLine, setStreetLine] = useState("");
-  const [wardLoading, setWardLoading] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState<"province" | "ward" | null>(null);
+  const [selectedAddress, setSelectedAddress] = useState<VietmapAddress | null>(null);
 
   // Section 2: Cover Image
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
@@ -264,29 +137,7 @@ export default function BranchesPage() {
   const [description, setDescription] = useState("");
   const [buildingRules, setBuildingRules] = useState("");
 
-  // Fetch provinces
-  useEffect(() => {
-    provinceService
-      .getCurrentProvinces()
-      .then((data) => setProvinces(data))
-      .catch(() => {});
-  }, []);
 
-  // Fetch wards when province changes
-  useEffect(() => {
-    if (!provinceCode) return;
-    setWardLoading(true);
-    provinceService
-      .getCurrentWardsByProvince(provinceCode)
-      .then((data) => {
-        setWards(data);
-        setWardLoading(false);
-      })
-      .catch(() => {
-        setWards([]);
-        setWardLoading(false);
-      });
-  }, [provinceCode]);
 
   const loadBranches = useCallback(async () => {
     setLoading(true);
@@ -323,12 +174,7 @@ export default function BranchesPage() {
     setName("");
     setCode("");
     setCategory("house");
-    setProvinceCode("79");
-    const foundP = provinces.find((p) => String(p.code) === "79");
-    setProvinceQuery(foundP ? foundP.name : "Thành phố Hồ Chí Minh");
-    setWardCode("");
-    setWardQuery("");
-    setStreetLine("");
+    setSelectedAddress(null);
     setDescription("");
     setBuildingRules("");
 
@@ -365,14 +211,7 @@ export default function BranchesPage() {
     setCode(branch.code || "");
     setCategory(branch.category);
 
-    const pCode = branch.provinceCode || "79";
-    setProvinceCode(pCode);
-    const foundP = provinces.find((p) => String(p.code) === pCode);
-    setProvinceQuery(foundP ? foundP.name : branch.provinceName || "");
-
-    setWardCode(branch.wardCode || "");
-    setWardQuery(branch.wardName || "");
-    setStreetLine(branch.streetLine || "");
+    setSelectedAddress(branch);
     setDescription(branch.description || "");
     setBuildingRules(branch.buildingRules || "");
 
@@ -487,28 +326,6 @@ export default function BranchesPage() {
     if (coverInputRef.current) {
       coverInputRef.current.value = "";
     }
-  };
-
-  const selectedProvince = provinces.find((p) => String(p.code) === String(provinceCode));
-  const selectedWard = wards.find((w) => String(w.code) === String(wardCode));
-  const previewFullAddress = [
-    streetLine.trim(),
-    selectedWard?.name || wardQuery,
-    selectedProvince?.name || provinceQuery,
-  ]
-    .filter(Boolean)
-    .join(", ");
-
-  const handleProvinceSelect = (province: Province) => {
-    setProvinceCode(String(province.code));
-    setProvinceQuery(province.name);
-    setWardCode("");
-    setWardQuery("");
-  };
-
-  const handleWardSelect = (ward: Ward) => {
-    setWardCode(String(ward.code));
-    setWardQuery(ward.name);
   };
 
   const handleAddCustomFee = () => {
@@ -670,19 +487,12 @@ export default function BranchesPage() {
         }
       });
 
-      const pName = selectedProvince?.name || provinceQuery;
-      const wName = selectedWard?.name || wardQuery;
-
       const payload: CreatePropertyBranchPayload = {
         name: name.trim(),
         code: code.trim() || undefined,
         category,
-        streetLine: streetLine.trim(),
-        wardCode,
-        wardName: wName,
-        provinceCode,
-        provinceName: pName,
-        fullAddress: previewFullAddress,
+        refId: selectedAddress?.refId ?? "",
+        addressNote: selectedAddress?.addressNote ?? undefined,
         description: description.trim() || undefined,
         buildingRules: buildingRules.trim() || undefined,
         motorbikeParkingCapacity: finalMotorbikeCap,
@@ -711,7 +521,7 @@ export default function BranchesPage() {
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !previewFullAddress.trim()) {
+    if (!name.trim() || !selectedAddress?.refId) {
       alert("Vui lòng nhập tên chi nhánh và đầy đủ địa chỉ.");
       return;
     }
@@ -861,7 +671,7 @@ export default function BranchesPage() {
 
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground line-clamp-1">
                     <MapPin className="h-3.5 w-3.5 shrink-0 text-primary/70" />
-                    <span>{b.fullAddress}</span>
+                    <span>{b.display}</span>
                   </p>
                 </div>
               </div>
@@ -1038,92 +848,8 @@ export default function BranchesPage() {
                   </select>
                 </div>
 
-                {/* Location Selection */}
-                <div className="space-y-3 pt-2">
-                  <label className="block font-bold text-foreground">
-                    Địa chỉ tòa nhà / chi nhánh <span className="text-destructive">*</span>
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-medium text-muted-foreground mb-1 text-[11px]">
-                        Tỉnh / Thành phố
-                      </label>
-                      <SearchableLocationDropdown
-                        name="provinceName"
-                        placeholder="Tìm tỉnh / thành phố..."
-                        value={provinceQuery}
-                        onChange={(val) => {
-                          setProvinceQuery(val);
-                          if (val !== selectedProvince?.name && val !== selectedProvince?.full_name) {
-                            setProvinceCode("");
-                            setWardCode("");
-                            setWardQuery("");
-                            setWards([]);
-                          }
-                        }}
-                        open={openDropdown === "province"}
-                        onOpen={() => setOpenDropdown("province")}
-                        onClose={() => setOpenDropdown(null)}
-                        options={getFilteredLocationOptions(provinces, provinceQuery, provinceCode)}
-                        selectedCode={provinceCode}
-                        onSelect={handleProvinceSelect}
-                        disabled={!provinces.length}
-                        emptyText="Không tìm thấy tỉnh/thành phố"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-medium text-muted-foreground mb-1 text-[11px]">
-                        Phường / Xã
-                      </label>
-                      <SearchableLocationDropdown
-                        name="wardCode"
-                        placeholder={wardLoading ? "Đang tải..." : "Tìm phường / xã..."}
-                        value={wardQuery}
-                        onChange={(val) => {
-                          setWardQuery(val);
-                          if (val !== selectedWard?.name && val !== selectedWard?.full_name) {
-                            setWardCode("");
-                          }
-                        }}
-                        open={openDropdown === "ward"}
-                        onOpen={() => setOpenDropdown("ward")}
-                        onClose={() => setOpenDropdown(null)}
-                        options={getFilteredLocationOptions(wards, wardQuery, wardCode)}
-                        selectedCode={wardCode}
-                        onSelect={handleWardSelect}
-                        disabled={wardLoading || !wards.length}
-                        emptyText="Không tìm thấy phường/xã"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-medium text-muted-foreground mb-1 text-[11px]">
-                      Địa chỉ cụ thể (Số nhà, ngõ, tên đường)
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={streetLine}
-                      onChange={(e) => setStreetLine(e.target.value)}
-                      placeholder="Ví dụ: 45 Đường số 12, Khu phố 4..."
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-
-                  {previewFullAddress && (
-                    <div className="space-y-3">
-                      <div className="flex items-start gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-medium text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-100">
-                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
-                        <span>{previewFullAddress}</span>
-                      </div>
-                      <AddressMapPreview fullAddress={previewFullAddress} />
-                    </div>
-                  )}
-                </div>
+                <VietmapAddressPicker value={selectedAddress} onChange={setSelectedAddress} />
               </div>
-
               {/* SECTION 2: COVER IMAGE (OPTIONAL) */}
               <div className="space-y-4 rounded-2xl border border-border/80 bg-muted/15 p-4">
                 <div className="flex items-center justify-between border-b border-border/60 pb-2">

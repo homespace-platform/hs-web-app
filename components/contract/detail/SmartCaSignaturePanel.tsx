@@ -126,7 +126,7 @@ export default function SmartCaSignaturePanel({ contract, state, isLandlord, isT
     <div className="flex items-start gap-3">
       <ShieldCheck className="h-6 w-6 text-sky-700 shrink-0" />
       <div>
-        <h3 className="font-bold text-sm">Ký số {contract.agreementKind === "AMENDMENT" ? "phụ lục" : "hợp đồng"} bằng VNPT SmartCA</h3>
+        <h3 className="font-bold text-sm">Ký số {contract.agreementKind === "DEPOSIT" ? "hợp đồng cọc" : contract.agreementKind === "AMENDMENT" ? "phụ lục" : "hợp đồng"} bằng VNPT SmartCA</h3>
         <p className="text-xs text-muted-foreground mt-1">Rà soát PDF trước khi gửi yêu cầu. Ứng dụng SmartCA xác nhận giao dịch; HomeSpace sẽ đóng gói và kiểm tra chữ ký trên PDF.</p>
       </div>
     </div>

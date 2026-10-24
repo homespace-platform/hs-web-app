@@ -1,6 +1,7 @@
 "use client";
 
 import RentalOnboardingPanel from "@/components/rental-request/RentalOnboardingPanel";
+import DepositAgreementPanel from "@/components/rental-request/DepositAgreementPanel";
 import type { RentalOnboarding } from "@/services/rental-onboarding.service";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -92,6 +93,11 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     setCurrentPreview(null);
     try {
       const c = await contractService.getContract(contractId);
+      if (c.agreementKind === "DEPOSIT") {
+        setContract(c);
+        setRevision(null);
+        return; // Deposit documents must not load lease billing, meters or amendment tools.
+      }
       const [rev, comp, docs, paymentBreakdown, sigState, preview] = await Promise.all([
         contractService.getRevision(contractId),
         contractService.getCompleteness(contractId),
@@ -389,7 +395,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     );
   }
 
-  if (!contract || !revision) return null;
+  if (!contract) return null;
 
   if (!profile?.id) return <div className="flex items-center gap-2 text-sm text-muted-foreground">
     <Loader2 className="h-4 w-4 animate-spin" />Đang xác thực tài khoản…
@@ -401,6 +407,12 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       <Link href={contractListPath(perspective)} className="font-semibold underline">Về danh sách hợp đồng</Link>
     </div>;
   }
+
+  if (contract.agreementKind === "DEPOSIT") return <div className="mx-auto max-w-4xl space-y-4 pb-8">
+    <Link href={contractListPath(perspective)} className="text-sm text-primary underline">Về danh sách hợp đồng thuê</Link>
+    <DepositAgreementPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} onUpdated={refreshSignedState}/>
+  </div>;
+  if (!revision) return null;
 
   const isDraft = contract.status === "DRAFT" && !contract.parentContractId;
   const isAmendment = contract.agreementKind === "AMENDMENT";

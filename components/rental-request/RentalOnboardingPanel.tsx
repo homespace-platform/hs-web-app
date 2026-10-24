@@ -7,6 +7,7 @@ import paymentService from "@/services/payment-request.service";
 import storageService from "@/services/storage.service";
 import { getApiErrorMessage } from "@/utils/apiError";
 import RentalPaymentModal from "./RentalPaymentModal";
+import DepositAgreementPanel from "./DepositAgreementPanel";
 
 const date = (s: string) => s.split("T")[0].split("-").reverse().join("/");
 const instant = (s?: string) => s ? new Date(s).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
@@ -59,6 +60,7 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
     {error && <p role="alert" className="text-sm text-amber-700">{error} Dữ liệu đang hiển thị có thể chưa cập nhật.</p>}
     {!view ? <p className="text-sm">Đang tải tiến trình…</p> : <>
       <div className="rounded-xl bg-muted/40 p-3 text-sm"><p>Bắt đầu thuê: <strong>{date(view.startsOn)}</strong> · Kết thúc: <strong>{date(view.endExclusive)}</strong> (không bao gồm ngày này)</p><p className="mt-2">{view.message}</p><p className="mt-2 text-xs text-muted-foreground">Cập nhật {instant(view.serverNow)} · Giờ Việt Nam</p></div>
+      {view.deposit && <DepositAgreementPanel rentalRequestId={rentalRequestId} isLandlord={!!isOwner} onUpdated={async()=>{await load();}}/>}
       {view.deposit && <div className="rounded-xl border p-3 text-sm"><p>Trạng thái cọc: <strong>{({HELD:"Đang giữ cọc",PENDING:"Chưa xác nhận",RETAINED_BY_LANDLORD:"Chủ nhà đã giữ cọc",REFUND_DUE:"Chờ hoàn cọc",REFUNDED:"Đã hoàn cọc",DISPUTED:"Đang đối soát"} as Record<string,string>)[view.deposit.status] || view.deposit.status}</strong></p><p>Đang giữ: {money(view.deposit.heldAmount)} · Đã chốt giữ: {money(view.deposit.retainedAmount || 0)}</p>{view.deposit.retainedReason && <p>{view.deposit.retainedReason}</p>}</div>}
       {view.defaultCase?.notifiedAt && <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
         <p className="font-semibold">{view.defaultCase.completedAt ? "Đã hủy hồ sơ và chốt giữ cọc" : !noticeOpen ? "Hồ sơ đã kết thúc / hoàn tất ký · Thông báo cũ không còn áp dụng" : view.defaultCase.disputedAt ? "Đang có phản hồi · Chặn giữ cọc, cần đối soát" : "Thông báo cuối cùng trước khi xử lý giữ cọc"}</p>
@@ -107,7 +109,7 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
           {c.status === "REQUESTED" && (isOwner ? <div className="flex gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm(`Đổi ngày bắt đầu thuê sang ${date(c.requestedDate)}? Ngày kết thúc và kỳ hóa đơn cũng thay đổi.`)) void action(() => service.decide(rentalRequestId, c.id, true)); }}>Đồng ý đổi ngày</button><button type="button" className={button} disabled={busy} onClick={() => void action(() => service.decide(rentalRequestId, c.id, false))}>Không đồng ý</button></div> : <button type="button" className={button} disabled={busy} onClick={() => void action(() => service.withdraw(rentalRequestId, c.id))}>Rút đề nghị</button>)}
         </article>)}
       </details>}
-      {!!view.history?.length && <details className="rounded-xl border p-3"><summary className="cursor-pointer text-sm font-medium">Lịch sử xử lý hồ sơ</summary>{view.history.map(e => <p key={e.id} className="mt-2 text-sm">{instant(e.occurredAt)} · {({ CANCELLATION_REQUESTED: "Đề nghị hủy và hoàn tiền", CANCELLATION_APPROVED: "Đồng ý hủy và hoàn tiền", CANCELLATION_REJECTED: "Không đồng ý hủy", PAYMENT_RECEIPT_VERIFIED: "Đã đối soát nhận đủ tiền", PAYMENT_REOPENED: "Mở lại thanh toán", SIGNING_REOPENED: "Mở lại thời hạn ký" } as Record<string, string>)[e.action] ?? "Cập nhật hồ sơ"} · {e.note}</p>)}</details>}
+      {!!view.history?.length && <details className="rounded-xl border p-3"><summary className="cursor-pointer text-sm font-medium">Lịch sử xử lý hồ sơ</summary>{view.history.map(e => <p key={e.id} className="mt-2 text-sm">{instant(e.occurredAt)} · {({ CANCELLATION_REQUESTED: "Đề nghị hủy và hoàn tiền", CANCELLATION_APPROVED: "Đồng ý hủy và hoàn tiền", CANCELLATION_REJECTED: "Không đồng ý hủy", PAYMENT_RECEIPT_VERIFIED: "Đã đối soát nhận đủ tiền", PAYMENT_REOPENED: "Mở lại thanh toán", SIGNING_REOPENED: "Mở lại thời hạn ký", DEPOSIT_AGREEMENT_CREATED: "Đã lập hợp đồng cọc", DEPOSIT_LANDLORD_SIGNED: "Chủ nhà đã ký cọc", DEPOSIT_BOTH_SIGNED: "Đã ký đủ hợp đồng cọc", DEPOSIT_SIGNING_REOPENED: "Mở lại hạn ký cọc" } as Record<string, string>)[e.action] ?? "Cập nhật hồ sơ"} · {e.note}</p>)}</details>}
     </>}
     {paymentId && <RentalPaymentModal request={{ id: rentalRequestId }} paymentId={paymentId} isOpen onClose={() => { setPaymentId(null); void load(); }} onPaymentSuccess={() => { setPaymentId(null); void load(); }} />}
   </section>;

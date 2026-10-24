@@ -106,6 +106,8 @@ export default function RentalRequestModal({
   const [renterEmail, setRenterEmail] = useState("");
   const [renterNote, setRenterNote] = useState("");
   const [reservationPolicyAccepted,setReservationPolicyAccepted]=useState(false);
+  const [reservationPolicy,setReservationPolicy]=useState<{version:string;text:string}|null>(null);
+  useEffect(()=>{let live=true;if(isOpen){setReservationPolicyAccepted(false);setReservationPolicy(null);axiosClient.get("/api/v1/rental-requests/reservation-policy").then(r=>{if(live)setReservationPolicy(r.data.result);}).catch(()=>{if(live)toast.error("Chưa tải được điều kiện giữ chỗ. Hãy mở lại trước khi gửi yêu cầu.");});}return()=>{live=false;};},[isOpen]);
   const [customDepositInput, setCustomDepositInput] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -381,7 +383,7 @@ export default function RentalRequestModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(!reservationPolicyAccepted) {
+    if(!reservationPolicyAccepted || !reservationPolicy) {
       toast.error("Bạn cần đồng ý điều kiện giữ chỗ trước khi gửi yêu cầu thuê.");
       return;
     }
@@ -463,6 +465,7 @@ export default function RentalRequestModal({
         negotiatedDepositAmount: depositInfo.isNegotiable ? depositAmount : undefined,
         renterNote: renterNote.trim() || undefined,
         reservationPolicyAccepted,
+        reservationPolicyVersion: reservationPolicy!.version,
       });
 
       toast.success(
@@ -1141,8 +1144,8 @@ export default function RentalRequestModal({
 
           {/* 10. FOOTER ACTIONS */}
           <label className="flex items-start gap-2 rounded-xl border p-3 text-xs leading-relaxed">
-            <input type="checkbox" required checked={reservationPolicyAccepted} onChange={e=>setReservationPolicyAccepted(e.target.checked)} className="mt-1" />
-            <span><strong>Tôi đã đọc và đồng ý điều kiện giữ chỗ (bắt buộc):</strong> cọc và tiền thuê được theo dõi riêng. Nếu tôi quá hạn trả tháng đầu hoặc quá hạn ký sau khi chủ nhà đã ký và cung cấp văn bản, chủ nhà có thể giữ 100% cọc thực nhận và hủy hồ sơ sau thông báo cuối cùng ít nhất 24 giờ. Tôi có quyền phản hồi, yêu cầu đối soát; tiền thuê đã nhận phải hoàn riêng, không bị giữ cùng cọc.</span>
+            <input type="checkbox" required disabled={!reservationPolicy} checked={reservationPolicyAccepted} onChange={e=>setReservationPolicyAccepted(e.target.checked)} className="mt-1" />
+            <span><strong>Tôi đã đọc và đồng ý điều kiện giữ chỗ (bắt buộc):</strong> {reservationPolicy?.text || "Đang tải điều kiện giữ chỗ…"} {reservationPolicy && <small className="block">Phiên bản: {reservationPolicy.version}</small>}</span>
           </label>
           <div className="pt-3 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2.5">
             {!reservationPolicyAccepted ? (
@@ -1170,7 +1173,7 @@ export default function RentalRequestModal({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || !reservationPolicyAccepted || loadingEstimate || Boolean(estimateError) || !estimate?.paymentPlan}
+                disabled={isSubmitting || !reservationPolicy || !reservationPolicyAccepted || loadingEstimate || Boolean(estimateError) || !estimate?.paymentPlan}
                 className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
               >
                 <Sparkles className="w-3.5 h-3.5" />

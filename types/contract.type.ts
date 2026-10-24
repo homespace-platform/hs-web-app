@@ -133,7 +133,7 @@ export interface ContractResponse {
   templateVersionId: string;
   currentRevisionId?: string | null;
   parentContractId?: string | null;
-  agreementKind?: "AMENDMENT" | "RENEWAL" | null;
+  agreementKind?: "AMENDMENT" | "RENEWAL" | "DEPOSIT" | null;
   effectiveLeaseMonths?: number | null;
   status: ContractStatus;
   paymentStatus: ContractPaymentStatus;

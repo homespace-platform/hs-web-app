@@ -22,6 +22,7 @@ export interface CreateRentalRequestPayload {
   negotiatedDepositAmount?: number | null;
   renterNote?: string;
   reservationPolicyAccepted: boolean;
+  reservationPolicyVersion: string;
 }
 
 export interface RentalRequestResponse {

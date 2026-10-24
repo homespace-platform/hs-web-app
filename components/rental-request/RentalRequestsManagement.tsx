@@ -23,12 +23,14 @@ import {
   FileText,
   Ban,
   CreditCard,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
 import RentalRequestDetailModal from "./RentalRequestDetailModal";
+import RentalRequestAiReviewModal from "./RentalRequestAiReviewModal";
 import RentalContractFallbackButton from "./RentalContractFallbackButton";
 import RentalPaymentModal from "./RentalPaymentModal";
 import RentalDepositQuickViewModal, { RentalReceiptNotice } from "./RentalDepositQuickViewModal";
@@ -36,6 +38,7 @@ import RentalStartChangeQuickModal, { StartChangeNotice } from "./RentalStartCha
 import { contractService } from "@/services/contract.service";
 import type { ContractResponse } from "@/types/contract.type";
 import type {
+  RentalRequestConflict,
   RentalRequestResponse,
   RentalRequestStatus,
 } from "@/types/rental-request.type";
@@ -156,6 +159,9 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const [paymentTarget, setPaymentTarget] = useState<RentalRequestResponse | null>(null);
   const [depositQuickTarget,setDepositQuickTarget]=useState<RentalRequestResponse|null>(null);
   const [startChangeTarget,setStartChangeTarget]=useState<RentalRequestResponse|null>(null);
+  // Chủ nhà: bài đăng có từ 2 yêu cầu chờ duyệt cạnh tranh nhau -> hiện nút "Hỏi AI đánh giá".
+  const [conflicts, setConflicts] = useState<Record<string, RentalRequestConflict>>({});
+  const [reviewTarget, setReviewTarget] = useState<RentalRequestConflict | null>(null);
   useEffect(()=>()=>{contractCreationRequest.current?.abort();},[]);
 
   const handleCreateDraft = async (request: RentalRequestResponse) => {
@@ -223,6 +229,41 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   useEffect(() => {
     void fetchRequests();
   }, [fetchRequests]);
+
+  useEffect(() => {
+    if (mode !== "RECEIVED") return;
+    let active = true;
+    rentalRequestService
+      .getOwnerConflicts()
+      .then((rows) => {
+        if (active) setConflicts(Object.fromEntries(rows.map((row) => [row.listingId, row])));
+      })
+      .catch(() => {
+        if (!active) return;
+        // API chưa sẵn sàng: vẫn nhận ra yêu cầu trùng ngay trong trang đang xem (cùng bài đăng, đều chờ duyệt).
+        const groups = new Map<string, RentalRequestResponse[]>();
+        for (const item of requests) {
+          if (item.status === "PENDING") groups.set(item.listingId, [...(groups.get(item.listingId) ?? []), item]);
+        }
+        setConflicts(Object.fromEntries(
+          [...groups].filter(([, rows]) => rows.length >= 2).map(([listingId, rows]) => [listingId, {
+            listingId, listingTitle: rows[0].listingTitle, listingAddress: rows[0].listingAddress,
+            pendingCount: rows.length, requestIds: rows.map((row) => row.id),
+          }])));
+      });
+    return () => {
+      active = false;
+    };
+  }, [mode, requests]);
+
+  const acceptFromReview = async (requestId: string) => {
+    const local = requests.find((item) => item.id === requestId);
+    try {
+      setAcceptTarget(local ?? (await rentalRequestService.getRequestById(requestId)));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không mở được yêu cầu để chấp thuận. Vui lòng thử lại."));
+    }
+  };
 
   const handlePaymentSuccess = () => {
     setPaymentTarget(null);
@@ -658,6 +699,18 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                     <RentalContractFallbackButton request={req} mode={mode} contract={linkedContract}
                       busy={creatingContractFor===req.id} disabled={isProcessing || creatingContractFor!==null}
                       onCreate={handleCreateDraft} />
+                    {/* Nhiều yêu cầu cùng chờ duyệt cho một phòng: hỏi AI nên chọn ai */}
+                    {mode === "RECEIVED" && req.status === "PENDING" && conflicts[req.listingId] && (
+                      <button
+                        type="button"
+                        onClick={() => setReviewTarget(conflicts[req.listingId])}
+                        className="px-3 py-1.5 rounded-xl border border-violet-300 bg-violet-50 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
+                        title={`Phòng này có ${conflicts[req.listingId].pendingCount} yêu cầu đang chờ duyệt`}
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Hỏi AI đánh giá ({conflicts[req.listingId].pendingCount} yêu cầu)</span>
+                      </button>
+                    )}
                     {/* Chủ nhà xét duyệt khi PENDING */}
                     {mode === "RECEIVED" && req.status === "PENDING" && (
                       <>
@@ -1059,6 +1112,16 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         onOpenDetail={()=>{setDetailRequestId(depositQuickTarget.id);setDepositQuickTarget(null);}}/>}
       {startChangeTarget && <RentalStartChangeQuickModal key={startChangeTarget.id} request={startChangeTarget} mode={mode}
         onClose={()=>setStartChangeTarget(null)} onUpdated={fetchRequests}/>}
+
+      {reviewTarget && (
+        <RentalRequestAiReviewModal
+          key={reviewTarget.listingId}
+          listingId={reviewTarget.listingId}
+          listingTitle={reviewTarget.listingTitle}
+          onClose={() => setReviewTarget(null)}
+          onAccept={(requestId) => void acceptFromReview(requestId)}
+        />
+      )}
 
       {/* Modal Thanh Toán Ban Đầu */}
       {paymentTarget && (

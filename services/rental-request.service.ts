@@ -3,6 +3,7 @@ import type { ApiResponse, PageResponse } from "@/types/api.type";
 import type {
   CreateRentalRequestPayload,
   RentalRequestResponse,
+  RentalRequestConflict,
   RentalRequestStatus,
 } from "@/types/rental-request.type";
 
@@ -111,6 +112,16 @@ const rentalRequestService = {
       }
     );
     return response.data;
+  },
+
+  /**
+   * Chủ nhà: các bài đăng đang có từ 2 yêu cầu chờ duyệt cạnh tranh nhau
+   */
+  async getOwnerConflicts(): Promise<RentalRequestConflict[]> {
+    const response = await axiosClient.get<ApiResponse<RentalRequestConflict[]>>(
+      "/api/v1/rental-requests/owner/conflicts"
+    );
+    return response.data.result ?? [];
   },
 
   /**

@@ -126,3 +126,56 @@ export interface RentalEstimateResponse {
     firstRentOpensOn: string;
   } | null;
 }
+
+/** Một bài đăng có từ 2 yêu cầu thuê đang chờ duyệt cạnh tranh nhau (chủ nhà). */
+export interface RentalRequestConflict {
+  listingId: string;
+  listingTitle: string;
+  listingAddress: string | null;
+  pendingCount: number;
+  requestIds: string[];
+}
+
+export interface RentalReviewRow {
+  requestId: string;
+  renterName: string;
+  rank: number;
+  /** 0–100, do hệ thống chấm theo trọng số cố định. */
+  score: number;
+  breakdown: Record<string, number>;
+  facts: {
+    leaseMonths: number | null;
+    occupantCount: number | null;
+    moveInDate: string | null;
+    depositAmount: number | null;
+    monthlyRent: number | null;
+    estimatedLeaseTotal: number | null;
+    createdAt: string | null;
+  };
+  strengths: string[];
+  weaknesses: string[];
+}
+
+export interface RentalReview {
+  listingId: string;
+  listingTitle: string | null;
+  count: number;
+  weights: Record<string, number>;
+  recommendedRequestId: string;
+  margin: number;
+  closeCall: boolean;
+  ranking: RentalReviewRow[];
+  decisiveCriteria: string[];
+  summary: string;
+}
+
+export interface RentalReviewAnswer {
+  answer: string;
+  status: "ANSWERED" | "GENERATION_UNAVAILABLE";
+  review: RentalReview;
+}
+
+export interface RentalReviewTurn {
+  role: "user" | "assistant";
+  content: string;
+}

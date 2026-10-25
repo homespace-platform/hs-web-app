@@ -107,7 +107,7 @@ export default function RentalStartChangeQuickModal({request,mode,onClose,onUpda
       {error && <p role="alert" className="rounded-xl border border-amber-300 p-3 text-sm">{error}</p>}
       {loading?<p role="status">Đang tải đề nghị…</p>:view&&<>
         <div className="space-y-2 rounded-xl bg-muted/40 p-3 text-sm"><p>Người thuê: {request.renterName}</p><p>Ngày bắt đầu hiện tại: <strong>{calendarDate(view.startsOn)}</strong> · Kết thúc: {calendarDate(view.endExclusive)} (không gồm ngày này)</p><p>{view.message}</p></div>
-        <p className="text-sm text-muted-foreground">Đồng ý sẽ đổi ngày bắt đầu thuê, ngày kết thúc và kỳ hóa đơn, không chỉ đổi ngày ký. Giữ nguyên số tháng, đơn giá và cọc đã nhận. Hợp đồng chỉ tự tạo sau khi đã xác nhận đủ cọc và tháng đầu.</p>
+        <p className="text-sm text-muted-foreground">Đồng ý sẽ đổi ngày bắt đầu thuê, ngày kết thúc và kỳ hóa đơn, không chỉ đổi ngày ký. Giữ nguyên số tháng, đơn giá và cọc đã nhận. Hợp đồng thuê chỉ tự tạo khi đã đến ngày vào và xác nhận đủ cọc, tiền tháng đầu. Hợp đồng cọc được lập riêng sau khi xác nhận nhận cọc, không đợi đến ngày vào.</p>
         <StartChangeReview request={request} view={view} actorId={userId} mode={mode} busy={busy||!!error} onAction={decide}/>
         {canRequest && <form className="space-y-3 rounded-xl border p-4" onSubmit={e=>{e.preventDefault();if(startsOn>=minDate&&startsOn<view.startsOn&&reason.trim().length>=10)void mutate(()=>service.request(request.id,startsOn,reason.trim()));}}>
           <label className="block text-sm">Ngày bắt đầu thuê mới<input required type="date" min={minDate} max={maxDate} value={startsOn} disabled={busy||!!error} onChange={e=>setStartsOn(e.target.value)} className="mt-1 block rounded-lg border bg-background p-2"/></label>

@@ -282,7 +282,7 @@ export default function RentalRequestDetailModal({
     setConfirmingReceipt(true);
     try {
       await paymentRequestService.confirmReceipt(paymentId);
-      toast.success("Đã xác nhận khoản thanh toán. Hệ thống tự tạo bản nháp khi đủ cọc và tiền thuê tháng đầu theo tiến trình nhận nhà.");
+      toast.success("Đã xác nhận khoản thanh toán. Nếu khoản này có cọc, hệ thống lập hợp đồng cọc ngay; hợp đồng thuê được chuẩn bị riêng theo ngày vào và tiền tháng đầu.");
       onPaymentStatusChange?.();
       if (requestId) {
         const fresh = await rentalRequestService.getRequestById(requestId);
@@ -859,7 +859,7 @@ export default function RentalRequestDetailModal({
                       <p role="status" className="max-w-lg text-xs text-muted-foreground">
                         {onboarding?.canPrepareContract
                           ? onboarding.message
-                          : "Hợp đồng được tạo tự động sau khi chủ nhà xác nhận đủ cọc và tiền thuê tháng đầu. Chỉ nhận cọc chưa tạo bản nháp."}
+                          : "Hợp đồng cọc được lập sau khi xác nhận nhận cọc; xem trong phần Đặt cọc & nhận nhà phía trên. Hợp đồng thuê được chuẩn bị riêng khi đến ngày vào và xác nhận đủ tiền tháng đầu."}
                       </p>
                       <RentalContractFallbackButton request={detail} mode={mode} contract={linkedContract} view={onboarding}
                         busy={creatingContract} disabled={isProcessingAction} onCreate={onCreateDraft} />

@@ -134,6 +134,7 @@ export interface ContractResponse {
   currentRevisionId?: string | null;
   parentContractId?: string | null;
   agreementKind?: "AMENDMENT" | "RENEWAL" | "DEPOSIT" | null;
+  depositAgreementContractId?: string | null;
   effectiveLeaseMonths?: number | null;
   status: ContractStatus;
   paymentStatus: ContractPaymentStatus;

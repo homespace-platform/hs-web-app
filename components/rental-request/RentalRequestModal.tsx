@@ -525,7 +525,7 @@ export default function RentalRequestModal({
           <Clock className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
           <p>
             Sau khi chủ nhà chấp thuận, bạn có{" "}
-            <strong>{holdMinutes ? `${holdMinutes} phút` : "thời hạn hiển thị trên yêu cầu thanh toán"}</strong> để hoàn tất khoản giữ chỗ được mở. Dọn vào cùng ngày: thu cọc + tiền thuê tháng đầu. Dọn vào sau: chỉ thu cọc trước, đến ngày dọn vào mới mở tiền thuê tháng đầu. Ký hợp đồng sau khi đã xác nhận đủ tiền. Bạn có thể đề nghị chủ nhà đồng ý bắt đầu thuê sớm.
+            <strong>{holdMinutes ? `${holdMinutes} phút` : "thời hạn hiển thị trên yêu cầu thanh toán"}</strong> để hoàn tất khoản giữ chỗ được mở. Dọn vào cùng ngày: thu cọc + tiền thuê tháng đầu. Dọn vào sau: chỉ thu cọc trước, đến ngày dọn vào mới mở tiền thuê tháng đầu. Sau khi chủ nhà xác nhận nhận cọc, hai bên xem và ký hợp đồng cọc trước, không đợi đến ngày vào. Hợp đồng thuê ký riêng khi đến ngày vào và xác nhận đủ tiền tháng đầu. Bạn có thể đề nghị chủ nhà đồng ý bắt đầu thuê sớm.
           </p>
         </div>
 

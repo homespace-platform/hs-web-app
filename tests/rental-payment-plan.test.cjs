@@ -21,9 +21,10 @@ const render=(value=estimate,extra={})=>renderToStaticMarkup(React.createElement
   {estimate:value,loading:false,error:null,depositBadge:"2 tháng tiền nhà",...extra}));
 test("reservation consent is mandatory in browser validation, button gating and submit; never prechecked",()=>{
   const modal=fs.readFileSync(path.join(__dirname,"../components/rental-request/RentalRequestModal.tsx"),"utf8");
-  assert.match(modal,/type="checkbox" required checked=\{reservationPolicyAccepted\}/);
+  assert.match(modal,/type="checkbox" required disabled=\{!reservationPolicy\} checked=\{reservationPolicyAccepted\}/);
   assert.match(modal,/disabled=\{[^}]*!reservationPolicyAccepted/);
-  assert.match(modal,/if\(!reservationPolicyAccepted\) \{[\s\S]*?return;/);
+  assert.match(modal,/if\(!reservationPolicyAccepted \|\| !reservationPolicy\) \{[\s\S]*?return;/);
+  assert.match(modal,/reservationPolicyVersion: reservationPolicy!\.version/);
   assert.match(modal,/setReservationPolicyAccepted\(false\)/);
   assert.doesNotMatch(modal,/setReservationPolicyAccepted\(true\)/);
   assert.match(modal,/đã đọc và đồng ý điều kiện giữ chỗ \(bắt buộc\)/);

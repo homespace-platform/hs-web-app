@@ -36,6 +36,7 @@ import RentalPaymentModal from "./RentalPaymentModal";
 import RentalDepositQuickViewModal, { RentalReceiptNotice } from "./RentalDepositQuickViewModal";
 import RentalStartChangeQuickModal, { StartChangeNotice } from "./RentalStartChangeQuickModal";
 import { contractService } from "@/services/contract.service";
+import AgreementDocumentActions from "@/components/contract/AgreementDocumentActions";
 import type { ContractResponse } from "@/types/contract.type";
 import type {
   RentalRequestConflict,
@@ -154,6 +155,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const contractCreationRequest=useRef<AbortController|null>(null);
   const [creatingContractFor,setCreatingContractFor]=useState<string|null>(null);
   const [contractsByRequest, setContractsByRequest] = useState<Record<string, ContractResponse | null>>({});
+  const [agreementsByRequest, setAgreementsByRequest] = useState<Record<string, ContractResponse | null>>({});
   const [openingContractId, setOpeningContractId] = useState<string | null>(null);
   const [detailRequestId, setDetailRequestId] = useState<string | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<RentalRequestResponse | null>(null);
@@ -274,32 +276,31 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   useEffect(() => {
     const contractRequests = requests.filter(
       (request) =>
-        ["ACCEPTED","COMPLETED","CANCELLED_BY_SYSTEM","CANCELLED_BY_RENTER","CANCELLED_BY_OWNER"].includes(request.status) &&
-        !contractsByRequest[request.id]
+        ["ACCEPTED","COMPLETED","CANCELLED_BY_SYSTEM","CANCELLED_BY_RENTER","CANCELLED_BY_OWNER","EXPIRED"].includes(request.status)
     );
     let cancelled = false;
     const loadContracts = async () => {
       const entries = await Promise.all(
         contractRequests.map(async (r) => {
           try {
-            const c = await contractService.getByRentalRequest(r.id);
+            const c = await contractService.getByRentalRequest(r.id, true);
             return [r.id, c] as const;
           } catch {
-            return [r.id, null] as const;
+            return [r.id, undefined] as const;
           }
         }),
       );
       if (cancelled) return;
-      setContractsByRequest((prev) => {
+      // Deposit ACTIVE means signed receipt, never an active tenancy or a billable lease.
+      setAgreementsByRequest(prev => {
         const next = { ...prev };
-        let changed = false;
-        for (const [reqId, contract] of entries) {
-          if (contract && next[reqId]?.id !== contract.id) {
-            next[reqId] = contract;
-            changed = true;
-          }
-        }
-        return changed ? next : prev;
+        for (const [id, agreement] of entries) if (agreement !== undefined) next[id] = agreement;
+        return next;
+      });
+      setContractsByRequest(prev => {
+        const next = { ...prev };
+        for (const [id, agreement] of entries) if (agreement !== undefined) next[id] = agreement?.agreementKind === "DEPOSIT" ? null : agreement;
+        return next;
       });
     };
     if (contractRequests.length === 0) return;
@@ -311,7 +312,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [requests, contractsByRequest]);
+  }, [requests]);
 
   // Deadlines come from the business clock, not the browser's real-time clock.
   useEffect(() => {
@@ -484,6 +485,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         <div className="space-y-4">
           {requests.map((req) => {
             const linkedContract = contractsByRequest[req.id];
+            const primaryAgreement = agreementsByRequest[req.id];
             const isContractPending = linkedContract?.status === "PENDING_REVIEW";
             const isContractActive = linkedContract?.status === "ACTIVE";
             const isContractDraft = linkedContract?.status === "DRAFT";
@@ -654,6 +656,13 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                   </div>
                 </div>
 
+                {primaryAgreement && <section aria-label="Hợp đồng của yêu cầu thuê" className="flex flex-col gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold"><FileText className="h-4 w-4 shrink-0 text-primary"/>{primaryAgreement.agreementKind === "DEPOSIT" ? "Hợp đồng đặt cọc giữ phòng" : "Hợp đồng thuê"}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{primaryAgreement.contractNumber}{primaryAgreement.agreementKind === "DEPOSIT" && primaryAgreement.status === "ACTIVE" ? " · Đã ký đủ hai bên" : ""}</p>
+                  </div>
+                  <AgreementDocumentActions key={primaryAgreement.id} contract={primaryAgreement} perspective={mode === "RECEIVED" ? "landlord" : "tenant"}/>
+                </section>}
                 <StartChangeNotice request={req} mode={mode} onOpen={()=>setStartChangeTarget(req)}/>
                 {mode==="RECEIVED" && <RentalReceiptNotice request={req} onOpen={()=>setDepositQuickTarget(req)}/>}
                 {mode==="SENT" && req.status==="ACCEPTED" && !req.latestStartChange && req.initialPayment?.status==="CONFIRMED" && <button type="button" onClick={()=>setStartChangeTarget(req)} className="rounded-xl border border-primary/30 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5">Đề nghị bắt đầu thuê sớm</button>}
@@ -781,7 +790,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                   </div>
                 </div>
 
-                {req.status === "ACCEPTED" && <p className="rounded-xl border bg-muted/30 p-3 text-sm">Dùng các nút thanh toán và đề nghị bên trên để xử lý nhanh. Hợp đồng tự tạo sau khi chủ nhà xác nhận đủ cọc và tiền tháng đầu.</p>}
+                {req.status === "ACCEPTED" && <p className="rounded-xl border bg-muted/30 p-3 text-xs text-muted-foreground">Hợp đồng cọc có thể xem và ký ngay sau khi xác nhận nhận tiền. Khi hợp đồng thuê được tạo, nút xem sẽ ưu tiên hợp đồng thuê; HĐ cọc vẫn được lưu riêng trong hồ sơ.</p>}
                 {/* Khối giữ chỗ cũ được thay bằng tiến trình nhận nhà ở trên. */}
 
 
@@ -970,7 +979,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                   Bài đăng chuyển sang <strong>Đang giữ chỗ</strong>. Người thuê cần báo chuyển trước hạn trên yêu cầu thanh toán.
                 </li>
                 <li>
-                  Nếu ngày vào ở còn ở phía trước, chỉ thu cọc trước; tiền tháng đầu và ký hợp đồng mở vào ngày bắt đầu thuê.
+                  Nếu ngày vào ở còn ở phía trước, chỉ thu cọc trước và ký riêng hợp đồng cọc sau khi xác nhận nhận tiền. Tiền tháng đầu và ký hợp đồng thuê mở vào ngày bắt đầu thuê.
                 </li>
                 <li>
                   Chưa báo chuyển khi hết hạn thì giải phóng giữ chỗ nếu tin còn hạn đăng. Đã báo chuyển, có tranh chấp hoặc đã nhận cọc thì không tự giải phóng phòng; các yêu cầu chờ khác vẫn giữ hạn phản hồi riêng.

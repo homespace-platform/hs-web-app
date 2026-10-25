@@ -10,6 +10,7 @@ import { contractService } from "@/services/contract.service";
 import type { ContractResponse, ContractStatus } from "@/types/contract.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
+import AgreementDocumentActions from "./AgreementDocumentActions";
 
 const STATUS_LABEL: Record<ContractStatus, string> = {
   DRAFT: "Bản nháp",
@@ -36,6 +37,8 @@ const STATUS_BADGE: Record<ContractStatus, string> = {
 };
 
 function contractStatusLabel(contract: ContractResponse): string {
+  if (contract.agreementKind === "DEPOSIT" && contract.status === "ACTIVE") return "Đã ký đủ HĐ cọc";
+  if (contract.agreementKind === "DEPOSIT" && contract.status === "DRAFT") return "HĐ cọc · Chờ ký";
   if (contract.status === "PENDING_REVIEW") {
     return contract.paymentStatus === "PAID" || contract.paymentStatus === "PAID_MOCK"
       ? "Chờ ký hợp đồng"
@@ -60,6 +63,7 @@ export default function ContractListView({ perspective }: { perspective: "landlo
         role: perspective.toUpperCase() as "LANDLORD" | "TENANT",
         page,
         size: 12,
+        includeDepositFallback: true,
       });
       setItems(res.result || []);
       setTotalPages(res.totalPages || 1);
@@ -86,8 +90,8 @@ export default function ContractListView({ perspective }: { perspective: "landlo
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground">
             {perspective === "landlord"
-              ? "Hợp đồng bạn lập và quản lý với vai trò bên cho thuê."
-              : "Xem trước hợp đồng, đề nghị bắt đầu thuê sớm và ký khi đủ điều kiện."}
+              ? "Xem và ký hợp đồng cọc, hợp đồng thuê của các hồ sơ cho thuê."
+              : "Xem hợp đồng cọc giữ phòng và hợp đồng thuê của bạn."}
           </p>
         </div>
         <button
@@ -115,7 +119,7 @@ export default function ContractListView({ perspective }: { perspective: "landlo
                 : "bg-card border-border text-muted-foreground hover:bg-muted"
             }`}
           >
-            {key === "ALL" ? "Tất cả" : key === "DRAFT" && perspective === "tenant" ? "Bản nháp để xem trước" : STATUS_LABEL[key]}
+            {key === "ALL" ? "Tất cả" : key === "ACTIVE" ? "Đã ký / Hiệu lực" : key === "DRAFT" && perspective === "tenant" ? "Bản nháp để xem trước" : STATUS_LABEL[key]}
           </button>
         ))}
       </div>
@@ -130,8 +134,8 @@ export default function ContractListView({ perspective }: { perspective: "landlo
           <p className="text-sm font-semibold text-foreground">Chưa có hợp đồng</p>
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
             {perspective === "landlord"
-              ? "Hệ thống tự tạo bản nháp khi đã xác nhận đủ cọc và tiền thuê tháng đầu, đến ngày bắt đầu thuê và có mẫu hợp đồng đã phát hành. Xem tiến trình yêu cầu thuê nếu chưa có bản nháp. "
-              : "Bản nháp được tạo tự động sau khi xác nhận đủ cọc và tiền thuê tháng đầu theo tiến trình nhận nhà. Bạn có thể xem tiến trình và đề nghị bắt đầu sớm từ yêu cầu thuê. "}
+              ? "Hợp đồng cọc sẽ xuất hiện sau khi xác nhận nhận cọc. Khi có hợp đồng thuê, hồ sơ sẽ ưu tiên hiển thị hợp đồng thuê và giữ lại tài liệu cọc. "
+              : "Sau khi chủ nhà xác nhận nhận cọc, bạn xem và ký hợp đồng cọc tại đây. Hợp đồng thuê sẽ xuất hiện khi được tạo. "}
             <Link href={perspective === "landlord" ? "/dashboard/rental-requests" : "/dashboard/rental-requests/my-requests"} className="text-primary font-semibold hover:underline">
               Xem yêu cầu thuê
             </Link>
@@ -147,6 +151,7 @@ export default function ContractListView({ perspective }: { perspective: "landlo
                   className="w-full text-left hover:bg-muted/30 transition-colors cursor-pointer">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="min-w-0">
+                    <p className="text-xs font-semibold text-primary mb-1">{c.agreementKind === "DEPOSIT" ? "Hợp đồng đặt cọc · Giữ phòng" : "Hợp đồng thuê"}</p>
                     <p className="text-sm font-bold text-foreground truncate">{c.contractNumber}</p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
                       {role} · Tạo {c.createdAt ? format(new Date(c.createdAt), "dd/MM/yyyy HH:mm") : "—"}
@@ -155,15 +160,16 @@ export default function ContractListView({ perspective }: { perspective: "landlo
                   <span
                     className={`self-start sm:self-center text-[11px] font-bold px-2.5 py-1 rounded-full border ${STATUS_BADGE[c.status]}`}
                   >
-                    {c.status === "DRAFT" && perspective === "tenant" ? "Bản nháp · Chưa có hiệu lực" : contractStatusLabel(c)}
+                    {c.agreementKind !== "DEPOSIT" && c.status === "DRAFT" && perspective === "tenant" ? "Bản nháp · Chưa có hiệu lực" : contractStatusLabel(c)}
                   </span>
                 </div>
                 </button>
-                {c.status === "DRAFT" && perspective === "tenant" && <div className="mt-3 space-y-1 border-t pt-3 text-xs">
+                <div className="mt-3 border-t border-border/60 pt-3"><AgreementDocumentActions contract={c} perspective={perspective}/></div>
+                {c.agreementKind !== "DEPOSIT" && c.status === "DRAFT" && perspective === "tenant" && <div className="mt-3 space-y-1 border-t pt-3 text-xs">
                   <p className="text-muted-foreground">Đây là bản đang soạn, chưa phải hợp đồng đã ký. Bạn được xem nội dung; chỉ mở ký khi đã đến ngày thuê và xác nhận đủ tiền.</p>
                   <Link href={contractDetailPath(perspective,c.id)} className="inline-flex font-semibold text-primary hover:underline">Xem hợp đồng & đề nghị bắt đầu thuê sớm →</Link>
                 </div>}
-                {["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(c.status) && <Link href={invoiceDetailPath(c.id)}
+                {c.agreementKind !== "DEPOSIT" && ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(c.status) && <Link href={invoiceDetailPath(c.id)}
                   className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline">
                   Xem hóa đơn tháng →
                 </Link>}

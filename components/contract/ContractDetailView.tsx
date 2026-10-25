@@ -2,6 +2,7 @@
 
 import RentalOnboardingPanel from "@/components/rental-request/RentalOnboardingPanel";
 import DepositAgreementPanel from "@/components/rental-request/DepositAgreementPanel";
+import AgreementDocumentActions from "./AgreementDocumentActions";
 import type { RentalOnboarding } from "@/services/rental-onboarding.service";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -409,7 +410,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   }
 
   if (contract.agreementKind === "DEPOSIT") return <div className="mx-auto max-w-4xl space-y-4 pb-8">
-    <Link href={contractListPath(perspective)} className="text-sm text-primary underline">Về danh sách hợp đồng thuê</Link>
+    <Link href={contractListPath(perspective)} className="text-sm text-primary underline">Về danh sách hợp đồng</Link>
     <DepositAgreementPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} onUpdated={refreshSignedState}/>
   </div>;
   if (!revision) return null;
@@ -459,6 +460,10 @@ export default function ContractDetailView({ perspective }: { perspective: "land
           : "Xem nội dung, tài liệu và xác nhận ký với tư cách bên đi thuê."}</p>
       </div>
       {/* 1. CONTRACT HEADER */}
+      {!contract.parentContractId && contract.depositAgreementContractId && <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
+        <div><p className="text-sm font-semibold">Hợp đồng đặt cọc giữ phòng</p><p className="text-xs text-muted-foreground">Tài liệu cọc được lưu riêng để tra cứu sau khi ký hợp đồng thuê.</p></div>
+        <AgreementDocumentActions contract={contract} perspective={perspective} showPrimary={false} showDetails={false}/>
+      </section>}
       <ContractHeader
         backPath={isAmendment && contract.parentContractId ? contractDetailPath(perspective, contract.parentContractId) : contractListPath(perspective)}
         contract={contract}

@@ -48,10 +48,12 @@ export const contractService = {
   // --- Hợp đồng ---
 
   async getByRentalRequest(
-    rentalRequestId: string
+    rentalRequestId: string,
+    includeDepositFallback = false
   ): Promise<ContractResponse | null> {
     const response = await axiosClient.get<ApiResponse<ContractResponse | null>>(
-      `/api/v1/contracts/by-rental-request/${rentalRequestId}`
+      `/api/v1/contracts/by-rental-request/${rentalRequestId}`,
+      { params: includeDepositFallback ? { includeDepositFallback: true } : undefined }
     );
     return response.data.result ?? null;
   },
@@ -68,6 +70,7 @@ export const contractService = {
     status?: ContractStatus;
     role?: "LANDLORD" | "TENANT";
     billableOnly?: boolean;
+    includeDepositFallback?: boolean;
     page?: number;
     size?: number;
   }): Promise<PageResponse<ContractResponse>> {

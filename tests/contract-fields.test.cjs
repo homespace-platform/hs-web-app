@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Contract schema/UI regression against local source. */
 const {test}=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),vm=require("node:vm"),ts=require("typescript"),React=require("react"),{renderToStaticMarkup}=require("react-dom/server");
 const root=path.resolve(__dirname,".."),workspace=path.resolve(root,".."),read=p=>fs.readFileSync(path.join(workspace,p),"utf8");
-const prompt=read("hs-infrastructure/prompts/CONTRACT_PROMPT.md"),catalog=read("hs-core-api/hs-contract-service/src/main/java/com/hs/contract/service/engine/ContractFieldCatalog.java");
+const prompt=read("hs-infra/prompts/CONTRACT_PROMPT.md"),catalog=read("hs-core-api/hs-contract-service/src/main/java/com/hs/contract/service/engine/ContractFieldCatalog.java");
 const known=[...catalog.matchAll(/\badd\("([#\w.]+)"/g)].map(m=>m[1]);
 const markers=s=>[...new Set([...s.matchAll(/\{\{([#\w.]+)\}\}/g)].map(m=>m[1]))].sort();
 

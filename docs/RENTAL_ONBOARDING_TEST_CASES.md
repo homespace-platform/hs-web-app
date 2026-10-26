@@ -2,7 +2,7 @@
 
 Ngày cập nhật: 21/10/2026. Dùng hai tài khoản test đã KYC và có tài khoản ngân hàng, một Listing riêng chưa cho thuê. Không dùng giao dịch thật. Schema mới do Hibernate tạo theo cấu hình JPA; không có SQL vá rời và không tự drop CSDL.
 
-Sau khi bạn tạo lại CSDL: khởi động Core với JPA tạo/cập nhật schema rồi chạy file seed chính `hs-infrastructure/postgres/listings_seed_hcm.sql`. CHECK loại thanh toán trong file này đã có RESERVATION_DEPOSIT; không chạy bản seed cũ vì nó sẽ chặn khoản cọc riêng. Tổng 2.580 tin và dữ liệu tin đăng không thay đổi trong lần nâng cấp này.
+Sau khi bạn tạo lại CSDL: khởi động Core với JPA tạo/cập nhật schema rồi chạy file seed chính `hs-infra/postgres/seed/listings_seed_hcm.sql`. Dùng bản seed hiện tại với 300 listing; không dùng lại bản seed cũ. Xem hướng dẫn chi tiết tại `hs-infra/postgres/seed/README.md`.
 
 ## Cấu hình và cách chạy
 

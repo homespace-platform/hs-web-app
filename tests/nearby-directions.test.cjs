@@ -45,11 +45,13 @@ function panel({authenticated = true, address = account, loadedForUserId = 'tena
     {code: 'EDUCATION', coverageStatus: 'COMPLETE_PROVIDER_RESPONSE', radiusCoveredMeters: 2000},
   ]}};
   const Component = load('components/nearby/NearbyPlacesPanel.tsx', {
-    react: {...React, useState: initial => [initial?.key === '' ? {key: JSON.stringify(['listing', 2000, '', currentPage, 0]), data: page, error: ''} : initial === 1 ? currentPage : initial, () => {}], useEffect: () => {}},
+    // These assertions inspect the list view; map-default behavior is covered in nearby-map.test.cjs.
+    react: {...React, useState: initial => [initial?.key === '' ? {key: JSON.stringify(['listing', 2000, '', currentPage, 0]), data: page, error: ''} : initial === 1 ? currentPage : initial === 'map' ? 'list' : initial, () => {}], useEffect: () => {}},
     'next/dynamic': () => () => null,
     '@/features/auth/useAuth': {useAuth: () => ({authenticated, userId: 'tenant-a', profile: {address}, login: () => {}})},
     '@/store/hooks': {useAppSelector: select => select({user: {loadedForUserId}})},
     '@/lib/nearby-directions': directions,
+    '@/lib/nearby-presentation': load('lib/nearby-presentation.ts'),
     '@/services/nearby.service': {getNearbyPlaces: () => assert.fail('Rendering must not fetch account coordinates or call a map provider')},
     '@/types/nearby.type': nearbyTypes,
   }).default;

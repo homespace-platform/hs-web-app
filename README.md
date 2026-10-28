@@ -9,6 +9,21 @@ npm run sync:data
 npm run dev
 ```
 
+## Bản đồ tiện ích xung quanh
+
+1. Chạy `npm install`.
+2. Đặt `NEXT_PUBLIC_VIETMAP_MAP_API_KEY=<key bản đồ dành cho trình duyệt>` trong `.env`, giới hạn domain cho key (bao gồm `localhost` khi chạy máy cá nhân). Không dùng key geocoding bí mật của backend.
+3. Khởi động lại `npm run dev`. Khi deploy, cấu hình key trước `npm run build` vì Next.js đóng gói biến `NEXT_PUBLIC_*` vào frontend.
+4. Mở chi tiết tin → **Tiện ích xung quanh**. Tab **Bản đồ** đứng đầu và được mở mặc định. Chọn tiện ích hoặc ghim để xem vị trí, địa chỉ, khoảng cách và chỉ đường. Nếu chưa cấu hình key, vẫn xem được tab **Danh sách**.
+
+VietMap GL JS 6.0.1 được cài bằng npm và chỉ tải khi mở tab Bản đồ. Tâm bản đồ là tọa độ listing; hiển thị cùng 5 tiện ích/trang trong phạm vi 2 km với tab Danh sách. Đổi nhóm hoặc trang cập nhật cả danh sách lẫn ghim, không tải toàn bộ POI. Chỉ đường Google Maps dùng tọa độ địa chỉ tài khoản → tiện ích.
+
+Dữ liệu địa điểm lấy từ API HomeSpace/CSDL TomTom hiện có. VietMap chỉ cung cấp lớp bản đồ; không gọi lại API tìm địa điểm hoặc đồng bộ POI khi chuyển tab.
+
+Nếu ghim hiện nhưng nền xám: kiểm tra request `.pbf` trong Network. `style.json` trả 200 chưa đảm bảo tile tải được. Nếu tile trả **423 “Your request is limited”** hoặc 429, vào VietMap Console → Consumers → dự án/API key kiểm tra hạn mức TileMap, giới hạn theo key/IP, tên miền và quyền TileMap; Daily Report để xem usage. Không tự retry liên tục hoặc đổi tọa độ để xử lý lỗi quota. Thông báo lỗi mạng có thể không đọc được mã 423 trong trình duyệt nếu response chặn thiếu CORS. Giao diện vẫn cho xem danh sách/chỉ đường và che khung bản đồ lỗi.
+
+Ghim sát nhau được gom thành nhóm theo vị trí trên màn hình. Bấm nhóm để chọn từng tiện ích hoặc phóng to; chọn từ danh sách sẽ làm nổi bật ghim tương ứng. Các POI trùng tọa độ vẫn có thể chọn trong popup nhóm.
+
 ## Danh mục tỉnh/thành phố và phường/xã Vietmap
 
 `npm run sync:data` tải hai JSON **admin_new** từ [Vietmap](https://github.com/vietmap-company/vietnam_administrative_address), cùng một commit:

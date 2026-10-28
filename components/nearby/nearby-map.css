@@ -1,0 +1,17 @@
+.nearby-map-marker {
+  width: 34px;
+  height: 34px;
+  border: 3px solid white;
+  border-radius: 50%;
+  color: white;
+  font: 700 13px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.nearby-map-marker:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.nearby-map-cluster { width: 42px; height: 42px; border-width: 4px; }
+.nearby-map-cluster-item { display: block; width: 100%; margin-top: 7px; text-align: left; color: #2563eb; cursor: pointer; }
+.nearby-map-cluster-item:hover, .nearby-map-cluster-item:focus-visible { text-decoration: underline; }
+.nearby-map-popup { padding: 5px 14px 3px 3px; color: #0f172a; font: 12px/1.5 system-ui, sans-serif; }
+.nearby-map-popup strong { display: block; font-size: 13px; }
+.nearby-map-popup p { margin: 5px 0; }
+.nearby-map-popup a { display: inline-block; margin-top: 4px; color: #2563eb; font-weight: 600; }

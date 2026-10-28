@@ -19,7 +19,6 @@ const places = [
   {id:'school',name:'Trường học',address:'8 Nguyễn Văn Bảo, Hạnh Thông, Hồ Chí Minh',latitude:10.8209,longitude:106.6872,distanceMeters:24,groups:['EDUCATION']},
   {id:'hospital',name:'<img src=x onerror=alert(1)>',address:'<script>alert(1)</script>',latitude:10.823,longitude:106.689,distanceMeters:350,groups:['HEALTHCARE']},
 ];
-const account = {latitude:10.83,longitude:106.68};
 function element(tag) {
   return {tag,style:{},attributes:{},children:[],events:{},
     setAttribute(k,v){this.attributes[k]=v;}, append(...nodes){this.children.push(...nodes);},
@@ -58,7 +57,7 @@ function mapFixture({style, onRemove, logConsole = console, project = ([lng,lat]
     latitude:10.8209195,longitude:106.6872986,radius:2000,apiKey:'test key',onReady:()=>ready++,onError:message=>{errors++;errorMessages.push(message);},
   });
   const selected=[];
-  const data={places,selectedId:null,activeGroup:'',startIndex:0,origin:account,onSelect:id=>selected.push(id)};
+  const data={places,selectedId:null,activeGroup:'',startIndex:0,onSelect:id=>selected.push(id)};
   controller.update(data);
   const liveMarkers=()=>markers.filter(m=>!m.removed&&m.options.element);
   return {controller,data,maps,markers,popups,observers,selected,liveMarkers,errorMessages,ready:()=>ready,errors:()=>errors};
@@ -89,14 +88,14 @@ test('POI markers are numbered and colored by category, and marker clicks select
   assert.deepEqual(Array.from(f.maps[0].flights.at(-1).center),[106.689,10.823]);
 });
 
-test('list selection opens a text-only popup and routes from the account, never the listing',()=>{
+test('list selection opens a text-only popup and routes from the map listing coordinates',()=>{
   const f=mapFixture();f.controller.update({...f.data,selectedId:'hospital'});
   const content=f.popups.at(-1).content;
   assert.equal(content.children[0].textContent,places[1].name);
   assert.equal(content.children[1].textContent,places[1].address);
   assert.equal(content.children[0].children.length,0);
   const link=content.children.find(n=>n.tag==='a'),url=new URL(link.href);
-  assert.equal(url.searchParams.get('origin'),'10.83,106.68');
+  assert.equal(url.searchParams.get('origin'),'10.8209195,106.6872986');
   assert.equal(url.searchParams.get('destination'),'10.823,106.689');
   assert.equal(link.rel,'noopener noreferrer');
   assert.equal(f.maps.length,1);assert.equal(f.liveMarkers().length,2);
@@ -114,10 +113,10 @@ test('changing category/page clears stale markers and popup without rebuilding t
   assert.equal(f.liveMarkers().length,0);
 });
 
-test('invalid POI coordinates are skipped and missing account coordinates cannot create directions',()=>{
-  const f=mapFixture();f.controller.update({...f.data,places:[places[0],{...places[1],latitude:null}],selectedId:'school',origin:null});
+test('invalid POI coordinates are skipped and cannot create a popup or directions',()=>{
+  const f=mapFixture();f.controller.update({...f.data,places:[places[0],{...places[1],latitude:null}],selectedId:'hospital'});
   assert.equal(f.liveMarkers().length,1);
-  assert.equal(f.popups.at(-1).content.children.some(n=>n.tag==='a'),false);
+  assert.equal(f.popups.length,1,'only the listing popup exists');
 });
 
 test('unmount cleans map listeners, markers, popup and observer; removed maps ignore late updates',()=>{
@@ -257,8 +256,8 @@ function panelFixture({key='browser-test-key',latitude=10.82,longitude=106.68}={
   const Component=load('components/nearby/NearbyPlacesPanel.tsx',{
     react:hooks,'next/dynamic':()=>MapComponent,
     '@/types/nearby.type':nearbyTypes,'@/lib/nearby-directions':directions,'@/lib/nearby-presentation':presentation,
-    '@/features/auth/useAuth':{useAuth:()=>({authenticated:true,userId:'tenant',profile:{address:account}})},
-    '@/store/hooks':{useAppSelector:select=>select({user:{loadedForUserId:'tenant'}})},
+    '@/features/auth/useAuth':{useAuth:()=>assert.fail('Nearby map must not depend on account authentication')},
+    '@/store/hooks':{useAppSelector:()=>assert.fail('Nearby map must not read account coordinates')},
     '@/services/nearby.service':{getNearbyPlaces:(listing,group,page,signal)=>new Promise((resolve,reject)=>requests.push({listing,group,page,signal,resolve,reject}))},
   },{process:{env:{NEXT_PUBLIC_VIETMAP_MAP_API_KEY:key}},document:{getElementById:()=>({focus(){}})}}).default;
   function render(){let turns=0;do{dirty=false;index=0;tree=Component({listingId:'listing',latitude,longitude});for(const fn of pending.splice(0))fn();assert.ok(++turns<30);}while(dirty);}
@@ -276,7 +275,9 @@ test('map is the first/default tab and switching views shares the same page with
   const tablist=f.find(n=>n.props?.role==='tablist');
   assert.equal(React.Children.toArray(tablist.props.children)[0].props.id,'nearby-test-tab-map');
   assert.equal(f.tab('map').props['aria-selected'],true);assert.equal(f.map().props.places,places);
-  assert.equal(f.map().props.radius,2000);assert.equal(f.map().props.origin,account);
+  assert.equal(f.map().props.radius,2000);
+  assert.equal(f.map().props.latitude,10.82);assert.equal(f.map().props.longitude,106.68);
+  assert.equal(Object.hasOwn(f.map().props,'origin'),false,'map directions are derived from the listing coordinates');
   f.click(f.tab('list'));
   assert.equal(f.tab('list').props['aria-selected'],true);assert.equal(f.map(),null);
   f.tab('list').props.onKeyDown({key:'Home',preventDefault(){}});f.render();

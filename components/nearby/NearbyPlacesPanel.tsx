@@ -5,8 +5,6 @@ import dynamic from "next/dynamic";
 import { MapPin, Map as MapIcon, List, ExternalLink, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { getNearbyPlaces } from "@/services/nearby.service";
 import { NEARBY_GROUPS, NEARBY_RADIUS_METERS, type NearbyGroup, type NearbyPage } from "@/types/nearby.type";
-import { useAuth } from "@/features/auth/useAuth";
-import { useAppSelector } from "@/store/hooks";
 import { nearbyDirectionsUrl, validCoordinates } from "@/lib/nearby-directions";
 import { nearbyColor, nearbyDistance } from "@/lib/nearby-presentation";
 
@@ -24,9 +22,7 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
   const [view, setView] = useState<"list" | "map">("map");
   const [selection, setSelection] = useState<{ key: string; id: string } | null>(null);
   const itemRefs = useRef(new Map<string, HTMLButtonElement>());
-  const { authenticated, userId, profile, login } = useAuth();
-  const loadedForUserId = useAppSelector(state => state.user.loadedForUserId);
-  const origin = authenticated && userId && loadedForUserId === userId ? profile?.address : null;
+  const origin = { latitude, longitude };
   const [attempt, setAttempt] = useState(0);
   const requestKey = JSON.stringify([listingId, radius, group, page, attempt]);
   const [result, setResult] = useState<{ key: string; data: NearbyPage | null; error: string }>({ key: "", data: null, error: "" });
@@ -77,7 +73,7 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
         <div className={view === "map" ? "mt-2 flex items-center justify-between gap-2" : "shrink-0 text-right"}>
           <p className="text-sm font-medium">{nearbyDistance(place.distanceMeters)}</p>
           {directionsUrl ? <a href={directionsUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs text-primary">Chỉ đường<ExternalLink size={12} /></a>
-            : <button type="button" disabled={authenticated} onClick={login} title={authenticated ? "Cập nhật địa chỉ tài khoản để chỉ đường" : "Đăng nhập để chỉ đường"} className="mt-1 text-xs text-primary disabled:opacity-50">Chỉ đường</button>}
+            : <button type="button" disabled title="Chưa có tọa độ hợp lệ của bài đăng hoặc tiện ích" className="mt-1 text-xs text-primary opacity-50">Chỉ đường</button>}
         </div>
       </li>;
     })}
@@ -102,9 +98,7 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
       Khoảng cách đường chim bay từ tọa độ tin đăng, không phải quãng đường hoặc thời gian di chuyển.
       {lastChecked && ` Dữ liệu thu thập: ${new Date(lastChecked).toLocaleString("vi-VN")}.`}
     </p>
-    {validCoordinates(origin) ? <p className="text-xs text-muted-foreground">Chỉ đường từ địa chỉ đã lưu trong tài khoản của bạn đến tiện ích.</p>
-      : authenticated ? <p className="text-xs text-muted-foreground">Chỉ đường cần tọa độ địa chỉ tài khoản. <a href="/settings/profile" className="text-primary underline">Cập nhật địa chỉ</a></p>
-        : <p className="text-xs text-muted-foreground">Đăng nhập để chỉ đường từ địa chỉ tài khoản của bạn.</p>}
+    <p className="text-xs text-muted-foreground">{hasListingCoordinates ? "Chỉ đường từ vị trí bài đăng đến tiện ích." : "Tin đăng chưa có tọa độ hợp lệ để chỉ đường."}</p>
     {!complete && data && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Dữ liệu chưa phủ đủ phạm vi hoặc nhóm tiện ích đang chọn. Chỉ hiển thị các địa điểm đã có dữ liệu.</p>}
     {error && <div role="alert" className="flex items-center gap-3 text-sm"><p>{error}</p><button type="button" onClick={() => setAttempt(n => n + 1)} className="inline-flex items-center gap-1 text-primary"><RefreshCw size={14} />Thử lại</button></div>}
     {loading && <p className="text-sm text-muted-foreground" role="status">Đang tải tiện ích...</p>}
@@ -118,7 +112,7 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
           : <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
             <div className="min-w-0">{placeList}</div>
             <div className="order-first min-w-0 md:order-last"><NearbyMap key={`${listingId}:${latitude}:${longitude}`} latitude={latitude!} longitude={longitude!} radius={radius}
-              places={data?.items ?? EMPTY_PLACES} activeGroup={group} startIndex={startIndex} selectedId={selectedId} origin={origin}
+              places={data?.items ?? EMPTY_PLACES} activeGroup={group} startIndex={startIndex} selectedId={selectedId}
               onSelect={id => {
                 setSelection({ key: requestKey, id });
                 itemRefs.current.get(id)?.scrollIntoView({ behavior: "smooth", block: "nearest" });

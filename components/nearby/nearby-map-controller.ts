@@ -9,7 +9,6 @@ export type NearbyMapData = {
   selectedId: string | null;
   activeGroup: NearbyGroup | "";
   startIndex: number;
-  origin?: { latitude?: number | null; longitude?: number | null } | null;
   onSelect: (id: string) => void;
 };
 
@@ -77,7 +76,7 @@ export function createNearbyMap(sdk: VietmapSdk, container: HTMLDivElement, opti
     const detail = document.createElement("p");
     detail.textContent = `${nearbyDistance(place.distanceMeters)} · ${place.groups.map(g => NEARBY_GROUPS[g]).join(" · ")}`;
     content.append(name, address, detail);
-    const url = nearbyDirectionsUrl(data?.origin, place);
+    const url = nearbyDirectionsUrl({ latitude, longitude }, place);
     if (url) {
       const link = document.createElement("a");
       link.textContent = "Chỉ đường ↗";

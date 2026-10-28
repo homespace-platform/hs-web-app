@@ -3,6 +3,9 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import ListingPoliciesCard from "@/components/listing/ListingPoliciesCard";
+import NearbyPlacesPanel from "@/components/nearby/NearbyPlacesPanel";
+import AddressMapPreview from "@/components/address/AddressMapPreview";
+import { validCoordinates } from "@/lib/nearby-directions";
 import type { ListingPolicyValue } from "@/types/listing-policy.type";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -40,7 +43,7 @@ import appointmentService from "@/services/appointment.service";
 import RentalRequestModal from "@/components/rental-request/RentalRequestModal";
 import rentalRequestService from "@/services/rental-request.service";
 import type { RentalRequestResponse } from "@/types/rental-request.type";
-import type { DepositType } from "@/types/listing.type";
+import type { DepositType, ListingAddressResponse } from "@/types/listing.type";
 import { useChatDemo } from "@/components/chat/ChatDemoProvider";
 import type { RelatedListing } from "@/types/chat.type";
 import { chatConversationUrl } from "@/lib/chat-demo-state";
@@ -129,6 +132,7 @@ export default function RentDetailView({
   const wardLabel = formatLocationLabel(wardName);
   const provinceHref = `/rent?cityId=${encodeURIComponent(provinceCode)}`;
   const wardHref = property.wardCode ? `${provinceHref}&wardId=${encodeURIComponent(property.wardCode)}` : provinceHref;
+  const listingAddress = property.details?.address as ListingAddressResponse | undefined;
 
   const { profile, authenticated, login } = useAuth();
   const router = useRouter();
@@ -289,7 +293,7 @@ export default function RentDetailView({
               {property.title}
             </h1>
 
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-muted-foreground mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-muted-foreground mb-4">
               <div className="flex items-start gap-2 min-w-0">
                 <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <span className="leading-relaxed break-words">{property.location}</span>
@@ -469,13 +473,18 @@ export default function RentDetailView({
               </div>
             </section>
           )}
+
+          <NearbyPlacesPanel listingId={property.id}
+            latitude={listingAddress?.latitude}
+            longitude={listingAddress?.longitude} />
         </div>
 
         {/* Right Column: Landlord Card & Action Sidebar */}
         <aside className="space-y-4">
+          <div className="space-y-4 lg:sticky lg:top-28 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto">
           {isOwner || !showLandlordContact ? (
             /* Khi là bài đăng của bản thân: Bỏ card liên hệ (ảnh 2), hiện thông tin chính chủ & nút quản lý */
-            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-xs space-y-4 sticky top-28">
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-xs space-y-4">
               <div className="flex items-center gap-3">
                 <div className="shrink-0">
                   <UserAvatar
@@ -533,7 +542,7 @@ export default function RentDetailView({
             </div>
           ) : (
             /* Khi là bài đăng của người khác: Hiển thị 2 card theo đúng Ảnh 3 nâng cấp từ Ảnh 1 */
-            <div className="space-y-4 sticky top-24">
+            <div className="space-y-4">
               {/* Card 1: Bạn quan tâm đến căn này? */}
               <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-3">
                 <h3 className="font-heading font-bold text-sm text-foreground">
@@ -802,6 +811,10 @@ export default function RentDetailView({
               </div>
             </div>
           )}
+          {validCoordinates(listingAddress) && (
+            <AddressMapPreview latitude={listingAddress.latitude} longitude={listingAddress.longitude} compact />
+          )}
+          </div>
         </aside>
       </div>
 

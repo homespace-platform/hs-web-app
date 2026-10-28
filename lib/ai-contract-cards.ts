@@ -81,6 +81,7 @@ export function aiStatusNote(status?: AiAnswerStatus | null, dataSources?: strin
  */
 export function aiSourceNote(dataSources?: string[], status?: AiAnswerStatus | null): string | null {
   if (status && NO_DATA_READ.has(status)) return null;
+  if (dataSources?.includes("CORE_NEARBY")) return "Nguồn: kho tiện ích đã thu thập. Khoảng cách đường chim bay; độ bao phủ và thời điểm đọc có thể khác nhau.";
   const rag = dataSources?.includes("RAG");
   if (dataSources?.includes("CORE_APPOINTMENT")) {
     if (rag) return "Nguồn: lịch xem nhà của bạn (đọc từ hệ thống) và hướng dẫn chung từ tài liệu HomeSpace.";

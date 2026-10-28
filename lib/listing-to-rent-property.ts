@@ -118,6 +118,7 @@ export function toRentProperty(
     ...(detail?.commercialDetail ?? {}),
     ...(detail?.roomDetail ?? {}),
     pricing: detail?.pricing,
+    address: detail?.address,
     charges: detail?.charges ?? [],
     policies: detail?.policies ?? [],
     amenities: (detail?.amenities ?? []).map((a: any) => a.name || a.code),

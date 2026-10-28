@@ -14,3 +14,13 @@ export function nearbyDirectionsUrl(origin?: Coordinates | null, destination?: C
   url.searchParams.set("destination", `${destination.latitude},${destination.longitude}`);
   return url.toString();
 }
+
+export function currentLocationDirectionsUrl(destination?: Coordinates | null): string | null {
+  if (!validCoordinates(destination)) return null;
+  const url = new URL("https://www.google.com/maps/dir/");
+  url.searchParams.set("api", "1");
+  // Omitting origin lets Google Maps resolve the device's current location.
+  url.searchParams.set("destination", `${destination.latitude},${destination.longitude}`);
+  url.searchParams.set("dir_action", "navigate");
+  return url.toString();
+}

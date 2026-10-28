@@ -11,6 +11,8 @@ const { renderToStaticMarkup } = require("react-dom/server");
 // Render the real detail component/mapper; isolate unrelated auth, chat, dialogs and media.
 const cache = new Map();
 const noComponent = { __esModule: true, default: () => null };
+const guestAuth = { profile: null, authenticated: false, initialized: true, userId: null, login() {} };
+let auth = guestAuth;
 function load(file) {
   if (cache.has(file)) return cache.get(file);
   const source = ts.transpileModule(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), {
@@ -22,7 +24,7 @@ function load(file) {
     if (name === "next/navigation") return { useRouter: () => ({ push() {} }) };
     if (name === "next/link") return { __esModule: true, default: ({ children, href, ...rest }) => React.createElement("a", { href, ...rest }, children) };
     if (name === "next/image") return noComponent;
-    if (name === "@/features/auth/useAuth") return { useAuth: () => ({ profile: null, authenticated: false }) };
+    if (name === "@/features/auth/useAuth") return { useAuth: () => auth };
     if (name === "@/components/chat/ChatDemoProvider") return { useChatDemo: () => ({}) };
     if (name === "./ContractAmendmentWorkspace") return { useAmendmentWorkspace: () => null };
     if (name === "./InlineAmendmentFields") return noComponent;
@@ -80,6 +82,55 @@ function detail(category, status, furnishings) {
     [category === "HOUSE" ? "houseDetail" : category === "APARTMENT" ? "apartmentDetail" : "roomDetail"]: { furnishingStatus: status },
     address: { fullAddress: "Địa chỉ mẫu", provinceName: "Thành phố Hồ Chí Minh", wardName: "Phường mẫu" } };
 }
+function listingMap(session, address = { latitude: 10.8209195, longitude: 106.6872986 }) {
+  const data = detail("ROOM", "BASIC", []);
+  data.address = { ...data.address, ...address };
+  auth = session;
+  try { return renderToStaticMarkup(React.createElement(View, { property: toRentProperty(data) })); }
+  finally { auth = guestAuth; }
+}
+function listingRoute(html) {
+  const link = html.match(/<a\b[^>]*href="(https:\/\/www\.google\.com\/maps\/dir\/[^\"]+)"[^>]*>/);
+  assert.ok(link, "The listing map must offer directions");
+  return new URL(link[1].replaceAll("&amp;", "&"));
+}
+test("listing directions let Google Maps use current location for guests and signed-in customers", () => {
+  const sessions = [guestAuth, { ...guestAuth, initialized: false },
+    ...[["customer-a", 10.8337055, 106.6894342], ["customer-b", 16.0625755, 108.2178987]]
+      .map(([userId, latitude, longitude]) => ({ ...guestAuth, authenticated: true, userId, profile: { id: userId, address: { latitude, longitude } } }))];
+  for (const session of sessions) {
+    const html = listingMap(session);
+    const route = listingRoute(html);
+    assert.equal(route.searchParams.has("origin"), false);
+    assert.equal(route.searchParams.get("destination"), "10.8209195,106.6872986");
+    assert.equal(route.searchParams.get("api"), "1");
+    assert.equal(route.searchParams.get("dir_action"), "navigate");
+    assert.match(html, /Chỉ đường từ vị trí hiện tại/);
+    assert.doesNotMatch(html, /Đăng nhập để chỉ đường|Cập nhật địa chỉ để chỉ đường/);
+    assert.match(html, /target="_blank" rel="noopener noreferrer"/);
+    assert.match(html, /q=10\.8209195%2C106\.6872986/);
+  }
+});
+test("Settings address changes and missing or stale account addresses do not affect current-location directions", () => {
+  const session = { ...guestAuth, authenticated: true, userId: "customer", profile: { id: "customer", address: { latitude: 11, longitude: 107 } } };
+  const before = listingRoute(listingMap(session));
+  session.profile.address = { latitude: 12, longitude: 108 };
+  const after = listingRoute(listingMap(session));
+  assert.equal(before.href, after.href);
+  for (const address of [null, {}, { latitude: null, longitude: 106 }, { latitude: "10.8", longitude: 106 }, { latitude: NaN, longitude: 106 }, { latitude: 91, longitude: 106 }]) {
+    const html = listingMap({ ...guestAuth, authenticated: true, userId: "customer", profile: { id: "customer", address } });
+    assert.equal(listingRoute(html).href, before.href);
+  }
+  const switched = listingMap({ ...guestAuth, authenticated: true, userId: "new-customer", profile: { id: "old-customer", address: { latitude: 11, longitude: 107 } } });
+  assert.equal(listingRoute(switched).href, before.href);
+});
+test("invalid listing coordinates never produce a route with a guessed destination", () => {
+  for (const address of [{ latitude: null, longitude: null }, {}, { latitude: "10.8", longitude: 106 },
+    { latitude: NaN, longitude: 106 }, { latitude: 91, longitude: 106 }, { latitude: 10, longitude: Infinity }]) {
+    const html = listingMap(guestAuth, address);
+    assert.doesNotMatch(html, /maps\/dir\/|Chỉ đường từ vị trí hiện tại/);
+  }
+});
 test("non-public listing access is read-only for a non-owner, not a new rental offer",()=>{
   for(const status of ["RENTED","HIDDEN","EXPIRED","DRAFT","VIOLATION"]) {
     const data=detail("ROOM","BASIC",[]);data.status=status;

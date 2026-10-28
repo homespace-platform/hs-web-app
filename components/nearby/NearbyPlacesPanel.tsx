@@ -43,6 +43,7 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
   if (data?.enabled === false) return null;
   const coverage = data?.coverage.groups ?? [];
   const complete = coverage.length > 0 && coverage.every(g => g.coverageStatus === "COMPLETE_PROVIDER_RESPONSE" && (g.radiusCoveredMeters ?? 0) >= radius);
+  const limited = coverage.some(g => g.coverageStatus === "LIMITED_PROVIDER_RESPONSE");
   const lastChecked = coverage.flatMap(g => g.dataAsOf ? [g.dataAsOf] : []).sort()[0];
   const startIndex = (page - 1) * (data?.size ?? 5);
 
@@ -92,14 +93,16 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
     </div>
     <div className="flex flex-wrap gap-2" role="group" aria-label="Nhóm tiện ích">
       <button type="button" aria-pressed={!group} onClick={() => { setGroup(""); setPage(1); }} className={`rounded-full border px-3 py-1.5 text-xs ${!group ? "border-primary bg-primary/10 text-primary" : "border-border"}`}>Tất cả</button>
-      {Object.entries(NEARBY_GROUPS).map(([code, label]) => <button type="button" key={code} aria-pressed={group === code} onClick={() => { setGroup(code as NearbyGroup); setPage(1); }} className={`rounded-full border px-3 py-1.5 text-xs ${group === code ? "border-primary bg-primary/10 text-primary" : "border-border"}`}>{label}</button>)}
+      {Object.entries(NEARBY_GROUPS).filter(([code]) => code !== "SPORTS").map(([code, label]) => <button type="button" key={code} aria-pressed={group === code} onClick={() => { setGroup(code as NearbyGroup); setPage(1); }} className={`rounded-full border px-3 py-1.5 text-xs ${group === code ? "border-primary bg-primary/10 text-primary" : "border-border"}`}>{label}</button>)}
     </div>
     <p className="text-xs leading-relaxed text-muted-foreground">
       Khoảng cách đường chim bay từ tọa độ tin đăng, không phải quãng đường hoặc thời gian di chuyển.
       {lastChecked && ` Dữ liệu thu thập: ${new Date(lastChecked).toLocaleString("vi-VN")}.`}
     </p>
     <p className="text-xs text-muted-foreground">{hasListingCoordinates ? "Chỉ đường từ vị trí bài đăng đến tiện ích." : "Tin đăng chưa có tọa độ hợp lệ để chỉ đường."}</p>
-    {!complete && data && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Dữ liệu chưa phủ đủ phạm vi hoặc nhóm tiện ích đang chọn. Chỉ hiển thị các địa điểm đã có dữ liệu.</p>}
+    {!complete && data && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{limited
+      ? "Mỗi bài đăng hiển thị tối đa 100 địa điểm đã thu thập trong 2 km. Nhóm chưa có kết quả có thể chưa nằm trong danh sách này."
+      : "Dữ liệu chưa phủ đủ phạm vi hoặc nhóm tiện ích đang chọn. Chỉ hiển thị các địa điểm đã có dữ liệu."}</p>}
     {error && <div role="alert" className="flex items-center gap-3 text-sm"><p>{error}</p><button type="button" onClick={() => setAttempt(n => n + 1)} className="inline-flex items-center gap-1 text-primary"><RefreshCw size={14} />Thử lại</button></div>}
     {loading && <p className="text-sm text-muted-foreground" role="status">Đang tải tiện ích...</p>}
     {data && data.items.length === 0 && <p className="text-sm text-muted-foreground">Chưa tìm thấy địa điểm phù hợp trong dữ liệu hiện tại.</p>}

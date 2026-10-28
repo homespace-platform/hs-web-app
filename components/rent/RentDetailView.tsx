@@ -5,7 +5,7 @@ import Image from "next/image";
 import ListingPoliciesCard from "@/components/listing/ListingPoliciesCard";
 import NearbyPlacesPanel from "@/components/nearby/NearbyPlacesPanel";
 import AddressMapPreview from "@/components/address/AddressMapPreview";
-import { validCoordinates } from "@/lib/nearby-directions";
+import { currentLocationDirectionsUrl, validCoordinates } from "@/lib/nearby-directions";
 import type { ListingPolicyValue } from "@/types/listing-policy.type";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -31,6 +31,7 @@ import {
   Layers,
   Handshake,
   ExternalLink,
+  Navigation,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/useAuth";
@@ -135,6 +136,7 @@ export default function RentDetailView({
   const listingAddress = property.details?.address as ListingAddressResponse | undefined;
 
   const { profile, authenticated, login } = useAuth();
+  const listingDirectionsUrl = currentLocationDirectionsUrl(listingAddress);
   const router = useRouter();
   const { openConversation, sendMessage } = useChatDemo();
   const currentUserId = profile?.id;
@@ -811,8 +813,15 @@ export default function RentDetailView({
               </div>
             </div>
           )}
-          {validCoordinates(listingAddress) && (
-            <AddressMapPreview latitude={listingAddress.latitude} longitude={listingAddress.longitude} compact />
+          {listingDirectionsUrl && validCoordinates(listingAddress) && (
+            <div className="space-y-2">
+              <AddressMapPreview latitude={listingAddress.latitude} longitude={listingAddress.longitude} compact />
+              <a href={listingDirectionsUrl} target="_blank" rel="noopener noreferrer"
+                title="Từ vị trí hiện tại của bạn đến vị trí bài đăng"
+                className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
+                <Navigation className="size-4" />Chỉ đường từ vị trí hiện tại
+              </a>
+            </div>
           )}
           </div>
         </aside>

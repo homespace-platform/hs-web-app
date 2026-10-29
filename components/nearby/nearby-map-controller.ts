@@ -47,7 +47,7 @@ export function createNearbyMap(sdk: VietmapSdk, container: HTMLDivElement, opti
     container, center: [longitude, latitude], zoom: 14,
     style: `https://maps.vietmap.vn/maps/styles/tm/style.json?apikey=${encodeURIComponent(options.apiKey)}`,
   });
-  const markers = new Map<string, { marker: Vietmap.Marker; button: HTMLButtonElement }>();
+  const markers = new Map<string, { marker: Vietmap.Marker; button: HTMLButtonElement; offset: [number, number] }>();
   let data: NearbyMapData | undefined, selectedId: string | null = null, popup: Vietmap.Popup | undefined;
   let removed = false, resourceFailed = false;
   const listing = new sdk.Marker({ color: "#2563eb" })
@@ -64,6 +64,7 @@ export function createNearbyMap(sdk: VietmapSdk, container: HTMLDivElement, opti
     markers.forEach(({ button }, key) => {
       button.setAttribute("aria-pressed", String(key === id));
       button.style.boxShadow = key === id ? "0 0 0 4px #bfdbfe, 0 2px 8px #0004" : "0 2px 8px #0004";
+      button.style.zIndex = key === id ? "10" : "1";
     });
     const place = data?.places.find(p => p.id === id && validCoordinates(p));
     if (!place) return;
@@ -86,83 +87,74 @@ export function createNearbyMap(sdk: VietmapSdk, container: HTMLDivElement, opti
       content.append(link);
     }
     // Provider names and addresses are text, never HTML.
-    popup = new sdk.Popup({ offset: 24, maxWidth: "260px", focusAfterOpen: false })
+    popup = new sdk.Popup({ offset: popupOffset(place.id), maxWidth: "260px", focusAfterOpen: false })
       .setLngLat([place.longitude, place.latitude]).setDOMContent(content).addTo(map);
     if (move) map.flyTo({ center: [place.longitude, place.latitude], zoom: Math.max(map.getZoom(), 18), duration: 550 });
+  }
+
+  function popupOffset(id: string): [number, number] {
+    const [x, y] = markers.get(id)?.offset ?? [0, 0];
+    return [x, y - 24];
   }
 
   function showAll() {
     const bounds = new sdk.LngLatBounds([longitude, latitude], [longitude, latitude]);
     data?.places.filter(validCoordinates).forEach(p => bounds.extend([p.longitude, p.latitude]));
-    map.fitBounds(bounds, { padding: 65, maxZoom: 18, duration: 350 });
+    map.fitBounds(bounds, { padding: 100, maxZoom: 18, duration: 350 });
   }
 
   function renderMarkers() {
     if (removed || !data) return;
     markers.forEach(({ marker }) => marker.remove());
     markers.clear();
-    const clusters: Array<Array<{ place: NearbyPlace; index: number; x: number; y: number }>> = [];
+    // Reserve the listing pin too. Offsets only move labels in pixels, never POI coordinates.
+    const occupied: Array<{ x: number; y: number }> = [map.project([longitude, latitude])];
     data.places.forEach((place, index) => {
       if (!validCoordinates(place)) return;
       const screen = map.project([place.longitude, place.latitude]);
-      // Group by screen distance, so zooming naturally separates close POIs.
-      const cluster = place.id === data?.selectedId ? undefined : clusters.find(points =>
-        points.every(p => p.place.id !== data?.selectedId)
-        && points.some(p => Math.hypot(p.x - screen.x, p.y - screen.y) < 38));
-      const point = { place, index, x: screen.x, y: screen.y };
-      if (cluster) cluster.push(point);
-      else clusters.push([point]);
-    });
-    clusters.forEach(points => {
-      const first = points[0], multiple = points.length > 1;
+      let offset: [number, number] = [0, 0];
+      placement: for (let ring = 0; ring <= occupied.length; ring++) {
+        const slots = Math.max(1, ring * 6);
+        for (let slot = 0; slot < slots; slot++) {
+          const angle = slot * 2 * Math.PI / slots - Math.PI / 2;
+          const x = ring * 42 * Math.cos(angle), y = ring * 42 * Math.sin(angle);
+          if (occupied.every(p => Math.hypot(p.x - screen.x - x, p.y - screen.y - y) >= 41.9)) {
+            offset = [x, y];
+            break placement;
+          }
+        }
+      }
+      occupied.push({ x: screen.x + offset[0], y: screen.y + offset[1] });
       const button = document.createElement("button");
       button.type = "button";
-      button.className = multiple ? "nearby-map-marker nearby-map-cluster" : "nearby-map-marker";
-      button.textContent = multiple ? String(points.length) : String(data!.startIndex + first.index + 1);
-      button.title = multiple ? `${points.length} tiện ích gần nhau` : first.place.name;
-      button.setAttribute("aria-label", multiple ? `Xem nhóm ${points.length} tiện ích gần nhau` : `Xem ${first.place.name}`);
-      button.style.backgroundColor = multiple ? "#334155" : nearbyColor(first.place.groups, data!.activeGroup);
+      const number = data!.startIndex + index + 1;
+      button.className = "nearby-map-marker";
+      button.textContent = String(number);
+      button.title = `${number}. ${place.name}`;
+      button.setAttribute("aria-label", `Xem ${number}. ${place.name}`);
+      button.style.backgroundColor = nearbyColor(place.groups, data!.activeGroup);
+      if (Math.hypot(...offset) > 1) {
+        const leader = document.createElement("span");
+        leader.className = "nearby-map-marker-leader";
+        leader.setAttribute("aria-hidden", "true");
+        leader.style.width = `${Math.hypot(...offset)}px`;
+        leader.style.transform = `rotate(${Math.atan2(-offset[1], -offset[0])}rad)`;
+        button.append(leader);
+      }
       button.addEventListener("click", () => {
-        if (!multiple) {
-          select(first.place.id, true);
-          data?.onSelect(first.place.id);
-          return;
-        }
-        popup?.remove();
-        const content = document.createElement("div");
-        content.className = "nearby-map-popup";
-        const heading = document.createElement("strong");
-        heading.textContent = `${points.length} tiện ích gần nhau`;
-        content.append(heading);
-        points.forEach(({ place, index }) => {
-          const item = document.createElement("button");
-          item.type = "button";
-          item.className = "nearby-map-cluster-item";
-          item.textContent = `${data!.startIndex + index + 1}. ${place.name}`;
-          item.addEventListener("click", () => { select(place.id, true); data?.onSelect(place.id); });
-          content.append(item);
-        });
-        const center: [number, number] = [
-          points.reduce((sum, p) => sum + p.place.longitude, 0) / points.length,
-          points.reduce((sum, p) => sum + p.place.latitude, 0) / points.length,
-        ];
-        popup = new sdk.Popup({ offset: 24, maxWidth: "280px", focusAfterOpen: false })
-          .setLngLat(center).setDOMContent(content).addTo(map);
-        const bounds = new sdk.LngLatBounds(center, center);
-        points.forEach(({ place }) => bounds.extend([place.longitude, place.latitude]));
-        map.fitBounds(bounds, { padding: 70, maxZoom: 19, duration: 350 });
+        select(place.id, true);
+        data?.onSelect(place.id);
       });
-      const center: [number, number] = [
-        points.reduce((sum, p) => sum + p.place.longitude, 0) / points.length,
-        points.reduce((sum, p) => sum + p.place.latitude, 0) / points.length,
-      ];
-      const marker = new sdk.Marker({ element: button, anchor: "center" }).setLngLat(center).addTo(map);
-      markers.set(multiple ? `cluster:${first.place.id}` : first.place.id, { marker, button });
+      const marker = new sdk.Marker({ element: button, anchor: "center" })
+        .setLngLat([place.longitude, place.latitude]).setOffset(offset).addTo(map);
+      markers.set(place.id, { marker, button, offset });
     });
     markers.forEach(({ button }, id) => {
-      button.setAttribute("aria-pressed", String(id === data?.selectedId));
-      button.style.boxShadow = id === data?.selectedId ? "0 0 0 4px #bfdbfe, 0 2px 8px #0004" : "0 2px 8px #0004";
+      button.setAttribute("aria-pressed", String(id === selectedId));
+      button.style.boxShadow = id === selectedId ? "0 0 0 4px #bfdbfe, 0 2px 8px #0004" : "0 2px 8px #0004";
+      button.style.zIndex = id === selectedId ? "10" : "1";
     });
+    if (popup && selectedId && markers.has(selectedId)) popup.setOffset(popupOffset(selectedId));
   }
 
   const onLoad = () => {
@@ -183,7 +175,7 @@ export function createNearbyMap(sdk: VietmapSdk, container: HTMLDivElement, opti
   map.on("load", onLoad);
   map.on("error", onError);
   map.on("moveend", renderMarkers);
-  const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => { if (!removed) map.resize(); });
+  const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => { if (!removed) { map.resize(); renderMarkers(); } });
   observer?.observe(container);
 
   return {

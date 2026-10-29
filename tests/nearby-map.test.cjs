@@ -39,12 +39,14 @@ function mapFixture({style, onRemove, logConsole = console, project = ([lng,lat]
   class Marker {
     constructor(options){this.options=options;markers.push(this);}
     setLngLat(value){this.coordinates=value;return this;} setPopup(popup){this.popup=popup;return this;}
+    setOffset(value){this.offset=value;return this;}
     addTo(map){this.map=map;return this;} remove(){this.removed=true;}
   }
   class Popup {
     constructor(options){this.options=options;popups.push(this);}
     setText(text){this.text=text;return this;} setLngLat(value){this.coordinates=value;return this;}
     setDOMContent(content){this.content=content;return this;} addTo(map){this.map=map;return this;}
+    setOffset(value){this.options.offset=value;return this;}
     remove(){this.removed=true;}
   }
   class Bounds {constructor(a,b){this.points=[a,b];}extend(value){this.points.push(value);return this;}}
@@ -104,10 +106,10 @@ test('list selection opens a text-only popup and routes from the map listing coo
 test('changing category/page clears stale markers and popup without rebuilding the map',()=>{
   const f=mapFixture();f.controller.update({...f.data,selectedId:'school'});
   const oldMarkers=f.liveMarkers(),oldPopup=f.popups.at(-1);
-  f.controller.update({...f.data,places:[places[1]],activeGroup:'HEALTHCARE',startIndex:5,selectedId:null});
+  f.controller.update({...f.data,places:[places[1]],activeGroup:'HEALTHCARE',startIndex:10,selectedId:null});
   assert.ok(oldMarkers.every(m=>m.removed));assert.equal(oldPopup.removed,true);
   assert.equal(f.maps.length,1);assert.equal(f.liveMarkers().length,1);
-  assert.equal(f.liveMarkers()[0].options.element.textContent,'6');
+  assert.equal(f.liveMarkers()[0].options.element.textContent,'11');
   assert.equal(f.liveMarkers()[0].options.element.attributes['aria-pressed'],'false');
   f.controller.update({...f.data,places:[],selectedId:null});
   assert.equal(f.liveMarkers().length,0);
@@ -144,35 +146,59 @@ test('SDK cancellation events do not mark a live map as broken; genuine load fai
   assert.equal(f.errors(),1);
 });
 
-test('nearby and co-located points form a selectable group and separate when zoomed',()=>{
+test('nearby and co-located points always keep their individual list numbers and exact coordinates',()=>{
   let scale=1000;
   const f=mapFixture({project:([lng,lat])=>({x:lng*scale,y:lat*scale})});
-  assert.equal(f.liveMarkers().length,1);
-  const cluster=f.liveMarkers()[0];
-  assert.equal(cluster.options.element.textContent,'2');
-  assert.match(cluster.options.element.attributes['aria-label'],/nhóm 2 tiện ích/);
-  cluster.options.element.click();
-  const content=f.popups.at(-1).content;
-  assert.equal(content.children[0].textContent,'2 tiện ích gần nhau');
-  assert.equal(content.children[2].textContent,`2. ${places[1].name}`);
-  assert.equal(content.children[2].children.length,0);
-  content.children[2].click();
+  assert.deepEqual(f.liveMarkers().map(m=>m.options.element.textContent),['1','2']);
+  f.liveMarkers().forEach((marker,i)=>assert.deepEqual(Array.from(marker.coordinates),[places[i].longitude,places[i].latitude]));
+  f.liveMarkers()[1].options.element.click();
+  assert.equal(f.popups.at(-1).content.children[0].textContent,places[1].name);
   assert.deepEqual(f.selected,['hospital']);
   assert.deepEqual(Array.from(f.maps[0].flights.at(-1).center),[106.689,10.823]);
   scale=100000;f.maps[0].events.moveend();
-  assert.equal(f.liveMarkers().length,2);
+  assert.deepEqual(f.liveMarkers().map(m=>m.options.element.textContent),['1','2']);
   f.controller.update({...f.data,places:[places[0],{...places[1],latitude:places[0].latitude,longitude:places[0].longitude}]});
-  assert.equal(f.liveMarkers().length,1,'identical coordinates remain one group instead of hiding POIs');
+  assert.deepEqual(f.liveMarkers().map(m=>m.options.element.textContent),['1','2']);
+  assert.notDeepEqual(Array.from(f.liveMarkers()[0].offset),Array.from(f.liveMarkers()[1].offset));
 });
 
-test('list selection exposes the selected pin separately from a nearby group',()=>{
+test('list selection highlights the matching numbered pin above neighboring pins without changing their numbers',()=>{
   const f=mapFixture({project:()=>({x:10,y:10})});
-  assert.equal(f.liveMarkers().length,1);
+  assert.equal(f.liveMarkers().length,2);
   f.controller.update({...f.data,selectedId:'school'});
   assert.equal(f.liveMarkers().length,2);
   const selected=f.liveMarkers().find(m=>m.options.element.attributes['aria-pressed']==='true');
-  assert.equal(selected.options.element.title,'Trường học');
+  assert.equal(selected.options.element.title,'1. Trường học');
+  assert.equal(selected.options.element.style.zIndex,'10');
+  assert.deepEqual(f.liveMarkers().map(m=>m.options.element.textContent),['1','2']);
   assert.equal(f.popups.at(-1).content.children[0].textContent,'Trường học');
+});
+
+test('all ten overlapping page pins are readable before selection and retain the correct popup, route and page numbering',()=>{
+  const f=mapFixture({project:()=>({x:200,y:200})});
+  const page=Array.from({length:10},(_,i)=>({...places[i%2],id:`poi-${i}`,name:`Place ${i+1}`}));
+  f.controller.update({...f.data,places:page});
+  const markers=f.liveMarkers();
+  assert.equal(markers.length,10);
+  assert.deepEqual(markers.map(m=>m.options.element.textContent),Array.from({length:10},(_,i)=>String(i+1)));
+  for(let i=0;i<markers.length;i++){
+    assert.deepEqual(Array.from(markers[i].coordinates),[page[i].longitude,page[i].latitude]);
+    for(let j=0;j<i;j++)assert.ok(Math.hypot(markers[i].offset[0]-markers[j].offset[0],markers[i].offset[1]-markers[j].offset[1])>=41.9);
+  }
+  markers[4].options.element.click();
+  assert.deepEqual(f.selected,['poi-4']);
+  assert.equal(markers[4].options.element.textContent,'5');
+  assert.equal(markers[4].options.element.attributes['aria-pressed'],'true');
+  assert.equal(markers[5].options.element.attributes['aria-pressed'],'false');
+  assert.equal(f.popups.at(-1).content.children[0].textContent,'Place 5');
+  const link=f.popups.at(-1).content.children.find(n=>n.tag==='a');
+  assert.equal(new URL(link.href).searchParams.get('destination'),`${page[4].latitude},${page[4].longitude}`);
+  f.maps[0].events.moveend();
+  const selected=f.liveMarkers().find(m=>m.options.element.attributes['aria-pressed']==='true');
+  assert.equal(selected.options.element.textContent,'5');
+  assert.deepEqual(Array.from(f.popups.at(-1).options.offset),[selected.offset[0],selected.offset[1]-24]);
+  f.controller.update({...f.data,places:page,startIndex:10});
+  assert.deepEqual(f.liveMarkers().map(m=>m.options.element.textContent),Array.from({length:10},(_,i)=>String(i+11)));
 });
 
 test('provider limits and authorization failures have safe messages; a later load event cannot hide a failed basemap',()=>{
@@ -265,7 +291,7 @@ function panelFixture({key='browser-test-key',latitude=10.82,longitude=106.68}={
   const click=node=>{assert.ok(node);node.props.onClick();render();};
   const tab=id=>find(n=>n.props?.id===`nearby-test-tab-${id}`);
   const map=()=>find(n=>n.type===MapComponent);
-  const response=(items=places,page=1)=>({enabled:true,items,total:12,page,size:5,coverage:{groups:[]}});
+  const response=(items=places,page=1)=>({enabled:true,items,total:12,page,size:10,coverage:{groups:[]}});
   const settle=async()=>{for(let i=0;i<6;i++)await Promise.resolve();render();};
   render();return {requests,find,click,tab,map,render,response,settle};
 }
@@ -300,7 +326,7 @@ test('map/list selection is shared; category and page changes cancel old request
   f.requests[1].resolve(f.response([places[1]]));await f.settle();assert.equal(f.map().props.places[0].id,'school');
   f.click(f.find(n=>n.type==='button'&&React.Children.toArray(n.props.children).some(c=>c==='Tiếp')));
   assert.equal(f.requests.at(-1).page,2);assert.equal(f.requests.at(-1).group,'EDUCATION');
-  f.requests.at(-1).resolve(f.response([places[0]],2));await f.settle();assert.equal(f.map().props.startIndex,5);
+  f.requests.at(-1).resolve(f.response([places[0]],2));await f.settle();assert.equal(f.map().props.startIndex,10);
 });
 
 test('a missing browser map key or listing coordinates never loads the SDK and keeps the list usable',async()=>{

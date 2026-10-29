@@ -50,6 +50,6 @@ export default function NearbyMap(props: NearbyMapData & { latitude: number; lon
       </div>}
       {status === "ready" && <button type="button" onClick={() => controller.current?.showAll()} className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-lg border bg-card px-2.5 py-2 text-xs font-medium shadow-sm"><LocateFixed size={14} />Xem tất cả</button>}
     </div>
-    <p className="flex items-center gap-2 text-[11px] leading-relaxed text-muted-foreground"><span className="size-2.5 shrink-0 rounded-full bg-blue-600" />Vị trí bài đăng · Ghim đậm là nhóm tiện ích gần nhau</p>
+    <p className="flex items-center gap-2 text-[11px] leading-relaxed text-muted-foreground"><span className="size-2.5 shrink-0 rounded-full bg-blue-600" />Vị trí bài đăng · Số ghim khớp thứ tự trong danh sách</p>
   </div>;
 }

@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import dynamic from "next/dynamic";
 import { MapPin, Map as MapIcon, List, ExternalLink, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { getNearbyPlaces } from "@/services/nearby.service";
-import { NEARBY_GROUPS, NEARBY_RADIUS_METERS, type NearbyGroup, type NearbyPage } from "@/types/nearby.type";
+import { NEARBY_GROUPS, NEARBY_RADIUS_METERS, NEARBY_PAGE_SIZE, type NearbyGroup, type NearbyPage } from "@/types/nearby.type";
 import { nearbyDirectionsUrl, validCoordinates } from "@/lib/nearby-directions";
 import { nearbyColor, nearbyDistance } from "@/lib/nearby-presentation";
 
@@ -45,7 +45,7 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
   const complete = coverage.length > 0 && coverage.every(g => g.coverageStatus === "COMPLETE_PROVIDER_RESPONSE" && (g.radiusCoveredMeters ?? 0) >= radius);
   const limited = coverage.some(g => g.coverageStatus === "LIMITED_PROVIDER_RESPONSE");
   const lastChecked = coverage.flatMap(g => g.dataAsOf ? [g.dataAsOf] : []).sort()[0];
-  const startIndex = (page - 1) * (data?.size ?? 5);
+  const startIndex = (page - 1) * (data?.size ?? NEARBY_PAGE_SIZE);
 
   function tabKeyDown(event: KeyboardEvent<HTMLButtonElement>, current: "list" | "map") {
     let next: "list" | "map";
@@ -127,6 +127,6 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
       <span>Trang {page} / {Math.ceil(data.total / data.size)}</span>
       <button type="button" disabled={page * data.size >= data.total || loading} onClick={() => setPage(n => n + 1)} className="inline-flex items-center gap-1 disabled:opacity-40">Tiếp<ChevronRight size={16} /></button>
     </div>}
-    <p className="text-[11px] leading-relaxed text-muted-foreground">Địa điểm: © TomTom · Bản đồ: VietMap. Bản đồ hiển thị tối đa 5 tiện ích trên trang hiện tại. Dữ liệu nguồn không xác nhận địa điểm đang hoạt động.</p>
+    <p className="text-[11px] leading-relaxed text-muted-foreground">Địa điểm: © TomTom · Bản đồ: VietMap. Bản đồ hiển thị tối đa {NEARBY_PAGE_SIZE} tiện ích trên trang hiện tại. Dữ liệu nguồn không xác nhận địa điểm đang hoạt động.</p>
   </section>;
 }

@@ -12,12 +12,12 @@ const SAFE_IMAGE = /^https:\/\/[^\s<>()"'\\]+$/;
 
 function TableImage({ src, alt }: { src: string; alt: string }) {
   const [failed, setFailed] = useState(false);
-  return <span className="relative block h-20 w-28 overflow-hidden rounded-md border border-border bg-muted sm:h-24 sm:w-32">
+  return <span className="relative block h-16 w-24 overflow-hidden rounded-md border border-border bg-muted sm:h-20 sm:w-28">
     {failed
       ? <span className="flex h-full flex-col items-center justify-center gap-0.5 text-[10px] text-muted-foreground" role="img" aria-label={alt}>
           <ImageOff className="size-4 opacity-60" aria-hidden="true" />Chưa tải được ảnh
         </span>
-      : <Image src={src} alt={alt} fill sizes="128px" unoptimized loading="lazy" referrerPolicy="no-referrer"
+      : <Image src={src} alt={alt} fill sizes="112px" unoptimized loading="lazy" referrerPolicy="no-referrer"
           className="object-cover transition-transform duration-200 hover:scale-105" onError={() => setFailed(true)} />}
   </span>;
 }
@@ -94,18 +94,18 @@ export default function AiMarkdownMessage({
           },
           table: ({ children }) => (
             <div className="max-w-full overflow-x-auto my-3 rounded-xl border border-border shadow-2xs" role="region" aria-label="Bảng thông tin" tabIndex={0}>
-              <table className="w-full border-separate border-spacing-0 text-xs [&_tr>*:first-child]:sticky [&_tr>*:first-child]:left-0 [&_tr>*:first-child]:z-10 [&_tr>*:first-child]:w-28 [&_tr>*:first-child]:border-r [&_tr>*:first-child]:border-border [&_tbody_tr:hover>td]:bg-muted [&_tbody_tr:last-child>td]:border-b-0">
+              <table className="w-full min-w-0 border-separate border-spacing-0 text-xs [&_tr>*:first-child]:sticky [&_tr>*:first-child]:left-0 [&_tr>*:first-child]:z-10 [&_tr>*:first-child]:w-24 sm:[&_tr>*:first-child]:w-28 [&_tr>*:first-child]:border-r [&_tr>*:first-child]:border-border [&_tbody_tr:hover>td]:bg-muted [&_tbody_tr:last-child>td]:border-b-0">
                 {children}
               </table>
             </div>
           ),
           th: ({ children }) => (
-            <th className="bg-muted px-3 py-2.5 text-left align-bottom font-semibold text-foreground border-b border-border whitespace-nowrap">
+            <th className="bg-muted px-2.5 py-2 sm:px-3 sm:py-2.5 text-left align-bottom font-semibold text-foreground border-b border-border whitespace-nowrap">
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className="min-w-[8.5rem] bg-card px-3 py-2 align-top border-b border-border/50 text-foreground first:min-w-0 first:font-medium first:text-muted-foreground first:whitespace-nowrap">
+            <td className="min-w-[7.25rem] sm:min-w-[8rem] bg-card px-2.5 py-2 sm:px-3 align-top border-b border-border/50 text-foreground first:min-w-0 first:font-medium first:text-muted-foreground first:whitespace-nowrap">
               {children}
             </td>
           ),

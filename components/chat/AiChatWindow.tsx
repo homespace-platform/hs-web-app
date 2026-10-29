@@ -121,6 +121,10 @@ export default function AiChatWindow({
     }
   };
 
+  // Full-page chat: keep the stream, chips and composer in one padded column so wide tables do not hug the edges.
+  const pageGutter = compact ? "" : "px-5 sm:px-10 lg:px-14 xl:px-20";
+  const pageColumn = compact ? "max-w-3xl mx-auto" : `w-full max-w-5xl mx-auto ${pageGutter}`;
+
   return (
     <div className={`flex min-w-0 flex-col bg-background overflow-hidden ${compact ? "w-full" : "flex-1 min-h-0 h-full"}`}>
       {isGuest && <GuestAiLoginDialog />}
@@ -203,13 +207,13 @@ export default function AiChatWindow({
       {notice}
 
       {/* 2. Chat Stream Area */}
-      <div ref={streamRef} role="log" aria-label="Hội thoại với HomeSpace AI" aria-busy={isSending} className={`flex-1 min-h-0 overflow-y-auto overscroll-contain ${compact ? "p-3 sm:p-5" : "px-3 py-4 sm:px-6 lg:px-10"}`}>
+      <div ref={streamRef} role="log" aria-label="Hội thoại với HomeSpace AI" aria-busy={isSending} className={`flex-1 min-h-0 overflow-y-auto overscroll-contain ${compact ? "p-3 sm:p-5" : "py-5"}`}>
         {isLoadingHistory ? (
           <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
             Đang tải cuộc trò chuyện...
           </div>
         ) : (
-          <div className={`space-y-4 pb-4 ${compact ? "max-w-3xl mx-auto" : "w-full max-w-6xl mx-auto"}`}>
+          <div className={`space-y-4 pb-4 ${compact ? "max-w-3xl mx-auto" : pageColumn}`}>
             {/* Local greeting: not persisted or sent to the model as evidence. */}
             <div className="flex gap-3 justify-start" data-ai-greeting="">
               <div className="w-8 h-8 rounded-full bg-white border border-primary/25 p-1 shrink-0 shadow-2xs flex items-center justify-center mt-0.5">
@@ -268,7 +272,7 @@ export default function AiChatWindow({
                   )}
 
                   <div
-                    className={`min-w-0 ${hasTable || hasCards ? "w-[calc(100%-2.75rem)]" : "max-w-[85%] sm:max-w-[78%]"} group relative ${
+                    className={`min-w-0 ${hasTable || hasCards ? "w-full max-w-[calc(100%-2.75rem)]" : "max-w-[85%] sm:max-w-[78%]"} group relative ${
                       isUser
                         ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-2.5 shadow-sm text-sm"
                         : "bg-card border border-border text-foreground rounded-2xl rounded-tl-sm px-4 py-3 shadow-2xs text-sm"
@@ -350,7 +354,8 @@ export default function AiChatWindow({
       </div>
 
       {/* 3. Quick Suggestions Chips Bar */}
-      {showSuggestionBar && <div className="shrink-0 px-3 sm:px-4 py-2 border-t border-border/60 bg-muted/20 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+      {showSuggestionBar && <div className="shrink-0 border-t border-border/60 bg-muted/20">
+        <div className={`flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2 ${compact ? "px-3 sm:px-4" : pageColumn}`}>
         <span className="text-[11px] text-muted-foreground font-medium shrink-0 flex items-center gap-1 pl-1">
           <span>Gợi ý:</span>
         </span>
@@ -366,11 +371,12 @@ export default function AiChatWindow({
             {topic.title}
           </button>
         ))}
+        </div>
       </div>}
 
       {/* 4. Bottom Message Input Bar */}
-      <div className="shrink-0 p-3 sm:p-4 border-t border-border bg-card">
-        <form onSubmit={handleSend} className="flex flex-col gap-1.5">
+      <div className="shrink-0 border-t border-border bg-card">
+        <form onSubmit={handleSend} className={`flex flex-col gap-1.5 py-3 sm:py-4 ${compact ? "px-3 sm:px-4" : pageColumn}`}>
           <div className="flex items-center gap-2 bg-muted/50 focus-within:bg-background border border-border focus-within:border-primary/50 rounded-2xl px-3 py-1.5 shadow-2xs transition-all">
             <input
               ref={inputRef}

@@ -69,7 +69,7 @@ export default function Header() {
   const [preferredCity, setPreferredCity] = useState("");
   const { cityId: urlCityId, setCity } = useRentUrlState();
   const selectedProvinceCode = pathname === "/rent" ? urlCityId : preferredCity;
-  const selectedProvinceName = provinces.find(city => city.code === selectedProvinceCode)?.name ?? "Toàn quốc";
+  const selectedProvinceName = provinces.find(city => city.code === selectedProvinceCode)?.name ?? "Chọn tỉnh/thành phố";
   const [catalogError, setCatalogError] = useState("");
   const [catalogReload, setCatalogReload] = useState(0);
   const [isProvinceOpen, setIsProvinceOpen] = useState(false);
@@ -112,8 +112,10 @@ export default function Header() {
       const saved = localStorage.getItem("homespace_selected_city_vietmap");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed?.code !== undefined && parsed?.name) {
+        if (parsed?.code && parsed?.name) {
           setPreferredCity(String(parsed.code));
+        } else if (parsed && !parsed.code) {
+          localStorage.removeItem("homespace_selected_city_vietmap");
         }
       }
     } catch {
@@ -145,6 +147,7 @@ export default function Header() {
 
   // Save province to LocalStorage on change
   const handleSelectProvince = (province: AdministrativeCity) => {
+    if (!province.code) return;
     setPreferredCity(province.code);
     if (pathname === "/rent") setCity(province.code);
     setIsProvinceOpen(false);

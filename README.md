@@ -42,7 +42,7 @@ GET /api/locations/provinces
 GET /api/locations/provinces/12/wards
 ```
 
-Frontend gọi cùng origin Next.js, không qua Gateway, Core API hay location service cho danh mục. Không cần API key; runtime không gọi GitHub. Header hiển thị toàn bộ tỉnh; dropdown xã chỉ tải xã thuộc tỉnh đã chọn. Bộ lọc gửi `cityId`/`wardId` Vietmap tới API tin đăng hiện có, không tìm xã bằng từ khóa. Các API autocomplete/geocode/place/reverse và dữ liệu địa chỉ CSDL không thay đổi.
+Frontend gọi cùng origin Next.js, không qua Gateway, Core API hay location service cho danh mục. Không cần API key; runtime không gọi GitHub. Header hiển thị toàn bộ tỉnh (không có “Toàn quốc”); dropdown xã chỉ tải xã thuộc tỉnh đã chọn. Bộ lọc gửi `cityId`/`wardId` Vietmap tới API tin đăng; thiếu tỉnh thì không gọi API. Các API autocomplete/geocode/place/reverse và dữ liệu địa chỉ CSDL không thay đổi.
 
 Khi muốn cập nhật dữ liệu: chạy lại `npm run sync:data`. Đây là pull thủ công/CI, không phải tự cập nhật theo lịch. Commit thư mục snapshot vào repo; sau khi sync cần restart dev, hoặc build/redeploy production để dùng snapshot mới:
 

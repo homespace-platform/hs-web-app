@@ -20,7 +20,8 @@ function catalog<T>(path: string): Promise<T> {
 const listingLocationService = {
   async getCities(): Promise<AdministrativeCity[]> {
     const cities = await catalog<AdministrativeCity[]>("/api/locations/provinces");
-    return [{ code: "", name: "Toàn quốc" }, ...cities];
+    // Real provinces only: browsing/search always needs a cityId (no nationwide option).
+    return cities.filter((city) => Boolean(city.code));
   },
   async getWards(cityId: string): Promise<AdministrativeWard[]> {
     if (!cityId) return [];

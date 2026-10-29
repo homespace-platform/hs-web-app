@@ -59,7 +59,8 @@ export default function RentPage() {
   const [cities, setCities] = useState<AdministrativeCity[]>([]);
   const [catalogError, setCatalogError] = useState("");
   const [wardError, setWardError] = useState("");
-  const selectedProvinceName = cities.find(city => city.code === selectedProvinceCode)?.name ?? (selectedProvinceCode ? "Đang tải khu vực…" : "Toàn quốc");
+  const selectedProvinceName = cities.find(city => city.code === selectedProvinceCode)?.name
+    ?? (selectedProvinceCode ? "Đang tải khu vực…" : "Chọn tỉnh/thành phố");
   const [wards, setWards] = useState<AdministrativeWard[]>([]);
   const [isWardDropdownOpen, setIsWardDropdownOpen] = useState(false);
   const [wardSearch, setWardSearch] = useState("");
@@ -77,6 +78,13 @@ export default function RentPage() {
     const runFetch = async () => {
       setIsLoading(true);
       setApiError("");
+      if (!selectedProvinceCode) {
+        setProperties([]);
+        setTotalItems(0);
+        setTotalPages(1);
+        setIsLoading(false);
+        return;
+      }
       try {
         // Map category
         let apiCategory: ListingCategory | undefined = undefined;
@@ -285,7 +293,9 @@ export default function RentPage() {
                 </span>
               </div>
               <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
-                Khám phá căn hộ, nhà nguyên căn, phòng trọ trực tiếp chính chủ tại {selectedProvinceName}. Minh bạch giá cả, ký hợp đồng điện tử và bảo vệ tiền cọc an toàn On-chain.
+                {selectedProvinceCode
+                  ? `Khám phá căn hộ, nhà nguyên căn, phòng trọ trực tiếp chính chủ tại ${selectedProvinceName}. Minh bạch giá cả, ký hợp đồng điện tử và bảo vệ tiền cọc an toàn On-chain.`
+                  : "Chọn tỉnh/thành phố ở thanh trên để xem tin đăng. HomeSpace tìm theo khu vực, không duyệt toàn quốc."}
               </p>
             </div>
 
@@ -550,11 +560,14 @@ export default function RentPage() {
                     <Building className="w-8 h-8" />
                   </div>
                   <h3 className="font-heading font-bold text-base text-foreground">
-                    Không tìm thấy nhà cho thuê phù hợp
+                    {selectedProvinceCode ? "Không tìm thấy nhà cho thuê phù hợp" : "Chọn tỉnh/thành phố để xem tin"}
                   </h3>
                   <p className="text-xs sm:text-sm max-w-md text-muted-foreground leading-relaxed">
-                    Hãy thử điều chỉnh lại mức giá, diện tích, phường/xã hoặc nhấn Đặt lại để xem tất cả tin cho thuê đang có sẵn.
+                    {selectedProvinceCode
+                      ? "Hãy thử điều chỉnh lại mức giá, diện tích, phường/xã hoặc nhấn Đặt lại bộ lọc trong khu vực đang chọn."
+                      : "Dùng bộ chọn khu vực trên thanh điều hướng để chọn tỉnh/thành. HomeSpace không tìm tin trên toàn quốc."}
                   </p>
+                  {selectedProvinceCode && (
                   <Button
                     type="button"
                     onClick={handleReset}
@@ -562,6 +575,7 @@ export default function RentPage() {
                   >
                     Xóa tất cả bộ lọc
                   </Button>
+                  )}
                 </div>
               ) : filter.viewMode === "collage" ? (
                 /* Collage View */

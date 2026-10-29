@@ -56,7 +56,7 @@ export default function LocationMapExplorer() {
     return (
       provinces.find((p) => p.code === selectedProvinceCode) || {
         code: "",
-        name: "Toàn quốc",
+        name: "Chọn tỉnh thành",
       }
     );
   }, [provinces, selectedProvinceCode]);

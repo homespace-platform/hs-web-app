@@ -48,7 +48,7 @@ function harness(initial, renderPage = false, locations) {
   const hook = load('hooks/useRentUrlState.ts', { react: hooks, 'next/navigation': { usePathname: () => window.location.pathname },
     '@/lib/rent-filter-state': state }, { window });
   let Component = hook.useRentUrlState;
-  const locationService = locations ?? { getCities: async () => [{code:'',name:'Toàn quốc'}, {code:'12',name:'Thành phố Hồ Chí Minh'}, {code:'11',name:'Thành phố Hà Nội'}],
+  const locationService = locations ?? { getCities: async () => [{code:'12',name:'Thành phố Hồ Chí Minh'}, {code:'11',name:'Thành phố Hà Nội'}],
     getWards: async city => city === '12' ? [{code:'24332',name:'Phường An Nhơn',parentCode:'12'}] : [{code:'14091',name:'Phường Ba Đình',parentCode:'11'}] };
   if (renderPage) {
     const overrides = { react: hooks,
@@ -110,10 +110,10 @@ test('real URL hook preserves geo and other filters across refresh and Back/Forw
   app.window.history.forward(); app.render(); assert.equal(app.value.cityId, '11');
   assert.equal(harness(app.window.location.pathname + app.window.location.search).value.cityId, '11');
 });
-test('actual rent page disables wards nationwide and sends location IDs separately from keyword', async () => {
+test('actual rent page requires a city before searching and sends location IDs separately from keyword', async () => {
   const all = harness('/rent', true); await all.settle();
   assert.ok(all.find(n => n.type === 'button' && all.label(n) === 'Chọn tỉnh/thành phố trước').props.disabled);
-  assert.equal(all.calls.at(-1).cityId, undefined); assert.equal(all.calls.at(-1).wardId, undefined);
+  assert.equal(all.calls.length, 0, 'No nationwide public search without cityId');
   const selected = harness('/rent?cityId=12&wardId=24332&q=ban+công&minPrice=10&maxPrice=30&category=house', true);
   await selected.settle();
   const request = selected.calls.at(-1);
@@ -139,7 +139,8 @@ test('catalog client shares pending requests, caches per city and retries failed
     calls.push(url); if (fail) throw new Error('offline');
     return {ok:true, json:async () => url.endsWith('/provinces') ? [{code:'12',name:'TP.HCM'}] : [{code:'24332',parentCode:'12',name:'Phường An Nhơn'}]};
   } }).default;
-  await Promise.all([client.getCities(), client.getCities()]); assert.equal(calls.length, 1);
+  const cities = await Promise.all([client.getCities(), client.getCities()]); assert.equal(calls.length, 1);
+  assert.deepEqual(cities[0], [{code:'12',name:'TP.HCM'}], 'Do not invent a nationwide city option');
   await client.getWards(''); assert.equal(calls.length, 1);
   await Promise.all([client.getWards('12'), client.getWards('12')]); assert.equal(calls.length, 2);
   fail = true; await assert.rejects(client.getWards('11')); fail = false; await client.getWards('11'); assert.equal(calls.length, 4);

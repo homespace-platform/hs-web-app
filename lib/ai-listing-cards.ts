@@ -33,12 +33,20 @@ export function createListingCardLoader<T>(fetchListing: (id: string) => Promise
   };
 }
 
+const LINKED_LISTING = /\]\(\/rent\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})[\s)]/gi;
+
+/** Listings the answer already links (comparison table header/image), so they need no card. */
+export function linkedListingIds(content: string | undefined): Set<string> {
+  return new Set([...(content || "").matchAll(LINKED_LISTING)].map((match) => match[1].toLowerCase()));
+}
+
 /**
  * First time a listing appears in a conversation it gets a card; later mentions of the same
  * listing (follow-ups reusing earlier results) become text links so nothing renders twice.
+ * A listing the answer's table already links gets neither: the table is its card.
  */
 export function splitCardsAndLinks(
-  messages: readonly { id: string; sender?: string; listingIds?: string[] }[],
+  messages: readonly { id: string; sender?: string; content?: string; listingIds?: string[] }[],
 ): Map<string, { cards: string[]; links: string[] }> {
   const shown = new Set<string>();
   const result = new Map<string, { cards: string[]; links: string[] }>();
@@ -46,9 +54,10 @@ export function splitCardsAndLinks(
     if (message.sender === "me") continue;
     const ids = cardListingIds(message.listingIds);
     if (!ids.length) continue;
-    const cards = ids.filter((id) => !shown.has(id));
-    const links = ids.filter((id) => shown.has(id));
-    cards.forEach((id) => shown.add(id));
+    const linked = linkedListingIds(message.content);
+    const cards = ids.filter((id) => !shown.has(id) && !linked.has(id));
+    const links = ids.filter((id) => shown.has(id) && !linked.has(id));
+    ids.forEach((id) => shown.add(id));
     result.set(message.id, { cards, links });
   }
   return result;

@@ -37,6 +37,41 @@ test("a listing gets a card once; later reuse becomes a link, new ones still get
 const ids = Array.from({ length: 7 }, (_, i) => `00000000-0000-0000-0000-${String(i + 1).padStart(12, "0")}`);
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
+const tableAnswer = [
+  "Mình tìm thấy **2 phòng trọ**.",
+  "",
+  `| Tiêu chí | [Phòng 1](/rent/${ids[0]} "Phòng trọ 19 m²") | [Phòng 2](/rent/${ids[1]} "Phòng trọ 20 m²") |`,
+  "| --- | --- | --- |",
+  `| Ảnh | [![Ảnh Phòng 1](<https://cdn.example/1.jpg>)](/rent/${ids[0]}) | ![Ảnh Phòng 2](<javascript:alert(1)>) |`,
+  "| Giá thuê | 2.400.000 đ/phòng/tháng | 2.500.000 đ/phòng/tháng |",
+].join("\n");
+
+test("listings linked by the answer table get no card or repeat link; others keep the card flow", () => {
+  const split = splitCardsAndLinks([
+    { id: "m1", sender: "ai", content: tableAnswer, listingIds: [ids[0], ids[1]] },
+    { id: "m2", sender: "ai", content: "Phòng 2 có thang máy.", listingIds: [ids[1], ids[2]] },
+    { id: "m3", sender: "ai", content: `| [Phòng 3](/rent/${ids[2]}) |`, listingIds: [ids[2], ids[3]] },
+  ]);
+  assert.deepEqual(split.get("m1"), { cards: [], links: [] });
+  assert.deepEqual(split.get("m2"), { cards: [ids[2]], links: [ids[1]] });
+  assert.deepEqual(split.get("m3"), { cards: [ids[3]], links: [] });
+});
+
+test("table header opens the listing in a new tab with an icon and the image row is a safe thumbnail link", () => {
+  const Markdown = load("components/chat/AiMarkdownMessage.tsx", {
+    "next/link": ({ children, prefetch, ...props }) => React.createElement("a", props, children),
+    "next/image": ({ fill, unoptimized, ...props }) => React.createElement("img", props),
+  }).default;
+  const html = renderToStaticMarkup(React.createElement(Markdown, { content: tableAnswer }));
+  assert.ok(html.includes(`href="/rent/${ids[0]}"`) && html.includes('title="Phòng trọ 19 m²"'));
+  assert.match(html, /target="_blank" rel="noopener noreferrer"/);
+  assert.ok(html.includes("mở tab mới") && html.includes("<svg"), "header link carries the open icon");
+  assert.equal((html.match(/<img\b/g) || []).length, 1, "only the https image renders");
+  assert.ok(html.includes('src="https://cdn.example/1.jpg"') && html.includes('loading="lazy"'));
+  assert.ok(!html.includes("javascript:"));
+  assert.ok(html.indexOf("<img") > html.indexOf("Phòng 2") && html.indexOf("<img") < html.indexOf("Giá thuê"));
+});
+
 test("validated IDs preserve a requested page larger than five, with an absolute safety ceiling", () => {
   assert.deepEqual(cardListingIds([ids[0], "javascript:alert(1)", ids[0], ...ids.slice(1)]), ids);
   const many = Array.from({length: 100}, (_, i) => `00000000-0000-0000-0000-${String(i + 1).padStart(12, "0")}`);

@@ -24,13 +24,14 @@ function load(file) {
     if (name === "next/navigation") return { useRouter: () => ({ push() {} }) };
     if (name === "next/link") return { __esModule: true, default: ({ children, href, ...rest }) => React.createElement("a", { href, ...rest }, children) };
     if (name === "next/image") return noComponent;
+    if (name === "next/dynamic") return () => () => null;
     if (name === "@/features/auth/useAuth") return { useAuth: () => auth };
     if (name === "@/components/chat/ChatDemoProvider") return { useChatDemo: () => ({}) };
     if (name === "./ContractAmendmentWorkspace") return { useAmendmentWorkspace: () => null };
     if (name === "./InlineAmendmentFields") return noComponent;
     if (name === "./utils") return load("components/contract/detail/utils.tsx");
-    if (["@/lib/rent-detail-sections", "@/lib/video-stream-url", "@/lib/contract-property-feature-labels", "@/lib/contract-amendment-input", "@/lib/contract-field-state", "@/lib/nearby-directions"].includes(name)) return load(name.replace("@/", "") + ".ts");
-    if (name === "@/components/address/AddressMapPreview") return load("components/address/AddressMapPreview.tsx");
+    if (["@/lib/rent-detail-sections", "@/lib/video-stream-url", "@/lib/contract-property-feature-labels", "@/lib/contract-amendment-input", "@/lib/contract-field-state", "@/lib/nearby-directions", "@/lib/nearby-presentation", "@/types/nearby.type"].includes(name)) return load(name.replace("@/", "") + ".ts");
+    if (name === "@/components/nearby/NearbyPlacesPanel") return load("components/nearby/NearbyPlacesPanel.tsx");
     if (name.startsWith("@/components/")) return noComponent;
     if (name.startsWith("@/")) return {};
     return require(name);
@@ -94,7 +95,7 @@ function listingRoute(html) {
   assert.ok(link, "The listing map must offer directions");
   return new URL(link[1].replaceAll("&amp;", "&"));
 }
-test("listing directions let Google Maps use current location for guests and signed-in customers", () => {
+test("listing directions live in the central nearby panel without a sidebar map for guests and signed-in customers", () => {
   const sessions = [guestAuth, { ...guestAuth, initialized: false },
     ...[["customer-a", 10.8337055, 106.6894342], ["customer-b", 16.0625755, 108.2178987]]
       .map(([userId, latitude, longitude]) => ({ ...guestAuth, authenticated: true, userId, profile: { id: userId, address: { latitude, longitude } } }))];
@@ -105,10 +106,14 @@ test("listing directions let Google Maps use current location for guests and sig
     assert.equal(route.searchParams.get("destination"), "10.8209195,106.6872986");
     assert.equal(route.searchParams.get("api"), "1");
     assert.equal(route.searchParams.get("dir_action"), "navigate");
-    assert.match(html, /Chỉ đường từ vị trí hiện tại/);
+    assert.match(html, /Chỉ đường đến bài đăng/);
     assert.doesNotMatch(html, /Đăng nhập để chỉ đường|Cập nhật địa chỉ để chỉ đường/);
     assert.match(html, /target="_blank" rel="noopener noreferrer"/);
-    assert.match(html, /q=10\.8209195%2C106\.6872986/);
+    assert.match(html, /Tiện ích xung quanh/);
+    assert.doesNotMatch(html, /<iframe/);
+    const sidebar = html.match(/<aside\b[^>]*>([\s\S]*?)<\/aside>/);
+    assert.ok(sidebar);
+    assert.doesNotMatch(sidebar[1], /maps\/dir\/|Chỉ đường đến bài đăng|Vị trí bài đăng/);
   }
 });
 test("Settings address changes and missing or stale account addresses do not affect current-location directions", () => {
@@ -128,7 +133,7 @@ test("invalid listing coordinates never produce a route with a guessed destinati
   for (const address of [{ latitude: null, longitude: null }, {}, { latitude: "10.8", longitude: 106 },
     { latitude: NaN, longitude: 106 }, { latitude: 91, longitude: 106 }, { latitude: 10, longitude: Infinity }]) {
     const html = listingMap(guestAuth, address);
-    assert.doesNotMatch(html, /maps\/dir\/|Chỉ đường từ vị trí hiện tại/);
+    assert.doesNotMatch(html, /maps\/dir\/|Chỉ đường đến bài đăng/);
   }
 });
 test("non-public listing access is read-only for a non-owner, not a new rental offer",()=>{

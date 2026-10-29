@@ -304,6 +304,15 @@ test('map is the first/default tab and switching views shares the same page with
   assert.equal(f.map().props.radius,2000);
   assert.equal(f.map().props.latitude,10.82);assert.equal(f.map().props.longitude,106.68);
   assert.equal(Object.hasOwn(f.map().props,'origin'),false,'map directions are derived from the listing coordinates');
+  const directionsLink=f.find(n=>n.type==='a'&&n.props['aria-label']==='Chỉ đường từ vị trí hiện tại đến bài đăng');
+  const route=new URL(directionsLink.props.href);
+  assert.equal(route.searchParams.has('origin'),false);
+  assert.equal(route.searchParams.get('destination'),'10.82,106.68');
+  assert.equal(route.searchParams.get('dir_action'),'navigate');
+  const mapColumn=f.find(n=>React.Children.toArray(n.props?.children).some(child=>child?.type===f.map().type));
+  assert.ok(React.Children.toArray(mapColumn.props.children).some(child=>child?.props?.['aria-label']===directionsLink.props['aria-label']),
+    'listing directions appear directly underneath the central map');
+  assert.equal(directionsLink.props.target,'_blank');assert.equal(directionsLink.props.rel,'noopener noreferrer');
   f.click(f.tab('list'));
   assert.equal(f.tab('list').props['aria-selected'],true);assert.equal(f.map(),null);
   f.tab('list').props.onKeyDown({key:'Home',preventDefault(){}});f.render();
@@ -335,6 +344,8 @@ test('a missing browser map key or listing coordinates never loads the SDK and k
     const f=panelFixture(options.latitude===undefined&&Object.hasOwn(options,'latitude')?{latitude:null}:options);
     f.requests[0].resolve(f.response());await f.settle();f.click(f.tab('map'));
     assert.equal(f.map(),null);assert.equal(f.requests.length,1);
+    const directionsLink=f.find(n=>n.type==='a'&&n.props['aria-label']==='Chỉ đường từ vị trí hiện tại đến bài đăng');
+    assert.equal(Boolean(directionsLink),options.key==='','valid listing directions remain available even without a browser map key');
     f.click(f.tab('list'));assert.ok(f.find(n=>n.props?.['aria-label']==='Danh sách tiện ích'));
   }
 });

@@ -2,10 +2,10 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import dynamic from "next/dynamic";
-import { MapPin, Map as MapIcon, List, ExternalLink, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { MapPin, Map as MapIcon, List, ExternalLink, ChevronLeft, ChevronRight, RefreshCw, Navigation } from "lucide-react";
 import { getNearbyPlaces } from "@/services/nearby.service";
 import { NEARBY_GROUPS, NEARBY_RADIUS_METERS, NEARBY_PAGE_SIZE, type NearbyGroup, type NearbyPage } from "@/types/nearby.type";
-import { nearbyDirectionsUrl, validCoordinates } from "@/lib/nearby-directions";
+import { currentLocationDirectionsUrl, nearbyDirectionsUrl, validCoordinates } from "@/lib/nearby-directions";
 import { nearbyColor, nearbyDistance } from "@/lib/nearby-presentation";
 
 const NearbyMap = dynamic(() => import("./NearbyMap"), {
@@ -23,6 +23,12 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
   const [selection, setSelection] = useState<{ key: string; id: string } | null>(null);
   const itemRefs = useRef(new Map<string, HTMLButtonElement>());
   const origin = { latitude, longitude };
+  const listingDirectionsUrl = currentLocationDirectionsUrl(origin);
+  const listingDirectionsLink = listingDirectionsUrl && <a href={listingDirectionsUrl} target="_blank" rel="noopener noreferrer"
+    aria-label="Chỉ đường từ vị trí hiện tại đến bài đăng" title="Từ vị trí hiện tại của bạn đến vị trí bài đăng"
+    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
+    <Navigation size={16} />Chỉ đường đến bài đăng
+  </a>;
   const [attempt, setAttempt] = useState(0);
   const requestKey = JSON.stringify([listingId, radius, group, page, attempt]);
   const [result, setResult] = useState<{ key: string; data: NearbyPage | null; error: string }>({ key: "", data: null, error: "" });
@@ -111,15 +117,15 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
     </div>
     <div role="tabpanel" id={`${uid}-panel-map`} aria-labelledby={`${uid}-tab-map`} hidden={view !== "map"} tabIndex={0}>
       {view === "map" && (!hasListingCoordinates ? <p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">Tin đăng chưa có tọa độ để hiển thị bản đồ.</p>
-        : !canMap ? <p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">Bản đồ hiện chưa sẵn sàng. Bạn có thể xem địa điểm ở tab Danh sách.</p>
+        : !canMap ? <div className="space-y-3"><p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">Bản đồ hiện chưa sẵn sàng. Bạn có thể xem địa điểm ở tab Danh sách.</p>{listingDirectionsLink}</div>
           : <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
             <div className="min-w-0">{placeList}</div>
-            <div className="order-first min-w-0 md:order-last"><NearbyMap key={`${listingId}:${latitude}:${longitude}`} latitude={latitude!} longitude={longitude!} radius={radius}
+            <div className="order-first min-w-0 space-y-3 md:order-last"><NearbyMap key={`${listingId}:${latitude}:${longitude}`} latitude={latitude!} longitude={longitude!} radius={radius}
               places={data?.items ?? EMPTY_PLACES} activeGroup={group} startIndex={startIndex} selectedId={selectedId}
               onSelect={id => {
                 setSelection({ key: requestKey, id });
                 itemRefs.current.get(id)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-              }} /></div>
+              }} />{listingDirectionsLink}</div>
           </div>)}
     </div>
     {data && data.total > data.size && <div className="flex items-center justify-between text-sm">

@@ -20,6 +20,8 @@ VietMap GL JS 6.0.1 được cài bằng npm và chỉ tải khi mở tab Bản 
 
 Dữ liệu địa điểm lấy từ API HomeSpace/CSDL TomTom hiện có. VietMap chỉ cung cấp lớp bản đồ; không gọi lại API tìm địa điểm hoặc đồng bộ POI khi chuyển tab.
 
+Chi tiết tin chỉ dùng bản đồ trong Tiện ích xung quanh, không nhúng thêm bản đồ ở sidebar. Nút “Chỉ đường đến bài đăng” ngay dưới bản đồ dùng vị trí hiện tại của thiết bị → tọa độ bài đăng; Google Maps xử lý điểm xuất phát. Nút “Chỉ đường” của từng tiện ích vẫn dùng bài đăng → tiện ích.
+
 Nếu ghim hiện nhưng nền xám: kiểm tra request `.pbf` trong Network. `style.json` trả 200 chưa đảm bảo tile tải được. Nếu tile trả **423 “Your request is limited”** hoặc 429, vào VietMap Console → Consumers → dự án/API key kiểm tra hạn mức TileMap, giới hạn theo key/IP, tên miền và quyền TileMap; Daily Report để xem usage. Không tự retry liên tục hoặc đổi tọa độ để xử lý lỗi quota. Thông báo lỗi mạng có thể không đọc được mã 423 trong trình duyệt nếu response chặn thiếu CORS. Giao diện vẫn cho xem danh sách/chỉ đường và che khung bản đồ lỗi.
 
 Ghim sát nhau được gom thành nhóm theo vị trí trên màn hình. Bấm nhóm để chọn từng tiện ích hoặc phóng to; chọn từ danh sách sẽ làm nổi bật ghim tương ứng. Các POI trùng tọa độ vẫn có thể chọn trong popup nhóm.

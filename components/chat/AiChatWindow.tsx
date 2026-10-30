@@ -24,6 +24,7 @@ import { AI_QUICK_TOPICS } from "@/data/mock-chat-data";
 import { toast } from "sonner";
 import AiMarkdownMessage from "@/components/chat/AiMarkdownMessage";
 import GuestAiLoginDialog from "@/components/chat/GuestAiLoginDialog";
+import { suggestedQuestions } from "@/lib/ai-suggested-questions";
 
 interface AiChatWindowProps {
   session: AiChatSession | null;
@@ -46,7 +47,8 @@ interface AiChatWindowProps {
   notice?: React.ReactNode;
   initialDraft?: string;
   isVisible?: boolean;
-  /** Full chat page renders suggestions in its sidebar instead of above the input. */
+  /** Optional external draft, such as a question selected in the sidebar. Never sends. */
+  draftRequest?: { text: string; id: number };
   showSuggestionBar?: boolean;
 }
 
@@ -57,7 +59,6 @@ export default function AiChatWindow({
   isAdmin = false,
   onBack,
   onSendMessage,
-  onSelectTopic,
   isSending = false,
   isLoadingHistory = false,
   isSidebarCollapsed,
@@ -69,6 +70,7 @@ export default function AiChatWindow({
   bodyOverride,
   notice,
   initialDraft = "",
+  draftRequest,
   isVisible = true,
   showSuggestionBar = true,
 }: AiChatWindowProps) {
@@ -82,6 +84,20 @@ export default function AiChatWindow({
   const listingSplit = useMemo(() => splitCardsAndLinks(messages), [messages]);
   const isNewSession = messages.length === 0;
   const compact = size === "compact";
+  const questions = useMemo(() => suggestedQuestions(messages), [messages]);
+
+  const fillDraft = (text: string) => {
+    setInputText(text.slice(0, 500));
+    inputRef.current?.focus({ preventScroll: true });
+  };
+
+  useEffect(() => { setInputText(initialDraft); }, [session?.id, initialDraft]);
+  useEffect(() => {
+    if (draftRequest) {
+      setInputText(draftRequest.text.slice(0, 500));
+      inputRef.current?.focus({ preventScroll: true });
+    }
+  }, [draftRequest]);
 
   useEffect(() => {
     if (!isVisible) return;
@@ -229,7 +245,7 @@ export default function AiChatWindow({
                 <button
                   key={topic.id}
                   type="button"
-                  onClick={() => onSelectTopic(topic.prompt)}
+                  onClick={() => fillDraft(topic.prompt)}
                   disabled={isSending}
                   className="p-3.5 rounded-2xl border border-border bg-card hover:bg-primary/5 hover:border-primary/40 transition-all text-left group cursor-pointer shadow-2xs"
                 >
@@ -354,21 +370,21 @@ export default function AiChatWindow({
       </div>
 
       {/* 3. Quick Suggestions Chips Bar */}
-      {showSuggestionBar && <div className="shrink-0 border-t border-border/60 bg-muted/20">
-        <div className={`flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2 ${compact ? "px-3 sm:px-4" : pageColumn}`}>
+      {showSuggestionBar && questions.length > 0 && <div className="shrink-0 border-t border-border/60 bg-muted/20" aria-label="Câu hỏi gợi ý tiếp theo">
+        <div className={`flex flex-wrap items-center gap-1.5 py-2 ${compact ? "px-3 sm:px-4" : pageColumn}`}>
         <span className="text-[11px] text-muted-foreground font-medium shrink-0 flex items-center gap-1 pl-1">
-          <span>Gợi ý:</span>
+          <span>Bạn có thể hỏi tiếp:</span>
         </span>
-        {AI_QUICK_TOPICS.map((topic) => (
+        {questions.map((question) => (
           <button
-            key={topic.id}
+            key={question}
             type="button"
-            onClick={() => onSelectTopic(topic.prompt)}
-            disabled={isSending}
-            className="shrink-0 px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 text-foreground border border-border/60 font-medium transition-all cursor-pointer shadow-2xs"
-            title={topic.prompt}
+            onClick={() => fillDraft(question)}
+            disabled={isSending || isLoadingHistory}
+            className="max-w-full sm:max-w-80 truncate px-2.5 py-1 rounded-full text-xs bg-muted/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 text-foreground border border-border/60 font-medium transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+            title={question}
           >
-            {topic.title}
+            {question}
           </button>
         ))}
         </div>

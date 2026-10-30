@@ -34,6 +34,7 @@ export interface ChatMessage {
   contractCards?: import("@/types/ai.type").AiContractCard[];
   appointmentCards?: import("@/types/ai.type").AiAppointmentCard[];
   dataSources?: string[];
+  suggestedQuestions?: string[];
 }
 
 export interface ChatConversation {

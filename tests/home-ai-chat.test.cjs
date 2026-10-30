@@ -21,7 +21,7 @@ function load(relativePath, mocks = {}) {
 const mapping = load("lib/ai-conversation.ts");
 const { createHomeAiChat } = load("lib/home-ai-chat.ts", { "@/lib/ai-conversation": mapping });
 const detail = (id = "owned-session", messages = []) => ({ id, title: "Đoạn chat mới", messages, isPinned: false, createdAt: "2026-10-11T12:00:00Z", updatedAt: "2026-10-11T12:00:00Z" });
-const answer = { answer: "Đã tìm thấy phòng phù hợp", status: "ANSWERED", listingIds: ["00000000-0000-0000-0000-000000000001"], listingPositions: { "00000000-0000-0000-0000-000000000001": 3 } };
+const answer = { answer: "Đã tìm thấy phòng phù hợp", status: "ANSWERED", listingIds: ["00000000-0000-0000-0000-000000000001"], listingPositions: { "00000000-0000-0000-0000-000000000001": 3 }, suggestedQuestions: ["Vì sao bạn ưu tiên phòng này?"] };
 const deferred = () => { let resolve; const promise = new Promise((r) => { resolve = r; }); return { promise, resolve }; };
 
 test("home creates once on first send, uses same ID for follow-up and hydrates card metadata", async () => {
@@ -37,6 +37,7 @@ test("home creates once on first send, uses same ID for follow-up and hydrates c
   assert.equal(chat.getSnapshot().session.messages.length, 4);
   assert.deepEqual(chat.getSnapshot().session.messages[3].listingIds, answer.listingIds);
   assert.deepEqual(chat.getSnapshot().session.messages[3].listingPositions, answer.listingPositions);
+  assert.deepEqual(chat.getSnapshot().session.messages[3].suggestedQuestions, answer.suggestedQuestions);
 });
 
 test("busy mutex prevents duplicate clicks/Enter; home cannot reset its conversation", async () => {
@@ -143,6 +144,7 @@ test("explicit handoff uses AI URL parameter, not direct-messaging conversationI
 });
 
 const ChatWindow = load("components/chat/AiChatWindow.tsx", {
+  "@/lib/ai-suggested-questions": load("lib/ai-suggested-questions.ts"),
   "@/components/chat/GuestAiLoginDialog": () => null,
   "next/image": ({ unoptimized, ...props }) => React.createElement("img", props),
   "@/components/chat/AiListingCards": ({ listingIds, positions }) => React.createElement("div", { "data-card-ids": listingIds.join(","), "data-card-ordinal": positions?.[listingIds[0]] }),
@@ -174,7 +176,7 @@ test("home is only an adapter to the whole shared chat, with smaller height and 
   assert.match(html, /motion-reduce:transition-none/);
   assert.match(html, /HomeSpace Assistant AI/);
   assert.match(html, /Câu hỏi cho HomeSpace AI/);
-  assert.match(html, /Gợi ý:/);
+  assert.match(html, /Bạn có thể hỏi tiếp:/);
   const collapsed = renderToStaticMarkup(React.createElement(Panel, { ...panelProps, open: false }));
   assert.match(collapsed, /inert=""/);
   assert.match(collapsed, /grid-rows-\[0fr\]/);
@@ -188,8 +190,7 @@ test("guest can use the shared composer and sees an anonymous greeting; loading 
   assert.doesNotMatch(guest, /Xin chào, Bạn|Đăng nhập để trò chuyện/);
   assert.match(guest, /HomeSpace Assistant AI/);
   assert.match(guest, /Câu hỏi cho HomeSpace AI/);
-  assert.match(guest, /Khách được hỏi 3 câu/);
-  assert.match(guest, /Hội thoại chỉ tồn tại trong phiên này/);
+  assert.match(guest, /Bạn có thể hỏi tiếp:/);
   const loading = renderToStaticMarkup(React.createElement(Panel, { ...panelProps, initialized: false }));
   assert.match(loading, /Đang chuẩn bị trợ lý/);
   assert.doesNotMatch(loading, /Câu hỏi cho HomeSpace AI/);
@@ -199,7 +200,7 @@ test("both sizes have identical header, welcome topics, chips and composer; only
   const props = { session: null, customerName: "Bạn", onSendMessage() {}, onSelectTopic() {} };
   for (const size of ["full", "compact"]) {
     const html = renderToStaticMarkup(React.createElement(ChatWindow, { ...props, size }));
-    for (const content of ["HomeSpace Assistant AI", "Xin chào, Bạn", "Tìm hiểu HomeSpace", "Gợi ý:", "Câu hỏi cho HomeSpace AI"]) assert.ok(html.includes(content), `${size}: ${content}`);
+    for (const content of ["HomeSpace Assistant AI", "Xin chào, Bạn", "Tìm hiểu HomeSpace", "Bạn có thể hỏi tiếp:", "Câu hỏi cho HomeSpace AI"]) assert.ok(html.includes(content), `${size}: ${content}`);
     assert.doesNotMatch(html, /Đoạn chat mới/);
     assert.equal((html.match(/HomeSpace là gì\?<\/p>/g) || []).length, 1);
     assert.match(html, /data-ai-greeting/); // Welcome is the first assistant bubble.
@@ -210,7 +211,7 @@ test("both sizes have identical header, welcome topics, chips and composer; only
 test("both sizes reuse the same two-sided stream, Markdown, card metadata and suggestions", () => {
   const session = { ...detail(), messages: [
     mapping.toChatMessage({ id: "q", role: "user", content: "Tìm phòng Phú Lợi", createdAt: detail().createdAt }),
-    mapping.toChatMessage({ id: "a", role: "assistant", content: "Mình tìm thấy phòng phù hợp", createdAt: detail().createdAt, listingIds: answer.listingIds, listingPositions: answer.listingPositions }),
+    mapping.toChatMessage({ id: "a", role: "assistant", content: "Mình tìm thấy phòng phù hợp", createdAt: detail().createdAt, listingIds: answer.listingIds, listingPositions: answer.listingPositions, suggestedQuestions: answer.suggestedQuestions }),
   ] };
   const props = { session, onBack() {}, onSendMessage() {}, onSelectTopic() {} };
   for (const size of ["full", "compact"]) {
@@ -221,7 +222,7 @@ test("both sizes reuse the same two-sided stream, Markdown, card metadata and su
     assert.match(html, /data-card-ordinal="3"/);
     assert.match(html, /overscroll-contain/);
     assert.doesNotMatch(html, /Đoạn chat mới/);
-    assert.match(html, /Gợi ý:/);
+    assert.match(html, /Bạn có thể hỏi tiếp:/);
   }
 });
 

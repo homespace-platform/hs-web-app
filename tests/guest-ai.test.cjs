@@ -20,7 +20,7 @@ test("guest has memory-only history, signed asks with cookies; accounts stay pro
   const axios = Object.fromEntries(["get", "post", "patch", "delete"].map((method) => [method, async (...args) => {
     calls.push({ method, args }); return { data: { result: method === "post" && args[0].endsWith("/conversations")
       ? { id: "guest-id", guestState: "signed-state", remainingQuestions: 3, messages: [] }
-      : { answer: "Public", guestState: "signed-next", remainingQuestions: 2 } } };
+      : { answer: "Public", guestState: "signed-next", remainingQuestions: 2, suggestedQuestions: ["Phòng nào phù hợp hơn?"] } } };
   }]));
   const guestModule = load("lib/guest-ai-session.ts", { "@/lib/axios-client": axios });
   const { aiService, guestAiService } = load("services/ai.service.ts", { "@/lib/axios-client": axios, "@/lib/guest-ai-session": guestModule });
@@ -28,6 +28,7 @@ test("guest has memory-only history, signed asks with cookies; accounts stay pro
   await guestAiService.createConversation();
   await guestAiService.ask("Tìm phòng", "guest-id");
   assert.equal((await guestAiService.getConversation("guest-id")).messages.length, 2);
+  assert.deepEqual((await guestAiService.getConversation("guest-id")).messages[1].suggestedQuestions, ["Phòng nào phù hợp hơn?"]);
   assert.deepEqual(await guestAiService.listConversations(), []);
   assert.equal(calls.length, 2); // No GET/CRUD history in Mongo.
   for (const call of calls) {

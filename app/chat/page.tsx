@@ -52,6 +52,7 @@ function ChatWorkspace() {
   const aiConversationIdFromUrl = searchParams.get("aiConversationId");
   const resumeGuestNonce = searchParams.get("resumeGuest");
   const [resumedDraft, setResumedDraft] = useState("");
+  const [questionDraft, setQuestionDraft] = useState<{ text: string; id: number; sessionId: string | null } | undefined>();
   const [migrationError, setMigrationError] = useState(false);
   const channelFromUrl = searchParams.get("channel");
   const [channel, setChannel] = useState<ChatChannelType>(
@@ -278,6 +279,7 @@ function ChatWorkspace() {
     if (isInitializingAi || !ownerKey) return null;
     if (!authenticated) return activeAiSessionId;
     setResumedDraft("");
+    setQuestionDraft(undefined);
     const requestOwner = ownerKey;
     setChatChannel("ai");
     if (activeAiSession && activeAiSession.messages.length === 0 && activeAiSession.title === "Đoạn chat mới") {
@@ -300,6 +302,7 @@ function ChatWorkspace() {
     if (!authenticated && !guestChatState.canAsk(text)) return;
     if (migrationError) return; // Don't replace the consented conversation with a fresh one.
     setResumedDraft("");
+    setQuestionDraft(undefined);
     const requestOwner = ownerKey;
     sendInFlightRef.current = true;
     let targetSessionId = sessionId;
@@ -362,6 +365,7 @@ function ChatWorkspace() {
         contractCards: reply.contractCards,
         appointmentCards: reply.appointmentCards,
         dataSources: reply.dataSources,
+        suggestedQuestions: reply.suggestedQuestions,
       };
 
       setAiSessions((prev) =>
@@ -412,6 +416,7 @@ function ChatWorkspace() {
 
   const handleSelectAiSession = async (sessionId: string) => {
     const requestOwner = ownerKey;
+    setQuestionDraft(undefined);
     setChatChannel("ai");
     setActiveAiSessionId(sessionId);
     if (aiSessions.find((session) => session.id === sessionId)?.messagesLoaded) return;
@@ -465,7 +470,7 @@ function ChatWorkspace() {
   const handleSelectAiTopic = (prompt: string) => {
     if (isInitializingAi) return;
     setChatChannel("ai");
-    void handleSendAiMessage(activeAiSessionId || "", prompt);
+    setQuestionDraft({ text: prompt, id: Date.now(), sessionId: activeAiSessionId });
   };
 
   return (
@@ -540,11 +545,12 @@ function ChatWorkspace() {
               <AiChatWindow
                 key={`${ownerKey ?? "initializing"}:${resumedDraft ? activeAiSessionId : ""}`}
                 size="full"
-                showSuggestionBar={false}
+                showSuggestionBar
                 session={activeAiSession}
                 customerName={customerName}
                 isGuest={!authenticated}
                 initialDraft={resumedDraft}
+                draftRequest={questionDraft?.sessionId === activeAiSessionId ? questionDraft : undefined}
                 notice={migrationError && <div role="alert" className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                   Chưa chuyển được cuộc trò chuyện khách. Nội dung vẫn được giữ tạm để thử lại; mình chưa gửi câu hỏi đang chờ.
                   <button type="button" onClick={() => window.location.reload()} className="ml-2 font-semibold underline">Thử lưu lại</button>

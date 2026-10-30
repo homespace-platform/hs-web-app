@@ -62,6 +62,7 @@ export function createHomeAiChat(ownerId: string | null, api: ChatApi) {
           listingIds: response.listingIds, listingPositions: response.listingPositions,
           contractCards: response.contractCards, appointmentCards: response.appointmentCards,
           dataSources: response.dataSources,
+          suggestedQuestions: response.suggestedQuestions,
         });
         update({ session: { ...snapshot.session!, messages: [...snapshot.session!.messages, assistant] } });
         return true;

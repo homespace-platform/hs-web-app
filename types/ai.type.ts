@@ -76,6 +76,7 @@ export interface AiAskResponse {
   contractCards?: AiContractCard[];
   appointmentCards?: AiAppointmentCard[];
   dataSources?: string[];
+  suggestedQuestions?: string[];
 }
 
 export interface AiConversationSummary {
@@ -97,6 +98,7 @@ export interface AiConversationMessage {
   contractCards?: AiContractCard[];
   appointmentCards?: AiAppointmentCard[];
   dataSources?: string[];
+  suggestedQuestions?: string[];
 }
 
 export interface AiConversationDetail extends AiConversationSummary {

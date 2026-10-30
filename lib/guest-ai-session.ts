@@ -107,7 +107,7 @@ export const guestAiService = {
           { id: crypto.randomUUID(), role: "assistant", content: reply.answer, createdAt,
             status: reply.status, listingIds: reply.listingIds, listingPositions: reply.listingPositions,
             contractCards: reply.contractCards, appointmentCards: reply.appointmentCards,
-            dataSources: reply.dataSources }],
+            dataSources: reply.dataSources, suggestedQuestions: reply.suggestedQuestions }],
       };
       update({ remaining: reply.remainingQuestions });
       return reply;

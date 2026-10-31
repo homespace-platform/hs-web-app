@@ -360,10 +360,6 @@ export function getRentDetailSections(
         ? "Đã bao gồm trong tiền thuê"
         : ""
     ),
-    detail(
-      "Thuế VAT",
-      pricing.vatIncluded === true ? "Đã bao gồm thuế VAT" : pricing.vatIncluded === false ? "Chưa bao gồm thuế VAT" : ""
-    ),
     detail("Ngày có thể dọn vào", details.availableFrom),
   ];
 

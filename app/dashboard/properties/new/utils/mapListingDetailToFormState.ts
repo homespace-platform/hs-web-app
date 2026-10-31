@@ -406,7 +406,6 @@ export function mapListingDetailToFormState(
     paymentCycle: "MONTHLY",
     minimumLeaseMonths: String(detail.pricing?.minimumLeaseMonths ?? "6"),
     includeManagementFee: false,
-    includeVat: Boolean(detail.pricing?.vatIncluded),
   };
 
   return {

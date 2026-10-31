@@ -177,7 +177,6 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
     managementFeeIncluded:
       basicInfo.category === "apartment" &&
       monthlyExpenses.managementFeeType === "INCLUDED",
-    vatIncluded: Boolean(pricing.includeVat),
   };
 
   // Build Category Specific Details

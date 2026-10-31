@@ -193,7 +193,6 @@ function CreatePropertyListingContent() {
     paymentCycle: "MONTHLY",
     minimumLeaseMonths: "6",
     includeManagementFee: false,
-    includeVat: false,
   });
 
   // Section 6: Location

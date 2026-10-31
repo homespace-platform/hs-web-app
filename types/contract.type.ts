@@ -90,7 +90,6 @@ export interface PolicySnapshot {
   smokingPolicy?: string;
   overnightGuestPolicy?: string;
   propertyInspectionNotice?: string;
-  vatPolicy?: string;
   forceMajeure?: string;
   latePaymentFeeMode?: "NONE" | "FIXED_ONCE" | "FIXED_PER_DAY";
   latePaymentFeeAmount?: number;

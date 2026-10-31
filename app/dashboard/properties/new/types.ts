@@ -176,7 +176,6 @@ export interface PricingData {
   paymentCycle: PaymentCycleType;
   minimumLeaseMonths: number | string;
   includeManagementFee?: boolean;
-  includeVat: boolean;
 }
 
 // Validation errors mapping

@@ -274,7 +274,6 @@ export type ListingPricingRequest = {
   paymentCycle: PaymentCycle;
   minimumLeaseMonths: number;
   managementFeeIncluded: boolean;
-  vatIncluded?: boolean | null;
 };
 
 export type ListingChargeRequest = {

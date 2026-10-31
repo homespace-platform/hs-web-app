@@ -10,6 +10,23 @@ import { ArrowUpRight, ImageOff } from "lucide-react";
 const LISTING_HREF = /^\/rent\/[0-9a-fA-F-]{36}$/;
 const SAFE_IMAGE = /^https:\/\/[^\s<>()"'\\]+$/;
 
+type MarkdownNode = { type: string; value?: string; children?: MarkdownNode[] };
+// GFM table cells need explicit line breaks for multiple POIs. Convert ONLY a
+// standalone <br> node inside cells; all other raw HTML remains inert text.
+function remarkTableBreaks() {
+  return (tree: MarkdownNode) => {
+    function visit(node: MarkdownNode, inCell = false) {
+      const cell = inCell || node.type === "tableCell";
+      node.children = node.children?.map(child => {
+        if (cell && child.type === "html" && /^<br\s*\/?\s*>$/i.test(child.value ?? "")) return { type: "break" };
+        visit(child, cell);
+        return child;
+      });
+    }
+    visit(tree);
+  };
+}
+
 function TableImage({ src, alt }: { src: string; alt: string }) {
   const [failed, setFailed] = useState(false);
   return <span className="relative block h-16 w-24 overflow-hidden rounded-md border border-border bg-muted sm:h-20 sm:w-28">
@@ -36,7 +53,7 @@ export default function AiMarkdownMessage({
       className={`ai-markdown-content leading-relaxed text-xs sm:text-sm text-foreground break-words ${className}`}
     >
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkTableBreaks]}
         components={{
           p: ({ children }) => (
             <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>

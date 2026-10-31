@@ -95,6 +95,7 @@ test('list selection opens a text-only popup and routes from the map listing coo
   const content=f.popups.at(-1).content;
   assert.equal(content.children[0].textContent,places[1].name);
   assert.equal(content.children[1].textContent,places[1].address);
+  assert.ok(content.children.every(node=>!String(node.textContent).includes('350 m')));
   assert.equal(content.children[0].children.length,0);
   const link=content.children.find(n=>n.tag==='a'),url=new URL(link.href);
   assert.equal(url.searchParams.get('origin'),'10.8209195,106.6872986');
@@ -291,7 +292,7 @@ function panelFixture({key='browser-test-key',latitude=10.82,longitude=106.68}={
   const click=node=>{assert.ok(node);node.props.onClick();render();};
   const tab=id=>find(n=>n.props?.id===`nearby-test-tab-${id}`);
   const map=()=>find(n=>n.type===MapComponent);
-  const response=(items=places,page=1)=>({enabled:true,items,total:12,page,size:10,coverage:{groups:[]}});
+  const response=(items=places,page=1)=>({enabled:true,items,total:12,page,size:5,coverage:{groups:[]}});
   const settle=async()=>{for(let i=0;i<6;i++)await Promise.resolve();render();};
   render();return {requests,find,click,tab,map,render,response,settle};
 }
@@ -335,7 +336,7 @@ test('map/list selection is shared; category and page changes cancel old request
   f.requests[1].resolve(f.response([places[1]]));await f.settle();assert.equal(f.map().props.places[0].id,'school');
   f.click(f.find(n=>n.type==='button'&&React.Children.toArray(n.props.children).some(c=>c==='Tiếp')));
   assert.equal(f.requests.at(-1).page,2);assert.equal(f.requests.at(-1).group,'EDUCATION');
-  f.requests.at(-1).resolve(f.response([places[0]],2));await f.settle();assert.equal(f.map().props.startIndex,10);
+  f.requests.at(-1).resolve(f.response([places[0]],2));await f.settle();assert.equal(f.map().props.startIndex,5);
 });
 
 test('a missing browser map key or listing coordinates never loads the SDK and keeps the list usable',async()=>{

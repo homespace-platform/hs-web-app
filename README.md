@@ -16,7 +16,7 @@ npm run dev
 3. Khởi động lại `npm run dev`. Khi deploy, cấu hình key trước `npm run build` vì Next.js đóng gói biến `NEXT_PUBLIC_*` vào frontend.
 4. Mở chi tiết tin → **Tiện ích xung quanh**. Tab **Bản đồ** đứng đầu và được mở mặc định. Chọn tiện ích hoặc ghim để xem vị trí, địa chỉ, khoảng cách và chỉ đường. Nếu chưa cấu hình key, vẫn xem được tab **Danh sách**.
 
-VietMap GL JS 6.0.1 được cài bằng npm và chỉ tải khi mở tab Bản đồ. Tâm bản đồ là tọa độ listing; hiển thị cùng 10 tiện ích/trang trong phạm vi 2 km với tab Danh sách. Đổi nhóm hoặc trang cập nhật cả danh sách lẫn ghim, không tải toàn bộ POI. Chỉ đường Google Maps dùng tọa độ bài đăng → tiện ích, áp dụng cả danh sách và popup bản đồ. Khách chưa đăng nhập vẫn chỉ đường được; không dùng vị trí tài khoản.
+VietMap GL JS 6.0.1 được cài bằng npm và chỉ tải khi mở tab Bản đồ. Tâm bản đồ là tọa độ listing; hiển thị cùng 5 tiện ích/trang trong phạm vi 2 km với tab Danh sách. Đổi nhóm hoặc trang cập nhật cả danh sách lẫn ghim, không tải toàn bộ POI. Chỉ đường Google Maps dùng tọa độ bài đăng → tiện ích, áp dụng cả danh sách và popup bản đồ. Khách chưa đăng nhập vẫn chỉ đường được; không dùng vị trí tài khoản.
 
 Dữ liệu địa điểm lấy từ API HomeSpace/CSDL TomTom hiện có. VietMap chỉ cung cấp lớp bản đồ; không gọi lại API tìm địa điểm hoặc đồng bộ POI khi chuyển tab.
 

@@ -6,7 +6,7 @@ import { MapPin, Map as MapIcon, List, ExternalLink, ChevronLeft, ChevronRight, 
 import { getNearbyPlaces } from "@/services/nearby.service";
 import { NEARBY_GROUPS, NEARBY_RADIUS_METERS, NEARBY_PAGE_SIZE, type NearbyGroup, type NearbyPage } from "@/types/nearby.type";
 import { currentLocationDirectionsUrl, nearbyDirectionsUrl, validCoordinates } from "@/lib/nearby-directions";
-import { nearbyColor, nearbyDistance } from "@/lib/nearby-presentation";
+import { nearbyColor } from "@/lib/nearby-presentation";
 
 const NearbyMap = dynamic(() => import("./NearbyMap"), {
   ssr: false,
@@ -78,7 +78,6 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
           <p className="mt-1 text-xs text-muted-foreground">{place.groups.map(g => NEARBY_GROUPS[g]).join(" · ")}</p>
         </div>
         <div className={view === "map" ? "mt-2 flex items-center justify-between gap-2" : "shrink-0 text-right"}>
-          <p className="text-sm font-medium">{nearbyDistance(place.distanceMeters)}</p>
           {directionsUrl ? <a href={directionsUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs text-primary">Chỉ đường<ExternalLink size={12} /></a>
             : <button type="button" disabled title="Chưa có tọa độ hợp lệ của bài đăng hoặc tiện ích" className="mt-1 text-xs text-primary opacity-50">Chỉ đường</button>}
         </div>
@@ -102,8 +101,8 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
       {Object.entries(NEARBY_GROUPS).filter(([code]) => code !== "SPORTS").map(([code, label]) => <button type="button" key={code} aria-pressed={group === code} onClick={() => { setGroup(code as NearbyGroup); setPage(1); }} className={`rounded-full border px-3 py-1.5 text-xs ${group === code ? "border-primary bg-primary/10 text-primary" : "border-border"}`}>{label}</button>)}
     </div>
     <p className="text-xs leading-relaxed text-muted-foreground">
-      Khoảng cách đường chim bay từ tọa độ tin đăng, không phải quãng đường hoặc thời gian di chuyển.
-      {lastChecked && ` Dữ liệu thu thập: ${new Date(lastChecked).toLocaleString("vi-VN")}.`}
+      Khám phá các địa điểm trong phạm vi 2 km quanh bài đăng.
+      {lastChecked && ` Cập nhật: ${new Date(lastChecked).toLocaleString("vi-VN")}.`}
     </p>
     <p className="text-xs text-muted-foreground">{hasListingCoordinates ? "Chỉ đường từ vị trí bài đăng đến tiện ích." : "Tin đăng chưa có tọa độ hợp lệ để chỉ đường."}</p>
     {!complete && data && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{limited

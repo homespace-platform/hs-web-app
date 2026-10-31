@@ -46,6 +46,19 @@ const tableAnswer = [
   "| Giá thuê | 2.400.000 đ/phòng/tháng | 2.500.000 đ/phòng/tháng |",
 ].join("\n");
 
+test("Nearby table renders five separate names per cell without enabling provider HTML", () => {
+  const Markdown = load("components/chat/AiMarkdownMessage.tsx", {
+    "next/link": ({ children, prefetch, ...props }) => React.createElement("a", props, children),
+    "next/image": ({ fill, unoptimized, ...props }) => React.createElement("img", props),
+  }).default;
+  const content = `| Tiện ích xung quanh | [Phòng 1](/rent/${ids[0]}) |\n| --- | --- |\n| Giáo dục | 1. Trường A<br>2. Trường B<br>3. Trường C<br>4. Trường D<br>5. Trường E |\n| Nguồn | &lt;img src=x onerror=alert(1)&gt;<br><script>alert(1)</script> |`;
+  const html = renderToStaticMarkup(React.createElement(Markdown, {content}));
+  for (const name of ["Trường A", "Trường B", "Trường C", "Trường D", "Trường E"]) assert.ok(html.includes(name));
+  assert.equal((html.match(/<br\s*\/?\s*>/g) || []).length, 5);
+  assert.doesNotMatch(html, /<script|<img|onerror="/);
+  assert.match(html, /target="_blank" rel="noopener noreferrer"/);
+});
+
 test("listings linked by the answer table get no card or repeat link; others keep the card flow", () => {
   const split = splitCardsAndLinks([
     { id: "m1", sender: "ai", content: tableAnswer, listingIds: [ids[0], ids[1]] },

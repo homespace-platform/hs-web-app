@@ -2,7 +2,7 @@ import type * as Vietmap from "@vietmap/vietmap-gl-js";
 import type { NearbyGroup, NearbyPlace } from "@/types/nearby.type";
 import { NEARBY_GROUPS } from "@/types/nearby.type";
 import { nearbyDirectionsUrl, validCoordinates } from "@/lib/nearby-directions";
-import { nearbyColor, nearbyDistance, nearbyRadiusRing } from "@/lib/nearby-presentation";
+import { nearbyColor, nearbyRadiusRing } from "@/lib/nearby-presentation";
 
 export type NearbyMapData = {
   places: NearbyPlace[];
@@ -75,7 +75,7 @@ export function createNearbyMap(sdk: VietmapSdk, container: HTMLDivElement, opti
     const address = document.createElement("p");
     address.textContent = place.address ?? "";
     const detail = document.createElement("p");
-    detail.textContent = `${nearbyDistance(place.distanceMeters)} · ${place.groups.map(g => NEARBY_GROUPS[g]).join(" · ")}`;
+    detail.textContent = place.groups.map(g => NEARBY_GROUPS[g]).join(" · ");
     content.append(name, address, detail);
     const url = nearbyDirectionsUrl({ latitude, longitude }, place);
     if (url) {

@@ -1,5 +1,5 @@
 export const NEARBY_RADIUS_METERS = 2000;
-export const NEARBY_PAGE_SIZE = 10;
+export const NEARBY_PAGE_SIZE = 5;
 export type NearbyGroup = "EDUCATION" | "HEALTHCARE" | "SHOPPING" | "FOOD_DRINK" | "FINANCE" | "TRANSPORT" | "RECREATION" | "SPORTS";
 export const NEARBY_GROUPS: Record<NearbyGroup, string> = {
  EDUCATION: "Giáo dục", HEALTHCARE: "Y tế", SHOPPING: "Mua sắm", FOOD_DRINK: "Ăn uống",

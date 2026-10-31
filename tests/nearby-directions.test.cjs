@@ -41,7 +41,7 @@ test('missing or invalid listing/POI coordinates never produce a route with gues
 });
 
 function panel({total = 1, currentPage = 1, latitude = 11, longitude = 107, items = [poi]} = {}) {
-  const page = {enabled: true, items, total, page: currentPage, size: 10, coverage: {groups: [
+  const page = {enabled: true, items, total, page: currentPage, size: 5, coverage: {groups: [
     {code: 'EDUCATION', coverageStatus: 'COMPLETE_PROVIDER_RESPONSE', radiusCoveredMeters: 2000},
   ]}};
   const Component = load('components/nearby/NearbyPlacesPanel.tsx', {
@@ -61,6 +61,7 @@ function panel({total = 1, currentPage = 1, latitude = 11, longitude = 107, item
 test('Nearby only shows two km and routes from the listing without consulting an account', () => {
   const html = panel();
   assert.match(html, /Trong 2 km/);
+  assert.doesNotMatch(html, /đường chim bay|350 m/);
   assert.doesNotMatch(html, /<select|Trong 3 km|Trong 5 km/);
   assert.match(html, /origin=11%2C107/);
   assert.match(html, /destination=16\.0625755%2C108\.2178987/);
@@ -69,28 +70,28 @@ test('Nearby only shows two km and routes from the listing without consulting an
   assert.match(html, /target="_blank" rel="noopener noreferrer"/);
 });
 
-test('Nearby requests always use two km and ten items, with the selected category and page', async () => {
-  const calls = [], expected = {items: [], total: 0, size: 10, page: 2};
+test('Nearby requests always use two km and five items, with the selected category and page', async () => {
+  const calls = [], expected = {items: [], total: 0, size: 5, page: 2};
   const service = load('services/nearby.service.ts', {
     '@/types/nearby.type': nearbyTypes,
     '@/lib/axios-client': {get: async (...args) => {calls.push(args); return {data: {result: expected}};}},
   });
   const controller = new AbortController();
   assert.equal(await service.getNearbyPlaces('listing', 'EDUCATION', 2, controller.signal), expected);
-  assert.deepEqual(calls[0][1].params, {radiusMeters: 2000, groups: 'EDUCATION', page: 2, size: 10});
+  assert.deepEqual(calls[0][1].params, {radiusMeters: 2000, groups: 'EDUCATION', page: 2, size: 5});
   assert.equal(calls[0][1].signal, controller.signal);
   await service.getNearbyPlaces('listing', '', 1);
-  assert.deepEqual(calls[1][1].params, {radiusMeters: 2000, page: 1, size: 10});
+  assert.deepEqual(calls[1][1].params, {radiusMeters: 2000, page: 1, size: 5});
 });
 
 test('pagination uses the server page size and disables navigation at the first and last pages', () => {
   const first = panel({total: 23});
-  assert.match(first, /Trang 1 \/ 3/);
+  assert.match(first, /Trang 1 \/ 5/);
   assert.match(first, /<button[^>]*disabled=""[^>]*>.*?Trước/);
-  const last = panel({total: 23, currentPage: 3});
-  assert.match(last, /Trang 3 \/ 3/);
+  const last = panel({total: 23, currentPage: 5});
+  assert.match(last, /Trang 5 \/ 5/);
   assert.match(last, /<button[^>]*disabled=""[^>]*>Tiếp/);
-  assert.doesNotMatch(panel({total: 10}), /Trang 1 \/ 1/);
+  assert.doesNotMatch(panel({total: 5}), /Trang 1 \/ 1/);
 });
 
 test('invalid listing or POI coordinates disable directions without an account fallback', () => {

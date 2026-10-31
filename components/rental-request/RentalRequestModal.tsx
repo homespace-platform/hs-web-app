@@ -1145,7 +1145,7 @@ export default function RentalRequestModal({
           {/* 10. FOOTER ACTIONS */}
           <label className="flex items-start gap-2 rounded-xl border p-3 text-xs leading-relaxed">
             <input type="checkbox" required disabled={!reservationPolicy} checked={reservationPolicyAccepted} onChange={e=>setReservationPolicyAccepted(e.target.checked)} className="mt-1" />
-            <span><strong>Tôi đã đọc và đồng ý điều kiện giữ chỗ (bắt buộc):</strong> {reservationPolicy?.text || "Đang tải điều kiện giữ chỗ…"} {reservationPolicy && <small className="block">Phiên bản: {reservationPolicy.version}</small>}</span>
+            <span><strong>Tôi đã đọc và đồng ý điều kiện giữ chỗ (bắt buộc):</strong> {reservationPolicy?.text.replace(/^./, letter => letter.toUpperCase()) || "Đang tải điều kiện giữ chỗ…"} {reservationPolicy && <small className="block">Phiên bản: {reservationPolicy.version}</small>}</span>
           </label>
           <div className="pt-3 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2.5">
             {!reservationPolicyAccepted ? (

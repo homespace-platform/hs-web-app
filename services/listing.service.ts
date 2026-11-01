@@ -155,6 +155,17 @@ const listingService = {
     );
     return response.data;
   },
+
+  /** Fixed 5 home metros. Optional category: HOUSE | APARTMENT | ROOM. */
+  async getCityListingCounts(
+    category?: ListingCategory,
+  ): Promise<Array<{ cityId: string; count: number }>> {
+    const response = await axios.get<ApiResponse<Array<{ cityId: string; count: number }>>>(
+      `${process.env.NEXT_PUBLIC_GATEWAY_BASE_URL}/api/v1/public/listings/city-counts`,
+      { params: category ? { category } : undefined },
+    );
+    return response.data.result ?? [];
+  },
 };
 
 export default listingService;

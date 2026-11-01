@@ -96,7 +96,7 @@ export default function LocationMapExplorer() {
                     type="button"
                     onClick={() => setActiveCategory(cat.id)}
                     className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all cursor-pointer ${isActive
-                        ? "bg-foreground text-background shadow-xs"
+                        ? "bg-primary text-primary-foreground shadow-xs"
                         : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                       }`}
                   >

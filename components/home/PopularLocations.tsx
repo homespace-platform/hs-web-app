@@ -1,71 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import listingService from "@/services/listing.service";
+import type { ListingCategory } from "@/types/listing.type";
 
 interface AreaItem {
   id: string;
+  cityId: string;
   name: string;
-  slug: string;
   image: string;
-  listingCount: string;
 }
 
 const FEATURED_MAIN_AREA: AreaItem = {
   id: "hcm",
+  cityId: "12",
   name: "Tp Hồ Chí Minh",
-  slug: "ho-chi-minh",
   image: "/area/hcm-1.jpg",
-  listingCount: "0 tin đăng",
 };
 
 const SUB_AREAS: AreaItem[] = [
-  {
-    id: "hn",
-    name: "Hà Nội",
-    slug: "ha-noi",
-    image: "/area/ha-noi-1.jpg",
-    listingCount: "0 tin đăng",
-  },
-  {
-    id: "dn",
-    name: "Đà Nẵng",
-    slug: "da-nang",
-    image: "/area/da-nang-1.jpg",
-    listingCount: "0 tin đăng",
-  },
-  {
-    id: "ct",
-    name: "Cần Thơ",
-    slug: "can-tho",
-    image: "/area/can-tho-1.jpg",
-    listingCount: "0 tin đăng",
-  },
-  {
-    id: "hp",
-    name: "Hải Phòng",
-    slug: "hai-phong",
-    image: "/area/hai-phong-1.jpg",
-    listingCount: "0 tin đăng",
-  },
+  { id: "hn", cityId: "11", name: "Hà Nội", image: "/area/ha-noi-1.jpg" },
+  { id: "dn", cityId: "13", name: "Đà Nẵng", image: "/area/da-nang-1.jpg" },
+  { id: "ct", cityId: "15", name: "Cần Thơ", image: "/area/can-tho-1.jpg" },
+  { id: "hp", cityId: "14", name: "Hải Phòng", image: "/area/hai-phong-1.jpg" },
 ];
 
 const CATEGORIES = [
-  { id: "house", label: "Nhà nguyên căn" },
-  { id: "apartment", label: "Căn hộ chung cư" },
-  { id: "room", label: "Phòng trọ" },
+  { id: "house", label: "Nhà nguyên căn", api: "HOUSE" as ListingCategory },
+  { id: "apartment", label: "Căn hộ chung cư", api: "APARTMENT" as ListingCategory },
+  { id: "room", label: "Phòng trọ", api: "ROOM" as ListingCategory },
 ];
+
+function formatListingCount(count: number): string {
+  return `${count.toLocaleString("vi-VN")} tin đăng`;
+}
 
 export default function PopularLocations() {
   const [activeCategory, setActiveCategory] = useState("apartment");
+  const [countsByCity, setCountsByCity] = useState<Record<string, number>>({});
+
+  const apiCategory = useMemo(
+    () => CATEGORIES.find((cat) => cat.id === activeCategory)?.api,
+    [activeCategory],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    listingService
+      .getCityListingCounts(apiCategory)
+      .then((rows) => {
+        if (cancelled) return;
+        const next: Record<string, number> = {};
+        for (const row of rows) next[row.cityId] = Number(row.count) || 0;
+        setCountsByCity(next);
+      })
+      .catch(() => {
+        if (!cancelled) setCountsByCity({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [apiCategory]);
+
+  const rentHref = (cityId: string) =>
+    `/rent?cityId=${encodeURIComponent(cityId)}&category=${encodeURIComponent(activeCategory)}`;
 
   return (
     <section
       id="popular-locations"
       className="py-12 md:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full"
     >
-      {/* 1. Header with Title & Subtitle */}
       <div className="mb-6">
         <h2 className="font-heading font-bold text-2xl sm:text-3xl text-foreground tracking-tight">
           Nhà cho thuê theo khu vực
@@ -75,7 +81,6 @@ export default function PopularLocations() {
         </p>
       </div>
 
-      {/* 2. Category Sub-Tabs with Underline Indicator */}
       <div className="flex items-center gap-6 sm:gap-8 border-b border-border mb-6 overflow-x-auto no-scrollbar">
         {CATEGORIES.map((cat) => {
           const isActive = activeCategory === cat.id;
@@ -92,18 +97,16 @@ export default function PopularLocations() {
             >
               <span>{cat.label}</span>
               {isActive && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground rounded-full" />
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
               )}
             </button>
           );
         })}
       </div>
 
-      {/* 3. Featured Area Grid Layout (1 Large Left, 4 Smaller 2x2 Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4">
-        {/* Left: Large TP. Hồ Chí Minh Card */}
         <Link
-          href={`#city-${FEATURED_MAIN_AREA.slug}`}
+          href={rentHref(FEATURED_MAIN_AREA.cityId)}
           className="group relative rounded-2xl sm:rounded-3xl overflow-hidden h-[260px] sm:h-[360px] lg:h-[420px] shadow-sm hover:shadow-xl transition-all duration-300 block bg-slate-800"
         >
           <Image
@@ -113,27 +116,22 @@ export default function PopularLocations() {
             unoptimized
             className="object-cover object-center w-full h-full group-hover:scale-105 transition-transform duration-500 select-none"
           />
-
-          {/* Hover Dark Background Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent group-hover:bg-black/30 transition-colors duration-300" />
-
-          {/* Bottom Dark Banner with Text */}
           <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6 z-10 transition-all duration-300 bg-gradient-to-t from-black/90 via-black/60 to-transparent group-hover:bg-black/70 group-hover:backdrop-blur-2xs">
             <h3 className="font-heading font-bold text-xl sm:text-2xl text-white tracking-tight">
               {FEATURED_MAIN_AREA.name}
             </h3>
             <p className="text-sm sm:text-base text-slate-200 font-medium mt-0.5">
-              {FEATURED_MAIN_AREA.listingCount}
+              {formatListingCount(countsByCity[FEATURED_MAIN_AREA.cityId] ?? 0)}
             </p>
           </div>
         </Link>
 
-        {/* Right: 4 Sub-Areas (2x2 Grid) */}
         <div className="grid grid-cols-2 gap-3.5 sm:gap-4 h-full">
           {SUB_AREAS.map((area) => (
             <Link
               key={area.id}
-              href={`#city-${area.slug}`}
+              href={rentHref(area.cityId)}
               className="group relative rounded-2xl sm:rounded-3xl overflow-hidden h-[130px] sm:h-[175px] lg:h-[202px] shadow-sm hover:shadow-xl transition-all duration-300 block bg-slate-800"
             >
               <Image
@@ -143,17 +141,13 @@ export default function PopularLocations() {
                 unoptimized
                 className="object-cover object-center w-full h-full group-hover:scale-105 transition-transform duration-500 select-none"
               />
-
-              {/* Hover Dark Background Overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent group-hover:bg-black/30 transition-colors duration-300" />
-
-              {/* Bottom Dark Banner with Text */}
               <div className="absolute bottom-0 left-0 right-0 p-3.5 sm:p-4 z-10 transition-all duration-300 bg-gradient-to-t from-black/90 via-black/60 to-transparent group-hover:bg-black/70 group-hover:backdrop-blur-2xs">
                 <h3 className="font-heading font-bold text-sm sm:text-base lg:text-lg text-white tracking-tight">
                   {area.name}
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-200 font-medium mt-0.5">
-                  {area.listingCount}
+                  {formatListingCount(countsByCity[area.cityId] ?? 0)}
                 </p>
               </div>
             </Link>

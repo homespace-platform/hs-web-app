@@ -15,4 +15,5 @@ export interface NearbySummary {
 }
 export interface NearbyPage {
  enabled: boolean; items: NearbyPlace[]; total: number; page: number; size: number; coverage: NearbySummary;
+ syncStatus?: string;
 }

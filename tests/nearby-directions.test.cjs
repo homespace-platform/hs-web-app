@@ -46,12 +46,13 @@ function panel({total = 1, currentPage = 1, latitude = 11, longitude = 107, item
   ]}};
   const Component = load('components/nearby/NearbyPlacesPanel.tsx', {
     // These assertions inspect the list view; map-default behavior is covered in nearby-map.test.cjs.
-    react: {...React, useState: initial => [initial?.key === '' ? {key: JSON.stringify(['listing', 2000, '', currentPage, 0]), data: page, error: ''} : initial === 1 ? currentPage : initial === 'map' ? 'list' : initial, () => {}], useEffect: () => {}},
+    react: {...React, useState: initial => [initial?.key === '' ? {key: JSON.stringify(['listing', latitude, longitude, 2000, '', currentPage, 0]), data: page, error: ''} : initial === 1 ? currentPage : initial === 'map' ? 'list' : initial, () => {}], useEffect: () => {}},
     'next/dynamic': () => () => null,
     '@/features/auth/useAuth': {useAuth: () => assert.fail('Nearby directions must work without an account or login')},
     '@/store/hooks': {useAppSelector: () => assert.fail('Nearby directions must not read an account address')},
     '@/lib/nearby-directions': directions,
     '@/lib/nearby-presentation': load('lib/nearby-presentation.ts'),
+    '@/lib/nearby-sync': load('lib/nearby-sync.ts', {}, {setTimeout, clearTimeout}),
     '@/services/nearby.service': {getNearbyPlaces: () => assert.fail('Rendering must not call a map provider')},
     '@/types/nearby.type': nearbyTypes,
   }).default;

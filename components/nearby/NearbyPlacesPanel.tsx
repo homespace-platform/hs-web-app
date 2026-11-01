@@ -7,6 +7,7 @@ import { getNearbyPlaces } from "@/services/nearby.service";
 import { NEARBY_GROUPS, NEARBY_RADIUS_METERS, NEARBY_PAGE_SIZE, type NearbyGroup, type NearbyPage } from "@/types/nearby.type";
 import { currentLocationDirectionsUrl, nearbyDirectionsUrl, validCoordinates } from "@/lib/nearby-directions";
 import { nearbyColor } from "@/lib/nearby-presentation";
+import { isNearbySyncPending, watchNearbySync } from "@/lib/nearby-sync";
 
 const NearbyMap = dynamic(() => import("./NearbyMap"), {
   ssr: false,
@@ -30,8 +31,8 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
     <Navigation size={16} />Chỉ đường đến bài đăng
   </a>;
   const [attempt, setAttempt] = useState(0);
-  const requestKey = JSON.stringify([listingId, radius, group, page, attempt]);
-  const [result, setResult] = useState<{ key: string; data: NearbyPage | null; error: string }>({ key: "", data: null, error: "" });
+  const requestKey = JSON.stringify([listingId, latitude, longitude, radius, group, page, attempt]);
+  const [result, setResult] = useState<{ key: string; data: NearbyPage | null; error: string; watching?: boolean }>({ key: "", data: null, error: "" });
   const loading = result.key !== requestKey;
   const data = loading ? null : result.data, error = loading ? "" : result.error;
   const selectedId = selection?.key === requestKey ? selection.id : null;
@@ -40,9 +41,10 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
 
   useEffect(() => {
     const controller = new AbortController();
-    getNearbyPlaces(listingId, group, page, controller.signal)
-      .then(data => { if (!controller.signal.aborted) setResult({ key: requestKey, data, error: "" }); })
-      .catch(() => { if (!controller.signal.aborted) setResult({ key: requestKey, data: null, error: "Chưa tải được tiện ích xung quanh. Bạn có thể thử lại." }); });
+    watchNearbySync(() => getNearbyPlaces(listingId, group, page, controller.signal),
+      (data, watching) => setResult({ key: requestKey, data, error: "", watching }),
+      () => setResult({ key: requestKey, data: null, error: "Chưa tải được tiện ích xung quanh. Bạn có thể thử lại." }),
+      controller.signal);
     return () => controller.abort();
   }, [listingId, group, page, requestKey]);
 
@@ -51,6 +53,7 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
   const complete = coverage.length > 0 && coverage.every(g => g.coverageStatus === "COMPLETE_PROVIDER_RESPONSE" && (g.radiusCoveredMeters ?? 0) >= radius);
   const limited = coverage.some(g => g.coverageStatus === "LIMITED_PROVIDER_RESPONSE");
   const lastChecked = coverage.flatMap(g => g.dataAsOf ? [g.dataAsOf] : []).sort()[0];
+  const syncing = isNearbySyncPending(data?.syncStatus);
   const startIndex = (page - 1) * (data?.size ?? NEARBY_PAGE_SIZE);
 
   function tabKeyDown(event: KeyboardEvent<HTMLButtonElement>, current: "list" | "map") {
@@ -105,12 +108,13 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
       {lastChecked && ` Cập nhật: ${new Date(lastChecked).toLocaleString("vi-VN")}.`}
     </p>
     <p className="text-xs text-muted-foreground">{hasListingCoordinates ? "Chỉ đường từ vị trí bài đăng đến tiện ích." : "Tin đăng chưa có tọa độ hợp lệ để chỉ đường."}</p>
-    {!complete && data && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{limited
+    {!complete && data && !syncing && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{limited
       ? "Mỗi bài đăng hiển thị tối đa 100 địa điểm đã thu thập trong 2 km. Nhóm chưa có kết quả có thể chưa nằm trong danh sách này."
       : "Dữ liệu chưa phủ đủ phạm vi hoặc nhóm tiện ích đang chọn. Chỉ hiển thị các địa điểm đã có dữ liệu."}</p>}
     {error && <div role="alert" className="flex items-center gap-3 text-sm"><p>{error}</p><button type="button" onClick={() => setAttempt(n => n + 1)} className="inline-flex items-center gap-1 text-primary"><RefreshCw size={14} />Thử lại</button></div>}
     {loading && <p className="text-sm text-muted-foreground" role="status">Đang tải tiện ích...</p>}
-    {data && data.items.length === 0 && <p className="text-sm text-muted-foreground">Chưa tìm thấy địa điểm phù hợp trong dữ liệu hiện tại.</p>}
+    {syncing && <div role="status" className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground"><p>{result.watching ? "Đang cập nhật tiện ích theo vị trí mới. Kết quả sẽ tự hiển thị khi sẵn sàng." : "Tiện ích theo vị trí mới chưa sẵn sàng. Bạn có thể kiểm tra lại sau ít phút."}</p><button type="button" onClick={() => setAttempt(n => n + 1)} className="inline-flex items-center gap-1 text-primary"><RefreshCw size={14} />Kiểm tra lại</button></div>}
+    {data && data.items.length === 0 && !syncing && <p className="text-sm text-muted-foreground">Chưa tìm thấy địa điểm phù hợp trong dữ liệu hiện tại.</p>}
     <div role="tabpanel" id={`${uid}-panel-list`} aria-labelledby={`${uid}-tab-list`} hidden={view !== "list"} tabIndex={0}>
       {view === "list" && placeList}
     </div>

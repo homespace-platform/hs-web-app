@@ -283,6 +283,7 @@ function panelFixture({key='browser-test-key',latitude=10.82,longitude=106.68}={
   const Component=load('components/nearby/NearbyPlacesPanel.tsx',{
     react:hooks,'next/dynamic':()=>MapComponent,
     '@/types/nearby.type':nearbyTypes,'@/lib/nearby-directions':directions,'@/lib/nearby-presentation':presentation,
+    '@/lib/nearby-sync':load('lib/nearby-sync.ts', {}, {setTimeout,clearTimeout}),
     '@/features/auth/useAuth':{useAuth:()=>assert.fail('Nearby map must not depend on account authentication')},
     '@/store/hooks':{useAppSelector:()=>assert.fail('Nearby map must not read account coordinates')},
     '@/services/nearby.service':{getNearbyPlaces:(listing,group,page,signal)=>new Promise((resolve,reject)=>requests.push({listing,group,page,signal,resolve,reject}))},
@@ -323,6 +324,17 @@ test('map is the first/default tab and switching views shares the same page with
   f.tab('list').props.onKeyDown({key:'ArrowLeft',preventDefault(){}});f.render();
   assert.equal(f.tab('map').props['aria-selected'],true);
   assert.equal(f.requests.length,1);
+});
+
+test('a current-address pending scan shows updating rather than no places and stale coverage warnings',async()=>{
+  const f=panelFixture();
+  f.requests[0].resolve({...f.response([]),syncStatus:'PENDING'});await f.settle();
+  assert.ok(f.find(n=>n.type==='p'&&typeof n.props.children==='string'&&n.props.children.startsWith('Đang cập nhật tiện ích')));
+  assert.equal(f.find(n=>n.type==='p'&&n.props.children==='Chưa tìm thấy địa điểm phù hợp trong dữ liệu hiện tại.'),null);
+  assert.equal(f.find(n=>n.type==='p'&&n.props.className?.includes('bg-amber-50')),null);
+  f.click(f.find(n=>n.type==='button'&&n.props.children==='Giáo dục'));
+  f.requests[1].resolve({...f.response(),syncStatus:'SUCCESS'});await f.settle();
+  assert.equal(f.map().props.places.length,2);
 });
 
 test('map/list selection is shared; category and page changes cancel old requests and cannot retain stale pins',async()=>{

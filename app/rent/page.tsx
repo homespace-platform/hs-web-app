@@ -318,10 +318,27 @@ export default function RentPage() {
                 </form>
 
                 {catalogError && <p role="alert" className="text-xs text-destructive">{catalogError}</p>}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 pt-1">
-                  {/* Controls: Video Toggle, Sort, View mode */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                  {/* Left: Sort */}
+                  <select
+                    value={filter.sortBy}
+                    onChange={(e) => {
+                      setFilter((prev) => ({
+                        ...prev,
+                        sortBy: e.target.value as FilterState["sortBy"],
+                      }));
+                      setCurrentPage(1);
+                    }}
+                    className="h-9 px-3 rounded-2xl border border-border bg-background text-xs font-semibold text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all self-start"
+                  >
+                    <option value="newest">Tin mới nhất</option>
+                    <option value="price_asc">Giá thấp đến cao</option>
+                    <option value="price_desc">Giá cao đến thấp</option>
+                    <option value="area_desc">Diện tích lớn nhất</option>
+                  </select>
+
+                  {/* Right: Video toggle + view mode */}
                   <div className="flex items-center gap-3.5 shrink-0 self-end sm:self-auto">
-                    {/* Video toggle with shadcn Switch */}
                     <div className="flex items-center gap-2">
                       <Switch
                         id="video-toggle"
@@ -342,25 +359,6 @@ export default function RentPage() {
                       </label>
                     </div>
 
-                    {/* Sort Dropdown */}
-                    <select
-                      value={filter.sortBy}
-                      onChange={(e) => {
-                        setFilter((prev) => ({
-                          ...prev,
-                          sortBy: e.target.value as FilterState["sortBy"],
-                        }));
-                        setCurrentPage(1);
-                      }}
-                      className="h-9 px-3 rounded-2xl border border-border bg-background text-xs font-semibold text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all"
-                    >
-                      <option value="newest">Tin mới nhất</option>
-                      <option value="price_asc">Giá thấp đến cao</option>
-                      <option value="price_desc">Giá cao đến thấp</option>
-                      <option value="area_desc">Diện tích lớn nhất</option>
-                    </select>
-
-                    {/* View Mode Toggle */}
                     <div className="flex items-center border border-border rounded-2xl p-0.5 bg-muted/60">
                       <button
                         type="button"

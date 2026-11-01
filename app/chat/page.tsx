@@ -86,6 +86,10 @@ function ChatWorkspace() {
   const initializedForUserRef = useRef<string | null>(null);
   const initializedAiUrlRef = useRef<string | null>(null);
   const sendInFlightRef = useRef(false);
+  const historyActionRef = useRef<"create" | "delete" | "pin" | "clear" | null>(null);
+  const [isUpdatingAiHistory, setIsUpdatingAiHistory] = useState(false);
+  const [isClearingAi, setIsClearingAi] = useState(false);
+  const [aiResetVersion, setAiResetVersion] = useState(0);
   const [activeAiSessionId, setActiveAiSessionId] = useState<string | null>(
     null
   );
@@ -160,6 +164,10 @@ function ChatWorkspace() {
             setAiSessions(previous.map(toAiSession));
             setActiveAiSessionId(mostRecent.id);
           }
+        } else if (authenticated) {
+          // No placeholder document: history stays truly empty until the next question/new chat.
+          setAiSessions([]);
+          setActiveAiSessionId(null);
         } else {
           const fresh = await chatApi.createConversation();
           if (cancelled || initializedForUserRef.current !== ownerId) return;
@@ -276,7 +284,7 @@ function ChatWorkspace() {
 
   // 1. AI Actions
   const handleNewAiSession = async (): Promise<string | null> => {
-    if (isInitializingAi || !ownerKey) return null;
+    if (isInitializingAi || !ownerKey || historyActionRef.current) return null;
     if (!authenticated) return activeAiSessionId;
     setResumedDraft("");
     setQuestionDraft(undefined);
@@ -285,6 +293,8 @@ function ChatWorkspace() {
     if (activeAiSession && activeAiSession.messages.length === 0 && activeAiSession.title === "Đoạn chat mới") {
       return activeAiSession.id;
     }
+    historyActionRef.current = "create";
+    setIsUpdatingAiHistory(true);
     try {
       const fresh = await chatApi.createConversation();
       if (ownerRef.current !== requestOwner) return null;
@@ -294,11 +304,14 @@ function ChatWorkspace() {
     } catch (error) {
       if (ownerRef.current === requestOwner) toast.error(getApiErrorMessage(error, "Không tạo được cuộc trò chuyện mới."));
       return null;
+    } finally {
+      historyActionRef.current = null;
+      if (ownerRef.current === requestOwner) setIsUpdatingAiHistory(false);
     }
   };
 
   const handleSendAiMessage = async (sessionId: string, text: string) => {
-    if (sendInFlightRef.current || isInitializingAi || !ownerKey) return;
+    if (sendInFlightRef.current || historyActionRef.current || isInitializingAi || !ownerKey) return;
     if (!authenticated && !guestChatState.canAsk(text)) return;
     if (migrationError) return; // Don't replace the consented conversation with a fresh one.
     setResumedDraft("");
@@ -415,6 +428,7 @@ function ChatWorkspace() {
   };
 
   const handleSelectAiSession = async (sessionId: string) => {
+    if (historyActionRef.current === "clear") return;
     const requestOwner = ownerKey;
     setQuestionDraft(undefined);
     setChatChannel("ai");
@@ -435,8 +449,11 @@ function ChatWorkspace() {
   };
 
   const handleDeleteAiSession = async (sessionId: string) => {
+    if (historyActionRef.current || sendInFlightRef.current || isInitializingAi) return;
     const requestOwner = ownerKey;
     if (!window.confirm("Xóa vĩnh viễn cuộc trò chuyện này?")) return;
+    historyActionRef.current = "delete";
+    setIsUpdatingAiHistory(true);
     try {
       await chatApi.deleteConversation(sessionId);
       if (ownerRef.current !== requestOwner) return;
@@ -444,18 +461,55 @@ function ChatWorkspace() {
       setAiSessions(remaining);
       if (activeAiSessionId === sessionId) {
         if (remaining.length) void handleSelectAiSession(remaining[0].id);
-        else void handleNewAiSession();
+        else setActiveAiSessionId(null);
       }
       toast.success("Đã xóa cuộc trò chuyện.");
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không xóa được cuộc trò chuyện."));
+      if (ownerRef.current === requestOwner) toast.error(getApiErrorMessage(error, "Không xóa được cuộc trò chuyện."));
+    } finally {
+      historyActionRef.current = null;
+      if (ownerRef.current === requestOwner) setIsUpdatingAiHistory(false);
+    }
+  };
+
+  const handleDeleteAllAiSessions = async () => {
+    if (!authenticated || !ownerKey || historyActionRef.current || sendInFlightRef.current || isInitializingAi || loadingAiSessionId) return;
+    if (!window.confirm("Xoá vĩnh viễn toàn bộ hội thoại AI, kể cả các hội thoại đã ghim? Thao tác này không thể hoàn tác.")) return;
+    const requestOwner = ownerKey;
+    historyActionRef.current = "clear";
+    setIsUpdatingAiHistory(true);
+    setIsClearingAi(true);
+    try {
+      await aiService.deleteAllConversations();
+      if (ownerRef.current !== requestOwner) return;
+      setAiSessions([]);
+      setActiveAiSessionId(null);
+      setPendingAiSessionId(null);
+      setLoadingAiSessionId(null);
+      setQuestionDraft(undefined);
+      setResumedDraft("");
+      setSearchQuery("");
+      setAiResetVersion((version) => version + 1);
+      setChatChannel("ai");
+      toast.success("Đã xoá toàn bộ hội thoại AI.");
+    } catch (error) {
+      if (ownerRef.current === requestOwner) toast.error(getApiErrorMessage(error, "Không xoá được hội thoại. Vui lòng thử lại."));
+    } finally {
+      historyActionRef.current = null;
+      if (ownerRef.current === requestOwner) {
+        setIsUpdatingAiHistory(false);
+        setIsClearingAi(false);
+      }
     }
   };
 
   const handleTogglePinAiSession = async (sessionId: string) => {
+    if (historyActionRef.current || sendInFlightRef.current || isInitializingAi) return;
     const requestOwner = ownerKey;
     const session = aiSessions.find((item) => item.id === sessionId);
     if (!session) return;
+    historyActionRef.current = "pin";
+    setIsUpdatingAiHistory(true);
     try {
       const updated = await chatApi.setPinned(sessionId, !session.isPinned);
       if (ownerRef.current !== requestOwner) return;
@@ -463,12 +517,15 @@ function ChatWorkspace() {
         item.id === sessionId ? { ...item, isPinned: updated.isPinned } : item,
       ));
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không cập nhật được cuộc trò chuyện."));
+      if (ownerRef.current === requestOwner) toast.error(getApiErrorMessage(error, "Không cập nhật được cuộc trò chuyện."));
+    } finally {
+      historyActionRef.current = null;
+      if (ownerRef.current === requestOwner) setIsUpdatingAiHistory(false);
     }
   };
 
   const handleSelectAiTopic = (prompt: string) => {
-    if (isInitializingAi) return;
+    if (isInitializingAi || historyActionRef.current) return;
     setChatChannel("ai");
     setQuestionDraft({ text: prompt, id: Date.now(), sessionId: activeAiSessionId });
   };
@@ -502,9 +559,11 @@ function ChatWorkspace() {
                 }}
                 onNewAiSession={handleNewAiSession}
                 onDeleteAiSession={handleDeleteAiSession}
+                onDeleteAllAiSessions={authenticated ? handleDeleteAllAiSessions : undefined}
+                isAiClearing={isClearingAi}
                 onTogglePinAiSession={handleTogglePinAiSession}
-                isAiInitializing={isInitializingAi || !authenticated}
-                isAiSending={pendingAiSessionId !== null && pendingAiSessionId === activeAiSessionId}
+                isAiInitializing={isInitializingAi || isUpdatingAiHistory || !authenticated || loadingAiSessionId !== null}
+                isAiSending={pendingAiSessionId !== null}
                 onSelectTopic={handleSelectAiTopic}
                 // Direct P2P
                 directConversations={authenticated ? directConversations : []}
@@ -543,7 +602,7 @@ function ChatWorkspace() {
           <div className="flex-1 h-full flex flex-col overflow-hidden min-w-0">
             {activeChannel === "ai" ? (
               <AiChatWindow
-                key={`${ownerKey ?? "initializing"}:${resumedDraft ? activeAiSessionId : ""}`}
+                key={`${ownerKey ?? "initializing"}:${resumedDraft ? activeAiSessionId : ""}:${aiResetVersion}`}
                 size="full"
                 showSuggestionBar
                 session={activeAiSession}
@@ -559,7 +618,7 @@ function ChatWorkspace() {
                 onBack={() => setActiveAiSessionId(null)}
                 onSendMessage={handleSendAiMessage}
                 onSelectTopic={handleSelectAiTopic}
-                isSending={isInitializingAi || (pendingAiSessionId !== null && pendingAiSessionId === activeAiSessionId)}
+                isSending={isUpdatingAiHistory || isInitializingAi || (pendingAiSessionId !== null && pendingAiSessionId === activeAiSessionId)}
                 isLoadingHistory={isInitializingAi || (loadingAiSessionId !== null && loadingAiSessionId === activeAiSessionId)}
                 isSidebarCollapsed={isSidebarCollapsed}
                 onToggleSidebar={toggleSidebar}

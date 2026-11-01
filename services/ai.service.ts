@@ -38,6 +38,10 @@ function createAiService(prefix: string, guest = false) {
       await axiosClient.delete(`${prefix}/conversations/${encodeURIComponent(id)}`, config);
     },
 
+    async deleteAllConversations(): Promise<void> {
+      await axiosClient.delete(`${prefix}/conversations`, config);
+    },
+
     async ask(
       question: string,
       conversationId: string,

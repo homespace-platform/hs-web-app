@@ -32,6 +32,8 @@ interface ChatSidebarProps {
   onSelectAiSession: (id: string) => void;
   onNewAiSession: () => void;
   onDeleteAiSession?: (id: string) => void;
+  onDeleteAllAiSessions?: () => void;
+  isAiClearing?: boolean;
   onTogglePinAiSession?: (id: string) => void;
   isAiInitializing?: boolean;
   isAiSending?: boolean;
@@ -59,6 +61,8 @@ export default function ChatSidebar({
   onSelectAiSession,
   onNewAiSession,
   onDeleteAiSession,
+  onDeleteAllAiSessions,
+  isAiClearing = false,
   onTogglePinAiSession,
   isAiInitializing = false,
   isAiSending = false,
@@ -207,6 +211,17 @@ export default function ChatSidebar({
                 <Plus className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
                 <span>Đoạn chat mới</span>
               </button>
+              {onDeleteAllAiSessions && aiSessions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={onDeleteAllAiSessions}
+                  disabled={isAiInitializing || isAiSending || isAiClearing}
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {isAiClearing ? "Đang xoá hội thoại…" : "Xoá tất cả hội thoại"}
+                </button>
+              )}
             </div>
 
             {/* AI Sessions List (Pinned, Recents & Gợi ý bên dưới) */}
@@ -243,6 +258,7 @@ export default function ChatSidebar({
                               }}
                               className="p-1 rounded hover:bg-card text-muted-foreground hover:text-foreground"
                               title="Bỏ ghim"
+                              disabled={isAiInitializing || isAiSending}
                             >
                               <Pin className="w-3 h-3 rotate-45" />
                             </button>
@@ -256,6 +272,7 @@ export default function ChatSidebar({
                               }}
                               className="p-1 rounded hover:bg-card text-muted-foreground hover:text-rose-500"
                               title="Xóa đoạn chat"
+                              disabled={isAiInitializing || isAiSending}
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
@@ -304,6 +321,7 @@ export default function ChatSidebar({
                               }}
                               className="p-1 rounded hover:bg-card text-muted-foreground hover:text-foreground"
                               title="Ghim đoạn chat"
+                              disabled={isAiInitializing || isAiSending}
                             >
                               <Pin className="w-3 h-3" />
                             </button>
@@ -317,6 +335,7 @@ export default function ChatSidebar({
                               }}
                               className="p-1 rounded hover:bg-card text-muted-foreground hover:text-rose-500"
                               title="Xóa đoạn chat"
+                              disabled={isAiInitializing || isAiSending}
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>

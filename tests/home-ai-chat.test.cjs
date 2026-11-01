@@ -250,7 +250,6 @@ function renderHomeSearch(snapshot, chatVisible = false) {
     react: { ...React, useState: (initial) => initial === false && ++booleanState <= 2 ? [chatVisible, () => {}] : React.useState(initial) },
     "next/dynamic": () => () => null,
     "@/components/ui/button": { Button: ({ children, ...props }) => React.createElement("button", props, children) },
-    "@/data/featured-locations": { getFeaturedLocationsByProvince: () => [{ label: "Chợ Bến Thành" }] },
     "@/features/auth/useAuth": { useAuth: () => ({ profile: { id: "tenant", username: "Bạn" }, authenticated: true, initialized: true, login() {} }) },
     "@/services/ai.service": { aiService: {} },
     "@/lib/home-ai-chat": { createHomeAiChat: () => ({ subscribe: () => () => {}, getSnapshot: () => snapshot, setActive() {}, send() {} }) },
@@ -258,17 +257,17 @@ function renderHomeSearch(snapshot, chatVisible = false) {
   return renderToStaticMarkup(React.createElement(SearchBar));
 }
 
-test("home removes selectors and preserves featured places before any messages", () => {
+test("home shows quick AI search without featured-place shortcuts or selectors", () => {
   for (const session of [null, { id: "owned", messages: [] }]) {
     const html = renderHomeSearch({ session, isSending: false, error: null });
-    assert.match(html, /Chợ Bến Thành/);
+    assert.doesNotMatch(html, /Địa điểm nổi bật|Chợ Bến Thành/);
     assert.match(html, /Mô tả nhu cầu tìm nơi ở/);
-    assert.match(html, /Tìm kiếm nhanh/);
+    assert.match(html, /Tìm kiếm nhanh AI/);
     assert.doesNotMatch(html, /Tất cả quận\/huyện|Tất cả thể loại|Đoạn chat mới/);
   }
 });
 
-test("featured places disappear on the first message, including pending and collapsed chat", () => {
+test("home never restores featured places after a message or while chat is collapsed", () => {
   for (const isSending of [true, false]) {
     const html = renderHomeSearch({ session: { id: "owned", messages: [{ id: "q", sender: "me", content: "Tìm phòng" }] }, isSending, error: null });
     assert.doesNotMatch(html, /Địa điểm nổi bật|Chợ Bến Thành/);
@@ -301,4 +300,41 @@ test("new conversation action remains in the chat sidebar, not either shared hea
   assert.match(page, /onNewAiSession=\{handleNewAiSession\}/);
   assert.match(sidebar, /onClick=\{onNewAiSession\}/);
   assert.match(sidebar, /Đoạn chat mới/);
+});
+
+test("bulk-delete client sends one collection DELETE and propagates failures", async () => {
+  const calls = [];
+  let fail = false;
+  const { aiService } = load("services/ai.service.ts", {
+    "@/lib/axios-client": { delete: async (...args) => { calls.push(args); if (fail) throw new Error("offline"); } },
+    "@/lib/guest-ai-session": { guestAiService: {} },
+  });
+  await aiService.deleteAllConversations();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], "/api/v1/ai/agent/conversations");
+  fail = true;
+  await assert.rejects(aiService.deleteAllConversations(), /offline/);
+});
+
+test("bulk-delete action is scoped to AI history and disabled during active work", () => {
+  const Sidebar = load("components/chat/ChatSidebar.tsx", {
+    "@/data/mock-chat-data": { AI_QUICK_TOPICS: [] },
+    "next/image": () => null,
+  }).default;
+  const props = { channel: "ai", onChannelChange() {}, aiSessions: [{ ...detail(), isPinned: true }],
+    activeAiSessionId: "owned-session", onSelectAiSession() {}, onNewAiSession() {}, onDeleteAllAiSessions() {},
+    directConversations: [], activeDirectConversationId: null, onSelectDirectConversation() {},
+    searchQuery: "", onSearchChange() {}, activeTab: "all", onTabChange() {}, showHidden: false, onToggleShowHidden() {} };
+  const render = (changes = {}) => renderToStaticMarkup(React.createElement(Sidebar, { ...props, ...changes }));
+  const action = (html) => [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)].map((match) => match[0])
+    .find((button) => button.includes("Xoá tất cả hội thoại"));
+  assert.ok(action(render()));
+  assert.doesNotMatch(action(render()), /\sdisabled=""/);
+  for (const changes of [{ isAiInitializing: true }, { isAiSending: true }]) {
+    assert.match(action(render(changes)), /\sdisabled=""/);
+  }
+  assert.match(render({ isAiClearing: true }), /Đang xoá hội thoại…/);
+  assert.equal(action(render({ aiSessions: [] })), undefined);
+  assert.equal(action(render({ channel: "direct" })), undefined);
+  assert.equal(action(render({ onDeleteAllAiSessions: undefined })), undefined);
 });

@@ -86,8 +86,10 @@ test("contract states never read as listing states and sources stay separate", (
   assert.match(lib.aiStatusNote("TOOL_UNAVAILABLE", ["CORE_CONTRACT"]), /hợp đồng/);
   assert.match(lib.aiStatusNote("TOOL_UNAVAILABLE"), /tin đăng/);
   assert.match(lib.aiStatusNote("LOGIN_REQUIRED"), /đăng nhập/);
-  assert.match(lib.aiStatusNote("NEEDS_CLARIFICATION"), /Chọn hợp đồng/);
-  assert.match(lib.aiStatusNote("NOT_FOUND"), /Không tìm thấy hợp đồng/);
+  assert.equal(lib.aiStatusNote("NEEDS_CLARIFICATION"), null);
+  assert.match(lib.aiStatusNote("NEEDS_CLARIFICATION", ["CORE_CONTRACT"]), /Chọn hợp đồng/);
+  assert.doesNotMatch(lib.aiStatusNote("NOT_FOUND"), /hợp đồng/);
+  assert.match(lib.aiStatusNote("NOT_FOUND", ["CORE_CONTRACT"]), /Không tìm thấy hợp đồng/);
   assert.equal(lib.aiStatusNote("ANSWERED"), null);
   assert.match(lib.aiSourceNote(["CORE_CONTRACT", "RAG"]), /hướng dẫn chung/);
   assert.equal(lib.aiSourceNote([]), null);

@@ -57,16 +57,15 @@ export function aiStatusNote(status?: AiAnswerStatus | null, dataSources?: strin
       default: break;
     }
   }
-  const contract = Boolean(dataSources?.includes("CORE_CONTRACT")) || status === "LOGIN_REQUIRED"
-    || status === "NEEDS_CLARIFICATION" || status === "NOT_FOUND";
+  const contract = Boolean(dataSources?.includes("CORE_CONTRACT"));
   switch (status) {
     case "NO_RESULTS": return contract ? "Hệ thống không có hợp đồng nào khớp yêu cầu này." : "Chưa có tin đăng đang hiển thị khớp các điều kiện.";
     case "TOOL_UNAVAILABLE": return contract
       ? "Chưa đọc được dữ liệu hợp đồng lúc này; mình không suy đoán kết quả."
       : "Chưa kiểm tra được dữ liệu tin đăng trực tiếp; không suy đoán kết quả.";
-    case "LOGIN_REQUIRED": return "Cần đăng nhập để xem hợp đồng của bạn.";
-    case "NEEDS_CLARIFICATION": return "Chọn hợp đồng bạn muốn hỏi để mình đọc đúng dữ liệu.";
-    case "NOT_FOUND": return "Không tìm thấy hợp đồng này trong tài khoản đang đăng nhập.";
+    case "LOGIN_REQUIRED": return contract ? "Cần đăng nhập để xem hợp đồng của bạn." : "Cần đăng nhập để xem thông tin của bạn.";
+    case "NEEDS_CLARIFICATION": return contract ? "Chọn hợp đồng bạn muốn hỏi để mình đọc đúng dữ liệu." : null;
+    case "NOT_FOUND": return contract ? "Không tìm thấy hợp đồng này trong tài khoản đang đăng nhập." : "Không tìm thấy tin đăng hoặc thông tin bạn muốn xem.";
     case "NO_EVIDENCE": return "Chưa tìm thấy tài liệu phù hợp.";
     case "GENERAL_ANSWER": return "Kiến thức chung · không lấy từ tài liệu HomeSpace.";
     case "OUT_OF_SCOPE": return "Hiện chưa hỗ trợ tra cứu dữ liệu này.";

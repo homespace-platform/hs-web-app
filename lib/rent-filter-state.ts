@@ -54,3 +54,12 @@ export function changeRentCity(search: string, cityId: string): string {
   for (const key of ["city", "ward", "wardId", "district", "page"]) params.delete(key);
   return params.toString();
 }
+
+/** Build /rent query from the global city/ward preference (shareable URL entry). */
+export function rentHrefFromLocation(cityId: string, wardId = ""): string {
+  const params = new URLSearchParams();
+  if (administrativeCode(cityId)) params.set("cityId", cityId);
+  if (administrativeCode(cityId) && administrativeCode(wardId)) params.set("wardId", wardId);
+  const query = params.toString();
+  return query ? `/rent?${query}` : "/rent";
+}

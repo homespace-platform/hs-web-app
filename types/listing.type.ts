@@ -526,6 +526,7 @@ export type PublicListingSummaryResponse = {
   ownerAvatarUrl: string | null;
   ownerListingCount: number | null;
   publishedAt: string | null;
+  updatedAt?: string | null;
   availableFrom: string | null;
   viewCount?: number;
 };

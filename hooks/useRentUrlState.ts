@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
-import { changeRentCity, readRentState, writeRentState } from "@/lib/rent-filter-state";
+import { administrativeCode, changeRentCity, readRentState, writeRentState } from "@/lib/rent-filter-state";
 import type { FilterState } from "@/components/rent/RentFilterSidebar";
 
 const EVENT = "homespace:rent-query-changed";
@@ -32,5 +32,15 @@ export function useRentUrlState() {
     updateRentQuery(writeRentState(window.location.search, readRentState(window.location.search).filter, page));
   }
   function setCity(cityId: string) { updateRentQuery(changeRentCity(window.location.search, cityId)); }
-  return { ...state, ready: location !== "", setFilter, setPage, setCity };
+  function setWard(wardId: string) {
+    const current = readRentState(window.location.search);
+    updateRentQuery(
+      writeRentState(
+        window.location.search,
+        { ...current.filter, wardId: administrativeCode(wardId) },
+        1,
+      ),
+    );
+  }
+  return { ...state, ready: location !== "", setFilter, setPage, setCity, setWard };
 }

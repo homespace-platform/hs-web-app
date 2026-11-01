@@ -10,12 +10,18 @@ import UserDropdown from "./UserDropdown";
 import NotificationDropdown from "@/components/notification/NotificationDropdown";
 import UserAvatar from "@/components/common/UserAvatar";
 import listingLocationService from "@/services/listing-location.service";
-import type { AdministrativeCity } from "@/types/administrative-location.type";
+import type { AdministrativeCity, AdministrativeWard } from "@/types/administrative-location.type";
 import { locationMatches } from "@/lib/administrative-location";
-import { useRentUrlState } from "@/hooks/useRentUrlState";
+import { changeRentCity, readRentState, rentHrefFromLocation, writeRentState } from "@/lib/rent-filter-state";
+import { updateRentQuery, useRentUrlState } from "@/hooks/useRentUrlState";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchFavoriteIds } from "@/features/favorite/favoriteSlice";
 import { fetchHistoryIds } from "@/features/history/historySlice";
+import {
+  hydrateLocation,
+  setGlobalCity,
+  setGlobalWard,
+} from "@/features/location/locationSlice";
 import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
 import { requireKyc } from "@/lib/kyc-gate";
 import {
@@ -26,6 +32,7 @@ import {
   Heart,
   MapPin,
   ChevronDown,
+  ChevronLeft,
   Search,
   Check,
   Loader2,
@@ -36,6 +43,7 @@ export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const isDashboard = pathname?.startsWith("/dashboard");
+  const isRentPage = pathname === "/rent";
   const { openRolePicker } = useDashboardRole();
 
   const {
@@ -63,40 +71,59 @@ export default function Header() {
   const dispatch = useAppDispatch();
   const favoriteCount = useAppSelector((state) => state.favorite.count);
   const historyCount = useAppSelector((state) => state.history.count);
+  const globalLocation = useAppSelector((state) => state.location);
 
-  // Province States
   const [provinces, setProvinces] = useState<AdministrativeCity[]>([]);
-  const [preferredCity, setPreferredCity] = useState("");
-  const { cityId: urlCityId, setCity } = useRentUrlState();
-  const selectedProvinceCode = pathname === "/rent" ? urlCityId : preferredCity;
-  const selectedProvinceName = provinces.find(city => city.code === selectedProvinceCode)?.name ?? "Chọn tỉnh/thành phố";
+  const { cityId: urlCityId, filter: rentFilter, setCity, setWard, ready: rentQueryReady } = useRentUrlState();
+  const selectedProvinceCode = isRentPage ? urlCityId : globalLocation.cityId;
+  const selectedWardId = isRentPage ? rentFilter.wardId : globalLocation.wardId;
+  const selectedProvinceName =
+    provinces.find((city) => city.code === selectedProvinceCode)?.name
+    || (globalLocation.cityId === selectedProvinceCode ? globalLocation.cityName : "")
+    || "Chọn tỉnh/thành phố";
   const [catalogError, setCatalogError] = useState("");
   const [catalogReload, setCatalogReload] = useState(0);
-  const [isProvinceOpen, setIsProvinceOpen] = useState(false);
-  const [provinceSearch, setProvinceSearch] = useState("");
+  const [isLocationOpen, setIsLocationOpen] = useState(false);
+  const [locationStep, setLocationStep] = useState<"city" | "ward">("city");
+  const [locationSearch, setLocationSearch] = useState("");
   const [loadingProvinces, setLoadingProvinces] = useState(false);
-  const provinceDropdownRef = useRef<HTMLDivElement>(null);
+  const locationDropdownRef = useRef<HTMLDivElement>(null);
+
+  const [wards, setWards] = useState<AdministrativeWard[]>([]);
+  const [wardError, setWardError] = useState("");
+  const [loadingWards, setLoadingWards] = useState(false);
+  const selectedWardName =
+    wards.find((ward) => ward.code === selectedWardId)?.name
+    || (globalLocation.wardId === selectedWardId ? globalLocation.wardName : "")
+    || "";
+  // Chưa chọn phường → hiện tỉnh; đã chọn cả hai → hiện phường/xã.
+  const locationLabel = loadingProvinces
+    ? "Đang tải..."
+    : selectedWardId && selectedWardName
+      ? selectedWardName
+      : selectedProvinceName;
+
+  useEffect(() => {
+    dispatch(hydrateLocation());
+  }, [dispatch]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        provinceDropdownRef.current &&
-        !provinceDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsProvinceOpen(false);
+      const target = event.target as Node;
+      if (locationDropdownRef.current && !locationDropdownRef.current.contains(target)) {
+        setIsLocationOpen(false);
       }
     }
 
-    if (isProvinceOpen) {
+    if (isLocationOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isProvinceOpen]);
+  }, [isLocationOpen]);
 
-  // Sync favorites & history count via Redux (chỉ khi đã đăng nhập)
   useEffect(() => {
     if (authenticated) {
       dispatch(fetchFavoriteIds());
@@ -104,23 +131,8 @@ export default function Header() {
     }
   }, [authenticated, dispatch]);
 
-  // Fetch Provinces & Initialize from LocalStorage
   useEffect(() => {
     let isMounted = true;
-
-    try {
-      const saved = localStorage.getItem("homespace_selected_city_vietmap");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.code && parsed?.name) {
-          setPreferredCity(String(parsed.code));
-        } else if (parsed && !parsed.code) {
-          localStorage.removeItem("homespace_selected_city_vietmap");
-        }
-      }
-    } catch {
-      // Ignore local storage parse error
-    }
 
     const fetchProvinces = async () => {
       try {
@@ -129,7 +141,6 @@ export default function Header() {
         if (isMounted && data && data.length > 0) {
           setProvinces(data);
           setCatalogError("");
-
         }
       } catch (error) {
         console.error("Failed to load provinces in Header:", error);
@@ -145,39 +156,139 @@ export default function Header() {
     };
   }, [catalogReload]);
 
-  // Save province to LocalStorage on change
+  useEffect(() => {
+    let cancelled = false;
+    setWards([]);
+    setWardError("");
+    if (!selectedProvinceCode) {
+      setLoadingWards(false);
+      return;
+    }
+    setLoadingWards(true);
+    listingLocationService
+      .getWards(selectedProvinceCode)
+      .then((data) => {
+        if (!cancelled) setWards(data);
+      })
+      .catch(() => {
+        if (!cancelled) setWardError("Không thể tải danh mục phường/xã.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingWards(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProvinceCode]);
+
+  // Prefer global city/ward into empty /rent URL; mirror shared /rent URL into global store.
+  useEffect(() => {
+    if (!isRentPage || !rentQueryReady || !globalLocation.hydrated) return;
+
+    if (!urlCityId && globalLocation.cityId) {
+      let query = changeRentCity(window.location.search, globalLocation.cityId);
+      if (globalLocation.wardId) {
+        const current = readRentState(query);
+        query = writeRentState(query, { ...current.filter, wardId: globalLocation.wardId });
+      }
+      updateRentQuery(query, true);
+      return;
+    }
+
+    if (!urlCityId) return;
+
+    if (urlCityId !== globalLocation.cityId) {
+      const cityName =
+        provinces.find((city) => city.code === urlCityId)?.name
+        || globalLocation.cityName
+        || urlCityId;
+      dispatch(setGlobalCity({ code: urlCityId, name: cityName }));
+      if (rentFilter.wardId) {
+        const wardName =
+          wards.find((ward) => ward.code === rentFilter.wardId)?.name
+          || rentFilter.wardId;
+        dispatch(setGlobalWard({ code: rentFilter.wardId, name: wardName }));
+      }
+      return;
+    }
+
+    if (rentFilter.wardId !== globalLocation.wardId) {
+      if (!rentFilter.wardId) {
+        dispatch(setGlobalWard(null));
+      } else {
+        const wardName =
+          wards.find((ward) => ward.code === rentFilter.wardId)?.name
+          || (globalLocation.wardId === rentFilter.wardId ? globalLocation.wardName : rentFilter.wardId);
+        dispatch(setGlobalWard({ code: rentFilter.wardId, name: wardName }));
+      }
+    }
+  }, [
+    dispatch,
+    globalLocation.cityId,
+    globalLocation.cityName,
+    globalLocation.hydrated,
+    globalLocation.wardId,
+    globalLocation.wardName,
+    isRentPage,
+    provinces,
+    rentFilter.wardId,
+    rentQueryReady,
+    urlCityId,
+    wards,
+  ]);
+
   const handleSelectProvince = (province: AdministrativeCity) => {
     if (!province.code) return;
-    setPreferredCity(province.code);
-    if (pathname === "/rent") setCity(province.code);
-    setIsProvinceOpen(false);
-    setProvinceSearch("");
+    dispatch(setGlobalCity({ code: province.code, name: province.name }));
+    if (isRentPage) setCity(province.code);
+    setLocationSearch("");
+    setLocationStep("ward");
 
     try {
-      localStorage.setItem(
-        "homespace_selected_city_vietmap",
-        JSON.stringify({ code: province.code, name: province.name })
-      );
-      localStorage.removeItem("homespace_selected_ward_vietmap");
       window.dispatchEvent(
         new CustomEvent("provinceChanged", {
           detail: { code: province.code, name: province.name },
-        })
+        }),
       );
     } catch (e) {
-      console.error("Failed to save province to localStorage:", e);
+      console.error("Failed to broadcast province change:", e);
     }
   };
 
-  // Filter provinces list
-  const filteredProvinces = useMemo(() => {
-    if (!provinceSearch.trim()) return provinces;
-    return provinces.filter((p) =>
-      locationMatches(p.name, provinceSearch)
-    );
-  }, [provinces, provinceSearch]);
+  const handleSelectWard = (ward: AdministrativeWard | null) => {
+    if (!selectedProvinceCode) return;
+    if (!ward) {
+      dispatch(setGlobalWard(null));
+      if (isRentPage) setWard("");
+    } else {
+      dispatch(setGlobalWard({ code: ward.code, name: ward.name }));
+      if (isRentPage) setWard(ward.code);
+    }
+    setIsLocationOpen(false);
+    setLocationSearch("");
+  };
 
-  // Silky smooth animated glide to top (550ms easeOutCubic)
+  const filteredProvinces = useMemo(() => {
+    if (!locationSearch.trim()) return provinces;
+    return provinces.filter((p) => locationMatches(p.name, locationSearch));
+  }, [provinces, locationSearch]);
+
+  const filteredWards = useMemo(() => {
+    if (!locationSearch.trim()) return wards;
+    return wards.filter((ward) => locationMatches(ward.name, locationSearch));
+  }, [wards, locationSearch]);
+
+  const rentHref = rentHrefFromLocation(selectedProvinceCode, selectedWardId);
+
+  const openLocationPicker = () => {
+    const nextOpen = !isLocationOpen;
+    setIsLocationOpen(nextOpen);
+    if (nextOpen) {
+      setLocationStep(selectedProvinceCode ? "ward" : "city");
+      setLocationSearch("");
+    }
+  };
+
   const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (typeof window === "undefined") return;
 
@@ -188,22 +299,16 @@ export default function Header() {
         window.pageYOffset || document.documentElement.scrollTop;
       if (startPosition <= 0) return;
 
-      const duration = 550; // ms
+      const duration = 550;
       const startTime = performance.now();
-
-      // Ease out cubic function for ultra-smooth deceleration
       const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
       const animateScroll = (currentTime: number) => {
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
         const ease = easeOutCubic(progress);
-
         window.scrollTo(0, startPosition * (1 - ease));
-
-        if (progress < 1) {
-          window.requestAnimationFrame(animateScroll);
-        }
+        if (progress < 1) window.requestAnimationFrame(animateScroll);
       };
 
       window.requestAnimationFrame(animateScroll);
@@ -215,7 +320,6 @@ export default function Header() {
       <header className="fixed top-0 left-0 right-0 w-full z-50 bg-background/90 dark:bg-[#162032]/95 backdrop-blur-md border-b border-border dark:border-[#223147] transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20 gap-4">
-          {/* Left: Logo & Province Selector */}
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             <Link
               href="/"
@@ -234,91 +338,157 @@ export default function Header() {
               />
             </Link>
 
-            {/* Select Tỉnh/Thành Phố (Không có ô search) */}
-            <div className="relative shrink-0 hidden sm:block" ref={provinceDropdownRef}>
+            <div className="relative shrink-0 hidden sm:block" ref={locationDropdownRef}>
               <button
                 type="button"
-                onClick={() => setIsProvinceOpen(!isProvinceOpen)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full border transition-all cursor-pointer text-xs font-semibold shadow-2xs ${isProvinceOpen
+                onClick={openLocationPicker}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full border transition-all cursor-pointer text-xs font-semibold shadow-2xs ${isLocationOpen || selectedWardId
                     ? "border-primary/50 bg-muted text-primary"
                     : "border-border bg-card text-foreground hover:bg-muted hover:border-primary/40"
                   }`}
               >
                 <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                <span className="truncate max-w-[140px] md:max-w-[180px]">
-                  {loadingProvinces ? "Đang tải..." : selectedProvinceName}
+                <span className="truncate max-w-[160px] md:max-w-[220px]">
+                  {locationLabel}
                 </span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform duration-200 ${isProvinceOpen ? "rotate-180" : ""
-                    }`}
+                  className={`w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform duration-200 ${isLocationOpen ? "rotate-180" : ""}`}
                 />
               </button>
 
-              {/* Dropdown Menu Chọn Tỉnh Thành */}
-              {isProvinceOpen && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-popover text-popover-foreground rounded-2xl shadow-2xl border border-border p-2 z-50 animate-in fade-in-50 zoom-in-95">
-                  <div className="relative mb-2 px-1">
-                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <input
-                      type="text"
-                      value={provinceSearch}
-                      onChange={(e) => setProvinceSearch(e.target.value)}
-                      placeholder="Tìm tỉnh thành..."
-                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted rounded-lg border border-border focus:outline-none focus:border-primary text-foreground"
-                      autoFocus
-                    />
-                  </div>
-
-                  <div className="max-h-56 overflow-y-auto space-y-0.5 no-scrollbar">
-                    {loadingProvinces ? (
-                      <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                        <span>Đang tải danh sách...</span>
+              {isLocationOpen && (
+                <div className="absolute top-full left-0 mt-2 w-72 bg-popover text-popover-foreground rounded-2xl shadow-2xl border border-border p-2 z-50 animate-in fade-in-50 zoom-in-95">
+                  {locationStep === "ward" && selectedProvinceCode ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLocationStep("city");
+                          setLocationSearch("");
+                        }}
+                        className="w-full mb-2 flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{selectedProvinceName}</span>
+                        <span className="ml-auto text-primary">Đổi tỉnh</span>
+                      </button>
+                      <div className="relative mb-2 px-1">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                        <input
+                          type="text"
+                          value={locationSearch}
+                          onChange={(e) => setLocationSearch(e.target.value)}
+                          placeholder="Tìm phường/xã..."
+                          className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted rounded-lg border border-border focus:outline-none focus:border-primary text-foreground"
+                          autoFocus
+                        />
                       </div>
-                    ) : catalogError ? (
-                      <div role="alert" className="p-3 text-xs text-destructive">
-                        {catalogError}
-                        <button type="button" onClick={() => setCatalogReload(value => value + 1)} className="ml-2 underline">Thử lại</button>
+                      <div className="max-h-56 overflow-y-auto space-y-0.5 no-scrollbar">
+                        {wardError ? (
+                          <div role="alert" className="p-3 text-xs text-destructive">{wardError}</div>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => handleSelectWard(null)}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${!selectedWardId
+                              ? "bg-primary/10 text-primary font-bold"
+                              : "text-foreground hover:bg-muted"
+                            }`}
+                        >
+                          <span>Toàn {selectedProvinceName.replace("Thành phố ", "").replace("Tỉnh ", "")}</span>
+                          {!selectedWardId && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
+                        </button>
+                        {loadingWards ? (
+                          <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                            <span>Đang tải danh sách...</span>
+                          </div>
+                        ) : filteredWards.length > 0 ? (
+                          filteredWards.map((ward) => {
+                            const isSelected = selectedWardId === ward.code;
+                            return (
+                              <button
+                                key={ward.code}
+                                type="button"
+                                onClick={() => handleSelectWard(ward)}
+                                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${isSelected
+                                    ? "bg-primary/10 text-primary font-bold"
+                                    : "text-foreground hover:bg-muted"
+                                  }`}
+                              >
+                                <span className="truncate">{ward.name}</span>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                            Không tìm thấy phường/xã
+                          </div>
+                        )}
                       </div>
-                    ) : filteredProvinces.length > 0 ? (
-                      filteredProvinces.map((p) => {
-                        const isSelected = String(selectedProvinceCode) === String(p.code);
-                        return (
-                          <button
-                            key={p.code}
-                            type="button"
-                            onClick={() => handleSelectProvince(p)}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${isSelected
-                                ? "bg-primary/10 text-primary font-bold"
-                                : "text-foreground hover:bg-muted"
-                              }`}
-                          >
-                            <span className="truncate">{p.name}</span>
-                            {isSelected && (
-                              <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                            )}
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                        Không tìm thấy tỉnh thành
+                    </>
+                  ) : (
+                    <>
+                      <div className="relative mb-2 px-1">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                        <input
+                          type="text"
+                          value={locationSearch}
+                          onChange={(e) => setLocationSearch(e.target.value)}
+                          placeholder="Tìm tỉnh thành..."
+                          className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted rounded-lg border border-border focus:outline-none focus:border-primary text-foreground"
+                          autoFocus
+                        />
                       </div>
-                    )}
-                  </div>
+                      <div className="max-h-56 overflow-y-auto space-y-0.5 no-scrollbar">
+                        {loadingProvinces ? (
+                          <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                            <span>Đang tải danh sách...</span>
+                          </div>
+                        ) : catalogError ? (
+                          <div role="alert" className="p-3 text-xs text-destructive">
+                            {catalogError}
+                            <button type="button" onClick={() => setCatalogReload((value) => value + 1)} className="ml-2 underline">Thử lại</button>
+                          </div>
+                        ) : filteredProvinces.length > 0 ? (
+                          filteredProvinces.map((p) => {
+                            const isSelected = String(selectedProvinceCode) === String(p.code);
+                            return (
+                              <button
+                                key={p.code}
+                                type="button"
+                                onClick={() => handleSelectProvince(p)}
+                                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${isSelected
+                                    ? "bg-primary/10 text-primary font-bold"
+                                    : "text-foreground hover:bg-muted"
+                                  }`}
+                              >
+                                <span className="truncate">{p.name}</span>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                            Không tìm thấy tỉnh thành
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Link Nhà Cho Thuê (Dạng text link thanh lịch) */}
             <Link
-              href={selectedProvinceCode ? `/rent?cityId=${encodeURIComponent(selectedProvinceCode)}` : "/rent"}
+              href={rentHref}
               className="hidden md:flex items-center text-sm font-semibold text-foreground/90 hover:text-primary transition-colors px-2 py-1"
             >
               <span>Nhà Cho Thuê</span>
             </Link>
 
-            {/* Link Tin tức (Dạng text link nhẹ nhàng sau chọn tỉnh) */}
             <Link
               href="/news"
               className="hidden md:flex items-center text-sm font-semibold text-foreground/80 hover:text-primary transition-colors px-2 py-1"
@@ -327,12 +497,9 @@ export default function Header() {
             </Link>
           </div>
 
-          {/* Right Action Buttons */}
           <div className="hidden md:flex items-center gap-2.5 shrink-0">
             {authenticated ? (
-              /* State 1: Authenticated User (Đã đăng nhập) */
               <div className="flex items-center gap-2.5">
-                {/* Yêu thích */}
                 <Link
                   href="/favorites"
                   title="Danh sách yêu thích"
@@ -346,10 +513,8 @@ export default function Header() {
                   )}
                 </Link>
 
-                {/* Thông báo với popup danh sách */}
                 <NotificationDropdown initialCount={5} />
 
-                {/* Bảng điều khiển / Đăng tin (Chỉ hiển thị trên Desktop) */}
                 <div className="hidden items-center gap-2 sm:flex">
                   {isDashboard ? (
                     <button
@@ -372,13 +537,10 @@ export default function Header() {
                   )}
                 </div>
 
-                {/* User Dropdown */}
                 <UserDropdown />
               </div>
             ) : (
-              /* State 2: Guest / Unauthenticated (Chưa đăng nhập) */
               <div className="flex items-center gap-3">
-                {/* Tải ứng dụng */}
                 <Link
                   href="#download-app"
                   className="h-10 flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors px-3 rounded-full hover:bg-muted"
@@ -387,10 +549,8 @@ export default function Header() {
                   <span>Tải ứng dụng</span>
                 </Link>
 
-                {/* Divider */}
                 <div className="h-5 w-px bg-border mx-1" />
 
-                {/* Login / Register */}
                 <div className="flex items-center gap-1.5 text-sm font-semibold">
                   <button
                     type="button"
@@ -412,7 +572,6 @@ export default function Header() {
             )}
           </div>
 
-          {/* Mobile Menu Button & Action Controls */}
           <div className="md:hidden flex items-center gap-1.5">
             {authenticated && <UserDropdown />}
             <button
@@ -431,12 +590,13 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-border bg-card/95 backdrop-blur-xl px-4 pt-3 pb-6 space-y-4 animate-in slide-in-from-top-2 duration-200 shadow-xl">
-          {/* Mobile Province Select */}
-          <div className="flex items-center h-11 bg-muted rounded-xl px-3 border border-border">
-            <MapPin className="w-4 h-4 text-primary shrink-0 mr-2" />
+          <div className="space-y-2 rounded-xl border border-border bg-muted/70 p-3">
+            <div className="flex items-center gap-2 px-1 pb-1 text-xs font-bold text-foreground">
+              <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="truncate">{locationLabel}</span>
+            </div>
             <select
               value={selectedProvinceCode}
               onChange={(e) => {
@@ -444,18 +604,40 @@ export default function Header() {
                 const prov = provinces.find((p) => p.code === code);
                 if (prov) handleSelectProvince(prov);
               }}
-              className="w-full bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
+              className="w-full h-10 px-3 rounded-lg border border-border bg-card text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
             >
+              <option value="">Chọn tỉnh/thành phố</option>
               {provinces.map((p) => (
                 <option key={p.code} value={p.code} className="bg-card text-foreground">
                   {p.name}
                 </option>
               ))}
             </select>
+            <select
+              value={selectedWardId}
+              disabled={!selectedProvinceCode || loadingWards}
+              onChange={(e) => {
+                const code = e.target.value;
+                if (!code) handleSelectWard(null);
+                else {
+                  const ward = wards.find((item) => item.code === code);
+                  if (ward) handleSelectWard(ward);
+                }
+              }}
+              className="w-full h-10 px-3 rounded-lg border border-border bg-card text-xs font-semibold text-foreground focus:outline-none cursor-pointer disabled:opacity-60"
+            >
+              <option value="">
+                {selectedProvinceCode ? `Toàn ${selectedProvinceName.replace("Thành phố ", "").replace("Tỉnh ", "")}` : "Chọn tỉnh trước"}
+              </option>
+              {wards.map((ward) => (
+                <option key={ward.code} value={ward.code} className="bg-card text-foreground">
+                  {ward.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <nav className="flex flex-col space-y-1">
-            {/* Thông báo (Navigate tới /notifications - bỏ badge vì chưa có dữ liệu thật) */}
             <Link
               href="/notifications"
               onClick={() => setMobileMenuOpen(false)}
@@ -483,7 +665,6 @@ export default function Header() {
               </Link>
             )}
 
-            {/* Lịch sử xem tin */}
             <Link
               href="/history"
               onClick={() => setMobileMenuOpen(false)}
@@ -499,16 +680,14 @@ export default function Header() {
               )}
             </Link>
 
-            {/* Nhà Cho Thuê */}
             <Link
-              href={selectedProvinceCode ? `/rent?cityId=${encodeURIComponent(selectedProvinceCode)}` : "/rent"}
+              href={rentHref}
               onClick={() => setMobileMenuOpen(false)}
               className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
             >
               <span>Nhà Cho Thuê</span>
             </Link>
 
-            {/* Tin tức & Thị trường */}
             <Link
               href="/news"
               onClick={() => setMobileMenuOpen(false)}
@@ -517,7 +696,6 @@ export default function Header() {
               <span>Tin tức & Thị trường</span>
             </Link>
 
-            {/* Tải ứng dụng (Chỉ hiện khi chưa đăng nhập) */}
             {!authenticated && (
               <Link
                 href="#download-app"
@@ -529,7 +707,6 @@ export default function Header() {
             )}
           </nav>
 
-          {/* User Auth Section */}
           <div className="pt-3 border-t border-border flex flex-col gap-2.5">
             {authenticated ? (
               <div className="flex items-center justify-between px-1">
@@ -584,7 +761,6 @@ export default function Header() {
       )}
     </header>
 
-      {/* Nút bấm trên màn hình nhỏ đặt dưới Header (Bên trên bên phải, đối diện Nút Chat ở góc dưới bên phải) */}
       {authenticated && !mobileMenuOpen && (
         <div className="fixed top-[88px] right-4 z-40 flex gap-2 sm:hidden select-none animate-in fade-in-50 duration-200">
           {isDashboard ? (

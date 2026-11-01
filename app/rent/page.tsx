@@ -12,8 +12,7 @@ import { RentPropertyItem } from "@/types/rent.type";
 import listingLocationService from "@/services/listing-location.service";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
-import type { AdministrativeCity, AdministrativeWard } from "@/types/administrative-location.type";
-import { locationMatches } from "@/lib/administrative-location";
+import type { AdministrativeCity } from "@/types/administrative-location.type";
 import { DEFAULT_RENT_FILTER, changeRentCity, writeRentState } from "@/lib/rent-filter-state";
 import { useRentUrlState, updateRentQuery } from "@/hooks/useRentUrlState";
 import type { PublicListingQueryParams } from "@/types/listing.type";
@@ -30,9 +29,6 @@ import {
   Building,
   LayoutList,
   Grid,
-  MapPin,
-  ChevronDown,
-  Check,
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -58,14 +54,8 @@ export default function RentPage() {
   const { cityId: selectedProvinceCode, filter, setFilter, page: currentPage, setPage: setCurrentPage, ready: queryReady } = useRentUrlState();
   const [cities, setCities] = useState<AdministrativeCity[]>([]);
   const [catalogError, setCatalogError] = useState("");
-  const [wardError, setWardError] = useState("");
   const selectedProvinceName = cities.find(city => city.code === selectedProvinceCode)?.name
     ?? (selectedProvinceCode ? "Đang tải khu vực…" : "Chọn tỉnh/thành phố");
-  const [wards, setWards] = useState<AdministrativeWard[]>([]);
-  const [isWardDropdownOpen, setIsWardDropdownOpen] = useState(false);
-  const [wardSearch, setWardSearch] = useState("");
-  const [loadingWards, setLoadingWards] = useState(false);
-  const wardDropdownRef = useRef<HTMLDivElement>(null);
 
   // Search input state (chỉ gửi API khi bấm Tìm kiếm hoặc Enter để tránh quá tải CSDL)
   const [searchInput, setSearchInput] = useState("");
@@ -205,41 +195,6 @@ export default function RentPage() {
 
   useEffect(() => { setSearchInput(filter.searchQuery); }, [filter.searchQuery]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setWards([]); setWardSearch(""); setIsWardDropdownOpen(false); setWardError("");
-    if (!selectedProvinceCode) { setLoadingWards(false); return; }
-    setLoadingWards(true);
-    listingLocationService.getWards(selectedProvinceCode).then(data => { if (!cancelled) setWards(data); })
-      .catch(() => { if (!cancelled) setWardError("Không thể tải danh mục phường/xã. Vui lòng tải lại trang."); })
-      .finally(() => { if (!cancelled) setLoadingWards(false); });
-    return () => { cancelled = true; };
-  }, [selectedProvinceCode]);
-
-  // Close ward dropdown when clicked outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        wardDropdownRef.current &&
-        !wardDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsWardDropdownOpen(false);
-      }
-    };
-    if (isWardDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isWardDropdownOpen]);
-
-  // Filter wards based on search
-  const filteredWards = useMemo(() => {
-    if (!wardSearch.trim()) return wards;
-    return wards.filter((d) =>
-      locationMatches(d.name, wardSearch)
-    );
-  }, [wards, wardSearch]);
-
   // Handle reset filter
   const handleReset = () => {
     setSearchInput("");
@@ -257,10 +212,6 @@ export default function RentPage() {
       block: "start",
     });
   };
-
-  const shortProvinceName = selectedProvinceName
-    .replace("Thành phố ", "")
-    .replace("Tỉnh ", "");
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -366,111 +317,9 @@ export default function RentPage() {
                   </div>
                 </form>
 
-                {(catalogError || wardError) && <p role="alert" className="text-xs text-destructive">{catalogError || wardError}</p>}
-                {/* Administrative ward dropdown and existing controls */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-                  {/* Left: Dropdown Phường / Xã (Theo Header tỉnh đã chọn) */}
-                  <div className="relative" ref={wardDropdownRef}>
-                    <button
-                      type="button"
-                      disabled={!selectedProvinceCode}
-                      onClick={() =>
-                        setIsWardDropdownOpen(!isWardDropdownOpen)
-                      }
-                      className={`h-9 px-3.5 rounded-2xl border disabled:cursor-not-allowed disabled:opacity-60 text-xs font-semibold flex items-center gap-2 transition-all duration-200 cursor-pointer shadow-2xs ${filter.wardId !== ""
-                          ? "bg-primary/10 border-primary text-primary font-bold ring-1 ring-primary/20"
-                          : "border-border bg-background hover:bg-muted text-foreground"
-                        }`}
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span className="truncate max-w-[200px]">
-                        {filter.wardId === ""
-                          ? (selectedProvinceCode ? `Tất cả Phường/Xã (${shortProvinceName})` : "Chọn tỉnh/thành phố trước")
-                          : wards.find(ward => ward.code === filter.wardId)?.name ?? "Phường/Xã đã chọn"}
-                      </span>
-                      <ChevronDown
-                        className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isWardDropdownOpen ? "rotate-180" : ""
-                          }`}
-                      />
-                    </button>
-
-                    {/* District Dropdown Menu */}
-                    {isWardDropdownOpen && (
-                      <div className="absolute top-full left-0 mt-2 w-64 bg-popover text-popover-foreground rounded-2xl shadow-2xl border border-border p-2 z-50 animate-in fade-in-50 zoom-in-95">
-                        <div className="relative mb-2 px-1">
-                          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                          <input
-                            type="text"
-                            value={wardSearch}
-                            onChange={(e) => setWardSearch(e.target.value)}
-                            placeholder="Tìm phường/xã..."
-                            className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted rounded-lg border border-border focus:outline-none focus:border-primary text-foreground"
-                            autoFocus
-                          />
-                        </div>
-
-                        <div className="max-h-56 overflow-y-auto space-y-0.5 no-scrollbar">
-                          {/* Option: Tất cả phường xã */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFilter({ ...filter, wardId: "" });
-                              setIsWardDropdownOpen(false);
-                              setWardSearch("");
-                              setCurrentPage(1);
-                            }}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${filter.wardId === ""
-                                ? "bg-primary/10 text-primary font-bold"
-                                : "text-foreground hover:bg-muted"
-                              }`}
-                          >
-                            <span>Tất cả Phường/Xã</span>
-                            {filter.wardId === "" && (
-                              <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                            )}
-                          </button>
-
-                          {loadingWards ? (
-                            <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
-                              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                              <span>Đang tải danh sách...</span>
-                            </div>
-                          ) : filteredWards.length > 0 ? (
-                            filteredWards.map((d) => {
-                              const isSelected = filter.wardId === d.code;
-                              return (
-                                <button
-                                  key={d.code}
-                                  type="button"
-                                  onClick={() => {
-                                    setFilter({ ...filter, wardId: d.code });
-                                    setIsWardDropdownOpen(false);
-                                    setWardSearch("");
-                                    setCurrentPage(1);
-                                  }}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${isSelected
-                                      ? "bg-primary/10 text-primary font-bold"
-                                      : "text-foreground hover:bg-muted"
-                                    }`}
-                                >
-                                  <span className="truncate">{d.name}</span>
-                                  {isSelected && (
-                                    <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                                  )}
-                                </button>
-                              );
-                            })
-                          ) : (
-                            <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                              Không tìm thấy phường/xã
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right Controls: Video Toggle, Sort, View mode */}
+                {catalogError && <p role="alert" className="text-xs text-destructive">{catalogError}</p>}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 pt-1">
+                  {/* Controls: Video Toggle, Sort, View mode */}
                   <div className="flex items-center gap-3.5 shrink-0 self-end sm:self-auto">
                     {/* Video toggle with shadcn Switch */}
                     <div className="flex items-center gap-2">
@@ -564,8 +413,8 @@ export default function RentPage() {
                   </h3>
                   <p className="text-xs sm:text-sm max-w-md text-muted-foreground leading-relaxed">
                     {selectedProvinceCode
-                      ? "Hãy thử điều chỉnh lại mức giá, diện tích, phường/xã hoặc nhấn Đặt lại bộ lọc trong khu vực đang chọn."
-                      : "Dùng bộ chọn khu vực trên thanh điều hướng để chọn tỉnh/thành. HomeSpace không tìm tin trên toàn quốc."}
+                      ? "Hãy thử điều chỉnh lại mức giá, diện tích, hoặc chọn lại phường/xã trên thanh điều hướng."
+                      : "Dùng bộ chọn khu vực trên thanh điều hướng để chọn tỉnh/thành và phường/xã. HomeSpace không tìm tin trên toàn quốc."}
                   </p>
                   {selectedProvinceCode && (
                   <Button

@@ -112,26 +112,22 @@ test('real URL hook preserves geo and other filters across refresh and Back/Forw
 });
 test('actual rent page requires a city before searching and sends location IDs separately from keyword', async () => {
   const all = harness('/rent', true); await all.settle();
-  assert.ok(all.find(n => n.type === 'button' && all.label(n) === 'Chọn tỉnh/thành phố trước').props.disabled);
   assert.equal(all.calls.length, 0, 'No nationwide public search without cityId');
+  assert.equal(all.find(n => n.type === 'button' && /Phường\/Xã/.test(all.label(n))), null, 'ward picker lives in global header');
   const selected = harness('/rent?cityId=12&wardId=24332&q=ban+công&minPrice=10&maxPrice=30&category=house', true);
   await selected.settle();
   const request = selected.calls.at(-1);
   assert.equal(request.cityId, '12'); assert.equal(request.wardId, '24332'); assert.equal(request.keyword, 'ban công');
   assert.equal(request.priceMin, 10_000_000); assert.equal(request.priceMax, 30_000_000); assert.equal(request.category, 'HOUSE');
-  selected.click('Phường An Nhơn'); selected.click('Tất cả Phường/Xã'); await selected.settle();
+  const current = state.readRentState(selected.window.location.search);
+  selected.hook.updateRentQuery(state.writeRentState(selected.window.location.search, {...current.filter, wardId:''}));
+  await selected.settle();
   assert.equal(selected.calls.at(-1).cityId, '12'); assert.equal(selected.calls.at(-1).wardId, undefined);
 });
-test('late ward response from previous city cannot replace the current dropdown', async () => {
-  const pending = [];
-  const app = harness('/rent?cityId=12', true, { getCities: async () => [{code:'12',name:'TP.HCM'},{code:'11',name:'Hà Nội'}],
-    getWards: city => new Promise(resolve => pending.push({city,resolve})) });
-  app.hook.updateRentQuery(state.changeRentCity(app.window.location.search, '11')); app.render();
-  pending.find(x => x.city === '11').resolve([{code:'14091',name:'Phường Ba Đình',parentCode:'11'}]); await app.settle();
-  pending.find(x => x.city === '12').resolve([{code:'24332',name:'Phường An Nhơn',parentCode:'12'}]); await app.settle();
-  app.click('Tất cả Phường/Xã (Hà Nội)');
-  assert.ok(app.find(n => n.type === 'button' && app.label(n) === 'Phường Ba Đình'));
-  assert.equal(app.find(n => n.type === 'button' && app.label(n) === 'Phường An Nhơn'), null);
+test('rentHrefFromLocation keeps global city/ward in the /rent entry URL', () => {
+  assert.equal(state.rentHrefFromLocation('12', '24332'), '/rent?cityId=12&wardId=24332');
+  assert.equal(state.rentHrefFromLocation('12', ''), '/rent?cityId=12');
+  assert.equal(state.rentHrefFromLocation('', '24332'), '/rent');
 });
 test('catalog client shares pending requests, caches per city and retries failed downloads', async () => {
   let calls = [], fail = false;

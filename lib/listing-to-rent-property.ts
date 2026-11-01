@@ -1,4 +1,5 @@
 import type { RentMediaItem, RentPropertyItem } from "@/types/rent.type";
+import { formatListingTimeAgo } from "@/lib/format-time-ago";
 import { getSafeVideoStreamUrl } from "@/lib/video-stream-url";
 import type {
   ListingDetailResponse,
@@ -6,6 +7,8 @@ import type {
   ListingResponse,
   PublicListingSummaryResponse,
 } from "@/types/listing.type";
+
+export { formatListingTimeAgo, formatTimeAgo } from "@/lib/format-time-ago";
 
 function isPublicListing(
   listing: ListingDetailResponse | ListingResponse | PublicListingSummaryResponse,
@@ -69,7 +72,7 @@ export function toRentProperty(
       hasVideo: pub.hasVideo ?? false,
       category: propertyCategory,
       categoryLabel: categoryLabelMap[propertyCategory] ?? "Nhà cho thuê",
-      timeAgo: pub.publishedAt ? formatTimeAgo(pub.publishedAt) : "Mới đăng",
+      timeAgo: formatListingTimeAgo(pub.updatedAt, pub.publishedAt),
       photosCount: imageUrls.length,
       viewCount: pub.viewCount ?? (pub as any).viewsCount ?? 0,
       viewsCount: pub.viewCount ?? (pub as any).viewsCount ?? 0,
@@ -256,11 +259,11 @@ export function toRentProperty(
     hasVideo,
     category: propertyCategory,
     categoryLabel,
-    timeAgo: (listing as any).publishedAt
-      ? formatTimeAgo((listing as any).publishedAt)
-      : (listing as any).createdAt
-      ? formatTimeAgo((listing as any).createdAt)
-      : "Vừa xong",
+    timeAgo: formatListingTimeAgo(
+      (listing as any).updatedAt,
+      (listing as any).publishedAt,
+      (listing as any).createdAt,
+    ),
     photosCount: imageUrls.length,
     viewCount: (listing as any).viewCount ?? (listing as any).viewsCount ?? 0,
     viewsCount: (listing as any).viewCount ?? (listing as any).viewsCount ?? 0,
@@ -277,24 +280,3 @@ export function toRentProperty(
   };
 }
 
-export function formatTimeAgo(isoString: string): string {
-  try {
-    const diffMs = Date.now() - new Date(isoString).getTime();
-    if (diffMs < 0) return "Vừa xong";
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    if (diffMinutes < 1) return "Vừa xong";
-    if (diffMinutes < 60) return `${diffMinutes} phút trước`;
-    const diffHours = Math.floor(diffMinutes / 60);
-    if (diffHours < 24) return `${diffHours} giờ trước`;
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays === 1) return "Hôm qua";
-    if (diffDays < 7) return `${diffDays} ngày trước`;
-    const diffWeeks = Math.floor(diffDays / 7);
-    if (diffWeeks < 4) return `${diffWeeks} tuần trước`;
-    const diffMonths = Math.floor(diffDays / 30);
-    if (diffMonths < 12) return `${diffMonths} tháng trước`;
-    return new Date(isoString).toLocaleDateString("vi-VN");
-  } catch {
-    return "Mới đăng";
-  }
-}

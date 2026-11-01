@@ -3,6 +3,7 @@ import authReducer from "@/features/auth/authSlice";
 import userReducer from "@/features/user/userSlice";
 import favoriteReducer from "@/features/favorite/favoriteSlice";
 import historyReducer from "@/features/history/historySlice";
+import locationReducer from "@/features/location/locationSlice";
 
 export const makeStore = () =>
   configureStore({
@@ -11,6 +12,7 @@ export const makeStore = () =>
       user: userReducer,
       favorite: favoriteReducer,
       history: historyReducer,
+      location: locationReducer,
     },
   });
 

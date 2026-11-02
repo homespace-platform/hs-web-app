@@ -330,10 +330,10 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     try {
       await rentalRequestService.acceptRentalRequest(acceptTarget.id);
       toast.success(
-        "Đã chấp nhận và giữ chỗ. Dùng nút Xem thanh toán trên danh sách để theo dõi khoản chuyển; các yêu cầu khác chưa bị hủy."
+        "Đã chấp thuận và giữ chỗ. Các yêu cầu còn chờ duyệt của tin đăng này đã được từ chối kèm lý do."
       );
       setAcceptTarget(null);
-      fetchRequests();
+      await fetchRequests();
     } catch (err: unknown) {
       const errObj = err as { response?: { data?: { code?: number; message?: string } } } | undefined;
       const code = errObj?.response?.data?.code;
@@ -979,10 +979,13 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                   Bài đăng chuyển sang <strong>Đang giữ chỗ</strong>. Người thuê cần báo chuyển trước hạn trên yêu cầu thanh toán.
                 </li>
                 <li>
+                  Các yêu cầu còn chờ duyệt của cùng tin đăng sẽ tự động bị từ chối với lý do chủ nhà đã chọn yêu cầu khác.
+                </li>
+                <li>
                   Nếu ngày vào ở còn ở phía trước, chỉ thu cọc trước và ký riêng hợp đồng cọc sau khi xác nhận nhận tiền. Tiền tháng đầu và ký hợp đồng thuê mở vào ngày bắt đầu thuê.
                 </li>
                 <li>
-                  Chưa báo chuyển khi hết hạn thì giải phóng giữ chỗ nếu tin còn hạn đăng. Đã báo chuyển, có tranh chấp hoặc đã nhận cọc thì không tự giải phóng phòng; các yêu cầu chờ khác vẫn giữ hạn phản hồi riêng.
+                  Chưa báo chuyển khi hết hạn thì giải phóng giữ chỗ nếu tin còn hạn đăng. Đã báo chuyển, có tranh chấp hoặc đã nhận cọc thì không tự giải phóng phòng. Các yêu cầu đã bị từ chối không tự khôi phục khi hết hạn giữ chỗ.
                 </li>
               </ul>
             </div>

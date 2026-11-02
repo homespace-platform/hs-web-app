@@ -199,24 +199,13 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     setSavingMeters(true);
     try {
       const updated = await contractService.updateRevision(contractId, {
-        landlord: revision.landlord || {},
-        tenant: revision.tenant || {},
-        property: revision.property || {},
-        lease: revision.lease || {},
-        financial: revision.financial || {},
-        initialPayment: revision.initialPayment || undefined,
-        amenities: revision.amenities || undefined,
-        charges: revision.charges || [],
-        equipments: revision.equipments || [],
-        policies: revision.policies || undefined,
+        baseRevisionId: revision.id,
         meters: {
-          ...(revision.meters || {}),
           electricityInitial: electricityInitial.trim(),
           waterInitial: isWaterPerPerson
             ? String(revision.meters?.waterInitial ?? "")
             : waterInitial.trim(),
         },
-        specialTerms: revision.specialTerms,
         revisionNote: "Cập nhật chỉ số điện nước ban đầu.",
       });
       setRevision(updated);
@@ -289,17 +278,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     if (!contractId || !revision) return;
     try {
       const updated = await contractService.updateRevision(contractId, {
-        landlord: revision.landlord || {},
-        tenant: revision.tenant || {},
-        property: revision.property || {},
-        lease: revision.lease || {},
-        financial: revision.financial || {},
-        initialPayment: revision.initialPayment || undefined,
-        amenities: revision.amenities || undefined,
-        charges: revision.charges || [],
-        equipments: revision.equipments || [],
-        policies: revision.policies || undefined,
-        meters: revision.meters || {},
+        baseRevisionId: revision.id,
         specialTerms: terms,
         revisionNote: "Cập nhật điều khoản thỏa thuận riêng.",
       });
@@ -309,6 +288,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       setCompleteness(comp);
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Không thể cập nhật điều khoản hợp đồng."));
+      throw err;
     }
   }
 
@@ -316,13 +296,8 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     if (!contractId || !revision) return;
     try {
       const updated = await contractService.updateRevision(contractId, {
-        landlord: revision.landlord || {}, tenant: revision.tenant || {},
-        property: revision.property || {}, lease: revision.lease || {},
-        financial: revision.financial || {}, initialPayment: revision.initialPayment || undefined,
-        amenities: revision.amenities || undefined, charges: revision.charges || [],
-        equipments: revision.equipments || [], meters: revision.meters || {},
-        policies: { ...(revision.policies || {}), ...policy },
-        specialTerms: revision.specialTerms,
+        baseRevisionId: revision.id,
+        policies: policy,
         revisionNote: "Cập nhật điều khoản phí chậm thanh toán.",
       });
       setRevision(updated);
@@ -485,6 +460,10 @@ export default function ContractDetailView({ perspective }: { perspective: "land
 
       {/* 2. WARNING BANNER: INCOMPLETE FIELDS FOR TEMPLATE */}
       {!prioritizeMeters && missingFieldsNotice}
+
+      {isLandlord && isDraft && !contract.parentContractId && <p className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
+        Ngày thuê, thời hạn, tiền thuê, tiền cọc và số người/xe lấy từ hồ sơ đã chấp thuận. Bản nháp cho hoàn thiện công tơ, thỏa thuận riêng và phí chậm trả. Đổi ngày nhận nhà dùng đề nghị nhận nhà sớm bên dưới; các điều khoản sau ký được điều chỉnh qua phụ lục.
+      </p>}
 
       {isTenant && isDraft && <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
         <p className="font-semibold">Bản nháp để xem trước · Chưa có hiệu lực</p>

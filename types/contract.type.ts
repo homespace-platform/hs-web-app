@@ -105,17 +105,18 @@ export interface PolicySnapshot {
 }
 
 export interface UpdateContractRevisionRequest {
-  landlord: Record<string, unknown>;
-  tenant: Record<string, unknown>;
-  property: Record<string, unknown>;
-  lease: Record<string, unknown>;
-  financial: Record<string, unknown>;
+  baseRevisionId?: string;
+  landlord?: Record<string, unknown>;
+  tenant?: Record<string, unknown>;
+  property?: Record<string, unknown>;
+  lease?: Record<string, unknown>;
+  financial?: Record<string, unknown>;
   initialPayment?: Record<string, unknown>;
   amenities?: Record<string, unknown>[];
-  charges: Record<string, unknown>[];
-  equipments: Record<string, unknown>[];
+  charges?: Record<string, unknown>[];
+  equipments?: Record<string, unknown>[];
   policies?: Record<string, unknown>;
-  meters: Record<string, unknown>;
+  meters?: Record<string, unknown>;
   specialTerms?: string | null;
   revisionNote?: string | null;
 }

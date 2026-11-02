@@ -35,6 +35,7 @@ import type {
 } from "@/types/payment-request.type";
 import type { RentalRequestResponse } from "@/types/rental-request.type";
 import { getApiErrorMessage } from "@/utils/apiError";
+import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
 
 interface RentalPaymentModalProps {
   request: Pick<RentalRequestResponse, "id"> & Partial<RentalRequestResponse>;
@@ -235,6 +236,7 @@ export default function RentalPaymentModal({
   const isConfirmed = payment?.status === "CONFIRMED";
   const isReported = payment?.status === "TRANSFER_REPORTED";
   const isRejected = payment?.status === "REJECTED";
+  const canReport = payment && ["AWAITING_TRANSFER", "REJECTED", "OVERDUE"].includes(payment.status);
 
   function copyToClipboard(text: string, label: string) {
     navigator.clipboard.writeText(text);
@@ -642,7 +644,7 @@ export default function RentalPaymentModal({
                     {/* VietQR Box - Enlarge QR to 240px-260px */}
                     <div className="flex flex-col items-center shrink-0 w-full md:w-auto">
                       <div className="relative p-3.5 rounded-3xl bg-white border border-border/90 shadow-md flex items-center justify-center">
-                        {payment.qrImageUrl && !qrError ? (
+                        {payment.status !== "DISPUTED" && payment.qrImageUrl && !qrError ? (
                           <>
                             {qrLoading && (
                               <div className="absolute inset-0 flex items-center justify-center bg-white/90 rounded-3xl z-10">
@@ -665,13 +667,13 @@ export default function RentalPaymentModal({
                           <div className="w-56 h-56 sm:w-64 sm:h-64 flex flex-col items-center justify-center p-4 text-center bg-muted/30 rounded-2xl border border-dashed border-border text-muted-foreground">
                             <AlertTriangle className="w-8 h-8 text-amber-500 mb-2" />
                             <span className="text-xs font-medium leading-relaxed">
-                              Không tải được mã QR. Vui lòng chuyển khoản thủ công theo thông tin bên cạnh.
+                              {payment.status === "DISPUTED" ? "Khoản tiền đang đối soát. Hãy xử lý hồ sơ bên dưới trước khi gửi lại chứng từ." : "Không tải được mã QR. Vui lòng chuyển khoản thủ công theo thông tin bên cạnh."}
                             </span>
                           </div>
                         )}
                       </div>
 
-                      {payment.qrImageUrl && !qrError && (
+                      {payment.status !== "DISPUTED" && payment.qrImageUrl && !qrError && (
                         <div className="flex items-center gap-2 mt-3">
                           <button
                             type="button"
@@ -782,7 +784,7 @@ export default function RentalPaymentModal({
               )}
 
               {/* 5. FORM KHAI BÁO CHỨNG TỪ CHUYỂN KHOẢN */}
-              {showReportForm && (
+              {showReportForm && canReport && (
                 <form onSubmit={handleReportTransfer} className="p-5 sm:p-6 rounded-2xl border-2 border-primary/40 bg-primary/5 space-y-4 animate-in fade-in-50 duration-200">
                   <div className="border-b border-primary/20 pb-2.5">
                     <h4 className="font-bold text-sm text-foreground uppercase tracking-wider flex items-center gap-2">
@@ -1168,6 +1170,7 @@ export default function RentalPaymentModal({
                   </div>
                 </form>
               )}
+              <PaymentDisputePanel payment={payment} onUpdated={async () => setPayment(await paymentRequestService.getPaymentRequest(payment.id))} />
             </>
           )}
         </div>
@@ -1182,7 +1185,7 @@ export default function RentalPaymentModal({
             Đóng
           </button>
 
-          {!loading && payment && !isConfirmed && !showReportForm && (
+          {!loading && payment && (canReport || isReported) && !showReportForm && (
             <div>
               {isReported ? (
                 <div className="flex items-center gap-3">

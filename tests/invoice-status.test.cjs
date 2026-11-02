@@ -61,6 +61,7 @@ const testReact = { ...React, useState(initial) {
   return React.useState(index < initialStates.length ? initialStates[index] : initial);
 } };
 const Detail = load(detailSource, name => name === "react" ? testReact
+  : name === "@/components/payment/PaymentDisputePanel" ? { default: () => null }
   : name === "@/lib/invoice-status" ? { invoiceStatusPresentation: presentation, invoicePeriodLabel, invoicePeriodSecondaryLabel }
   : name.startsWith("@/lib/") ? moduleImports(name)
   : name.startsWith("@/services/") ? { default: {}, monthlyInvoiceService: {} }

@@ -76,6 +76,8 @@ export default function ContractPoliciesSection({
     try {
       await onSaveSpecialTerms(termText.trim());
       setEditing(false);
+    } catch {
+      // The parent displays the API error. Keep unsaved text available for correction/retry.
     } finally {
       setSaving(false);
     }

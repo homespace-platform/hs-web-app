@@ -18,6 +18,7 @@ import { MeterReadingInput, MeterReadingSummary } from "./MeterReading";
 import InvoiceLineCalculation from "./InvoiceLineCalculation";
 import { chooseInvoice, paymentModulePath } from "@/lib/payment-module";
 import { findInvoicePayment } from "@/lib/invoice-list";
+import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
 
 type Extra = { description: string; amount: string };
 type Props = {
@@ -314,7 +315,7 @@ export default function MonthlyInvoicesSection({ contractId, contractActive, isL
               <p>Người nhận: {payment.payeeBankAccountSnapshot?.accountHolderName}</p>
               <p>Nội dung chuyển khoản: <strong className="font-mono">{payment.transferReference}</strong></p>
               <p>Số tiền: <strong>{money(payment.totalAmount)}</strong></p>
-              {isTenant && payment.qrImageUrl && <Image unoptimized src={payment.qrImageUrl} width={180} height={180} alt="VietQR thanh toán hóa đơn" className="rounded-lg border border-border" />}
+              {isTenant && ["AWAITING_TRANSFER", "OVERDUE", "REJECTED"].includes(payment.status) && payment.qrImageUrl && <Image unoptimized src={payment.qrImageUrl} width={180} height={180} alt="VietQR thanh toán hóa đơn" className="rounded-lg border border-border" />}
               {isTenant && ["AWAITING_TRANSFER", "OVERDUE", "REJECTED"].includes(payment.status) && (!firstRent || !payment.dueAt || new Date(invoice.serverNow)<new Date(payment.dueAt)) && <div className="flex flex-wrap items-center gap-2">
                 <input type="file" accept="image/*,.pdf" aria-label="Chứng từ chuyển khoản"
                   onChange={(e) => setProofs((s) => ({ ...s, [payment.id]: e.target.files?.[0] || null }))} className="text-xs" />
@@ -343,6 +344,7 @@ export default function MonthlyInvoicesSection({ contractId, contractActive, isL
               </div>}
             </div>}
           </>}
+          {payment && !["ROLLED_OVER", "CANCELLED"].includes(invoice.status) && <PaymentDisputePanel payment={payment} onUpdated={refresh} />}
         </article>;
       })}</div></div>}
   </section>;

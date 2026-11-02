@@ -50,12 +50,12 @@ export function monthlySummary(bills?: MonthlyInvoice[], payments?: PaymentReque
   return { label: "Đã thanh toán đủ", detail: `${bills.length} hóa đơn đã hoàn tất / chuyển nợ`, tone: "success" };
 }
 export function depositSummary(data?: ContractLifecycle, onboarding?: RentalOnboarding): PaymentSummary {
-  const deposit=onboarding?.deposit;
-  if(deposit?.status === "RETAINED_BY_LANDLORD") return {label:"Chủ nhà đã giữ cọc",amount:deposit.retainedAmount,detail:deposit.retainedReason || "Đã chốt xử lý vi phạm trước khi thuê",tone:"info"};
-  if(!data?.closure && deposit) return {label:deposit.status === "REFUNDED" ? "Đã hoàn cọc" : deposit.status === "HELD" ? "Đang giữ cọc" : deposit.status === "PENDING" ? "Chưa xác nhận cọc" : "Cọc cần xử lý / hoàn trả",amount:deposit.heldAmount,detail:"Xem trạng thái, chứng từ và nghĩa vụ hoàn tiền",tone:"info"};
+  const deposit=data?.deposit ?? onboarding?.deposit;
+  if(deposit?.status === "RETAINED_BY_LANDLORD") return {label:"Chủ nhà đã giữ cọc",amount:deposit.retainedAmount ?? undefined,detail:deposit.retainedReason || "Xem sổ cọc và căn cứ quyết toán",tone:"info"};
+  if(!data?.closure && deposit) return {label:deposit.status === "REFUNDED" ? "Đã hoàn cọc" : deposit.status === "HELD" ? "Đang giữ cọc" : deposit.status === "PENDING" ? "Chưa xác nhận cọc" : "Cọc cần xử lý / hoàn trả",amount:deposit.heldAmount ?? undefined,detail:"Xem trạng thái, chứng từ và nghĩa vụ hoàn tiền",tone:"info"};
   if (!data) return { label: "Chưa tải được", detail: "Mở hồ sơ hoàn cọc để kiểm tra", tone: "muted" };
   const closure = data.closure;
-  if (!closure) return { label: "Đang giữ cọc", detail: "Hoàn cọc sau khi kết thúc thuê và bàn giao", amount: data.heldDeposit, tone: "muted" };
+  if (!closure) return { label: data.heldDeposit == null ? "Chưa có sổ cọc" : "Đang giữ cọc", detail: "Hoàn cọc sau khi kết thúc thuê và bàn giao", amount: data.heldDeposit ?? undefined, tone: "muted" };
   const payment = data.refundPayment || data.balancePayment;
   const amount = payment?.totalAmount ?? (closure.balanceAmount ? closure.balanceAmount : closure.refundAmount);
   if (closure.status === "CLOSED") return { label: "Đã hoàn tất", amount, detail: data.balancePayment ? "Đã nhận khoản còn thiếu" : data.refundPayment ? "Người thuê đã xác nhận nhận tiền" : "Đã thống nhất xử lý tiền cọc", tone: "success" };

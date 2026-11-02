@@ -8,6 +8,8 @@ import storageService from "@/services/storage.service";
 import { getApiErrorMessage } from "@/utils/apiError";
 import RentalPaymentModal from "./RentalPaymentModal";
 import DepositAgreementPanel from "./DepositAgreementPanel";
+import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
+import DepositLedgerSummary from "@/components/payment/DepositLedgerSummary";
 
 const date = (s: string) => s.split("T")[0].split("-").reverse().join("/");
 const instant = (s?: string) => s ? new Date(s).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
@@ -61,7 +63,7 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
     {!view ? <p className="text-sm">Đang tải tiến trình…</p> : <>
       <div className="rounded-xl bg-muted/40 p-3 text-sm"><p>Bắt đầu thuê: <strong>{date(view.startsOn)}</strong> · Kết thúc: <strong>{date(view.endExclusive)}</strong> (không bao gồm ngày này)</p><p className="mt-2">{view.message}</p><p className="mt-2 text-xs text-muted-foreground">Cập nhật {instant(view.serverNow)} · Giờ Việt Nam</p></div>
       {view.deposit && <DepositAgreementPanel rentalRequestId={rentalRequestId} isLandlord={!!isOwner} onUpdated={async()=>{await load();}}/>}
-      {view.deposit && <div className="rounded-xl border p-3 text-sm"><p>Trạng thái cọc: <strong>{({HELD:"Đang giữ cọc",PENDING:"Chưa xác nhận",RETAINED_BY_LANDLORD:"Chủ nhà đã giữ cọc",REFUND_DUE:"Chờ hoàn cọc",REFUNDED:"Đã hoàn cọc",DISPUTED:"Đang đối soát"} as Record<string,string>)[view.deposit.status] || view.deposit.status}</strong></p><p>Đang giữ: {money(view.deposit.heldAmount)} · Đã chốt giữ: {money(view.deposit.retainedAmount || 0)}</p>{view.deposit.retainedReason && <p>{view.deposit.retainedReason}</p>}</div>}
+      {view.deposit && <DepositLedgerSummary ledger={view.deposit} />}
       {view.defaultCase?.notifiedAt && <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
         <p className="font-semibold">{view.defaultCase.completedAt ? "Đã hủy hồ sơ và chốt giữ cọc" : !noticeOpen ? "Hồ sơ đã kết thúc / hoàn tất ký · Thông báo cũ không còn áp dụng" : view.defaultCase.disputedAt ? "Đang có phản hồi · Chặn giữ cọc, cần đối soát" : "Thông báo cuối cùng trước khi xử lý giữ cọc"}</p>
         <p>{view.defaultCase.reason}</p><p>Hạn phản hồi: {instant(view.defaultCase.respondBy)} (giờ Việt Nam). Tiền thuê đã nhận phải hoàn riêng.</p>
@@ -89,11 +91,12 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
             <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Lý do chưa xác nhận nhận tiền:"); if (note?.trim()) void action(() => paymentService.rejectReceipt(p.id, { reason: note.trim() })); }}>Chưa nhận đủ / Từ chối chứng từ</button>
           </>}
           {!isOwner && ["REJECTED", "TRANSFER_REPORTED", "AWAITING_TRANSFER"].includes(p.status) && p.direction === "TENANT_TO_LANDLORD" && <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Nội dung cần đối soát (tối thiểu 10 ký tự):"); if (note && note.trim().length >= 10) void action(() => paymentService.dispute(p.id, { reason: note.trim() })); }}>Tôi đã chuyển / Cần đối soát</button>}
-          {isOwner && (["REJECTED", "DISPUTED"].includes(p.status) || p.status === "AWAITING_TRANSFER" && p.dueAt && new Date(view.serverNow) >= new Date(p.dueAt)) && p.direction === "TENANT_TO_LANDLORD" && <>
+          {isOwner && (p.status === "REJECTED" || p.status === "AWAITING_TRANSFER" && p.dueAt && new Date(view.serverNow) >= new Date(p.dueAt)) && p.direction === "TENANT_TO_LANDLORD" && <>
             <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Ghi nhận đối soát đã nhận đủ tiền (tối thiểu 10 ký tự):"); if (note && note.trim().length >= 10) void action(() => service.review(rentalRequestId, p.id, true, note.trim())); }}>Đối soát: đã nhận đủ</button>
             <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Ghi rõ chưa nhận tiền và mở lại hạn thanh toán (tối thiểu 10 ký tự):"); if (note && note.trim().length >= 10) void action(() => service.review(rentalRequestId, p.id, false, note.trim())); }}>Chưa nhận: mở lại thanh toán</button>
           </>}
         </div>
+        <PaymentDisputePanel payment={p} onUpdated={load} />
       </article>)}</div>
       {!isOwner && view.canRequestEarlierStart && <button type="button" className={button} onClick={() => setShowForm(!showForm)}>Đề nghị nhận nhà và bắt đầu hợp đồng sớm</button>}
       {!isOwner && view.canRequestCancellation && !view.cancellationRequestedAt && view.stage !== "COMPLETED" && <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Lý do đề nghị hủy và hoàn tiền (tối thiểu 10 ký tự):"); if (note && note.trim().length >= 10) void action(() => service.cancel(rentalRequestId, note.trim())); }}>Đề nghị hủy và hoàn tiền</button>}

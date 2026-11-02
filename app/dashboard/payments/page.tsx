@@ -18,6 +18,7 @@ import type { PaymentRequest, PaymentStatus } from "@/types/payment-request.type
 import { toast } from "sonner";
 import { format } from "date-fns";
 import Link from "next/link";
+import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
 
 function formatVND(amount: number): string {
   return new Intl.NumberFormat("vi-VN", {
@@ -210,6 +211,7 @@ export default function PaymentsPage() {
                   </div>
                 </div>
 
+                <PaymentDisputePanel payment={p} onUpdated={loadPayments} />
                 <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-xs">
                     <button

@@ -69,6 +69,7 @@ function harness({status='DRAFT',parentContractId=null,role='landlord',saved={},
     if(name.endsWith('/ContractHandoverSection'))return props=>{captured=props;return React.createElement(Handover,props);};
     if(name.endsWith('/ContractMissingFieldsNotice'))return MissingFieldsNotice;
     if(name.endsWith('/ContractFieldState'))return {ContractFieldLegend:marker('legend')};
+    if(name==='./AgreementDocumentActions')return {default:()=>null};
     if(name.endsWith('/ContractAmendmentWorkspace'))return {__esModule:true,default:props=>props.children,ContractTermsNotice:marker('terms')};
     if(name.startsWith('@/components/'))return marker(name.split('/').pop());
     return require(name);

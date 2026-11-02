@@ -22,6 +22,8 @@ function load(source, lifecycle, namespace = false) {
     : name === "next/link" ? { default: ({ children, ...props }) => React.createElement("a", props, children) }
     : name === "next/image" ? { default: ({ unoptimized, ...props }) => React.createElement("img", props) }
     : name === "./SettlementPaymentPanel" ? { default: () => null }
+    : name === "@/components/payment/PaymentDisputePanel" ? { default: () => null }
+    : name === "@/components/payment/DepositLedgerSummary" ? { default: load(fs.readFileSync(path.join(__dirname, "../components/payment/DepositLedgerSummary.tsx"), "utf8"), false) }
     : name === "./MeterReading" ? MeterComponents
     : name === "@/components/ui/vnd-money-input" ? { default: ({label, value}) => React.createElement("input", {"aria-label":label, value:value ?? "", readOnly:true}) }
     : name === "@/lib/invoice-status" ? load(fs.readFileSync(path.join(__dirname, "../lib/invoice-status.ts"), "utf8"), false, true)
@@ -175,4 +177,19 @@ test("supplement form shows latest billed meter values even when bill order is u
   assert.match(html, /1\.600<\/p>/); assert.match(html, />220<\/p>/);
   assert.doesNotMatch(html, /min="1400"|min="1500"/);
   assert.deepEqual(billing.bills.map(b => b.id), ["earlier", "supplement", "final"]);
+});
+
+test("renewal retry follows server permission and keeps rejected/expired history visible",()=>{
+  const renewals=[{id:"old",months:3,status:"REJECTED",startsOn:base.endExclusive,endExclusive:"2027-04-12",requestedAt:"2026-12-13T03:00:00Z",decidedAt:"2026-12-14T03:00:00Z",note:"Đề nghị ba tháng trước đó"}];
+  const html=renderLifecycle({canRequestRenewal:true,renewals},false,"renewal");
+  assert.match(html,/Gửi yêu cầu gia hạn/);assert.match(html,/Bạn có thể gửi đề nghị mới/);
+  assert.match(html,/Chủ nhà từ chối/);assert.match(html,/Đề nghị ba tháng trước đó/);assert.match(html,/Chủ nhà phản hồi lúc/);
+  assert.doesNotMatch(renderLifecycle({canRequestRenewal:false,renewals},false,"renewal"),/>Gửi yêu cầu gia hạn</);
+  assert.doesNotMatch(renderLifecycle({canRequestRenewal:false,renewals},true,"renewal"),/>Gửi yêu cầu gia hạn</);
+});
+
+test("absent deposit ledger never displays zero held or permits a settlement proposal",()=>{
+  const html=renderLifecycle({heldDeposit:null,deposit:null,canProposeClosure:false,closure:{status:"WAITING_HANDOVER",proposalVersion:0}},true,"settlement");
+  assert.match(html,/Chưa có sổ cọc để đối chiếu/);assert.match(html,/Cọc đang giữ:.*Chưa có dữ liệu/);
+  assert.doesNotMatch(html,/>Gửi đề xuất quyết toán</);
 });

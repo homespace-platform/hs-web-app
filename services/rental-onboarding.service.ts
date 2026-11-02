@@ -15,7 +15,7 @@ export interface RentalOnboarding {
   cancellationRequestedAt?: string; cancellationReason?: string;
   canRequestCancellation?: boolean;
   depositAgreementContractId?: string | null; depositAgreementStatus?: string | null;
-  deposit?: {status:string;heldAmount:number;retainedAmount?:number;refundableAmount:number;retainedReason?:string};
+  deposit?: import("@/types/deposit-ledger.type").DepositLedger | null;
   defaultCase?: {eligibleKind?:"FIRST_RENT"|"TENANT_SIGNING";notifiedAt?:string;respondBy?:string;reason?:string;disputedAt?:string;completedAt?:string;canComplete:boolean;policyVersion?:string};
   history: { id: string; occurredAt: string; action: string; note?: string }[];
 }

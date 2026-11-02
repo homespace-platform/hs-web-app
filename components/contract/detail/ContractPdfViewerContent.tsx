@@ -73,15 +73,6 @@ export default function ContractPdfViewerContent({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isFullscreen, numPages, isPdf, onClose]);
 
-  // Lock body scroll when modal is mounted
-  useEffect(() => {
-    const originalOverflow = window.getComputedStyle(window.document.body).overflow;
-    window.document.body.style.overflow = "hidden";
-    return () => {
-      window.document.body.style.overflow = originalOverflow;
-    };
-  }, []);
-
   // Handle DOCX rendering
   useEffect(() => {
     if (!isDocx || !fileUrl || !docxContainerRef.current) return;

@@ -1,11 +1,12 @@
 import type { ContractStatus } from "./contract.type";
+import type { DepositLedger } from "./deposit-ledger.type";
 import type { PaymentRequest } from "./payment-request.type";
 import type { PaymentStatus } from "./payment-request.type";
 import type { BillingPeriodView, MonthlyInvoiceStatus } from "./monthly-invoice.type";
 export interface ContractRenewal {
   id: string; months: number; status: "REQUESTED" | "APPROVED" | "APPLIED" | "REJECTED" | "EXPIRED";
   startsOn: string; endExclusive: string; requestedAt: string; respondBy: string; signBy: string;
-  agreementContractId?: string; agreementStatus?: ContractStatus; note: string;
+  agreementContractId?: string; agreementStatus?: ContractStatus; note: string; decidedAt?: string; appliedAt?: string;
 }
 export interface ClosureDeduction {
   description: string; amount: number; evidenceIds: string[];
@@ -22,9 +23,10 @@ export interface ContractClosure {
   respondBy?: string; responseOverdueAt?: string; deductions?: ClosureDeduction[]; history?: ClosureEvent[];
 }
 export interface ContractLifecycle {
+  deposit?: DepositLedger | null;
   serverNow: string; endExclusive: string; renewalOpensAt: string; renewalSignBy: string;
   canRequestRenewal: boolean; renewals: ContractRenewal[]; closure?: ContractClosure;
-  heldDeposit: number; canProposeClosure: boolean; refundPayment?: PaymentRequest; balancePayment?: PaymentRequest;
+  heldDeposit: number | null; canProposeClosure: boolean; refundPayment?: PaymentRequest; balancePayment?: PaymentRequest;
   billing: { allPaid: boolean; canIssueSupplement: boolean; bills: {
     id: string; periodIndex: number; finalCostSupplement: boolean; status: MonthlyInvoiceStatus;
     billingPeriod?: BillingPeriodView;

@@ -16,7 +16,7 @@ export default function HomePage() {
         {/* 1. Hero & AI Search Section */}
         <HeroSection />
 
-        {/* 2. Featured / Nearby Properties ("Nhà cho thuê quanh đây") */}
+        {/* 2. Featured / Nearby Properties ("Nhà cho thuê quanh bạn") */}
         <FeaturedProperties />
 
         {/* 3. Popular Cities Grid ("Nhà cho thuê theo khu vực") */}

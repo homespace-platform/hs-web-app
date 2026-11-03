@@ -790,7 +790,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                   </div>
                 </div>
 
-                {req.status === "ACCEPTED" && <p className="rounded-xl border bg-muted/30 p-3 text-xs text-muted-foreground">Hợp đồng cọc có thể xem và ký ngay sau khi xác nhận nhận tiền. Khi hợp đồng thuê được tạo, nút xem sẽ ưu tiên hợp đồng thuê; HĐ cọc vẫn được lưu riêng trong hồ sơ.</p>}
+                {req.status === "ACCEPTED" && <p className="rounded-xl border bg-muted/30 p-3 text-xs text-muted-foreground">{req.depositAmount === 0 ? "Không yêu cầu đặt cọc: bỏ qua hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày bắt đầu thuê và xác nhận đủ tiền thuê tháng đầu." : "Hợp đồng cọc có thể xem và ký ngay sau khi xác nhận nhận tiền. Khi hợp đồng thuê được tạo, nút xem sẽ ưu tiên hợp đồng thuê; HĐ cọc vẫn được lưu riêng trong hồ sơ."}</p>}
                 {/* Khối giữ chỗ cũ được thay bằng tiến trình nhận nhà ở trên. */}
 
 
@@ -982,7 +982,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                   Các yêu cầu còn chờ duyệt của cùng tin đăng sẽ tự động bị từ chối với lý do chủ nhà đã chọn yêu cầu khác.
                 </li>
                 <li>
-                  Nếu ngày vào ở còn ở phía trước, chỉ thu cọc trước và ký riêng hợp đồng cọc sau khi xác nhận nhận tiền. Tiền tháng đầu và ký hợp đồng thuê mở vào ngày bắt đầu thuê.
+                  {acceptTarget.depositAmount === 0 ? "Không yêu cầu đặt cọc: bỏ qua hợp đồng cọc. Tiền thuê tháng đầu và ký hợp đồng thuê mở vào ngày bắt đầu thuê." : "Nếu ngày vào ở còn ở phía trước, chỉ thu cọc trước và ký riêng hợp đồng cọc sau khi xác nhận nhận tiền. Tiền tháng đầu và ký hợp đồng thuê mở vào ngày bắt đầu thuê."}
                 </li>
                 <li>
                   Chưa báo chuyển khi hết hạn thì giải phóng giữ chỗ nếu tin còn hạn đăng. Đã báo chuyển, có tranh chấp hoặc đã nhận cọc thì không tự giải phóng phòng. Các yêu cầu đã bị từ chối không tự khôi phục khi hết hạn giữ chỗ.

@@ -65,7 +65,9 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
     {error && <p role="alert" className="text-sm text-amber-700">{error} Dữ liệu đang hiển thị có thể chưa cập nhật.</p>}
     {!view ? <p className="text-sm">Đang tải tiến trình…</p> : <>
       <div className="rounded-xl bg-muted/40 p-3 text-sm"><p>Bắt đầu thuê: <strong>{date(view.startsOn)}</strong> · Kết thúc: <strong>{date(view.endExclusive)}</strong> (không bao gồm ngày này)</p><p className="mt-2">{view.message}</p><p className="mt-2 text-xs text-muted-foreground">Cập nhật {instant(view.serverNow)} · Giờ Việt Nam</p></div>
-      {view.deposit && <DepositAgreementPanel rentalRequestId={rentalRequestId} isLandlord={!!isOwner} onUpdated={async()=>{await load();}}/>}
+      {view.depositAgreementRequired === false
+        ? <p className="text-sm text-muted-foreground">Không yêu cầu đặt cọc · Bỏ qua hợp đồng cọc. Thanh toán tiền thuê và ký hợp đồng thuê theo tiến trình bên trên.</p>
+        : view.deposit && <DepositAgreementPanel rentalRequestId={rentalRequestId} isLandlord={!!isOwner} onUpdated={async()=>{await load();}}/>}
       {view.deposit && <DepositLedgerSummary ledger={view.deposit} />}
       {view.defaultCase?.notifiedAt && <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
         <p className="font-semibold">{view.defaultCase.completedAt ? "Đã hủy hồ sơ và chốt giữ cọc" : !noticeOpen ? "Hồ sơ đã kết thúc / hoàn tất ký · Thông báo cũ không còn áp dụng" : view.defaultCase.disputedAt ? "Đang có phản hồi · Chặn giữ cọc, cần đối soát" : "Thông báo cuối cùng trước khi xử lý giữ cọc"}</p>
@@ -78,12 +80,12 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
       </div>}
       {isOwner && view.defaultCase?.eligibleKind && !view.defaultCase.completedAt && !view.defaultCase.canComplete && <button type="button" disabled={busy} className={button} onClick={()=>{const note=window.prompt("Nội dung thông báo cuối cùng, nêu nghĩa vụ quá hạn và cách liên hệ (ít nhất 10 ký tự):");if(note&&note.trim().length>=10 && window.confirm("Gửi thông báo cuối cùng và mở thêm ít nhất 24 giờ để người thuê thanh toán/ký hoặc phản hồi? Không tự giữ cọc ở bước này."))void action(()=>service.notifyDefault(rentalRequestId,note.trim()));}}>Thông báo quá hạn trước khi xử lý cọc</button>}
       {isOwner && !view.defaultCase?.policyVersion && view.stage !== "COMPLETED" && <p className="text-xs text-muted-foreground">Hồ sơ chưa ghi nhận đồng ý điều kiện giữ cọc trước thanh toán; không cho phép chốt mất cọc tự động hay hồi tố.</p>}
-      {view.stage === "WAITING_START" && <p className="text-sm">Mở tiền tháng đầu và ký từ {instant(view.paymentOpensAt)}. Cọc đã nhận được giữ riêng, không thu lại.</p>}
+      {view.stage === "WAITING_START" && <p className="text-sm">Mở tiền tháng đầu và ký từ {instant(view.paymentOpensAt)}. {view.depositAgreementRequired === false ? "Không phát sinh khoản chuyển cọc hoặc bước ký hợp đồng cọc." : "Cọc đã nhận được giữ riêng, không thu lại."}</p>}
       {view.signingDueAt && view.stage !== "COMPLETED" && <p className="text-sm">Hạn hoàn tất ký: {instant(view.signingDueAt)}. Quá hạn cần đối soát hồ sơ, phòng không tự được giải phóng.</p>}
       {isOwner && view.stage === "REQUIRES_REVIEW" && view.signingDueAt && <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Lý do mở lại thời hạn ký sau khi đã kiểm tra đủ tiền (tối thiểu 10 ký tự):"); if (note && note.trim().length >= 10) void action(() => service.reopenSigning(rentalRequestId, note.trim())); }}>Đã đối soát · Mở lại thời hạn ký</button>}
-      <div className="space-y-3">{view.payments.map(p => <article key={p.id} className="space-y-2 rounded-xl border p-3 text-sm">
+      <div className="space-y-3">{view.payments.filter(p => !(p.type === "RESERVATION_DEPOSIT" && p.totalAmount === 0 && p.status === "CONFIRMED")).map(p => <article key={p.id} className="space-y-2 rounded-xl border p-3 text-sm">
         <div className="flex flex-wrap justify-between gap-2"><strong>{p.type === "INITIAL_PAYMENT_REFUND" ? "Chủ nhà hoàn tiền sau hủy" : p.type === "RESERVATION_DEPOSIT" ? "Tiền cọc giữ chỗ" : p.lineItems.some(l => l.type === "DEPOSIT") ? "Cọc + tiền thuê tháng đầu" : "Tiền thuê tháng đầu"}</strong><strong>{money(p.totalAmount)}</strong></div>
-        <p>{p.type === "RESERVATION_DEPOSIT" && p.totalAmount === 0 ? "Không yêu cầu đặt cọc · Không cần chuyển khoản" : statuses[p.status] ?? p.status}</p>
+        <p>{statuses[p.status] ?? p.status}</p>
         {p.status === "CONFIRMED" ? <p className="text-xs text-emerald-700">Xác nhận: {instant(p.confirmedAt)}</p> : p.dueAt && <p className="text-xs">Hạn báo chuyển: {instant(p.dueAt)}</p>}
         <p className="text-xs">Nội dung chuyển khoản: {p.transferReference}</p>
         <div className="flex flex-wrap gap-2">

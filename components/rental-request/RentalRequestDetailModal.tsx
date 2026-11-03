@@ -859,6 +859,8 @@ export default function RentalRequestDetailModal({
                       <p role="status" className="max-w-lg text-xs text-muted-foreground">
                         {onboarding?.canPrepareContract
                           ? onboarding.message
+                          : onboarding?.depositAgreementRequired === false
+                          ? "Không yêu cầu đặt cọc: bỏ qua hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày bắt đầu thuê và xác nhận đủ tiền thuê tháng đầu."
                           : "Hợp đồng cọc được lập sau khi xác nhận nhận cọc; xem trong phần Đặt cọc & nhận nhà phía trên. Hợp đồng thuê được chuẩn bị riêng khi đến ngày vào và xác nhận đủ tiền tháng đầu."}
                       </p>
                       <RentalContractFallbackButton request={detail} mode={mode} contract={linkedContract} view={onboarding}

@@ -45,12 +45,12 @@ export function RentalCostSummary({
           <div>
             <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
               <ShieldCheck className="h-4 w-4 text-primary" />
-              {plan.depositOnly ? "Đặt cọc trước ngày nhận nhà" : "Thanh toán ban đầu"}
+              {plan.depositOnly ? deposit === 0 ? "Không yêu cầu đặt cọc" : "Đặt cọc trước ngày nhận nhà" : "Thanh toán ban đầu"}
             </h3>
             <p className="mt-1 text-[11px] text-muted-foreground">
               {plan.depositOnly
-                ? "Sau khi chủ nhà chấp thuận, chỉ thanh toán tiền cọc giữ chỗ. Chưa thu tiền thuê tháng đầu."
-                : "Dọn vào cùng ngày: thanh toán tiền cọc và tiền thuê tháng đầu sau khi chủ nhà chấp thuận yêu cầu."}
+                ? deposit === 0 ? "Bỏ qua chuyển cọc và ký hợp đồng cọc. Tiền thuê tháng đầu mở vào ngày bắt đầu thuê." : "Sau khi chủ nhà chấp thuận, chỉ thanh toán tiền cọc giữ chỗ. Chưa thu tiền thuê tháng đầu."
+                : deposit === 0 ? "Dọn vào cùng ngày: chỉ thanh toán tiền thuê tháng đầu và ký hợp đồng thuê, bỏ qua hợp đồng cọc." : "Dọn vào cùng ngày: thanh toán tiền cọc và tiền thuê tháng đầu sau khi chủ nhà chấp thuận yêu cầu."}
             </p>
           </div>
         </div>

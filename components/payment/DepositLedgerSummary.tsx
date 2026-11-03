@@ -9,6 +9,9 @@ const labels: Record<string, string> = {
 
 export default function DepositLedgerSummary({ ledger }: { ledger?: DepositLedger | null }) {
   if (!ledger) return <p className="text-sm text-muted-foreground">Chưa có sổ cọc để đối chiếu.</p>;
+  if (ledger.status === "HELD" && ledger.originalAmount === 0 && ledger.confirmedReceivedAmount === 0 && ledger.heldAmount === 0 && (ledger.retainedAmount == null || ledger.retainedAmount === 0)) {
+    return <section aria-label="Sổ cọc" className="space-y-2 rounded-xl border p-3 text-sm"><p className="font-semibold">Không đặt cọc · Không có tiền cọc cần hoàn</p><p className="text-xs text-muted-foreground">Khi kết thúc thuê, hai bên vẫn cần xác nhận trả nhà và thanh toán các nghĩa vụ còn lại. Đây là ghi nhận miễn cọc, không phải chứng từ đã chuyển hoặc hoàn tiền.</p></section>;
+  }
   const rows = [
     ["Cọc thực nhận đã xác nhận", ledger.confirmedReceivedAmount],
     ["Cọc còn đang giữ", ledger.heldAmount],

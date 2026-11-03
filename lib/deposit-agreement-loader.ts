@@ -16,7 +16,7 @@ export async function loadDepositAgreement(
 ): Promise<void> {
   const view = await api.getAgreement(rentalId);
   receive.agreement(view);
-  if (!view.agreement) {
+  if (!view.required || !view.agreement) {
     receive.signature(null);
     return;
   }

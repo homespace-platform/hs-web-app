@@ -44,6 +44,12 @@ test("same-day move-in preserves the combined initial payment display",()=>{
 test("zero deposit clearly requires no transfer and still defers the first rent",()=>{
   const html=render({...estimate,depositAmount:0,paymentPlan:{...plan,amountAfterApproval:0}});
   assert.match(html,/miễn cọc, không cần chuyển tiền giữ chỗ/);assert.match(html,/thanh toán sau/);
+  assert.match(html,/Bỏ qua chuyển cọc và ký hợp đồng cọc/);assert.doesNotMatch(html,/Đặt cọc trước ngày nhận nhà|chỉ thanh toán tiền cọc giữ chỗ/);
+});
+test("same-day zero deposit only asks for rent and the lease",()=>{
+  const html=render({...estimate,depositAmount:0,paymentPlan:{...plan,depositOnly:false,amountAfterApproval:19660000}});
+  assert.match(html,/chỉ thanh toán tiền thuê tháng đầu và ký hợp đồng thuê/);assert.match(html,/bỏ qua hợp đồng cọc/);
+  assert.doesNotMatch(html,/thanh toán tiền cọc và tiền thuê tháng đầu/);
 });
 test("stale, missing-plan, loading and failed quotes never show a misleading payable amount",()=>{
   for(const html of [render(estimate,{loading:true}),render(estimate,{error:"Không thể tải dự toán"}),

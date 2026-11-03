@@ -95,7 +95,7 @@ export default function DepositAgreementPanel({ rentalRequestId, isLandlord, onU
     }
   }
 
-  if (view && !view.required) return <p className="text-sm text-muted-foreground">Hồ sơ miễn cọc: không phát sinh hợp đồng nhận tiền cọc.</p>;
+  if (view && !view.required) return <p className="text-sm text-muted-foreground">Không yêu cầu đặt cọc · Bỏ qua hợp đồng cọc, tiếp tục thanh toán tiền thuê và ký hợp đồng thuê.</p>;
   const contract = view?.agreement;
   const pdf = primaryDocument(view?.documents ?? [], !!contract?.signedAt || contract?.status === "ACTIVE", contract?.currentRevisionId);
   const signatureState = signature?.contractId === contract?.id ? signature?.data : null;

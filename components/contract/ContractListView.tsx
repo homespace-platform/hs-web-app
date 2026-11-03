@@ -134,8 +134,8 @@ export default function ContractListView({ perspective }: { perspective: "landlo
           <p className="text-sm font-semibold text-foreground">Chưa có hợp đồng</p>
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
             {perspective === "landlord"
-              ? "Hợp đồng cọc sẽ xuất hiện sau khi xác nhận nhận cọc. Khi có hợp đồng thuê, hồ sơ sẽ ưu tiên hiển thị hợp đồng thuê và giữ lại tài liệu cọc. "
-              : "Sau khi chủ nhà xác nhận nhận cọc, bạn xem và ký hợp đồng cọc tại đây. Hợp đồng thuê sẽ xuất hiện khi được tạo. "}
+              ? "Với hồ sơ có cọc, hợp đồng cọc sẽ xuất hiện sau khi xác nhận nhận cọc. Hồ sơ không đặt cọc hoặc cọc 0 đồng bỏ qua hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày bắt đầu và xác nhận đủ tiền thuê. "
+              : "Với hồ sơ có cọc, bạn xem và ký hợp đồng cọc sau khi chủ nhà xác nhận nhận cọc. Không đặt cọc hoặc cọc 0 đồng thì bỏ qua bước này. Hợp đồng thuê xuất hiện khi đến ngày bắt đầu và xác nhận đủ tiền thuê. "}
             <Link href={perspective === "landlord" ? "/dashboard/rental-requests" : "/dashboard/rental-requests/my-requests"} className="text-primary font-semibold hover:underline">
               Xem yêu cầu thuê
             </Link>

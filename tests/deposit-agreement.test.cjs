@@ -34,6 +34,14 @@ test("only a successful response with no agreement is treated as not yet created
     {agreement:view=>events.push(view),signature:state=>events.push(state),signatureError:assert.fail});
   assert.equal(events[0],absent);assert.equal(events[1],null);
 });
+test("exempt rentals never request a deposit signature, even with a historical document",async()=>{
+  for(const agreement of [null,ready.agreement]) {
+    const exempt={...ready,required:false,signingAllowed:false,agreement},events=[];
+    await loadDepositAgreement("rental",{getAgreement:async()=>exempt,getSignatureState:assert.fail},
+      {agreement:view=>events.push(view),signature:state=>events.push(state),signatureError:assert.fail});
+    assert.equal(events[0],exempt);assert.equal(events[1],null);
+  }
+});
 
 test("the UI separates read errors from absent documents and removes the old wait-for-lease message",()=>{
   const panel=fs.readFileSync(path.join(__dirname,"../components/rental-request/DepositAgreementPanel.tsx"),"utf8");
@@ -80,4 +88,9 @@ test("rendered PDF stays visible with a signing-service error and without waitin
 test("switching rental requests does not expose the previous rental's PDF",()=>{
   const html=renderPanel({rentalId:"other-rental",data:ready});
   assert.doesNotMatch(html,/Xem PDF hợp đồng cọc|Kiểm tra \/ tạo lại tài liệu cọc/);
+});
+test("exemption tells both parties to continue with the lease and offers no deposit actions",()=>{
+  const html=renderPanel({rentalId:"rental",data:{...ready,required:false,signingAllowed:false,agreement:null,documents:[]}});
+  assert.match(html,/Bỏ qua hợp đồng cọc/);assert.match(html,/ký hợp đồng thuê/);
+  assert.doesNotMatch(html,/<button|Chưa có hồ sơ hợp đồng cọc|Đã xác nhận cọc/);
 });

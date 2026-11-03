@@ -53,6 +53,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
   // Consent belongs to the proposal the tenant actually read, not the next refreshed revision.
   const [consent, setConsent] = useState<string | null>(null);
   const proposalKey = `${contractId}:${data?.closure?.proposalVersion ?? 0}`;
+  const noDepositToRefund = data?.heldDeposit === 0 && !data?.refundPayment;
   // Use the latest billed reading (including supplements), not the previous calendar month's bill.
   const lastBilled = data?.billing.bills.reduce<ContractLifecycle["billing"]["bills"][number] | undefined>(
     (latest, bill) => !latest || bill.periodIndex > latest.periodIndex ? bill : latest, undefined);
@@ -172,7 +173,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
       </article>)}
       </>}
       {mode !== "renewal" && <DepositLedgerSummary ledger={data.deposit} />}
-      {mode === "settlement" && !data.closure && <div className="space-y-3 rounded-xl bg-muted/30 p-4 text-sm"><p>Cọc đang giữ: <strong>{money(data.heldDeposit)}</strong></p><p className="text-muted-foreground">Hồ sơ hoàn cọc mở khi kết thúc thời hạn thuê. Hai bên hoàn tất chi phí cuối, bàn giao và thống nhất khoản khấu trừ trước khi chuyển tiền hoàn.</p></div>}
+      {mode === "settlement" && !data.closure && <div className="space-y-3 rounded-xl bg-muted/30 p-4 text-sm"><p>Cọc đang giữ: <strong>{money(data.heldDeposit)}</strong></p><p className="text-muted-foreground">{noDepositToRefund ? "Không có tiền cọc cần hoàn. Khi kết thúc thuê, hai bên vẫn cần xác nhận trả nhà, hoàn tất hóa đơn và các khoản còn phải trả." : "Hồ sơ hoàn cọc mở khi kết thúc thời hạn thuê. Hai bên hoàn tất chi phí cuối, bàn giao và thống nhất khoản khấu trừ trước khi chuyển tiền hoàn."}</p></div>}
       {mode !== "renewal" && data.closure && <div className="space-y-3 border-t pt-4">
         <details open={!data.billing.allPaid} className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/30 p-3 text-xs">
           <summary className="cursor-pointer font-semibold">Bước 1 · Hoàn tất hóa đơn kỳ cuối{data.billing.allPaid ? " · Đã hoàn tất ✓ — xem chi tiết" : " · Cần xử lý"}</summary>
@@ -182,11 +183,11 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
             <strong>{money(bill.totalAmount)} · {bill.status === "PAID" ? "Đã xác nhận thanh toán" : bill.status === "ROLLED_OVER" ? "Đã chuyển nợ" : bill.paymentStatus === "TRANSFER_REPORTED" ? "Đã thanh toán · Chờ chủ nhà xác nhận" : bill.paymentStatus === "DISPUTED" ? "Đang đối soát" : bill.status === "DRAFT" ? "Chờ chốt chỉ số/phát hành" : "Cần thanh toán"}</strong>
           </div>)}
           <p className={data.billing.allPaid ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>
-            {data.billing.allPaid ? data.closure.status === "CLOSED" ? "Tất cả hóa đơn đã hoàn tất." : "Tất cả hóa đơn đã hoàn tất. Có thể tiếp tục quyết toán cọc." : "Chưa hoàn tất hóa đơn. Bước quyết toán/hoàn cọc đang khóa."}</p>
+            {data.billing.allPaid ? data.closure.status === "CLOSED" ? "Tất cả hóa đơn đã hoàn tất." : noDepositToRefund ? "Tất cả hóa đơn đã hoàn tất. Tiếp tục xác nhận trả nhà và quyết toán các khoản còn lại; không cần hoàn cọc." : "Tất cả hóa đơn đã hoàn tất. Có thể tiếp tục quyết toán cọc." : noDepositToRefund ? "Chưa hoàn tất hóa đơn. Bước bàn giao/quyết toán đang khóa." : "Chưa hoàn tất hóa đơn. Bước quyết toán/hoàn cọc đang khóa."}</p>
           <Link href={invoiceDetailPath(contractId)} className="inline-block rounded-lg bg-primary px-3 py-2 font-semibold text-primary-foreground">{isLandlord ? "Mở hóa đơn · Chốt chỉ số / xác nhận nhận tiền →" : "Mở hóa đơn · Thanh toán kỳ cuối →"}</Link>
           {data.billing.canIssueSupplement && <details className="space-y-2 border-t pt-3">
             <summary className="cursor-pointer font-semibold">Ngoại lệ · Bổ sung chi phí chưa thu (không bắt buộc)</summary>
-            <p className="rounded-lg bg-amber-50 p-2 text-amber-800">Nếu đã thanh toán đủ chi phí kỳ cuối, bỏ qua mục này và lập đề xuất hoàn cọc. Hư hại tài sản đưa vào khấu trừ cọc bên dưới, không thu hai lần. Phát hành bổ sung sẽ yêu cầu thanh toán hóa đơn mới và lập lại đề xuất cọc nếu đã gửi.</p>
+            <p className="rounded-lg bg-amber-50 p-2 text-amber-800">{noDepositToRefund ? "Nếu đã thanh toán đủ chi phí kỳ cuối, tiếp tục đề xuất trả nhà và quyết toán. Khoản bồi thường hoặc phải trả khác cần có căn cứ và hai bên đồng ý; không thu hai lần." : "Nếu đã thanh toán đủ chi phí kỳ cuối, bỏ qua mục này và lập đề xuất hoàn cọc. Hư hại tài sản đưa vào khấu trừ cọc bên dưới, không thu hai lần. Phát hành bổ sung sẽ yêu cầu thanh toán hóa đơn mới và lập lại đề xuất cọc nếu đã gửi."}</p>
             <p>Chỉ nhập phần chưa thu. Chỉ số mới là số công tơ thực tế; hệ thống chỉ thu phần tăng so với số đã tính trên hóa đơn gần nhất. Không sửa bill cũ hoặc thu lại tiền phòng.</p>
             <div className="grid gap-2 sm:grid-cols-2">
               <MeterReadingInput name="điện" unit="kWh" variant="supplement" start={lastBilled?.electricityEnd} end={electricity} onChange={setElectricity} />
@@ -197,30 +198,30 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
             <button type="button" disabled={busy} onClick={issueSupplement} className="rounded-lg border border-primary px-3 py-2 font-semibold text-primary disabled:opacity-50">Phát hành hóa đơn bổ sung kỳ cuối</button>
           </details>}
         </details>
-        <h3 className="flex items-center gap-2 font-semibold"><ClipboardCheck className="h-4 w-4 text-primary" />Bàn giao & tiền cọc · {closureLabels[data.closure.status]}</h3>
-        {data.closure.status !== "CLOSED" ? <p className="text-sm">Cọc đang giữ: <strong>{money(data.heldDeposit)}</strong>. Hoàn tất hóa đơn rồi thống nhất khấu trừ và số tiền hoàn.</p>
-          : <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900"><p className="font-semibold">Đã kết thúc hợp đồng · Hoàn tất xử lý tiền cọc</p><p className="mt-1 text-sm">{data.refundPayment ? `Đã hoàn ${money(data.refundPayment.totalAmount)} cho người thuê và xác nhận nhận tiền.` : data.balancePayment ? "Đã xác nhận thanh toán khoản còn thiếu." : "Hai bên đã thống nhất khấu trừ và hoàn tất nghĩa vụ."}</p></div>}
+        <h3 className="flex items-center gap-2 font-semibold"><ClipboardCheck className="h-4 w-4 text-primary" />{noDepositToRefund ? "Trả nhà & quyết toán" : "Bàn giao & tiền cọc"} · {noDepositToRefund && data.closure.status === "CLOSED" ? "Đã hoàn tất quyết toán" : closureLabels[data.closure.status]}</h3>
+        {data.closure.status !== "CLOSED" ? <p className="text-sm">{noDepositToRefund ? "Không có tiền cọc cần hoàn. Hai bên vẫn xác nhận trả nhà, hoàn tất hóa đơn và thống nhất khoản còn phải trả nếu có." : <>Cọc đang giữ: <strong>{money(data.heldDeposit)}</strong>. Hoàn tất hóa đơn rồi thống nhất khấu trừ và số tiền hoàn.</>}</p>
+          : <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900"><p className="font-semibold">Đã kết thúc hợp đồng · {noDepositToRefund ? "Hoàn tất quyết toán" : "Hoàn tất xử lý tiền cọc"}</p><p className="mt-1 text-sm">{data.refundPayment ? `Đã hoàn ${money(data.refundPayment.totalAmount)} cho người thuê và xác nhận nhận tiền.` : data.balancePayment ? "Đã xác nhận thanh toán khoản còn thiếu." : noDepositToRefund ? "Hai bên đã xác nhận trả nhà và hoàn tất nghĩa vụ; không phát sinh chuyển khoản hoàn cọc." : "Hai bên đã thống nhất khấu trừ và hoàn tất nghĩa vụ."}</p></div>}
         {data.closure.respondBy && <p className={data.closure.responseOverdueAt ? "rounded-lg bg-amber-50 p-3 text-xs text-amber-800" : "text-xs text-muted-foreground"}>
           {data.closure.status === "DISPUTED" ? "Chủ nhà cần phản hồi đối soát" : "Người thuê cần phản hồi đề xuất"} trước {dt(data.closure.respondBy)}.
           {data.closure.responseOverdueAt && " Đã quá hạn phản hồi. Hai bên cần liên hệ xử lý; không tự đồng ý, không tự tạo QR hoặc đóng hồ sơ."}
         </p>}
         {data.closure.refundDueAt && data.closure.status !== "CLOSED" && new Date(data.serverNow) > new Date(data.closure.refundDueAt) && <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">Đã quá hạn chuyển tiền quyết toán. Cần liên hệ bên thanh toán để đối soát; hồ sơ vẫn mở cho đến khi xác nhận đã nhận đủ tiền.</p>}
         {data.closure.status === "DISPUTED" && <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs">
-          <p className="font-semibold">Người thuê chưa đồng ý · chưa tạo QR hoàn cọc</p>
+          <p className="font-semibold">Người thuê chưa đồng ý · {noDepositToRefund ? "chưa chốt khoản phải trả" : "chưa tạo QR hoàn cọc"}</p>
           <p className="whitespace-pre-wrap">{data.closure.history?.filter(event => event.type === "DISPUTED").at(-1)?.note}</p>
           <EvidenceLinks ids={data.closure.history?.filter(event => event.type === "DISPUTED").at(-1)?.evidenceIds} />
           <p>Chủ nhà đối chiếu minh chứng và gửi đề xuất phiên bản mới. Người thuê cần đọc và đồng ý lại.</p>
         </div>}
         {data.canProposeClosure && <div className="space-y-3 rounded-xl bg-muted/30 p-3 text-xs">
-          <p className="font-semibold">Bước 2 · Lập đề xuất quyết toán cọc sau khi thanh toán đủ hóa đơn</p>
+          <p className="font-semibold">Bước 2 · {noDepositToRefund ? "Xác nhận trả nhà và quyết toán sau khi thanh toán đủ hóa đơn" : "Lập đề xuất quyết toán cọc sau khi thanh toán đủ hóa đơn"}</p>
           {data.closure.proposalVersion > 0 && <button type="button" disabled={busy} onClick={() => {
             setDeductions((data.closure!.deductions ?? []).map(row => ({ ...row, key: crypto.randomUUID(), files: [] })));
             setClosureNote(data.closure!.note ?? ""); setHandover(false);
           }} className="text-primary underline">Lấy nội dung đề xuất hiện tại để chỉnh sửa</button>}
-          <p>Điện/nước và chi phí kỳ cuối đã thanh toán riêng qua hóa đơn, không trừ cọc lần nữa. Chỉ nhập khấu trừ cọc khác theo thỏa thuận (ví dụ hư hại tài sản), có nội dung rõ ràng và người thuê đồng ý.</p>
-          {deductions.length === 0 && <p className="text-emerald-700">Không có khoản khấu trừ: đề xuất hoàn nguyên cọc.</p>}
+          <p>{noDepositToRefund ? "Điện/nước và chi phí kỳ cuối đã thanh toán riêng qua hóa đơn. Chỉ nhập khoản phải trả khác có căn cứ theo thỏa thuận (ví dụ hư hại tài sản), không thu hai lần; người thuê cần đồng ý đúng phiên bản." : "Điện/nước và chi phí kỳ cuối đã thanh toán riêng qua hóa đơn, không trừ cọc lần nữa. Chỉ nhập khấu trừ cọc khác theo thỏa thuận (ví dụ hư hại tài sản), có nội dung rõ ràng và người thuê đồng ý."}</p>
+          {deductions.length === 0 && <p className="text-emerald-700">{noDepositToRefund ? "Không có khoản phải trả thêm: xác nhận trả nhà và hoàn tất, bỏ qua chuyển khoản hoàn cọc." : "Không có khoản khấu trừ: đề xuất hoàn nguyên cọc."}</p>}
           {deductions.map((row, index) => <fieldset key={row.key} disabled={busy} className="space-y-2 rounded-xl border bg-card p-3">
-            <legend className="px-1 font-semibold">Khoản khấu trừ {index + 1}</legend>
+            <legend className="px-1 font-semibold">{noDepositToRefund ? "Khoản quyết toán" : "Khoản khấu trừ"} {index + 1}</legend>
             <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
               <label>Nội dung / căn cứ<input aria-label={`Nội dung khấu trừ ${index + 1}`} maxLength={300} value={row.description} onChange={e => setDeductions(rows => rows.map(item => item.key === row.key ? { ...item, description: e.target.value } : item))} placeholder="Ví dụ: thay kính cửa bị vỡ" className="mt-1 w-full rounded-lg border p-2" /></label>
               <VndMoneyInput label="Số tiền (đ)" ariaLabel={`Số tiền khấu trừ ${index + 1}`} min={1} value={row.amount || ""} onValueChange={amount => setDeductions(rows => rows.map(item => item.key === row.key ? { ...item, amount: Number(amount) } : item))} />
@@ -230,27 +231,27 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
             {row.files.length > 0 && <p>{row.files.map(file => file.name).join(", ")}</p>}
             <button type="button" onClick={() => setDeductions(rows => rows.filter(item => item.key !== row.key))} className="text-rose-700 underline">Xóa khoản này</button>
           </fieldset>)}
-          <button type="button" disabled={busy || deductions.length >= 20} onClick={() => setDeductions(rows => [...rows, { key: crypto.randomUUID(), description: "", amount: 0, evidenceIds: [], files: [] }])} className="rounded-lg border px-3 py-2 disabled:opacity-50">+ Thêm khoản khấu trừ</button>
+          <button type="button" disabled={busy || deductions.length >= 20} onClick={() => setDeductions(rows => [...rows, { key: crypto.randomUUID(), description: "", amount: 0, evidenceIds: [], files: [] }])} className="rounded-lg border px-3 py-2 disabled:opacity-50">{noDepositToRefund ? "+ Thêm khoản phải trả" : "+ Thêm khoản khấu trừ"}</button>
           <div className="grid gap-3 rounded-xl border bg-card p-3 sm:grid-cols-3">
-            <p>Cọc đang giữ<br /><strong>{money(data.heldDeposit)}</strong></p><p>Tổng khấu trừ<br /><strong>{money(deduction)}</strong></p>
-            <p>{data.heldDeposit != null && deduction > data.heldDeposit ? "Người thuê trả thêm dự kiến" : "Hoàn cho người thuê dự kiến"}<br /><strong>{money(data.heldDeposit == null ? null : Math.abs(data.heldDeposit - deduction))}</strong></p>
+            <p>Cọc đang giữ<br /><strong>{money(data.heldDeposit)}</strong></p><p>{noDepositToRefund ? "Tổng khoản phải trả" : "Tổng khấu trừ"}<br /><strong>{money(deduction)}</strong></p>
+            <p>{noDepositToRefund || data.heldDeposit != null && deduction > data.heldDeposit ? "Người thuê trả thêm dự kiến" : "Hoàn cho người thuê dự kiến"}<br /><strong>{money(data.heldDeposit == null ? null : Math.abs(data.heldDeposit - deduction))}</strong></p>
           </div>
-          <textarea aria-label="Nội dung quyết toán" maxLength={2000} value={closureNote} onChange={e => setClosureNote(e.target.value)} placeholder="Mô tả bàn giao và căn cứ khấu trừ; nếu không khấu trừ, ghi rõ hoàn nguyên cọc (ít nhất 10 ký tự)…" className="w-full rounded-lg border p-3" />
+          <textarea aria-label="Nội dung quyết toán" maxLength={2000} value={closureNote} onChange={e => setClosureNote(e.target.value)} placeholder={noDepositToRefund ? "Mô tả trả nhà và các khoản đã đối chiếu; ghi rõ nếu không còn nghĩa vụ tiền (ít nhất 10 ký tự)…" : "Mô tả bàn giao và căn cứ khấu trừ; nếu không khấu trừ, ghi rõ hoàn nguyên cọc (ít nhất 10 ký tự)…"} className="w-full rounded-lg border p-3" />
           <label className="flex gap-2"><input type="checkbox" checked={handover} onChange={e => setHandover(e.target.checked)} />Tôi đã nhận lại phòng trống, chìa khóa, tài sản thuê; đã đối chiếu đủ hóa đơn và không thu trùng các khoản đã thanh toán.</label>
           <button type="button" disabled={busy || !handover} onClick={propose} className="rounded-lg bg-primary px-3 py-2 font-semibold text-primary-foreground disabled:opacity-50">Gửi đề xuất quyết toán</button>
         </div>}
         {data.closure.proposalVersion > 0 && data.closure.status !== "WAITING_HANDOVER" && <details open={["PROPOSED", "DISPUTED"].includes(data.closure.status)} className="space-y-2 rounded-xl border p-3 text-sm">
-          <summary className="cursor-pointer font-semibold">Đề xuất hoàn cọc · Phiên bản {data.closure.proposalVersion}</summary>
+          <summary className="cursor-pointer font-semibold">{noDepositToRefund ? "Đề xuất trả nhà và quyết toán" : "Đề xuất hoàn cọc"} · Phiên bản {data.closure.proposalVersion}</summary>
           {data.closure.deductions?.map((row, i) => <div key={i} className="space-y-1 border-t pt-2"><p>{row.description} · <strong>{money(row.amount)}</strong></p><EvidenceLinks ids={row.evidenceIds} /></div>)}
           <p>Điện cuối: {data.closure.electricityFinal ?? "Không thu theo công tơ"} · Nước cuối: {data.closure.waterFinal ?? "Không thu theo công tơ"}</p>
           {(data.closure.utilityAdjustment ?? 0) > 0
             ? <p className="text-amber-700">Đề xuất theo luồng cũ có {money(data.closure.utilityAdjustment)} điện/nước trừ vào cọc. Cần đối soát và lập lại đề xuất theo luồng thanh toán hóa đơn trước; không tự sửa khoản đã chốt.</p>
-            : <p>Điện/nước đã chốt trên hóa đơn, không trừ vào cọc · Khấu trừ khác: {money(data.closure.otherDeduction)}</p>}
-          <p className="font-semibold">Hoàn cho người thuê: {money(data.closure.refundAmount)} · Người thuê trả thêm: {money(data.closure.balanceAmount)}</p>
+            : <p>Điện/nước đã chốt trên hóa đơn, không trừ vào cọc · {noDepositToRefund ? "Khoản quyết toán khác" : "Khấu trừ khác"}: {money(data.closure.otherDeduction)}</p>}
+          <p className="font-semibold">{!noDepositToRefund && <>Hoàn cho người thuê: {money(data.closure.refundAmount)} · </>}Người thuê trả thêm: {money(data.closure.balanceAmount)}</p>
           <p className="whitespace-pre-wrap">{data.closure.note}</p>
           {data.closure.refundDueAt && data.closure.status !== "CLOSED" && <p>Hạn quyết toán/hoàn cọc: {dt(data.closure.refundDueAt)}</p>}
           {!isLandlord && data.closure.status === "PROPOSED" && <>
-            <label className="flex gap-2"><input type="checkbox" checked={consent === proposalKey} onChange={e => setConsent(e.target.checked ? proposalKey : null)} />Tôi xác nhận đã bàn giao, đã đọc và đồng ý các khoản khấu trừ cùng số tiền hoàn/trả thêm. Đây chưa phải xác nhận đã nhận tiền hoàn.</label>
+            <label className="flex gap-2"><input type="checkbox" checked={consent === proposalKey} onChange={e => setConsent(e.target.checked ? proposalKey : null)} />{noDepositToRefund ? "Tôi xác nhận đã trả nhà, đã đọc và đồng ý các khoản quyết toán/trả thêm nếu có. Hồ sơ không phát sinh chuyển khoản hoàn cọc." : "Tôi xác nhận đã bàn giao, đã đọc và đồng ý các khoản khấu trừ cùng số tiền hoàn/trả thêm. Đây chưa phải xác nhận đã nhận tiền hoàn."}</label>
             <div className="flex gap-2"><button type="button" disabled={busy || consent !== proposalKey || !data.billing.allPaid || (data.closure.utilityAdjustment ?? 0) > 0 || Boolean(data.closure.complaintCaseId && !data.closure.complaintOwnerApprovedAt)} onClick={() => void perform(() => api.accept(contractId, data.closure!.proposalVersion))} className="rounded-lg bg-emerald-600 px-3 py-2 text-white disabled:opacity-50">Đồng ý quyết toán</button>
             </div>
             <details className="space-y-3 border-t pt-3">
@@ -258,7 +259,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
               <textarea aria-label="Lý do khiếu nại quyết toán" maxLength={2000} value={disputeReason} onChange={e => setDisputeReason(e.target.value)} placeholder="Nêu khoản chưa đồng ý và lý do (ít nhất 10 ký tự)" className="w-full rounded-lg border p-3" />
               <label className="block">Minh chứng (không bắt buộc, tối đa 5 ảnh/PDF, 15 MB/tệp)<input aria-label="Minh chứng khiếu nại" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" className="mt-2 block w-full" onChange={e => { const files = selectFiles(e.target.files); if (files) setDisputeFiles(files); else e.target.value = ""; }} /></label>
               <button type="button" disabled={busy || disputeReason.trim().length < 10} onClick={dispute} className="rounded-lg border border-rose-200 px-3 py-2 text-rose-700 disabled:opacity-50">Gửi yêu cầu đối soát</button>
-              <p>Chưa tạo QR hoàn cọc. Chủ nhà cần phản hồi bằng đề xuất mới; không coi im lặng là đồng ý.</p>
+              <p>{noDepositToRefund ? "Chưa chốt khoản phải trả. Chủ nhà cần phản hồi bằng đề xuất mới; không coi im lặng là đồng ý." : "Chưa tạo QR hoàn cọc. Chủ nhà cần phản hồi bằng đề xuất mới; không coi im lặng là đồng ý."}</p>
             </details>
           </>}
         </details>}

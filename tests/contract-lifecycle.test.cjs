@@ -86,6 +86,39 @@ test("only tenant consents to a versioned proposal; consent is not receipt", () 
   assert.match(lifecycleSource, /data\?\.closure\?\.proposalVersion/);
   assert.match(lifecycleSource, /mutex\.current = true/);
 });
+test("zero held deposit skips refund instructions while retaining final bills and bilateral settlement",()=>{
+  const closure={status:"PROPOSED",proposalVersion:1,refundAmount:0,balanceAmount:0,deductions:[]};
+  const owner=renderLifecycle({heldDeposit:0,closure,canProposeClosure:true},true,"settlement");
+  assert.match(owner,/Không có tiền cọc cần hoàn/);assert.match(owner,/xác nhận trả nhà/);assert.match(owner,/bỏ qua chuyển khoản hoàn cọc/);
+  assert.match(owner,/Gửi đề xuất quyết toán/);assert.match(owner,/Thêm khoản phải trả/);
+  assert.doesNotMatch(owner,/đề xuất hoàn nguyên cọc|Đề xuất hoàn cọc|chưa tạo QR hoàn cọc/);
+  const tenant=renderLifecycle({heldDeposit:0,closure},false,"settlement");
+  assert.match(tenant,/Đồng ý quyết toán/);assert.match(tenant,/Hồ sơ không phát sinh chuyển khoản hoàn cọc/);
+  assert.doesNotMatch(tenant,/Đây chưa phải xác nhận đã nhận tiền hoàn/);
+  const unpaid=renderLifecycle({heldDeposit:0,closure:{status:"WAITING_HANDOVER",proposalVersion:0},billing:{allPaid:false,canIssueSupplement:false,bills:[]}},true,"settlement");
+  assert.match(unpaid,/Chưa hoàn tất hóa đơn/);assert.doesNotMatch(unpaid,/Gửi đề xuất quyết toán/);
+});
+test("zero-deposit completion says no refund transfer without pretending money was returned",()=>{
+  const html=renderLifecycle({heldDeposit:0,closure:{status:"CLOSED",proposalVersion:1,refundAmount:0,balanceAmount:0}},false,"settlement");
+  assert.match(html,/Đã kết thúc hợp đồng/);assert.match(html,/không phát sinh chuyển khoản hoàn cọc/);
+  assert.doesNotMatch(html,/Đã hoàn 0|Đã xác nhận hoàn cọc|Đồng ý quyết toán/);
+  const outstanding=renderLifecycle({heldDeposit:0,closure:{status:"BALANCE_PENDING",proposalVersion:1,refundAmount:0,balanceAmount:100000}},false,"settlement");
+  assert.match(outstanding,/Chờ thanh toán khoản còn thiếu/);assert.doesNotMatch(outstanding,/Đã kết thúc hợp đồng/);
+});
+test("actual refund stays visible even if the current held balance becomes zero",()=>{
+  const html=renderLifecycle({heldDeposit:0,refundPayment:{id:"actual-refund",totalAmount:3000000},closure:{status:"CLOSED",proposalVersion:1,refundAmount:3000000,balanceAmount:0}},false,"settlement");
+  assert.match(html,/Đã hoàn 3\.000\.000/);assert.doesNotMatch(html,/không phát sinh chuyển khoản hoàn cọc/);
+  assert.doesNotMatch(renderLifecycle({heldDeposit:null},false,"settlement"),/Không có tiền cọc cần hoàn/);
+});
+test("zero-deposit ledger is an exemption, while later received money and disputes retain their history",()=>{
+  const ledger={status:"HELD",originalAmount:0,heldAmount:0,retainedAmount:0,refundableAmount:0,confirmedReceivedAmount:0,confirmedRefundedAmount:0};
+  const html=renderLifecycle({heldDeposit:0,deposit:ledger},false,"settlement");
+  assert.match(html,/Không đặt cọc/);assert.match(html,/không phải chứng từ đã chuyển hoặc hoàn tiền/);assert.doesNotMatch(html,/Đang giữ cọc/);
+  const adjusted=renderLifecycle({heldDeposit:3000000,deposit:{...ledger,heldAmount:3000000,confirmedReceivedAmount:3000000}},false,"settlement");
+  assert.match(adjusted,/3\.000\.000/);assert.doesNotMatch(adjusted,/Không đặt cọc/);
+  const disputed=renderLifecycle({heldDeposit:0,deposit:{...ledger,status:"DISPUTED"}},false,"settlement");
+  assert.match(disputed,/Đang đối soát cọc/);assert.doesNotMatch(disputed,/Không đặt cọc/);
+});
 test("refund QR belongs to landlord while actual receipt belongs to tenant", () => {
   assert.match(renderPayment("AWAITING_TRANSFER", true), /Tôi đã chuyển khoản/);
   assert.doesNotMatch(renderPayment("AWAITING_TRANSFER", false), /Tôi đã chuyển khoản/);

@@ -9,7 +9,7 @@ const exempt = ["FREE","INCLUDED","NOT_APPLICABLE"];
 const billingMethodsByChargeType = {INTERNET:["PER_MONTH",...exempt],SERVICE_OR_GARBAGE:["PER_MONTH","PER_PERSON_MONTH",...exempt],MOTORBIKE_PARKING:["PER_VEHICLE_MONTH",...exempt],CAR_PARKING:["PER_VEHICLE_MONTH",...exempt],MANAGEMENT:["PER_MONTH","PER_M2_MONTH",...exempt],ELECTRICITY:["PER_KWH",...exempt],WATER:["PER_M3","PER_PERSON_MONTH","PER_MONTH",...exempt],OTHER:["PER_MONTH","PER_PERSON_MONTH",...exempt]};
 const baseline = {
   serverNow:"2026-10-14T03:00:00Z",canPropose:true,currentTermsRevisionId:"original",availableDates:["2026-11-14","2026-12-14"],proposals:[],
-  currentTerms:{billingRules:{paymentWindowDays:5,paymentDueOffsetDays:4,lateFeeGraceDays:0,overdueActionDays:5,maximumPenaltyDays:10},financial:{amountValue:"12400000",amountNumber:"12.400.000 VNĐ/tháng",depositAmountNumber:"24.800.000 VNĐ"},tenant:{occupantCount:4,motorbikeCount:0,carCount:0},property:{maxOccupants:4},
+  currentTerms:{billingRules:{paymentWindowDays:5,paymentDueOffsetDays:4,lateFeeGraceDays:0,overdueActionDays:5,maximumPenaltyDays:5,autoRolloverDays:10,terminationReviewHours:24},financial:{amountValue:"12400000",amountNumber:"12.400.000 VNĐ/tháng",depositAmountNumber:"24.800.000 VNĐ"},tenant:{occupantCount:4,motorbikeCount:0,carCount:0},property:{maxOccupants:4},
     charges:[],equipments:[{name:"Giường",quantity:1,condition:"Còn tốt"}],amenities:[],policies:{petsAllowed:false},specialTerms:"Điều khoản gốc"},
 };
 async function bundle() {
@@ -446,7 +446,7 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
     assert.equal(labels.errors.length,0);
     console.log("PASS translated legacy feature labels in view/edit without rewriting source codes or manual text");
     const rulesData=structuredClone(baseline);rulesData.currentTerms.policies={latePaymentFeeMode:"NONE",latePaymentFeeAmount:0,latePaymentFeeGraceDays:0,latePaymentFeeCap:0};
-    rulesData.currentTerms.systemTerms="Quy trình hệ thống: sau hết 5 ngày quá hạn mở phương án; tối đa 10 ngày tính phạt.";
+    rulesData.currentTerms.systemTerms="Quy trình hệ thống: sau hết 5 ngày quá hạn mở phương án; tối đa 5 ngày tính phạt.";
     const rules=await fixturePage(browser,rulesData,"owner");
     await rules.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();
     for(const label of ["Số ngày đến hạn thanh toán","Số ngày ân hạn","Trần phí chậm trả (đ)"])assert.equal(await rules.page.getByLabel(label,{exact:true}).count(),0);
@@ -459,7 +459,7 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
       {value:"NONE",text:"Không phạt"},{value:"FIXED_ONCE",text:"Một lần"},{value:"FIXED_PER_DAY",text:"Mỗi ngày"}]);
     await feeMode.selectOption("FIXED_PER_DAY");
     await rules.page.getByLabel("Mức phí chậm trả (đ)",{exact:true}).fill("100000");
-    assert.match(await rules.page.getByLabel("Quy tắc phạt do hệ thống quản lý",{exact:true}).innerText(),/100.000 đ\/ngày × 10 ngày = 1.000.000 đ/);
+    assert.match(await rules.page.getByLabel("Quy tắc phạt do hệ thống quản lý",{exact:true}).innerText(),/100.000 đ\/ngày × 5 ngày = 500.000 đ/);
     await feeMode.selectOption("FIXED_ONCE");
     assert.match(await rules.page.getByLabel("Quy tắc phạt do hệ thống quản lý",{exact:true}).innerText(),/100.000 đ/);
     await feeMode.selectOption("NONE");

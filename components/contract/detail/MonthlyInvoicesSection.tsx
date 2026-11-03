@@ -223,17 +223,23 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
         const canIssue = new Date(invoice.serverNow).getTime() >=
           new Date(`${invoice.periodEndExclusive}T00:00:00+07:00`).getTime() - 86_400_000;
         const workflowMessage: Record<MonthlyInvoice["workflowState"], string> = {
-          CANCELLED: "Khoản tiền thuê này đã hủy / hết hạn. Kiểm tra nghĩa vụ hoàn tiền ở mục Cọc & hoàn cọc.",
+          CANCELLED: firstRent ? "Khoản tiền thuê này đã hủy / hết hạn. Kiểm tra nghĩa vụ hoàn tiền ở mục Cọc & hoàn cọc." : "Bản nháp hóa đơn đã hủy khi kết thúc hợp đồng, không tạo thêm khoản phải thanh toán.",
           UPCOMING: "Kỳ thuê chưa đến ngày chốt chỉ số.",
           METER_REQUIRED: `Chủ nhà cần lưu chỉ số và phí phát sinh trước ${dateTime(invoice.meterDeadlineAt)}.`,
           READY_FOR_ISSUE: `Đã lưu bản nháp. Bạn có thể chốt và phát hành ngay; nếu không, hệ thống tự phát hành từ ${dateTime(invoice.meterDeadlineAt)}.`,
           METER_DEADLINE_MISSED: "Đã hết 24 giờ nhập chỉ số. Hệ thống sẽ tạm điền chỉ số cũ cho phần còn thiếu và phát hành; nếu thiếu chỉ số đầu hoặc biểu phí hợp lệ, cần bổ sung dữ liệu.",
           EXTENSION_PENDING: "Đang chờ chủ nhà duyệt gia hạn. Phí phạt tạm dừng; nếu từ chối hoặc hết hạn phản hồi, phí sẽ được tính bù.",
-          PAYMENT_EXTENDED: "Đã gia hạn thanh toán. Giữ nguyên khoản phạt đã chốt, không tăng phí phạt thêm cho hóa đơn này.",
+          PAYMENT_EXTENDED: invoice.lateFeeExempt ? "Đã gia hạn thanh toán theo quyết định cũ miễn tăng phí cho hóa đơn này." : "Đã gia hạn thanh toán. Trong hạn mới không tăng phí; nếu vẫn trả trễ, phí tiếp tục theo hợp đồng và giới hạn của hóa đơn.",
           UNPAID: "Hóa đơn đã phát hành, đang chờ người thuê thanh toán.",
           PAYMENT_REMINDER: "Sắp đến hạn thanh toán. Người thuê vui lòng kiểm tra số tiền và chuyển khoản.",
-          OVERDUE: invoice.lateFeeExempt ? "Đã trễ hạn gia hạn. Khoản phạt đã chốt không tăng; nghĩa vụ thanh toán vẫn còn." : "Hóa đơn quá hạn. Khoản phạt (nếu có trong hợp đồng) sẽ được tính riêng và cập nhật trên QR.",
-          OVERDUE_ACTION_REQUIRED: "Đã quá hạn 5 ngày: chủ nhà cần ghi nhận phương án xử lý bên dưới; hợp đồng, tiền cọc và tin đăng không tự thay đổi.",
+          OVERDUE: invoice.lateFeeExempt ? "Đã trễ hạn. Quyết định gia hạn cũ miễn tăng phí vẫn được giữ; nghĩa vụ thanh toán còn tồn tại." : "Hóa đơn quá hạn, kể cả sau gia hạn. Phí theo hợp đồng tiếp tục cộng trong giới hạn của hóa đơn và cập nhật trên QR.",
+          OVERDUE_ACTION_REQUIRED: invoice.unilateralTermination?.status === "ENDED"
+            ? "Hợp đồng đã chấm dứt theo quyết định đơn phương. Công nợ hóa đơn vẫn cần thanh toán; bàn giao được xác nhận riêng."
+            : invoice.unilateralTermination?.status === "NOTICE"
+              ? "Đã thông báo đơn phương chấm dứt. Người thuê có 24 giờ khiếu nại xin đổi phương án; xem thời hạn cụ thể bên dưới."
+              : invoice.unilateralTermination?.status === "REVIEW_REQUESTED"
+                ? "Đã nhận khiếu nại đúng hạn, đang chờ chủ nhà quyết định. Tự chấm dứt đang tạm dừng."
+                : "Đã quá hạn 5 ngày: chủ nhà cần ghi nhận phương án xử lý bên dưới.",
           UNDER_REVIEW: payment?.status === "TRANSFER_REPORTED"
             ? "Đã báo chuyển và gửi chứng từ, đang chờ chủ nhà xác nhận nhận tiền. Phí phạt tạm dừng tăng trong lúc chờ xử lý."
             : "Khoản thanh toán đang chờ xác nhận hoặc đối soát; phí phạt tạm dừng tăng trong lúc chờ xử lý.",
@@ -257,7 +263,7 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
             {firstRent ? invoice.status === "PAID" ? "Đã xác nhận tiền thuê tháng 1. Không thu lại trong các kỳ sau; cọc theo dõi riêng." : invoice.status === "CANCELLED" ? workflowMessage.CANCELLED : "Tiền thuê tháng đầu được mở theo tiến trình nhận nhà. Quá hạn cần đối soát, không áp dụng cộng dồn nợ hay phạt của kỳ thuê đang có hiệu lực." : workflowMessage[invoice.workflowState]}
           </p>
           {!firstRent && ["UNPAID", "PAYMENT_REMINDER", "OVERDUE", "OVERDUE_ACTION_REQUIRED"].includes(invoice.workflowState) && <p className="text-xs text-muted-foreground">
-            Phạt chậm thanh toán tối đa 10 ngày theo đơn giá và mức trần của hợp đồng. Hết 10 ngày quá hạn chưa có phương án xử lý, hệ thống tự chốt nợ để cộng dồn nếu còn kỳ sau chưa phát hành; kỳ cuối giữ hóa đơn riêng để quyết toán.
+            Phạt chậm thanh toán tối đa 5 ngày theo đơn giá và mức trần của hợp đồng. Hết 10 ngày quá hạn chưa có phương án xử lý, hệ thống tự chốt nợ để cộng dồn nếu còn kỳ sau chưa phát hành; kỳ cuối giữ hóa đơn riêng để quyết toán.
           </p>}
           {invoice.status === "DRAFT" && isLandlord && <div className="space-y-3 rounded-xl bg-muted/40 p-3">
             <p className="text-xs text-muted-foreground">Chủ nhà có 24 giờ từ đầu ngày cuối kỳ để nhập chỉ số cuối kỳ. Có thể chốt và phát hành ngay; nếu chỉ lưu bản nháp, hệ thống tự phát hành từ {dateTime(invoice.meterDeadlineAt)} và tạm dùng chỉ số đầu kỳ cho phần chưa nhập. Đơn giá lấy từ hợp đồng đã ký.</p>
@@ -307,7 +313,7 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
             </p>}
             {invoice.lateFeeAmount > 0 && invoice.status !== "ROLLED_OVER" && <p className="text-xs text-rose-700">Trong tổng trên có {money(invoice.lateFeeAmount)} phí chậm thanh toán. {invoice.lateFeeExempt ? "Phí đã chốt, không tăng thêm cho hóa đơn này." : "Nếu đã chuyển tiền, hãy gửi chứng từ để tạm dừng tăng phí."}</p>}
             {!firstRent && <PaymentExtensionPanel invoice={invoice} isLandlord={isLandlord} isTenant={isTenant} refresh={refresh} />}
-            {!firstRent && <OverdueActionsPanel invoice={invoice} contractActive={contractActive} isLandlord={isLandlord} isTenant={isTenant} refresh={refresh} />}
+            {!firstRent && <OverdueActionsPanel invoice={invoice} contractActive={contractActive} isLandlord={isLandlord} isTenant={isTenant} refresh={async () => { await refresh(); await onUpdated?.(); }} />}
             {firstRent && payment && payment.totalAmount !== invoice.totalAmount && <p className="rounded-lg bg-muted p-3 text-sm">Khoản chuyển gốc {money(payment.totalAmount)} bao gồm tiền thuê {money(invoice.totalAmount)} và cọc theo bảng kê. Chỉ chuyển một lần theo QR gốc; không cộng cọc vào tổng hóa đơn tiền thuê.</p>}
             {firstRent && payment && invoice.status === "PAID" && <div className="space-y-2 rounded-xl border p-3 text-sm"><p>Khoản chuyển gốc: <strong>{payment.transferReference}</strong> · Đã xác nhận: {dateTime(payment.confirmedAt)}</p>{payment.evidences?.map((e,index)=><button type="button" key={e.id} className="block text-primary underline" onClick={()=>void viewProof(e.storageObjectId)}>Xem chứng từ {index+1}</button>)}</div>}
             {payment && !["PAID","ROLLED_OVER","CANCELLED"].includes(invoice.status) && <div className="rounded-xl border border-border p-3 space-y-3 text-sm">

@@ -19,9 +19,11 @@ export default function PaymentExtensionPanel({ invoice, isLandlord, isTenant, r
   const mutex = useRef(false);
   const history = invoice.paymentExtensions || [];
   const pending = history.find(r => r.status === "PENDING");
+  const approved = [...history].reverse().find(r => r.status === "APPROVED");
+  const resumedFees = approved?.lateFeeResumesAfterDue === true && approved.newDueAt === invoice.dueAt;
   const canRequest = isTenant && invoice.canRequestExtension;
   const canDirect = isLandlord && invoice.canResolveOverdue && !pending;
-  if (!canRequest && !canDirect && history.length === 0 && !invoice.lateFeeExempt) return null;
+  if (!canRequest && !canDirect && history.length === 0) return null;
 
   async function perform(action: () => Promise<unknown>, success: string) {
     if (mutex.current) return;
@@ -43,11 +45,15 @@ export default function PaymentExtensionPanel({ invoice, isLandlord, isTenant, r
   return <section className="rounded-xl border border-sky-200 bg-sky-50/50 p-4 space-y-3 text-sm">
     <h4 className="font-semibold">Gia hạn thời gian thanh toán</h4>
     {invoice.originalDueAt && <p className="text-xs text-muted-foreground">Hạn ban đầu: {dateTime(invoice.originalDueAt)}. Hạn hiện tại: {invoice.dueAt ? dateTime(invoice.dueAt) : "—"}.</p>}
-    {invoice.lateFeeExempt && <p className="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800">
-      Chủ nhà đã đồng ý gia hạn. Phí phạt của hóa đơn này giữ ở {money(invoice.lateFeeAmount)}, không tăng thêm kể cả trễ hạn mới. Nghĩa vụ thanh toán vẫn còn.
+    {resumedFees && <p className="rounded-lg bg-sky-50 p-3 text-xs text-sky-900">
+      Phí đã chốt trước gia hạn: {money(approved.frozenLateFee)}. Không tăng phí trong thời gian gia hạn. Quá hạn mới, phí tiếp tục tính theo hợp đồng và cộng vào khoản đã chốt; trần tổng phí của hóa đơn không đặt lại.
+    </p>}
+    {invoice.lateFeeExempt && approved && <p className="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800">
+      Quyết định gia hạn cũ miễn tăng phí cho hóa đơn này. Phí đã chốt là {money(invoice.lateFeeAmount)}; hệ thống giữ nguyên quyết định cũ, không tự truy thu.
     </p>}
     {pending && <div className="rounded-lg border border-sky-200 bg-white p-3 space-y-2">
-      <p className="font-medium">Đang xin thêm {pending.days} ngày, tính từ lúc chủ nhà đồng ý</p>
+      <p className="font-medium">Đang xin gia hạn thêm {pending.days} ngày</p>
+      <p className="text-xs text-muted-foreground">Duyệt trước hạn: cộng số ngày vào hạn hiện tại. Đã quá hạn: tính từ lúc chủ nhà đồng ý.</p>
       <p className="whitespace-pre-wrap break-words text-xs">{pending.note}</p>
       <p className="text-xs">Phản hồi trước: {dateTime(pending.respondBy)}. Phí đã chốt: {money(pending.frozenLateFee)}.</p>
       <p className="text-xs text-muted-foreground">Nếu bị từ chối hoặc hết hạn phản hồi, phí được tính bù từ hạn cũ. Không thể gửi chồng yêu cầu để kéo dài việc dừng phạt.</p>
@@ -56,13 +62,15 @@ export default function PaymentExtensionPanel({ invoice, isLandlord, isTenant, r
           <button type="button" disabled={busy} onClick={() => void perform(() => monthlyInvoiceService.decidePaymentExtension(invoice.id, pending.id, true), "Đã đồng ý gia hạn.")}
             className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">Đồng ý thêm {pending.days} ngày</button>
           <button type="button" disabled={busy} onClick={() => {
-            if (window.confirm("Từ chối yêu cầu? Phí phạt sẽ được tính bù theo hạn ban đầu."))
+            if (window.confirm("Từ chối yêu cầu? Phí phạt sẽ được tính bù theo hạn thanh toán hiện tại."))
               void perform(() => monthlyInvoiceService.decidePaymentExtension(invoice.id, pending.id, false), "Đã từ chối và cập nhật phí.");
           }} className="rounded-lg border border-rose-300 px-3 py-2 text-xs text-rose-700 disabled:opacity-50">Từ chối</button>
         </div>}
     </div>}
     {(canRequest || canDirect) && <div className="space-y-2">
       <p className="text-xs">{canRequest ? "Bạn có thể xin thêm thời gian trả hóa đơn. Đây không phải gia hạn thời gian thuê." : "Phương án thứ ba: dời hạn trả chính hóa đơn này, không chuyển công nợ sang kỳ sau."}</p>
+      <p className="text-xs text-muted-foreground">Nếu được duyệt trước hạn, số ngày được cộng vào hạn hiện tại; nếu đã quá hạn, tính từ lúc chủ nhà đồng ý.</p>
+      <p className="text-xs text-muted-foreground">Trong thời gian được gia hạn không tăng phí. Nếu vẫn trả trễ hạn mới, phí tiếp tục cộng theo hợp đồng; phí một lần không thu lần hai, phí theo ngày giữ trần tổng 5 ngày/hóa đơn.</p>
       <label className="block text-xs font-medium">Số ngày (1–30)
         <input aria-label="Số ngày gia hạn thanh toán" type="number" min={1} max={30} step={1} value={days}
           onChange={e => setDays(Number(e.target.value))} className="mt-1 block w-28 rounded-lg border bg-background px-3 py-2" />

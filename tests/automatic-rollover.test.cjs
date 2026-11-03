@@ -12,7 +12,14 @@ const compiled = ts.transpileModule(source, { compilerOptions: {
 } }).outputText;
 const mod = { exports: {} };
 const imports = name => name === "@/services/monthly-invoice.service" ? { monthlyInvoiceService: {} }
-  : name === "@/utils/apiError" ? { getApiErrorMessage: () => "test error" } : require(name);
+  : name === "@/utils/apiError" ? { getApiErrorMessage: () => "test error" }
+  : name === "./UnilateralTerminationPanel" ? (() => {
+    const child = { exports: {} };
+    const code = ts.transpileModule(fs.readFileSync(path.join(__dirname, "../components/contract/detail/UnilateralTerminationPanel.tsx"), "utf8"),
+      { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+    vm.runInThisContext(`(function(require,module,exports){${code}\n})`)(imports, child, child.exports);
+    return child.exports;
+  })() : require(name);
 vm.runInThisContext(`(function(require,module,exports){${compiled}\n})`)(imports, mod, mod.exports);
 const Panel = mod.exports.default;
 const base = { id: "bill", canResolveOverdue: false, canDeferToNextPeriod: true,
@@ -34,7 +41,9 @@ test("automatic rollover history identifies the system, not a landlord decision,
 });
 test("overdue choice explains the ten day fallback and final bill cannot offer rollover", () => {
   const html = render({ canResolveOverdue: true });
-  assert.match(html, /Phạt tối đa 10 ngày/);
+  assert.match(html, /Phạt tối đa 5 ngày/);
+  assert.match(html, /Hết 10 ngày quá hạn/);
+  assert.match(html, />Thông báo đơn phương chấm dứt</);
   assert.match(html, /chờ duyệt gia hạn, đối soát/);
   assert.match(html, />Cộng dồn sang kỳ sau</);
   const final = render({ canResolveOverdue: true, canDeferToNextPeriod: false });

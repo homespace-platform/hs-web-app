@@ -10,7 +10,8 @@ export interface InvoiceLine {
 }
 
 export type OverdueActionType = "PAYMENT_REQUEST" | "EXTENSION_PROPOSAL" |
-  "MUTUAL_TERMINATION_PROPOSAL" | "LEGAL_REVIEW" | "AUTOMATIC_ROLLOVER";
+  "MUTUAL_TERMINATION_PROPOSAL" | "LEGAL_REVIEW" | "AUTOMATIC_ROLLOVER" | "UNILATERAL_TERMINATION_NOTICE" |
+  "TERMINATION_REVIEW_REQUESTED" | "TERMINATION_REVIEW_DECIDED" | "TERMINATION_ENDED" | "TERMINATION_HANDOVER";
 
 export interface OverdueAction {
   id: string;
@@ -77,6 +78,19 @@ export interface MonthlyInvoice {
   activeResolution: "NONE" | "EXTENSION_REQUEST" | "PAYMENT_EXTENSION" | "ROLLOVER" | "TERMINATION";
   canRequestExtension: boolean;
   canResolveOverdue: boolean;
+  unilateralTermination?: UnilateralTerminationNotice | null;
+  canRequestTerminationReview?: boolean;
+  canDecideTerminationReview?: boolean;
+  canCompleteTerminationHandover?: boolean;
+}
+
+export interface UnilateralTerminationNotice {
+  id: string; invoiceId: string; version: number;
+  status: "NOTICE" | "REVIEW_REQUESTED" | "REPLACED" | "WITHDRAWN" | "CANCELLED_PAID" | "ENDED";
+  reason: string; notifiedAt: string; respondBy: string;
+  requestedOption?: "ROLLOVER" | "PAYMENT_EXTENSION"; requestedDays?: number;
+  requestReason?: string; requestedAt?: string; decidedAt?: string; decisionReason?: string;
+  endedAt?: string; handoverAt?: string;
 }
 
 export interface PaymentExtension {
@@ -85,6 +99,7 @@ export interface PaymentExtension {
   requestedAt: string; respondBy: string; requestedBy: string;
   baseDueAt: string; frozenLateFee: number;
   decidedAt?: string; decidedBy?: string; newDueAt?: string;
+  lateFeeResumesAfterDue?: boolean | null;
 }
 
 export interface IssueMonthlyInvoicePayload {

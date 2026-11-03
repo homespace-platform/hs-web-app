@@ -36,10 +36,32 @@ test("pending request shows frozen fees and deadline, only landlord can approve"
   assert.match(render(invoice, "landlord"), /Đồng ý thêm 7 ngày/);
   assert.doesNotMatch(render({ ...invoice, workflowState: "UNDER_REVIEW" }, "landlord"), /Đồng ý thêm/);
 });
-test("approved waiver is explicit even after late again, no overlapping direct option", () => {
-  const html = render({ lateFeeExempt: true, activeResolution: "PAYMENT_EXTENSION" }, "landlord");
-  assert.match(html, /kể cả trễ hạn mới/);
+test("early extensions explain adding days to the current deadline rather than shortening it",()=>{
+  const invoice={dueAt:"2026-12-08T16:59:59Z",originalDueAt:"2026-12-08T16:59:59Z",serverNow:"2026-12-04T03:00:00Z",
+    paymentExtensions:[{...pending,days:1,respondBy:"2026-12-06T03:00:00Z"}],activeResolution:"EXTENSION_REQUEST"};
+  for(const role of ["tenant","landlord"]) {
+    const html=render(invoice,role);
+    assert.match(html,/Đang xin gia hạn thêm 1 ngày/);assert.match(html,/Duyệt trước hạn: cộng số ngày vào hạn hiện tại/);
+    assert.match(html,/Đã quá hạn: tính từ lúc chủ nhà đồng ý/);
+    assert.doesNotMatch(html,/Đang xin thêm 1 ngày, tính từ lúc chủ nhà đồng ý/);
+  }
+});
+test("new approval explains resuming fees after the deadline and preserving the invoice cap", () => {
+  const html = render({ paymentExtensions: [{ ...pending, status: "APPROVED", newDueAt: base.dueAt, lateFeeResumesAfterDue: true }],
+    lateFeeExempt: false, activeResolution: "PAYMENT_EXTENSION" }, "landlord");
+  assert.match(html, /Không tăng phí trong thời gian gia hạn/);
+  assert.match(html, /Quá hạn mới, phí tiếp tục tính theo hợp đồng/);
+  assert.match(html, /trần tổng phí của hóa đơn không đặt lại/);
+  assert.doesNotMatch(html, /miễn tăng phí cho hóa đơn này/);
   assert.doesNotMatch(html, />Dời hạn thanh toán</);
+});
+test("legacy waiver remains visible and does not claim that fees resume", () => {
+  const html = render({ lateFeeExempt: true, paymentExtensions: [{ ...pending, status: "APPROVED", newDueAt: base.dueAt }] }, "landlord");
+  assert.match(html, /Quyết định gia hạn cũ miễn tăng phí/);assert.match(html, /không tự truy thu/);
+  assert.doesNotMatch(html, /Quá hạn mới, phí tiếp tục/);
+});
+test("exempt initial rent without any extension does not display a misleading extension panel", () => {
+  assert.equal(render({ lateFeeExempt: true }, "tenant"), "");
 });
 test("third option is driven by backend eligibility; UI uses request mutex", () => {
   assert.match(render({ canResolveOverdue: true }, "landlord"), /Dời hạn thanh toán/);

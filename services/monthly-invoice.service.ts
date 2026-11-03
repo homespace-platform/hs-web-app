@@ -3,6 +3,29 @@ import type { ApiResponse } from "@/types/api.type";
 import type { IssueMonthlyInvoicePayload, MonthlyInvoice, OverdueActionType } from "@/types/monthly-invoice.type";
 
 export const monthlyInvoiceService = {
+  async issueUnilateralTermination(id: string, reason: string): Promise<MonthlyInvoice> {
+    const { data } = await axiosClient.post<ApiResponse<MonthlyInvoice>>(`/api/v1/monthly-invoices/${id}/unilateral-termination`, { reason });
+    return data.result;
+  },
+  async requestTerminationReview(id: string, noticeId: string, payload: {
+    expectedVersion: number; option: "ROLLOVER" | "PAYMENT_EXTENSION"; days?: number; reason: string;
+  }): Promise<MonthlyInvoice> {
+    const { data } = await axiosClient.post<ApiResponse<MonthlyInvoice>>(`/api/v1/monthly-invoices/${id}/unilateral-termination/${noticeId}/review`, payload);
+    return data.result;
+  },
+  async decideTerminationReview(id: string, noticeId: string, expectedVersion: number, approve: boolean, reason: string): Promise<MonthlyInvoice> {
+    const { data } = await axiosClient.post<ApiResponse<MonthlyInvoice>>(`/api/v1/monthly-invoices/${id}/unilateral-termination/${noticeId}/decision`, { expectedVersion, approve, reason });
+    return data.result;
+  },
+  async withdrawUnilateralTermination(id: string, noticeId: string, expectedVersion: number): Promise<MonthlyInvoice> {
+    const { data } = await axiosClient.post<ApiResponse<MonthlyInvoice>>(`/api/v1/monthly-invoices/${id}/unilateral-termination/${noticeId}/withdraw`, { expectedVersion });
+    return data.result;
+  },
+  async completeUnilateralHandover(id: string, noticeId: string, expectedVersion: number): Promise<MonthlyInvoice> {
+    const { data } = await axiosClient.post<ApiResponse<MonthlyInvoice>>(`/api/v1/monthly-invoices/${id}/unilateral-termination/${noticeId}/handover`,
+      { expectedVersion, vacantPossessionConfirmed: true, keysAndAssetsReturned: true });
+    return data.result;
+  },
   async requestPaymentExtension(id: string, days: number, note: string): Promise<MonthlyInvoice> {
     const { data } = await axiosClient.post<ApiResponse<MonthlyInvoice>>(
       `/api/v1/monthly-invoices/${id}/extension-requests`, { days, note });

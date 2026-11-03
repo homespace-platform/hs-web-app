@@ -36,6 +36,7 @@ import type {
 import type { RentalRequestResponse } from "@/types/rental-request.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
+import ComplaintPanel from "@/components/complaint/ComplaintPanel";
 
 interface RentalPaymentModalProps {
   request: Pick<RentalRequestResponse, "id"> & Partial<RentalRequestResponse>;
@@ -1171,6 +1172,7 @@ export default function RentalPaymentModal({
                 </form>
               )}
               <PaymentDisputePanel payment={payment} onUpdated={async () => setPayment(await paymentRequestService.getPaymentRequest(payment.id))} />
+              <ComplaintPanel rentalRequestId={request.id}/>
             </>
           )}
         </div>

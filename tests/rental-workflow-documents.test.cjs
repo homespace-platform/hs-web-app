@@ -1,0 +1,19 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Execute the real client handlers with isolated transport and hooks. */
+const {test}=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm"),path=require("node:path"),ts=require("typescript"),React=require("react");
+function fixture(options={}){
+ const row={signingContractId:"doc",sourceRevision:9,status:"DRAFT",current:options.current??true},document={id:"pdf",documentType:"PDF",purpose:"OFFICIAL",status:"READY"};
+ const detail={id:"doc",contract:{id:"doc",status:"DRAFT"},state:{smartCaEnabled:false},documents:[document]},states=[options.rows??[row],"",detail,"",false,null],updates=states.map(()=>[]),effects=[],refs=[],calls=[];
+ let state=0,ref=0;
+ const hooks={...React,useState(v){const i=state++;return [states[i]??v,x=>updates[i].push(x)];},useRef(v){return refs[ref++]??(refs[ref-1]={current:v});},useCallback:f=>f,useEffect(f){effects.push(f);}};
+ const api={documents:async(...args)=>{calls.push({name:"list",args});return [row];},prepareDocument:async(...args)=>{calls.push({name:"prepare",args});return options.pending??row;}};
+ const deps={react:hooks,"@/services/rental-workflow.service":{rentalWorkflowService:api},"@/services/contract.service":{contractService:{getContract:async()=>detail.contract,getSignatureState:async()=>detail.state,getDocuments:async()=>detail.documents}},"@/components/contract/detail/SmartCaSignaturePanel":{default:()=>null},"@/components/contract/detail/ContractPdfViewerModal":{default:()=>null},"@/utils/apiError":{getApiErrorMessage:e=>e.message},sonner:{toast:{error(){}}}};
+ const loaded={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,"../components/rental-request/WorkflowDocumentsPanel.tsx"),"utf8"),{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:loaded,exports:loaded.exports,require:n=>deps[n]??require(n)});
+ const tree=loaded.exports.default({rentalRequestId:"rental",kind:"move-in",data:{revision:9,status:"PROPOSED",role:"LANDLORD"},onUpdated(){}});return {tree,calls,effects,updates};
+}
+function text(n){if(n==null||typeof n==="boolean")return "";if(Array.isArray(n))return n.map(text).join("");return typeof n==="object"?text(n.props?.children):String(n);}
+function find(n,p){if(!n||typeof n!=="object")return;if(Array.isArray(n)){for(const v of n){const r=find(v,p);if(r)return r;}return;}return p(n)?n:find(n.props?.children,p);}
+const tick=()=>new Promise(setImmediate);
+function button(f,label){return find(f.tree,n=>n.type==="button"&&text(n)===label);}
+test("opening PDF section only reads; generation requires a separate explicit action on the reviewed revision",async()=>{const f=fixture();f.effects[0]();f.effects[1]();await tick();assert.deepEqual(f.calls.map(c=>c.name),["list"]);await button(f,"Tạo / mở PDF của bản đang xem").props.onClick();await tick();assert.deepEqual(f.calls.find(c=>c.name==="prepare").args,["rental","move-in",9]);});
+test("double click prepares one document and late result after unmount cannot select a different account's document",async()=>{let release;const f=fixture({pending:new Promise(r=>release=r)}),cleanup=f.effects[0]();const b=button(f,"Tạo / mở PDF của bản đang xem");b.props.onClick();b.props.onClick();cleanup();release({signingContractId:"old-account"});await tick();assert.equal(f.calls.filter(c=>c.name==="prepare").length,1);assert.equal(f.updates[1].length,0);});
+test("historical PDF remains readable while its signature panel is disabled",()=>{const f=fixture({current:false});const signing=find(f.tree,n=>n.props?.signingAllowed===false);assert.ok(signing);assert.match(signing.props.blockedReason,/cũ/);assert.ok(button(f,"Xem / tải PDF nguồn"));});

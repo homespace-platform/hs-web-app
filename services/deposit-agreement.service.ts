@@ -8,6 +8,8 @@ export interface DepositAgreementView {
   blockedReason: string | null;
   agreement: ContractResponse | null;
   documents: ContractDocumentResponse[];
+  leaseContractId?: string | null;
+  obligation?: string | null;
 }
 const base=(id:string)=>`/api/v1/rental-requests/${encodeURIComponent(id)}/deposit-agreement`;
 export const depositAgreementService={

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Node regression tests execute the real TypeScript with isolated dependencies. */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -62,6 +63,7 @@ const testReact = { ...React, useState(initial) {
 } };
 const Detail = load(detailSource, name => name === "react" ? testReact
   : name === "@/components/payment/PaymentDisputePanel" ? { default: () => null }
+  : ["@/components/complaint/ComplaintPanel","@/components/rental-request/RentalWorkflowPanel"].includes(name) ? { default: () => null }
   : name === "@/lib/invoice-status" ? { invoiceStatusPresentation: presentation, invoicePeriodLabel, invoicePeriodSecondaryLabel }
   : name.startsWith("@/lib/") ? moduleImports(name)
   : name.startsWith("@/services/") ? { default: {}, monthlyInvoiceService: {} }

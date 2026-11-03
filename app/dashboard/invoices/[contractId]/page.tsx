@@ -74,7 +74,7 @@ function ContractInvoicesPage() {
       initialElectricity={revision.meters?.electricityInitial == null ? undefined : String(revision.meters.electricityInitial)}
       initialWater={revision.meters?.waterInitial == null ? undefined : String(revision.meters.waterInitial)} />}
     {section === "deposit" && <DepositAdjustmentPayments contractId={contract.id} isLandlord={isLandlord}/>}
-    {section === "deposit" && <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} onUpdated={async()=>{await refresh();}} />}
+    {section === "deposit" && <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} showComplaints={!(["ACTIVE","EXPIRED","CLOSED"].includes(contract.status))} onUpdated={async()=>{await refresh();}} />}
     {section === "deposit" && (contract.status === "TERMINATED"
       ? <div className="rounded-xl border bg-card p-5 text-sm">Hợp đồng đã chấm dứt theo phương án xử lý riêng. Kiểm tra điều khoản và kết quả xử lý tiền cọc trong <Link href={contractDetailPath(role, contract.id)} className="text-primary underline">hồ sơ hợp đồng</Link>.</div>
       : ["ACTIVE","EXPIRED","CLOSED"].includes(contract.status) ? <ContractLifecyclePanel key={role + ":" + contract.id} contractId={contract.id} isLandlord={isLandlord} mode="settlement" onUpdated={refresh} /> : null)}

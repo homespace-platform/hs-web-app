@@ -16,6 +16,7 @@ export interface ClosureEvent {
   deductions: ClosureDeduction[]; refundAmount?: number; balanceAmount?: number; evidenceIds: string[];
 }
 export interface ContractClosure {
+  complaintCaseId?: string; complaintOwnerApprovedAt?: string;
   status: "WAITING_HANDOVER" | "PROPOSED" | "DISPUTED" | "REFUND_PENDING" | "BALANCE_PENDING" | "CLOSED";
   proposalVersion: number; electricityFinal?: number; waterFinal?: number;
   utilityAdjustment?: number; otherDeduction?: number; refundAmount?: number; balanceAmount?: number;
@@ -23,6 +24,7 @@ export interface ContractClosure {
   respondBy?: string; responseOverdueAt?: string; deductions?: ClosureDeduction[]; history?: ClosureEvent[];
 }
 export interface ContractLifecycle {
+  rentalRequestId?: string;
   deposit?: DepositLedger | null;
   serverNow: string; endExclusive: string; renewalOpensAt: string; renewalSignBy: string;
   canRequestRenewal: boolean; renewals: ContractRenewal[]; closure?: ContractClosure;

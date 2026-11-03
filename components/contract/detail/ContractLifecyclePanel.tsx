@@ -11,13 +11,15 @@ import { contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
 import { getApiErrorMessage } from "@/utils/apiError";
 import SettlementPaymentPanel from "./SettlementPaymentPanel";
 import DepositLedgerSummary from "@/components/payment/DepositLedgerSummary";
+import ComplaintPanel from "@/components/complaint/ComplaintPanel";
+import RentalWorkflowPanel from "@/components/rental-request/RentalWorkflowPanel";
 import { MeterReadingInput } from "./MeterReading";
 import { invoicePeriodLabel } from "@/lib/invoice-status";
 const dt = (value?: string) => value ? new Date(value).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 const money = (value?: number | null) => value == null ? "Chưa có dữ liệu" : value.toLocaleString("vi-VN") + " đ";
 const renewalLabels = { REQUESTED: "Chờ chủ nhà duyệt", APPROVED: "Chờ ký văn bản gia hạn", APPLIED: "Đã ký đủ · Đã áp dụng", REJECTED: "Chủ nhà từ chối", EXPIRED: "Đã hết hạn duyệt/ký" };
 const closureLabels = { WAITING_HANDOVER: "Chờ bàn giao và lập đề xuất", PROPOSED: "Chờ người thuê xác nhận", DISPUTED: "Chưa thống nhất · Cần đối soát", REFUND_PENDING: "Chờ hoàn cọc", BALANCE_PENDING: "Chờ thanh toán khoản còn thiếu", CLOSED: "Đã hoàn tất xử lý tiền cọc" };
-const eventLabels: Record<string, string> = { PROPOSED: "Chủ nhà gửi đề xuất", LEGACY_PROPOSAL: "Đề xuất trước khi bổ sung lịch sử", DISPUTED: "Người thuê yêu cầu đối soát", ACCEPTED: "Người thuê đồng ý quyết toán", COSTS_ADDED: "Phát hành chi phí bổ sung · cần đối chiếu lại", RESPONSE_OVERDUE: "Quá hạn phản hồi · cần xử lý", PAYMENT_OVERDUE: "Quá hạn chuyển tiền", CLOSED: "Hoàn tất quyết toán" };
+const eventLabels: Record<string, string> = { PROPOSED: "Gửi đề xuất quyết toán", OWNER_APPROVED: "Chủ nhà đồng ý đề xuất admin", LEGACY_PROPOSAL: "Đề xuất trước khi bổ sung lịch sử", DISPUTED: "Người thuê yêu cầu đối soát", ACCEPTED: "Người thuê đồng ý quyết toán", COSTS_ADDED: "Phát hành chi phí bổ sung · cần đối chiếu lại", RESPONSE_OVERDUE: "Quá hạn phản hồi · cần xử lý", PAYMENT_OVERDUE: "Quá hạn chuyển tiền", CLOSED: "Hoàn tất quyết toán" };
 type DeductionDraft = ClosureDeduction & { key: string; files: File[] };
 function EvidenceLinks({ ids }: { ids?: string[] }) {
   return <div className="flex flex-wrap gap-3">{ids?.map((id, i) => <button key={id} type="button" className="text-primary underline" onClick={async () => {
@@ -249,7 +251,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
           {data.closure.refundDueAt && data.closure.status !== "CLOSED" && <p>Hạn quyết toán/hoàn cọc: {dt(data.closure.refundDueAt)}</p>}
           {!isLandlord && data.closure.status === "PROPOSED" && <>
             <label className="flex gap-2"><input type="checkbox" checked={consent === proposalKey} onChange={e => setConsent(e.target.checked ? proposalKey : null)} />Tôi xác nhận đã bàn giao, đã đọc và đồng ý các khoản khấu trừ cùng số tiền hoàn/trả thêm. Đây chưa phải xác nhận đã nhận tiền hoàn.</label>
-            <div className="flex gap-2"><button type="button" disabled={busy || consent !== proposalKey || !data.billing.allPaid || (data.closure.utilityAdjustment ?? 0) > 0} onClick={() => void perform(() => api.accept(contractId, data.closure!.proposalVersion))} className="rounded-lg bg-emerald-600 px-3 py-2 text-white disabled:opacity-50">Đồng ý quyết toán</button>
+            <div className="flex gap-2"><button type="button" disabled={busy || consent !== proposalKey || !data.billing.allPaid || (data.closure.utilityAdjustment ?? 0) > 0 || Boolean(data.closure.complaintCaseId && !data.closure.complaintOwnerApprovedAt)} onClick={() => void perform(() => api.accept(contractId, data.closure!.proposalVersion))} className="rounded-lg bg-emerald-600 px-3 py-2 text-white disabled:opacity-50">Đồng ý quyết toán</button>
             </div>
             <details className="space-y-3 border-t pt-3">
               <summary className="cursor-pointer font-semibold text-rose-700">Chưa đồng ý · Gửi yêu cầu đối soát</summary>
@@ -260,6 +262,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
             </details>
           </>}
         </details>}
+        {data.closure.complaintCaseId && !data.closure.complaintOwnerApprovedAt && <p className="text-sm text-amber-800">Đề xuất từ hồ sơ khiếu nại cần chủ nhà đồng ý trước tại mục Khiếu nại & hỗ trợ bên dưới.</p>}
         {!!data.closure.history?.length && <details className="space-y-3 rounded-xl border p-3 text-xs">
           <summary className="cursor-pointer font-semibold">Lịch sử quyết toán & khiếu nại ({data.closure.history.length})</summary>
           {[...data.closure.history].reverse().map((event, index) => <article key={index} className="space-y-2 border-t pt-3">
@@ -272,6 +275,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
         {data.refundPayment && <SettlementPaymentPanel payment={data.refundPayment} isLandlord={isLandlord} refresh={refresh} />}
         {data.balancePayment && <SettlementPaymentPanel payment={data.balancePayment} isLandlord={isLandlord} refresh={refresh} />}
       </div>}
+      {data.rentalRequestId && <><RentalWorkflowPanel rentalRequestId={data.rentalRequestId} kind="move-in" onUpdated={refresh}/><RentalWorkflowPanel rentalRequestId={data.rentalRequestId} kind="early-exit" onUpdated={refresh}/><ComplaintPanel rentalRequestId={data.rentalRequestId} attention={data.closure?.status==="DISPUTED"} onUpdated={refresh}/></>}
     </>}
   </section>;
 }

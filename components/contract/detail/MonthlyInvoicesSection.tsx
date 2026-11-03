@@ -19,6 +19,7 @@ import InvoiceLineCalculation from "./InvoiceLineCalculation";
 import { chooseInvoice, paymentModulePath } from "@/lib/payment-module";
 import { findInvoicePayment } from "@/lib/invoice-list";
 import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
+import ComplaintPanel from "@/components/complaint/ComplaintPanel";
 
 type Extra = { description: string; amount: string };
 type Props = {
@@ -43,7 +44,7 @@ const money = (n: number) => new Intl.NumberFormat("vi-VN", {
 const date = (s?: string) => s ? new Date(s).toLocaleDateString("vi-VN") : "—";
 const dateTime = (s?: string) => s ? new Date(s).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 
-export default function MonthlyInvoicesSection({ contractId, contractActive, isLandlord, isTenant,
+export default function MonthlyInvoicesSection({ contractId, rentalRequestId, contractActive, isLandlord, isTenant,
   electricityRequired, waterRequired, unsupportedWaterRate, initialElectricity, initialWater,
   requestedInvoiceId, onUpdated }: Props) {
   const [invoices, setInvoices] = useState<MonthlyInvoice[]>([]);
@@ -347,5 +348,6 @@ export default function MonthlyInvoicesSection({ contractId, contractActive, isL
           {payment && !["ROLLED_OVER", "CANCELLED"].includes(invoice.status) && <PaymentDisputePanel payment={payment} onUpdated={refresh} />}
         </article>;
       })}</div></div>}
+    {rentalRequestId && <ComplaintPanel rentalRequestId={rentalRequestId} onUpdated={refresh}/>}
   </section>;
 }

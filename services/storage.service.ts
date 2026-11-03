@@ -60,6 +60,12 @@ async function uploadFile(file: File, request: CreateStorageUploadRequest): Prom
 }
 
 const storageService = {
+  async uploadComplaintEvidence(file: File, rentalId: string): Promise<string> {
+    const contentType = resolveContentType(file);
+    if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(contentType) || file.size <= 0 || file.size > 15 * 1024 * 1024)
+      throw new Error("Chứng cứ cần là ảnh JPG/PNG/WebP hoặc PDF, tối đa 15 MB/tệp.");
+    return uploadFile(file, { fileName: file.name, contentType, size: file.size, purpose: "GENERAL", visibility: "PRIVATE", referenceType: "RENTAL_COMPLAINT_EVIDENCE", referenceId: rentalId });
+  },
   async uploadAmendmentEvidence(file: File, contractId: string): Promise<string> {
     const contentType = resolveContentType(file);
     if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(contentType)

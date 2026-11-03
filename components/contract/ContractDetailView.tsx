@@ -42,6 +42,8 @@ import ContractDocumentSection from "@/components/contract/detail/ContractDocume
 import ContractSignaturePanel from "@/components/contract/detail/ContractSignaturePanel";
 import SmartCaSignaturePanel from "@/components/contract/detail/SmartCaSignaturePanel";
 import ContractLifecyclePanel from "@/components/contract/detail/ContractLifecyclePanel";
+import ComplaintPanel from "@/components/complaint/ComplaintPanel";
+import RentalWorkflowPanel from "@/components/rental-request/RentalWorkflowPanel";
 import ContractAmendmentPanel from "@/components/contract/detail/ContractAmendmentPanel";
 import ContractAmendmentWorkspace, { ContractTermsNotice } from "@/components/contract/detail/ContractAmendmentWorkspace";
 import { contractListPath, contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
@@ -505,6 +507,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4"><div><p className="font-semibold">Hóa đơn & thanh toán</p><p className="mt-1 text-sm text-muted-foreground">Thanh toán ban đầu, hóa đơn theo kỳ và bàn giao / hoàn cọc được quản lý trong một hồ sơ riêng.</p></div><Link href={invoiceDetailPath(contract.id)} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Mở hồ sơ thanh toán →</Link></div>
       </>}
       {/* 4. MAIN CONTRACT SECTIONS */}
+      {!contract.parentContractId && ["EXPIRED","CLOSED","TERMINATED"].includes(contract.status) && <><RentalWorkflowPanel rentalRequestId={contract.rentalRequestId} kind="move-in" onUpdated={refreshSignedState}/><RentalWorkflowPanel rentalRequestId={contract.rentalRequestId} kind="early-exit" onUpdated={refreshSignedState}/><ComplaintPanel rentalRequestId={contract.rentalRequestId} onUpdated={refreshSignedState}/></>}
       <div className="space-y-6">
         <>
         {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status) && <ContractTermsNotice />}

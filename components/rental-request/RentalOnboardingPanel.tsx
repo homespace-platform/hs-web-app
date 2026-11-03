@@ -10,6 +10,8 @@ import RentalPaymentModal from "./RentalPaymentModal";
 import DepositAgreementPanel from "./DepositAgreementPanel";
 import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
 import DepositLedgerSummary from "@/components/payment/DepositLedgerSummary";
+import ComplaintPanel from "@/components/complaint/ComplaintPanel";
+import RentalWorkflowPanel from "./RentalWorkflowPanel";
 
 const date = (s: string) => s.split("T")[0].split("-").reverse().join("/");
 const instant = (s?: string) => s ? new Date(s).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
@@ -18,9 +20,10 @@ const statuses: Record<string, string> = { CONFIRMED: "Đã xác nhận", TRANSF
 const decisions: Record<string, string> = { REQUESTED: "Chờ chủ nhà duyệt", APPROVED: "Đã đồng ý", REJECTED: "Không đồng ý", EXPIRED: "Đã hết hạn", WITHDRAWN: "Đã rút" };
 const button = "rounded-lg border px-3 py-2 text-sm disabled:opacity-50";
 
-export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onUpdated, onSnapshot }: {
+export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onUpdated, onSnapshot, showComplaints=true }: {
   rentalRequestId: string; isLandlord?: boolean; onUpdated?: (view: RentalOnboarding) => void | Promise<void>;
   onSnapshot?: (view: RentalOnboarding) => void;
+  showComplaints?: boolean;
 }) {
   const [view, setView] = useState<RentalOnboarding | null>(null);
   const [error, setError] = useState("");
@@ -114,6 +117,8 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
       </details>}
       {!!view.history?.length && <details className="rounded-xl border p-3"><summary className="cursor-pointer text-sm font-medium">Lịch sử xử lý hồ sơ</summary>{view.history.map(e => <p key={e.id} className="mt-2 text-sm">{instant(e.occurredAt)} · {({ CANCELLATION_REQUESTED: "Đề nghị hủy và hoàn tiền", CANCELLATION_APPROVED: "Đồng ý hủy và hoàn tiền", CANCELLATION_REJECTED: "Không đồng ý hủy", PAYMENT_RECEIPT_VERIFIED: "Đã đối soát nhận đủ tiền", PAYMENT_REOPENED: "Mở lại thanh toán", SIGNING_REOPENED: "Mở lại thời hạn ký", DEPOSIT_AGREEMENT_CREATED: "Đã lập hợp đồng cọc", DEPOSIT_LANDLORD_SIGNED: "Chủ nhà đã ký cọc", DEPOSIT_BOTH_SIGNED: "Đã ký đủ hợp đồng cọc", DEPOSIT_SIGNING_REOPENED: "Mở lại hạn ký cọc" } as Record<string, string>)[e.action] ?? "Cập nhật hồ sơ"} · {e.note}</p>)}</details>}
     </>}
+    <RentalWorkflowPanel rentalRequestId={rentalRequestId} kind="cancellation" onUpdated={load}/>
+    {showComplaints && <ComplaintPanel rentalRequestId={rentalRequestId} onUpdated={load}/>}
     {paymentId && <RentalPaymentModal request={{ id: rentalRequestId }} paymentId={paymentId} isOpen onClose={() => { setPaymentId(null); void load(); }} onPaymentSuccess={() => { setPaymentId(null); void load(); }} />}
   </section>;
 }

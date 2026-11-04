@@ -34,7 +34,7 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
   const [reason, setReason] = useState("");
   const [showForm, setShowForm] = useState(false);
   const isOwner = view ? view.askerRole === "LANDLORD" : isLandlord;
-  const noticeOpen=!!view && !["COMPLETED","CANCELLED_BY_SYSTEM","CANCELLED_BY_RENTER","CANCELLED_BY_OWNER","EXPIRED","REJECTED"].includes(view.stage);
+  const noticeOpen=!!view && !["CANCELLATION_REFUND_PENDING","COMPLETED","CANCELLED_BY_SYSTEM","CANCELLED_BY_RENTER","CANCELLED_BY_OWNER","EXPIRED","REJECTED"].includes(view.stage);
   useEffect(() => { if (view) onSnapshot?.(view); }, [view, onSnapshot]);
   const load = useCallback(async () => {
     try { const data = await service.refresh(rentalRequestId); setView(data); setError(""); }
@@ -70,7 +70,7 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
         : view.deposit && <DepositAgreementPanel rentalRequestId={rentalRequestId} isLandlord={!!isOwner} onUpdated={async()=>{await load();}}/>}
       {view.deposit && <DepositLedgerSummary ledger={view.deposit} />}
       {view.defaultCase?.notifiedAt && <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
-        <p className="font-semibold">{view.defaultCase.completedAt ? "Đã hủy hồ sơ và chốt giữ cọc" : !noticeOpen ? "Hồ sơ đã kết thúc / hoàn tất ký · Thông báo cũ không còn áp dụng" : view.defaultCase.disputedAt ? "Đang có phản hồi · Chặn giữ cọc, cần đối soát" : "Thông báo cuối cùng trước khi xử lý giữ cọc"}</p>
+        <p className="font-semibold">{view.defaultCase.completedAt ? "Đã hủy hồ sơ và chốt giữ cọc" : view.stage === "CANCELLATION_REFUND_PENDING" ? "Đang chờ hoàn tiền · Thông báo giữ cọc cũ hết hiệu lực" : !noticeOpen ? "Hồ sơ đã kết thúc / hoàn tất ký · Thông báo cũ không còn áp dụng" : view.defaultCase.disputedAt ? "Đang có phản hồi · Chặn giữ cọc, cần đối soát" : "Thông báo cuối cùng trước khi xử lý giữ cọc"}</p>
         <p>{view.defaultCase.reason}</p><p>Hạn phản hồi: {instant(view.defaultCase.respondBy)} (giờ Việt Nam). Tiền thuê đã nhận phải hoàn riêng.</p>
         {!isOwner && noticeOpen && !view.defaultCase.completedAt && !view.defaultCase.disputedAt && <button type="button" disabled={busy} className={button} onClick={()=>{const note=window.prompt("Nội dung phản hồi / yêu cầu đối soát (ít nhất 10 ký tự):");if(note&&note.trim().length>=10)void action(()=>service.disputeDefault(rentalRequestId,note.trim()));}}>Phản hồi / Yêu cầu đối soát</button>}
         {isOwner && view.defaultCase.canComplete && <button type="button" disabled={busy} className={button} onClick={()=>{
@@ -84,7 +84,7 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
       {view.signingDueAt && view.stage !== "COMPLETED" && <p className="text-sm">Hạn hoàn tất ký: {instant(view.signingDueAt)}. Quá hạn cần đối soát hồ sơ, phòng không tự được giải phóng.</p>}
       {isOwner && view.stage === "REQUIRES_REVIEW" && view.signingDueAt && <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Lý do mở lại thời hạn ký sau khi đã kiểm tra đủ tiền (tối thiểu 10 ký tự):"); if (note && note.trim().length >= 10) void action(() => service.reopenSigning(rentalRequestId, note.trim())); }}>Đã đối soát · Mở lại thời hạn ký</button>}
       <div className="space-y-3">{view.payments.filter(p => !(p.type === "RESERVATION_DEPOSIT" && p.totalAmount === 0 && p.status === "CONFIRMED")).map(p => <article key={p.id} className="space-y-2 rounded-xl border p-3 text-sm">
-        <div className="flex flex-wrap justify-between gap-2"><strong>{p.type === "INITIAL_PAYMENT_REFUND" ? "Chủ nhà hoàn tiền sau hủy" : p.type === "RESERVATION_DEPOSIT" ? "Tiền cọc giữ chỗ" : p.lineItems.some(l => l.type === "DEPOSIT") ? "Cọc + tiền thuê tháng đầu" : "Tiền thuê tháng đầu"}</strong><strong>{money(p.totalAmount)}</strong></div>
+        <div className="flex flex-wrap justify-between gap-2"><strong>{p.type === "INITIAL_PAYMENT_REFUND" ? "Khoản hoàn từ chủ nhà" : p.type === "RESERVATION_DEPOSIT" ? "Tiền cọc giữ chỗ" : p.lineItems.some(l => l.type === "DEPOSIT") ? "Cọc + tiền thuê tháng đầu" : "Tiền thuê tháng đầu"}</strong><strong>{money(p.totalAmount)}</strong></div>
         <p>{statuses[p.status] ?? p.status}</p>
         {p.status === "CONFIRMED" ? <p className="text-xs text-emerald-700">Xác nhận: {instant(p.confirmedAt)}</p> : p.dueAt && <p className="text-xs">Hạn báo chuyển: {instant(p.dueAt)}</p>}
         <p className="text-xs">Nội dung chuyển khoản: {p.transferReference}</p>

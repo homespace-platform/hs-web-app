@@ -136,10 +136,17 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
       assert.equal(await exported.page.evaluate(()=>document.documentElement.dataset.exports),"1");
       await exported.page.evaluate(()=>window.finishFixtureExport());
       await exported.page.getByRole("status").filter({hasText:"PDF đã sẵn sàng để ký"}).waitFor();
-      assert.equal(await bar.getByRole("button",{name:"Kết xuất file",exact:true}).isEnabled(),true);
+      await bar.waitFor({state:"hidden"});
       assert.equal(exported.errors.length,0);
       await exported.page.close();
     }
+    const internalExport=await fixturePage(browser,{...structuredClone(baseline),exportFixture:{status:"DRAFT",smartCaMode:false}},"owner");
+    const internalBar=internalExport.page.getByRole("region",{name:"Thao tác kết xuất hợp đồng"});
+    await internalBar.getByRole("button",{name:"Kết xuất file",exact:true}).click();
+    await internalExport.page.evaluate(()=>window.finishFixtureExport());
+    await internalBar.getByRole("button",{name:"Kết xuất file",exact:true}).waitFor({state:"hidden"});
+    assert.equal(await internalBar.getByRole("button",{name:"Gửi cho người thuê",exact:true}).isEnabled(),true);
+    await internalExport.page.close();
     for (const [role,status] of [["tenant","DRAFT"],["owner","ACTIVE"]]) {
       const hidden=await fixturePage(browser,{...structuredClone(baseline),exportFixture:{status,smartCaMode:true}},role);
       assert.equal(await hidden.page.getByRole("region",{name:"Thao tác kết xuất hợp đồng"}).count(),0);

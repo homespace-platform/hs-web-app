@@ -162,11 +162,13 @@ export default function ContractDetailView({ perspective }: { perspective: "land
           documents.some(
             (document) =>
               document.revisionId === revision.id &&
+              (contract?.status !== "DRAFT" || document.id === currentPreview?.id) &&
+              (signatureState?.signatureMode !== "SMARTCA" || document.documentType === "PDF") &&
               document.status === "READY" &&
               Boolean(document.storageObjectId)
           )
       ),
-    [documents, revision, contract?.status, currentPreview]
+    [documents, revision, contract?.status, currentPreview, signatureState?.signatureMode]
   );
 
   const electricityRequired = useMemo(() =>
@@ -259,7 +261,10 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         contractService.getDocuments(contractId), contractService.getCompleteness(contractId),
       ]);
       if (request.signal.aborted) return;
-      if (refreshed[0].status === "fulfilled") setDocuments(refreshed[0].value);
+      if (refreshed[0].status === "fulfilled") {
+        const docs = refreshed[0].value;
+        setDocuments(docs.some(d => d.id === doc.id) ? docs : [doc, ...docs]);
+      }
       if (refreshed[1].status === "fulfilled") setCompleteness(refreshed[1].value);
     } catch (err) {
       if (request.signal.aborted) return;
@@ -456,6 +461,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         onRender={handleRender}
         onSend={handleSendToTenant}
         smartCaMode={signatureState?.signatureMode === "SMARTCA"}
+        cancellationRefundPending={onboarding?.stage === "CANCELLATION_REFUND_PENDING"}
       />
 
       {prioritizeMeters && handoverSection}

@@ -93,6 +93,7 @@ interface ContractHeaderProps {
   onRender: () => Promise<void>;
   onSend: () => Promise<void>;
   smartCaMode?: boolean;
+  cancellationRefundPending?: boolean;
 }
 
 export default function ContractHeader({
@@ -110,6 +111,7 @@ export default function ContractHeader({
   onRender,
   onSend,
   smartCaMode = false,
+  cancellationRefundPending = false,
 }: ContractHeaderProps) {
   const router = useRouter();
   const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
@@ -122,7 +124,9 @@ export default function ContractHeader({
     contract.paymentStatus === "PAID" ||
     contract.paymentStatus === "PAID_MOCK";
 
-  const statusCfg = STATUS_CONFIG[contract.status] || STATUS_CONFIG.DRAFT;
+  const statusCfg = cancellationRefundPending
+    ? { ...STATUS_CONFIG.DRAFT, label: "Chờ xác nhận hoàn tiền" }
+    : STATUS_CONFIG[contract.status] || STATUS_CONFIG.DRAFT;
   const signedAppendix = Boolean(contract.parentContractId && contract.agreementKind === "AMENDMENT" && contract.status === "ACTIVE");
   const showEffectiveDocument = contract.status === "ACTIVE" && (!contract.parentContractId || signedAppendix);
   const openDocument = async (download = false, ownAppendix = false) => {
@@ -265,12 +269,12 @@ export default function ContractHeader({
         </div>
       </div>
 
-      {isLandlord && contract.status === "DRAFT" && !workspace?.editing && (
+      {isLandlord && contract.status === "DRAFT" && !cancellationRefundPending && !workspace?.editing && (!hasReadyDoc || !smartCaMode) && (
         <div role="region" aria-label="Thao tác kết xuất hợp đồng" className="fixed left-4 right-24 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-40 m-0! rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur sm:left-auto sm:right-28 sm:max-w-[calc(100vw-8rem)]">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="min-w-0 text-xs text-muted-foreground">Kết xuất PDF để kiểm tra và tiếp tục ký ở đầu trang.</p>
+            <p className="min-w-0 text-xs text-muted-foreground">{hasReadyDoc ? "Bản xem trước đã sẵn sàng." : "Kết xuất PDF để kiểm tra và tiếp tục ký ở đầu trang."}</p>
             <div className="flex flex-wrap items-center gap-2">
-              <button
+              {!hasReadyDoc && <button
                 type="button"
                 disabled={rendering || reconcilingPreview || sending}
                 onClick={() => { window.scrollTo({ top: 0, behavior: "smooth" }); void onRender(); }}
@@ -282,7 +286,7 @@ export default function ContractHeader({
                   <RefreshCw className="w-3.5 h-3.5" />
                 )}
                 {reconcilingPreview ? "Đang kiểm tra kết quả..." : rendering ? "Đang kết xuất..." : "Kết xuất file"}
-              </button>
+              </button>}
               {!smartCaMode && (
                 <button
                   type="button"

@@ -321,7 +321,9 @@ export default function RentalRequestDetailModal({
     }
   }
 
-  const statusInfo = isContractActive
+  const statusInfo = detail?.cancellationRefundPending || onboarding?.stage === "CANCELLATION_REFUND_PENDING"
+    ? { ...STATUS_CONFIG.ACCEPTED, label: "Chờ xác nhận hoàn tiền" }
+    : isContractActive
     ? {
         label: "Đã thuê thành công",
         badgeClass:

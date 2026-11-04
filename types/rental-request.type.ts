@@ -53,6 +53,7 @@ export interface RentalRequestResponse {
   excludedChargesSnapshot?: string | null;
   renterNote: string | null;
   status: RentalRequestStatus;
+  cancellationRefundPending?: boolean;
   rejectReason: string | null;
   acceptedAt: string | null;
   holdExpiresAt: string | null;

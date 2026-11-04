@@ -507,7 +507,9 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
               !hasExecutionContract &&
               !isPaymentPaid;
 
-            const statusInfo = isContractActive
+            const statusInfo = req.cancellationRefundPending
+              ? { ...STATUS_CONFIG.ACCEPTED, label: "Chờ xác nhận hoàn tiền" }
+              : isContractActive
               ? {
                   label: "Đã thuê thành công",
                   badgeClass:
@@ -665,7 +667,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                 </section>}
                 <StartChangeNotice request={req} mode={mode} onOpen={()=>setStartChangeTarget(req)}/>
                 {mode==="RECEIVED" && <RentalReceiptNotice request={req} onOpen={()=>setDepositQuickTarget(req)}/>}
-                {mode==="SENT" && req.status==="ACCEPTED" && !req.latestStartChange && req.initialPayment?.status==="CONFIRMED" && <button type="button" onClick={()=>setStartChangeTarget(req)} className="rounded-xl border border-primary/30 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5">Đề nghị bắt đầu thuê sớm</button>}
+                {mode==="SENT" && req.status==="ACCEPTED" && !req.cancellationRefundPending && !req.latestStartChange && req.initialPayment?.status==="CONFIRMED" && <button type="button" onClick={()=>setStartChangeTarget(req)} className="rounded-xl border border-primary/30 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5">Đề nghị bắt đầu thuê sớm</button>}
                 {req.status === "PENDING" && req.respondBy && <p className="text-xs text-muted-foreground">Hạn chủ nhà phản hồi: {new Date(req.respondBy).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} (giờ Việt Nam)</p>}
                 {/* Card Info: Renter & Note */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">

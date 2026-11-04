@@ -538,6 +538,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         {/* CHÍNH SÁCH VẬN HÀNH VÀ ĐIỀU KHOẢN THỎA THUẬN RIÊNG */}
         <ContractPoliciesSection
           policies={policies}
+          financial={financial}
           specialTerms={revision.specialTerms}
           isDraft={isDraft}
           isLandlord={isLandlord}

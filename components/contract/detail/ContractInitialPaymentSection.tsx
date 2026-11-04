@@ -1,7 +1,7 @@
 "use client";
 
 import { Receipt } from "lucide-react";
-import { FieldRow, formatMoney, str } from "./utils";
+import { FieldRow, formatMoney, isZeroDeposit, str } from "./utils";
 import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
 
 const time = (value: unknown) => {
@@ -18,13 +18,18 @@ export default function ContractInitialPaymentSection({ initialPayment }: { init
   const w = useAmendmentWorkspace();
   const p = w?.data?.currentTerms.initialPayment ?? initialPayment ?? {};
   const rows = Array.isArray(p.rows) ? p.rows as Record<string,unknown>[] : [];
+  const noDepositPayment = "Không phát sinh thanh toán tiền cọc";
   return <section aria-label="Ghi nhận thanh toán ban đầu" className="space-y-3 rounded-2xl border bg-card p-4.5">
     <h3 className="flex items-center gap-2 text-sm font-bold"><Receipt className="h-4 w-4 text-primary"/>Ghi nhận thanh toán ban đầu</h3>
     <p className="text-xs text-muted-foreground">Dữ liệu lịch sử tại thời điểm lập hợp đồng · Chỉ đọc. Phụ lục không sửa giao dịch đã xác nhận hoặc thu lại khoản này.</p>
     <div className="overflow-x-auto rounded-xl border"><table className="w-full text-left text-xs"><thead className="bg-muted/40"><tr><th className="p-3">Khoản thanh toán</th><th className="p-3">Số tiền</th><th className="p-3">Chi tiết ghi nhận</th></tr></thead>
-      <tbody>{rows.length ? rows.map((row,i)=><tr className="border-t" key={i}><td className="p-3">{str(row.itemName)}</td><td className="p-3">{str(row.amountText)}</td><td className="p-3">{str(row.note)}</td></tr>) : <>
+      <tbody>{rows.length ? rows.map((row, i) => <tr className="border-t" key={i}>
+        <td className="p-3">{str(row.itemName)}</td>
+        <td className="p-3">{str(row.amountText)}</td>
+        <td className="p-3">{row.itemName === "Tiền đặt cọc" && isZeroDeposit(row.amountText) ? noDepositPayment : str(row.note)}</td>
+      </tr>) : <>
         <tr className="border-t"><td className="p-3">Tiền thuê kỳ đầu</td><td className="p-3">{formatMoney(p.monthlyRent)}</td><td className="p-3">{status(p.status)}</td></tr>
-        <tr className="border-t"><td className="p-3">Tiền đặt cọc ban đầu</td><td className="p-3">{formatMoney(p.depositAmount)}</td><td className="p-3">{status(p.status)}</td></tr>
+        <tr className="border-t"><td className="p-3">Tiền đặt cọc ban đầu</td><td className="p-3">{formatMoney(p.depositAmount)}</td><td className="p-3">{isZeroDeposit(p.depositAmount) ? noDepositPayment : status(p.status)}</td></tr>
       </>}</tbody></table></div>
     <div className="grid gap-x-6 md:grid-cols-2">
       <FieldRow label="Trạng thái xác nhận" value={status(p.status)}/>

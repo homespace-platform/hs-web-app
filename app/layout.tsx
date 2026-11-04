@@ -1,23 +1,10 @@
 import type { Metadata } from "next";
-import { Montserrat, Inter } from "next/font/google";
+import "@fontsource-variable/inter";
+import "@fontsource-variable/montserrat";
 import NextTopLoader from "nextjs-toploader";
 import Providers from "@/components/auth/Providers";
 import FloatingChatButton from "@/components/chat/FloatingChatButton";
 import "./globals.css";
-
-const montserrat = Montserrat({
-  variable: "--font-montserrat",
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600", "700", "800", "900"],
-  display: "swap",
-});
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "HomeSpace - Tìm Nơi Ở Lý Tưởng Với Sức Mạnh AI & Blockchain",
@@ -50,7 +37,7 @@ export default function RootLayout({
       lang="vi"
       suppressHydrationWarning
       data-scroll-behavior="smooth"
-      className={`${montserrat.variable} ${inter.variable} h-full antialiased scroll-smooth`}
+      className="h-full antialiased scroll-smooth"
     >
       <body className="min-h-full flex flex-col font-sans bg-background text-foreground">
         <NextTopLoader

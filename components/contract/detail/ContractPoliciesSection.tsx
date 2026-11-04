@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { FileCheck, Edit3, Check, Loader2 } from "lucide-react";
-import { FieldRow } from "./utils";
+import { FieldRow, isZeroDeposit } from "./utils";
 import type { PolicySnapshot } from "@/types/contract.type";
 import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
 import InlineAmendmentFields, { BillingSystemRuleLabels } from "./InlineAmendmentFields";
@@ -15,6 +15,7 @@ const formatVnd = (amount: number) => `${amount.toLocaleString("vi-VN")} đ`;
 
 interface ContractPoliciesSectionProps {
   policies?: (PolicySnapshot | Record<string, unknown>) | null;
+  financial?: Record<string, unknown>;
   specialTerms?: string | null;
   isDraft: boolean;
   isLandlord: boolean;
@@ -24,6 +25,7 @@ interface ContractPoliciesSectionProps {
 
 export default function ContractPoliciesSection({
   policies: originalPolicies,
+  financial: originalFinancial,
   specialTerms: originalSpecialTerms,
   isDraft,
   isLandlord,
@@ -32,6 +34,8 @@ export default function ContractPoliciesSection({
 }: ContractPoliciesSectionProps) {
   const w = useAmendmentWorkspace();
   const policies = w?.data?.currentTerms.policies ?? originalPolicies;
+  const financial = w?.data?.currentTerms.financial ?? originalFinancial;
+  const noDeposit = isZeroDeposit(financial?.depositAmountValue ?? financial?.depositAmountNumber);
   const specialTerms = w?.data?.currentTerms.specialTerms ?? originalSpecialTerms;
   const [editing, setEditing] = useState(false);
   const [termText, setTermText] = useState(specialTerms || "");
@@ -84,6 +88,9 @@ export default function ContractPoliciesSection({
   }
 
   const p = policies || {};
+  const policyRows = Array.isArray(p.listingPolicies)
+    ? (p.listingPolicies as ListingPolicyValue[]).filter(row => !noDeposit || row.code !== "depositRefundDays")
+    : [];
   const noticeDays = p.noticeDaysBeforeTermination;
   const lateMode = p.latePaymentFeeMode || "NONE";
   const savedFeeAmount = Number(p.latePaymentFeeAmount || 0);
@@ -121,16 +128,16 @@ export default function ContractPoliciesSection({
       </div>
 
       {w?.editing && <InlineAmendmentFields group="rules" />}
-      {!w?.editing && Array.isArray(p.listingPolicies) && p.listingPolicies.length > 0 && <ListingPoliciesCard rows={p.listingPolicies as ListingPolicyValue[]} compact contract />}
-      <div className={`grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5 ${w?.editing || Array.isArray(p.listingPolicies) && p.listingPolicies.length ? "hidden" : ""}`}>
+      {!w?.editing && policyRows.length > 0 && <ListingPoliciesCard rows={policyRows} compact contract />}
+      <div className={`grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5 ${w?.editing || policyRows.length ? "hidden" : ""}`}>
         <FieldRow editable
           label="Thời hạn báo trước khi chấm dứt"
           value={noticeDays != null ? `Tối thiểu ${noticeDays} ngày` : "Chưa có thỏa thuận"}
         />
-        <FieldRow editable
+        {!noDeposit && <FieldRow editable
           label="Thời hạn hoàn trả tiền đặt cọc"
           value={depositRefundDays != null ? `Trong vòng ${depositRefundDays} ngày sau khi bàn giao và quyết toán` : "Chưa có thỏa thuận"}
-        />
+        />}
         <FieldRow editable
           label="Cho thuê lại (Subletting)"
           value={policyText("sublettingAllowed", "subleasePolicy", "Được phép theo thỏa thuận", "Không được phép")}

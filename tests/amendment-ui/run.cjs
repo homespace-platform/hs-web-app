@@ -146,6 +146,24 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
       await hidden.page.close();
     }
     console.log("PASS sticky export on desktop/mobile, scroll to top, pending guard, ready-to-sign feedback and role/status permissions");
+    for (const depositAmount of ["0 VNĐ", "3.400.000 VNĐ"]) {
+      const terms = structuredClone(baseline);
+      const noDeposit = depositAmount === "0 VNĐ";
+      const legacyText = "Bên A hoàn cọc trực tiếp cho Bên B khi chấm dứt hợp đồng";
+      Object.assign(terms.currentTerms.financial, { depositAmountNumber: depositAmount, depositDescription: legacyText });
+      terms.currentTerms.policies.depositRefundDays = 7;
+      terms.currentTerms.initialPayment = { rows: [{ itemName: "Tiền đặt cọc", amountText: depositAmount, note: legacyText }] };
+      const fixture = await fixturePage(browser, terms, "owner");
+      const financial = fixture.page.locator("#amendment-rent");
+      const initial = fixture.page.getByRole("region", { name: "Ghi nhận thanh toán ban đầu" });
+      await financial.getByText(noDeposit ? "Không đặt cọc theo điều khoản này." : legacyText, { exact: true }).waitFor();
+      await initial.getByText(noDeposit ? "Không phát sinh thanh toán tiền cọc" : legacyText, { exact: true }).waitFor();
+      assert.equal(await fixture.page.getByText("Thời hạn hoàn trả tiền đặt cọc", { exact: true }).count(), noDeposit ? 0 : 1);
+      if (noDeposit) assert.equal(await fixture.page.getByText(legacyText, { exact: true }).count(), 0);
+      assert.equal(fixture.errors.length, 0);
+      await fixture.page.close();
+    }
+    console.log("PASS zero-deposit contract and payment wording, positive deposit unchanged");
     for(const type of ["Nhà nguyên căn","Căn hộ chung cư","Phòng trọ"]) {
       const banks=structuredClone(baseline);
       banks.currentTerms.landlord={fullName:"Chủ nhà",bankName:"Ngân hàng A",bankAccountNumber:"000123456",bankAccountHolder:"CHU TAI KHOAN A"};

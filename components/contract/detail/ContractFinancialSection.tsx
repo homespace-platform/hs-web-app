@@ -2,7 +2,7 @@
 
 import React from "react";
 import { DollarSign, Lock } from "lucide-react";
-import { FieldRow } from "./utils";
+import { FieldRow, isZeroDeposit } from "./utils";
 import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
 import InlineAmendmentFields, { ContractTermFields, BillingSystemRuleLabels } from "./InlineAmendmentFields";
 import VndMoneyInput from "@/components/ui/vnd-money-input";
@@ -17,6 +17,7 @@ export default function ContractFinancialSection({
 }: ContractFinancialSectionProps) {
   const w = useAmendmentWorkspace();
   const financial = w?.data?.currentTerms.financial ?? originalFinancial;
+  const noDeposit = isZeroDeposit(financial.depositAmountValue ?? financial.depositAmountNumber);
   if (w?.editing) return <section id="amendment-rent" className="scroll-mt-24 rounded-2xl border bg-card p-4.5 space-y-3">
     <h3 className="text-sm font-bold">Giá thuê định kỳ và tiền đặt cọc</h3>
     <InlineAmendmentFields group="rent"/>
@@ -66,9 +67,9 @@ export default function ContractFinancialSection({
           label="Tiền cọc bằng chữ"
           value={financial.depositAmountWords}
         />
-        <FieldRow editable
-          label="Điều kiện & thời hạn hoàn cọc"
-          value={financial.depositDescription}
+        <FieldRow editable={!noDeposit}
+          label={noDeposit ? "Quy định về tiền cọc" : "Điều kiện & thời hạn hoàn cọc"}
+          value={noDeposit ? "Không đặt cọc theo điều khoản này." : financial.depositDescription}
         />
       </div>
     </section>

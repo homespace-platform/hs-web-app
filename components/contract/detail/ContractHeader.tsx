@@ -94,6 +94,8 @@ interface ContractHeaderProps {
   onSend: () => Promise<void>;
   smartCaMode?: boolean;
   cancellationRefundPending?: boolean;
+  draftReview?: { formId: string; saving: boolean; retry: boolean; locked: boolean };
+  listingSyncAction?: React.ReactNode;
 }
 
 export default function ContractHeader({
@@ -112,6 +114,8 @@ export default function ContractHeader({
   onSend,
   smartCaMode = false,
   cancellationRefundPending = false,
+  draftReview,
+  listingSyncAction,
 }: ContractHeaderProps) {
   const router = useRouter();
   const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
@@ -269,23 +273,30 @@ export default function ContractHeader({
         </div>
       </div>
 
-      {isLandlord && contract.status === "DRAFT" && !cancellationRefundPending && !workspace?.editing && (!hasReadyDoc || !smartCaMode) && (
-        <div role="region" aria-label="Thao tác kết xuất hợp đồng" className="fixed left-4 right-24 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-40 m-0! rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur sm:left-auto sm:right-28 sm:max-w-[calc(100vw-8rem)]">
+      {isLandlord && contract.status === "DRAFT" && !cancellationRefundPending && !workspace?.editing && (!hasReadyDoc || !smartCaMode || listingSyncAction) && (
+        <div role="region" aria-label={draftReview ? "Thao tác bản nháp" : "Thao tác kết xuất hợp đồng"} className="fixed left-4 right-24 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-40 m-0! rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur sm:left-auto sm:right-28 sm:max-w-[calc(100vw-8rem)]">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="min-w-0 text-xs text-muted-foreground">{hasReadyDoc ? "Bản xem trước đã sẵn sàng." : "Kết xuất PDF để kiểm tra và tiếp tục ký ở đầu trang."}</p>
+            <p className="min-w-0 text-xs text-muted-foreground">{hasReadyDoc ? "Bản xem trước đã sẵn sàng."
+              : draftReview?.retry ? "Bản nháp đã lưu. Bạn có thể thử kết xuất lại PDF."
+              : draftReview ? "Lưu nội dung đã rà soát và tự tạo PDF để kiểm tra trước khi ký."
+              : "Kết xuất PDF để kiểm tra và tiếp tục ký ở đầu trang."}</p>
             <div className="flex flex-wrap items-center gap-2">
+              {listingSyncAction}
               {!hasReadyDoc && <button
-                type="button"
-                disabled={rendering || reconcilingPreview || sending}
-                onClick={() => { window.scrollTo({ top: 0, behavior: "smooth" }); void onRender(); }}
+                type={draftReview ? "submit" : "button"}
+                form={draftReview?.formId}
+                disabled={rendering || reconcilingPreview || sending || draftReview?.saving || draftReview?.locked}
+                onClick={draftReview ? undefined : () => { window.scrollTo({ top: 0, behavior: "smooth" }); void onRender(); }}
                 className="h-9 px-3.5 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
               >
-                {rendering ? (
+                {rendering || draftReview?.saving ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
                   <RefreshCw className="w-3.5 h-3.5" />
                 )}
-                {reconcilingPreview ? "Đang kiểm tra kết quả..." : rendering ? "Đang kết xuất..." : "Kết xuất file"}
+                {draftReview?.saving ? "Đang lưu bản nháp..." : reconcilingPreview ? "Đang kiểm tra kết quả..."
+                  : rendering ? "Đang kết xuất..." : draftReview?.retry ? "Thử kết xuất lại"
+                  : draftReview ? "Lưu" : "Kết xuất file"}
               </button>}
               {!smartCaMode && (
                 <button

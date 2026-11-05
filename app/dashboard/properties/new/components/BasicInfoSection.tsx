@@ -26,6 +26,7 @@ interface BasicInfoSectionProps {
   branches?: PropertyBranch[];
   errors: FormErrors;
   isBranchSelected?: boolean;
+  isEditing?: boolean;
   onChange: (updates: Partial<BasicInfoData>) => void;
   onSelectBranch?: (branchId: string) => void;
   onRequestCategoryChange: (newCategory: PropertyCategoryKey) => void;
@@ -67,6 +68,7 @@ export default function BasicInfoSection({
   branches,
   errors,
   isBranchSelected = false,
+  isEditing = false,
   onChange,
   onSelectBranch,
   onRequestCategoryChange,
@@ -154,8 +156,8 @@ export default function BasicInfoSection({
             value={data.branchId || ""}
             onChange={(e) => {
               const bId = e.target.value;
-              onChange({ branchId: bId });
               if (onSelectBranch) onSelectBranch(bId);
+              else onChange({ branchId: bId });
             }}
             className={selectClass}
           >
@@ -325,7 +327,7 @@ export default function BasicInfoSection({
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {PROPERTY_CATEGORIES.map((cat) => {
               const active = data.category === cat.key;
-              const disabled = isBranchSelected;
+              const disabled = isEditing || isBranchSelected;
               return (
                 <button
                   key={cat.key}
@@ -352,7 +354,7 @@ export default function BasicInfoSection({
                     >
                       {cat.label}
                     </span>
-                    {isBranchSelected && (
+                    {disabled && (
                       <Lock className="h-3.5 w-3.5 shrink-0 text-amber-500" />
                     )}
                   </div>
@@ -365,7 +367,9 @@ export default function BasicInfoSection({
               );
             })}
           </div>
-          {isBranchSelected && (
+          {isEditing ? <p className="pt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+            Loại hình được cố định sau khi tạo bài đăng.
+          </p> : isBranchSelected && (
             <p className="pt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
               ⓘ Loại hình bất động sản được chọn tự động và cố định từ chi nhánh đã chọn.
             </p>

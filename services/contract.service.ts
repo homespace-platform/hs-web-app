@@ -4,6 +4,7 @@ import type { ContractAmendments } from "@/types/contract-amendment.type";
 import type { ApiResponse, PageResponse } from "@/types/api.type";
 import type {
   ContractCompletenessResponse,
+  ContractListingSyncPreview,
   ContractDocumentResponse,
   ContractPaymentBreakdownResponse,
   ContractResponse,
@@ -95,13 +96,21 @@ export const contractService = {
     return response.data.result;
   },
 
+  async previewListingSync(contractId: string): Promise<ContractListingSyncPreview> {
+    const response = await axiosClient.get<ApiResponse<ContractListingSyncPreview>>(
+      `/api/v1/contracts/${contractId}/listing-sync`
+    );
+    return response.data.result;
+  },
+
   async updateRevision(
     contractId: string,
-    request: UpdateContractRevisionRequest
+    request: UpdateContractRevisionRequest,
+    signal?: AbortSignal,
   ): Promise<ContractRevisionResponse> {
     const response = await axiosClient.patch<ApiResponse<ContractRevisionResponse>>(
       `/api/v1/contracts/${contractId}/revision`,
-      request
+      request, { signal }
     );
     return response.data.result;
   },
@@ -114,9 +123,9 @@ export const contractService = {
   },
 
   /** Kết xuất bản nháp ra file. Trả về PDF nếu Gotenberg bật, ngược lại là DOCX. */
-  async triggerPreview(contractId: string, signal?: AbortSignal): Promise<ContractDocumentResponse> {
+  async triggerPreview(contractId: string, signal?: AbortSignal, expectedRevisionId?: string): Promise<ContractDocumentResponse> {
     const response = await axiosClient.post<ApiResponse<ContractDocumentResponse>>(
-      `/api/v1/contracts/${contractId}/previews`, undefined, { timeout: 95_000, signal }
+      `/api/v1/contracts/${contractId}/previews`, undefined, { timeout: 95_000, signal, params: { expectedRevisionId } }
     );
     return response.data.result;
   },

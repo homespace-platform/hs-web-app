@@ -18,7 +18,7 @@ export default function ContractFinancialSection({
   const w = useAmendmentWorkspace();
   const financial = w?.data?.currentTerms.financial ?? originalFinancial;
   const noDeposit = isZeroDeposit(financial.depositAmountValue ?? financial.depositAmountNumber);
-  if (w?.editing) return <section id="amendment-rent" className="scroll-mt-24 rounded-2xl border bg-card p-4.5 space-y-3">
+  if (w?.editing && w.editingFinancial) return <section id="amendment-rent" className="scroll-mt-24 rounded-2xl border bg-card p-4.5 space-y-3">
     <h3 className="text-sm font-bold">Giá thuê định kỳ và tiền đặt cọc</h3>
     <InlineAmendmentFields group="rent"/>
     <ContractTermFields group="financial" fields={[["paymentCycle","Kỳ hạn thanh toán",false,"Hàng tháng, Hàng quý, Hàng năm hoặc Mỗi N tháng (1–12). Phí điện/nước vẫn quyết toán hàng tháng."],["paymentMethod","Phương thức thanh toán"],["depositDescription","Điều kiện hoàn cọc"]]}/>
@@ -44,14 +44,12 @@ export default function ContractFinancialSection({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5">
-        {w?.editing ? <div className="md:col-span-2"><InlineAmendmentFields group="rent" /></div> : <>
         <FieldRow editable
           label="Tiền thuê hàng tháng"
           value={financial.amountNumber}
           highlight
         />
         <FieldRow label="Bằng chữ" value={financial.amountWords} />
-        </>}
         <FieldRow editable label="Kỳ hạn thanh toán" value={financial.paymentCycle} />
         <FieldRow label="Hạn đóng tiền định kỳ" value={financial.paymentDueDay} />
         <FieldRow editable

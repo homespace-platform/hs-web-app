@@ -5,8 +5,10 @@ import { Plus, Minus, RotateCcw } from "lucide-react";
 import { useAmendmentWorkspace, amendmentInput as input } from "./ContractAmendmentWorkspace";
 import type { TermRow } from "@/types/contract-amendment.type";
 import VndMoneyInput from "@/components/ui/vnd-money-input";
-import { contractPropertyFeatureValue } from "@/lib/contract-property-feature-labels";
-import { amendmentNumbers, amendmentDateInput, amendmentDateText, amendmentLeasePatch, numericPropertyFeature, squareMetresText } from "@/lib/contract-amendment-input";
+import { amendmentNumbers, amendmentDateInput, amendmentDateText, amendmentLeasePatch, squareMetresText } from "@/lib/contract-amendment-input";
+import { useContractDraftEditor } from "./ContractDraftEditor";
+import { FieldRow } from "./utils";
+import { VIETNAMESE_BANKS } from "@/data/banks";
 
 type Group = "rent" | "residents" | "charges" | "equipments" | "amenities" | "rules";
 export type TermField = readonly [key: string, label: string, locked?: boolean, hint?: string];
@@ -41,15 +43,33 @@ export function BillingSystemRuleLabels({ policies, rules, deadlineOnly=false }:
   </aside>;
 }
 export function ContractTermFields({ group, fields }: {group:"landlord"|"tenant"|"property"|"lease"|"financial"|"policies";fields:readonly TermField[]}) {
-  const w = useAmendmentWorkspace();
-  if (!w?.editing) return null;
+  const amendment = useAmendmentWorkspace();
+  const draft = useContractDraftEditor();
+  const w = draft ?? (amendment?.editing ? amendment : null);
+  if (!w) return null;
   const values = w.values[group] ?? {};
   return <div className="grid min-w-0 gap-3 sm:grid-cols-2">{fields.map(([key,label,locked,hint]) => {
     const date = key.endsWith("DateText"), numeric = amendmentNumbers[key], area = group === "property" && key === "areaText";
     const raw = text(values[key]);
+    if (draft && locked) return <FieldRow key={key} label={label} value={values[key]} />;
+    const ariaLabel=draft && (group==="landlord"||group==="tenant")?label+(group==="landlord"?" Bên A":" Bên B"):label;
+    if(key==="bankName") {
+      const bank=VIETNAMESE_BANKS.find(b=>b.name===raw || b.shortName===raw || b.code===raw);
+      return <ContractEditField key={key} group={group} field={key}><label className="block min-w-0 text-xs font-medium">{label}
+        <select aria-label={ariaLabel} className={input} disabled={w.busy||locked} value={bank?.bin??"__CURRENT__"}
+          onChange={e=>{const chosen=VIETNAMESE_BANKS.find(b=>b.bin===e.target.value);if(chosen)w.patch(group,{...values,bankName:chosen.name});}}>
+          {!bank&&<option value="__CURRENT__">{raw||"Chọn ngân hàng"}</option>}
+          {VIETNAMESE_BANKS.map(b=><option key={b.bin} value={b.bin}>{b.code} - {b.shortName} ({b.name})</option>)}
+        </select>
+      </label></ContractEditField>;
+    }
     const value = date ? amendmentDateInput(raw) : area ? raw.replace(/\s*(m²|m2|mét vuông)\s*$/i, "") : key === "unitNumber" ? raw || "Toàn bộ căn" : key === "latePaymentFeeMode" ? feeLabels[raw] ?? raw : squareMetresText(raw);
     return <ContractEditField key={key} group={group} field={key} readonly={locked}><label className="block min-w-0 text-xs font-medium">{label}
-      <input type={date ? "date" : numeric || area ? "number" : "text"} {...numeric} min={area ? 0.01 : numeric?.min} step={area ? "any" : numeric?.step} aria-label={label} maxLength={2000} disabled={w.busy || locked} value={value}
+      <input type={date ? "date" : numeric || area ? "number" : draft && key === "email" ? "email" : draft && key === "phone" ? "tel" : "text"} {...numeric} min={area ? (draft ? 0.001 : 0.01) : numeric?.min} step={area ? "any" : numeric?.step} aria-label={ariaLabel} maxLength={key==="idNumber"?12:key==="bankAccountNumber"?34:draft ? key === "phone" ? 10 : key === "email" ? 100 : 1000 : 2000}
+        inputMode={["idNumber","bankAccountNumber"].includes(key)?"numeric":undefined}
+        pattern={draft && raw!==String(draft.base[group]?.[key]??"") ? key==="idNumber"?"(?:[0-9]{9}|[0-9]{12})":key==="bankAccountNumber"?"[0-9]{1,34}":undefined:undefined}
+        required={Boolean(draft && numeric && ["occupantCount","motorbikeCount","carCount"].includes(key))}
+        disabled={w.busy || locked} value={value}
         onChange={e => {
           const features=group==="property" && ["maxOccupants","maxVehicles"].includes(key) && Array.isArray(values.features)
             ? {features:(values.features as TermRow[]).map(row=>capacityKey(row.featureName)===key?{...row,featureValue:e.target.value+(key==="maxOccupants"?" người":" xe")}:row)}:{};
@@ -59,19 +79,13 @@ export function ContractTermFields({ group, fields }: {group:"landlord"|"tenant"
       {(hint || locked) && <span className="mt-1 block font-normal text-muted-foreground">{hint ?? "Giữ nguyên dữ liệu đã xác nhận; không ghi đè lịch sử."}</span>}
     </label></ContractEditField>})}</div>;
 }
-export function PropertyFeaturesEditor() {
-  const w=useAmendmentWorkspace();if(!w?.editing)return null;
-  const rows=Array.isArray(w.values.property.features)?w.values.property.features as TermRow[]:[];
-  const update=(next:TermRow[],field?:TermRow)=>w.patch("property",{...w.values.property,...field,features:next});
-  return <div className="min-w-0 space-y-2"><h4 className="text-xs font-semibold">Bảng đặc điểm tài sản</h4><p className="text-xs text-muted-foreground">Sửa giá trị từng đặc điểm. Danh sách đặc điểm cố định, không thêm hoặc xóa hàng.</p><div className="max-w-full overflow-x-auto rounded-xl border"><table className="w-full min-w-[360px] text-left text-xs"><thead className="bg-muted/40"><tr><th className="p-3">Đặc điểm</th><th className="p-3">Giá trị</th></tr></thead><tbody>{rows.map((r,i)=>{
-    const displayed=contractPropertyFeatureValue(r.featureName,r.featureValue), numeric=numericPropertyFeature(r.featureName,displayed);
-    return <tr key={i} className="border-t"><th scope="row" className="p-3 font-medium">{text(r.featureName)}</th><td className="p-2"><ContractEditField group="property" field="featureValue" index={i}><div className="flex items-center gap-2"><input type={numeric?"number":"text"} min={numeric?.min} step={numeric?.step} disabled={w.busy} aria-label={"Giá trị đặc điểm "+(i+1)} value={numeric?.value??squareMetresText(displayed)} maxLength={1000} onChange={e=>update(rows.map((a,j)=>j===i?{...a,featureValue:e.target.value+(numeric&&e.target.value?" "+numeric.unit:"")}:a),capacityKey(r.featureName)?{[capacityKey(r.featureName)!]:e.target.value}:undefined)} className={input}/>{numeric&&<span className="shrink-0 text-muted-foreground">{numeric.unit}</span>}</div></ContractEditField></td></tr>;
-  })}</tbody></table></div></div>;
-}
 export default function InlineAmendmentFields({ group }: { group: Group }) {
-  const w = useAmendmentWorkspace();
-  if (!w?.editing || !w.data) return null;
-  const values=w.values, base=w.data.currentTerms;
+  const amendment = useAmendmentWorkspace();
+  const draft = useContractDraftEditor();
+  const w = draft ?? (amendment?.editing ? amendment : null);
+  const base = draft?.base ?? amendment?.data?.currentTerms;
+  if (!w || !base) return null;
+  const values=w.values;
   const update=(table:"charges"|"equipments"|"amenities",index:number,key:string,value:unknown) => w.patch(table,values[table].map((row,i)=>i===index?{...row,[key]:value}:row));
   const reset=() => {
     if(group==="rent") w.patch("financial",structuredClone(base.financial));
@@ -79,15 +93,17 @@ export default function InlineAmendmentFields({ group }: { group: Group }) {
     else if(group==="rules"){w.patch("policies",structuredClone(base.policies));w.patch("specialTerms",base.specialTerms);}
     else w.patch(group,structuredClone(base[group]));
   };
-  const heading=<div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs"><span className="text-muted-foreground">Nhập nội dung đã thỏa thuận · Chưa có hiệu lực</span><button disabled={w.busy} type="button" onClick={reset} className="inline-flex items-center gap-1 text-primary"><RotateCcw className="h-3 w-3"/>Khôi phục mục này</button></div>;
+  const heading=<div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs"><span className="text-muted-foreground">{draft ? "Dữ liệu sẽ được đưa vào PDF khi lưu bản nháp" : "Nhập nội dung đã thỏa thuận · Chưa có hiệu lực"}</span><button disabled={w.busy} type="button" onClick={reset} className="inline-flex items-center gap-1 text-primary"><RotateCcw className="h-3 w-3"/>Khôi phục mục này</button></div>;
   if(group==="rent") return <div>{heading}<ContractEditField group="financial" field="amountValue"><VndMoneyInput label="Tiền thuê hàng tháng (đ)" min={1} value={values.financial.amountValue} onValueChange={value=>w.patch("financial",{...values.financial,amountValue:value})}/></ContractEditField><p className="mt-2 text-xs text-muted-foreground">Bằng chữ được tính lại từ số tiền; tiền cọc đã nhận giữ nguyên.</p></div>;
   if(group==="residents") return <ContractTermFields group="tenant" fields={[["occupantCount","Số người cư trú"],["motorbikeCount","Xe máy đăng ký"],["carCount","Ô tô đăng ký"]]}/>;
   if(group==="rules") {
-    const raw=Array.isArray(values.policies.listingPolicies)?values.policies.listingPolicies as TermRow[]:[];
-    const rows=Array.isArray(values.policies.listingPolicies)?raw:Object.entries(values.policies).filter(([k,v])=>["petPolicy","smokingPolicy","subleasePolicy","overnightGuestPolicy","propertyInspectionNotice","depositRefundDays","noticeDaysBeforeTermination"].includes(k)&&v!==undefined).map(([code,value])=>({code,label:code,displayValue:text(value),value}));
-    const change=(index:number,key:string,value:string) => w.patch("policies",{...values.policies,listingPolicies:rows.map((r,i)=>i===index?{...r,[key]:value,...(key==="displayValue"?{value,valueType:["depositRefundDays","noticeDaysBeforeTermination","propertyInspectionNotice"].includes(text(r.code))?"INTEGER":"TEXT",note:""}:{})}:r)});
-    return <div className="min-w-0 space-y-4">{heading}<div className="max-w-full overflow-x-auto rounded-xl border"><table className="w-full min-w-[420px] text-left text-xs"><thead className="bg-muted/40"><tr><th className="p-3">Chính sách</th><th className="p-3">Quy định áp dụng</th><th className="w-12 p-3">Xóa</th></tr></thead><tbody>{rows.map((r,i)=><tr key={i} className="border-t align-top"><td className="p-2"><ContractEditField group="policies" field="label" index={i}><input aria-label={"Tên chính sách "+(i+1)} value={text(r.label)} onChange={e=>change(i,"label",e.target.value)} className={input} maxLength={150}/></ContractEditField></td><td className="p-2"><ContractEditField group="policies" field="displayValue" index={i}>{["depositRefundDays","noticeDaysBeforeTermination","propertyInspectionNotice"].includes(text(r.code))?<input type="number" aria-label={text(r.label)} min={r.code==="depositRefundDays"?1:0} max={r.code==="propertyInspectionNotice"?168:180} step={1} value={text(r.value)} onChange={e=>change(i,"displayValue",e.target.value)} disabled={w.busy} className={input}/>:<textarea aria-label={text(r.label)} rows={2} value={text(r.displayValue??r.value)} onChange={e=>change(i,"displayValue",e.target.value)} disabled={w.busy} className={input} maxLength={2000}/>}</ContractEditField>{["depositRefundDays","noticeDaysBeforeTermination","propertyInspectionNotice"].includes(text(r.code))&&<span className="text-muted-foreground">Nhập số nguyên theo đơn vị giờ/ngày của chính sách.</span>}</td><td className="p-2"><button type="button" disabled={w.busy || ["depositRefundDays","noticeDaysBeforeTermination","propertyInspectionNotice"].includes(text(r.code))} aria-label={"Xóa chính sách "+(i+1)} onClick={()=>w.patch("policies",{...values.policies,listingPolicies:rows.filter((_,j)=>j!==i)})} className="mt-2 rounded-lg border p-2 text-rose-600 disabled:opacity-40"><Minus className="h-4 w-4"/></button></td></tr>)}</tbody></table></div>
-      <button type="button" disabled={w.busy||rows.length>=50} onClick={()=>w.patch("policies",{...values.policies,listingPolicies:[...rows,{code:"custom_"+crypto.randomUUID().replaceAll("-",""),label:"",valueType:"TEXT",value:"",displayValue:"",note:""}]})} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm"><Plus className="h-4 w-4"/>Thêm chính sách</button>
+    const sourcePolicies = (amendment?.listingSync?.terms.policies ?? values.policies).listingPolicies;
+    const rows = Array.isArray(sourcePolicies) ? sourcePolicies as TermRow[] : [];
+    return <div className="min-w-0 space-y-4">{heading}
+      <div className="space-y-2 rounded-lg border p-3 text-xs">
+        <p className="font-semibold">Nội quy lấy từ bài đăng đã duyệt</p>
+        {rows.map(row => <p key={text(row.code)}><strong>{text(row.label)}</strong> · {text(row.displayValue ?? row.value)}</p>)}
+      </div>
       <ContractEditField group="policies" field="latePaymentFeeMode"><label className="block text-xs font-medium">Cách tính phí chậm trả
         <select aria-label="Cách tính phí chậm trả" disabled={w.busy} value={canonicalFeeMode(values.policies.latePaymentFeeMode)||"NONE"}
           onChange={e=>w.patch("policies",{...values.policies,latePaymentFeeMode:e.target.value,...(e.target.value==="NONE"?{latePaymentFeeAmount:"0"}:{})})} className={input}>

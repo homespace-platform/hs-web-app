@@ -15,6 +15,13 @@ export default function ContractLeaseSection({
 }: ContractLeaseSectionProps) {
   const w = useAmendmentWorkspace();
   const lease = w?.data?.currentTerms.lease ?? originalLease;
+  const durationText = String(lease.durationText ?? "").trim();
+  const durationMonths = String(lease.durationMonths ?? "").trim();
+  const monthLabel = /^[1-9]\d*$/.test(durationMonths) ? `${durationMonths} tháng` : "";
+  const hasMonthTotal = monthLabel && new RegExp(`(?:^|\\D)${durationMonths}\\s+tháng\\b`, "i").test(durationText);
+  const durationLabel = durationText && monthLabel && !hasMonthTotal
+    ? `${durationText} (${monthLabel})`
+    : durationText || monthLabel;
   if (w?.editing) return <section id="amendment-lease" className="scroll-mt-24 rounded-2xl border bg-card p-4.5 space-y-3">
     <h3 className="text-sm font-bold">Thời hạn thuê và bàn giao</h3>
     <ContractTermFields group="lease" fields={[["startDateText","Ngày bắt đầu tính tiền thuê"],["endDateText","Ngày kết thúc hợp đồng"],["durationMonths","Số tháng thuê"],["durationText","Thời hạn thuê"],["handoverDateText","Ngày bàn giao tài sản"]]}/>
@@ -46,7 +53,7 @@ export default function ContractLeaseSection({
         <FieldRow editable label="Ngày kết thúc hợp đồng" value={lease.endDateText} />
         <FieldRow editable
           label="Thời hạn thuê"
-          value={`${str(lease.durationText)} (${str(lease.durationMonths)} tháng)`}
+          value={durationLabel}
         />
         <FieldRow editable
           label="Ngày bàn giao tài sản"

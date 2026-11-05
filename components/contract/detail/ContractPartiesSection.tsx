@@ -5,6 +5,7 @@ import { User, Users, ShieldCheck, Lock } from "lucide-react";
 import { FieldRow } from "./utils";
 import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
 import InlineAmendmentFields, { ContractTermFields } from "./InlineAmendmentFields";
+import { useContractDraftEditor } from "./ContractDraftEditor";
 
 interface ContractPartiesSectionProps {
   landlord: Record<string, unknown>;
@@ -16,19 +17,23 @@ export default function ContractPartiesSection({
   tenant: originalTenant,
 }: ContractPartiesSectionProps) {
   const w = useAmendmentWorkspace();
+  const draft = useContractDraftEditor();
   const landlord = w?.data?.currentTerms.landlord ?? originalLandlord;
   const tenant = w?.data?.currentTerms.tenant ?? originalTenant;
   const occupantCount = tenant.occupantCount;
   const motorbikeCount = tenant.motorbikeCount;
   const carCount = tenant.carCount;
 
-  if (w?.editing) return <div id="amendment-residents" className="scroll-mt-24 space-y-3">
+  if (w?.editing || draft) return <div id={draft ? "contract-parties" : "amendment-residents"} className="scroll-mt-24 space-y-3">
     <h3 className="text-sm font-bold">Chủ thể giao kết hợp đồng</h3>
     <div className="grid gap-4 md:grid-cols-2">{(["landlord","tenant"] as const).map(group=><section key={group} className="min-w-0 rounded-2xl border bg-card p-4.5 space-y-3">
       <h4 className="text-xs font-bold">{group==="landlord"?"Bên A — Bên cho thuê":"Bên B — Bên thuê"}</h4>
       <ContractTermFields group={group} fields={[["fullName","Họ và tên"],["idNumber","Số CCCD / Định danh"],["permanentAddress","Nơi thường trú"],["phone","Số điện thoại"],["email","Email liên hệ"],["bankName","Ngân hàng"],["bankAccountNumber","Số tài khoản"],["bankAccountHolder","Chủ tài khoản"]]}/>
-      <p className="text-xs text-muted-foreground">Sửa thông tin trên văn bản phụ lục, không thay tài khoản đăng nhập hoặc hồ sơ định danh. QR thanh toán dùng tài khoản ngân hàng đã đăng ký trong hồ sơ thanh toán.</p>
-      {group==="tenant"&&<InlineAmendmentFields group="residents"/>}
+      <p className="text-xs text-muted-foreground">{draft
+        ? "Thông tin các bên dùng trên văn bản hợp đồng; không thay hồ sơ định danh hay tài khoản thu/hoàn tiền trong Settings. Phí theo người/xe được tính lại khi lưu; khoản đã thanh toán giữ lịch sử."
+        : "Sửa thông tin trên văn bản phụ lục, không thay tài khoản đăng nhập hoặc hồ sơ định danh. QR thanh toán dùng tài khoản ngân hàng đã đăng ký trong hồ sơ thanh toán."}</p>
+      {group==="tenant" && (draft ? <ContractTermFields group="tenant" fields={[["occupantCount","Số người cư trú"],["motorbikeCount","Xe máy đăng ký"],["carCount","Ô tô đăng ký"]]}/>
+        : <InlineAmendmentFields group="residents"/>)}
     </section>)}</div>
   </div>;
 

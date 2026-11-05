@@ -4,7 +4,6 @@ import React from "react";
 import { Package, ShieldCheck } from "lucide-react";
 import { str } from "./utils";
 import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
-import InlineAmendmentFields from "./InlineAmendmentFields";
 
 interface ContractEquipmentSectionProps {
   equipments?: Record<string, unknown>[] | null;
@@ -91,7 +90,7 @@ export default function ContractEquipmentSection({
   equipments,
 }: ContractEquipmentSectionProps) {
   const w = useAmendmentWorkspace();
-  const items = w?.data?.currentTerms.equipments ?? equipments ?? [];
+  const items = (w?.editing ? w.listingSync?.terms.equipments : undefined) ?? w?.data?.currentTerms.equipments ?? equipments ?? [];
 
   return (
     <section id="amendment-equipments" className="scroll-mt-24 rounded-2xl border border-border bg-card p-4.5 space-y-3 shadow-2xs">
@@ -115,7 +114,7 @@ export default function ContractEquipmentSection({
         </span>
       </div>
 
-      {w?.editing ? <InlineAmendmentFields group="equipments" /> : items.length > 0 ? (
+      {items.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-border/80">
           <table className="w-full text-xs">
             <thead className="bg-muted/40 text-muted-foreground border-b border-border/80">
@@ -141,21 +140,21 @@ export default function ContractEquipmentSection({
                     <td className="py-2.5 px-3 text-center font-semibold text-muted-foreground">
                       {idx + 1}
                     </td>
-                    <td data-contract-field-state="editable" className="py-2.5 px-3 font-semibold text-blue-700! dark:text-blue-400!">
+                    <td data-contract-field-state="readonly" className="py-2.5 px-3 font-semibold">
                       {name}
                     </td>
-                    <td data-contract-field-state="editable" className="py-2.5 px-3 text-center font-medium text-blue-700! dark:text-blue-400!">
+                    <td data-contract-field-state="readonly" className="py-2.5 px-3 text-center font-medium">
                       {quantity}
                     </td>
                     <td className="py-2.5 px-3">
                       <span
-                        data-contract-field-state="editable"
-                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border text-blue-700! dark:text-blue-400! ${cond.className}`}
+                        data-contract-field-state="readonly"
+                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border ${cond.className}`}
                       >
                         {cond.label}
                       </span>
                     </td>
-                    <td data-contract-field-state="editable" className="py-2.5 px-3 text-blue-700! dark:text-blue-400!">{note}</td>
+                    <td data-contract-field-state="readonly" className="py-2.5 px-3">{note}</td>
                   </tr>
                 );
               })}

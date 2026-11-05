@@ -3,7 +3,7 @@ const mod={exports:{}};
 const source=fs.readFileSync(path.join(__dirname,"../components/contract/detail/InlineAmendmentFields.tsx"),"utf8");
 vm.runInThisContext(`(function(require,module,exports){${ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText}\n})`)(name=>{
   if(name==="./ContractAmendmentWorkspace")return {useAmendmentWorkspace:()=>undefined};
-  if(name.startsWith("@/")||name==="./ContractFieldState")return {};
+  if(name.startsWith("@/")||["./ContractFieldState","./ContractDraftEditor","./utils"].includes(name))return {};
   return require(name);
 },mod,mod.exports);
 const rules={paymentWindowDays:5,paymentDueOffsetDays:4,lateFeeGraceDays:0,overdueActionDays:5,maximumPenaltyDays:5,autoRolloverDays:10,terminationReviewHours:24};

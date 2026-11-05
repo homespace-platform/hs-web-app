@@ -3,12 +3,11 @@ export type InitialMeterField = "electricity" | "water";
 export function validateInitialMeterReading(value: string, required: boolean, label: string): string | undefined {
   const reading = value.trim();
   if (!reading) return required ? `Vui lòng nhập ${label}.` : undefined;
-  if (reading.length > 20 || !/^\d+(\.\d+)?$/.test(reading))
-    return `${label} phải là số không âm, tối đa 20 ký tự (ví dụ: 0 hoặc 1250.5).`;
+  if (reading.length > 20 || !/^\d+(\.\d{1,3}0*)?$/.test(reading) || Number(reading) > 1_000_000_000_000)
+    return `${label} phải là số không âm, tối đa 3 chữ số thập phân (ví dụ: 0 hoặc 1250.5).`;
   return undefined;
 }
 
-/** Use committed revision data, never the text being typed, so the editor moves only after saving. */
 export function missingRequiredInitialMeters(meters: Record<string, unknown> | null | undefined,
   electricityRequired: boolean, waterRequired: boolean): InitialMeterField[] {
   const missing: InitialMeterField[] = [];

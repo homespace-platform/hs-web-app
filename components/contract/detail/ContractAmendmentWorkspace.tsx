@@ -3,6 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { contractAmendmentService as api } from "@/services/contract-amendment.service";
+import { contractService } from "@/services/contract.service";
+import type { ContractListingSyncPreview } from "@/types/contract.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 import type { AmendmentPayload, AmendmentProposal, AmendmentTerms, ContractAmendments, TermRow } from "@/types/contract-amendment.type";
 
@@ -44,6 +46,9 @@ function useWorkspaceState(contractId: string, actorId: string, perspective: "la
   const [savedDraft, setSavedDraft] = useState<AmendmentPayload | null>(null);
   const [editing, setEditing] = useState(false), [busy, setBusy] = useState(false);
   const [values, setValues] = useState<AmendmentTerms>(empty);
+  const [listingSourceVersion, setListingSourceVersion] = useState<string>();
+  const [listingSync, setListingSync] = useState<ContractListingSyncPreview | null>(null);
+  const [editingFinancial, setEditingFinancial] = useState(false);
   const [reason, setReason] = useState(""), [effectiveOn, setEffectiveOn] = useState("");
   const [previousId, setPreviousId] = useState<string>(), [tenantRequestId, setTenantRequestId] = useState<string>();
   const [evidenceIds, setEvidenceIds] = useState<string[]>([]), [files, setFiles] = useState<File[]>([]);
@@ -83,6 +88,10 @@ function useWorkspaceState(contractId: string, actorId: string, perspective: "la
     if (draft?.tenantRequestId && draft.tenantRequestId !== acceptedRequest?.id) { toast.error("Yêu cầu liên kết bản nháp đã đóng. Xóa bản nháp hoặc bắt đầu đề xuất mới."); return; }
     const change = draft?.changes ?? previous?.changes ?? {}, terms = restoreTerms(data.currentTerms,change);
     setValues(terms);
+    const sourceVersion = typeof change.listingSourceVersion === "string" ? change.listingSourceVersion : undefined;
+    setListingSourceVersion(sourceVersion);
+    setListingSync(null);
+    setEditingFinancial("rentAmount" in change || "charges" in change || Boolean((change.fields as TermRow | undefined)?.financial));
     const oldScheduled=scheduledSource(data.proposals,draft?.previousProposalId ?? previous?.id);
     setInitialValues(JSON.stringify(restoreTerms(data.currentTerms,oldScheduled?.changes??{})));
     setReason(draft?.reason ?? previous?.reason ?? source?.reason ?? "");
@@ -90,6 +99,17 @@ function useWorkspaceState(contractId: string, actorId: string, perspective: "la
     setPreviousId(draft?.previousProposalId ?? previous?.id); setTenantRequestId(draft?.tenantRequestId ?? acceptedRequest?.id);
     setEvidenceIds(draft?.evidenceIds ?? previous?.evidenceIds ?? []); setFiles([]);
     draftBase.current = data.currentTermsRevisionId; requestId.current = crypto.randomUUID();
+    if (sourceVersion) {
+      const sessionId = requestId.current;
+      void contractService.previewListingSync(contractId).then(source => {
+        if (requestId.current !== sessionId || !editingRef.current) return;
+        if (source.sourceVersion === sourceVersion && source.baseRevisionId === draftBase.current) setListingSync(source);
+        else toast.error("Bản bài đăng trong đề xuất đã cũ. Hãy cập nhật lại dữ liệu từ bài đăng.");
+      }).catch(() => {
+        if (requestId.current === sessionId && editingRef.current)
+          toast.error("Không tải được bản bài đăng trong đề xuất. Hãy đối chiếu lại dữ liệu.");
+      });
+    }
     setEditing(true); editingRef.current = true;
     document.getElementById("contract-amendment-actions")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -98,24 +118,25 @@ function useWorkspaceState(contractId: string, actorId: string, perspective: "la
     const t = data.currentTerms, result: TermRow = {};
     if (String(values.financial.amountValue) !== String(t.financial.amountValue)) result.rentAmount = String(values.financial.amountValue ?? "");
     for (const k of ["occupantCount","motorbikeCount","carCount"]) if (String(values.tenant[k] ?? 0) !== String(t.tenant[k] ?? 0)) result[k] = values.tenant[k];
-    for (const k of ["charges","equipments","amenities"] as const) if (JSON.stringify(values[k]) !== JSON.stringify(t[k])) {
-      result[k] = k === "amenities" ? values[k].map(row => Object.fromEntries(Object.entries(row).filter(([key]) => ["index","code","name","sourceType"].includes(key)))) : values[k];
-    }
+    if (JSON.stringify(values.charges) !== JSON.stringify(t.charges)) result.charges = values.charges;
     const fields: TermRow = {};
-    for (const group of ["landlord","tenant","property","lease","financial","policies"] as const) {
-      const excluded = group === "tenant" ? ["occupantCount","motorbikeCount","carCount"] : group === "financial" ? ["amountValue","amountNumber","amountWords","paymentDueDay","paymentDueOffsetDays"] : group === "policies" ? ["listingPolicies","latePaymentFeeGraceDays","latePaymentFeeCap","billingRules"] : group === "property" ? ["features"] : [];
+    for (const group of ["landlord","tenant","lease","financial","policies"] as const) {
+      const excluded = group === "tenant" ? ["occupantCount","motorbikeCount","carCount"] : group === "financial" ? ["amountValue","amountNumber","amountWords","paymentDueDay","paymentDueOffsetDays"] : [];
       const rows = Object.fromEntries(Object.entries(values[group] ?? {}).filter(([key,value]) => !excluded.includes(key) && JSON.stringify(value) !== JSON.stringify((t[group] ?? {})[key])));
+      if (group === "policies") for (const key of Object.keys(rows)) {
+        if (!["latePaymentFeeMode", "latePaymentFeeAmount"].includes(key)) delete rows[key];
+      }
       if (Object.keys(rows).length) fields[group] = rows;
     }
     if (Object.keys(fields).length) result.fields = fields;
-    if (JSON.stringify(values.property.features) !== JSON.stringify(t.property.features)) result.featureRows = values.property.features;
-    if (JSON.stringify(values.policies.listingPolicies) !== JSON.stringify(t.policies.listingPolicies)) result.policyRows = (values.policies.listingPolicies as TermRow[] ?? []).map(r => ({code:r.code,label:r.label,text:r.valueType === "INTEGER" ? r.value : r.displayValue ?? r.value}));
+    if (listingSourceVersion) result.listingSourceVersion = listingSourceVersion;
     if (values.specialTerms !== t.specialTerms) result.specialTerms = values.specialTerms;
     if (Object.keys(result).length || previousId) result.freeForm = true;
     return result;
-  }, [data, editing, values, previousId]);
+  }, [data, editing, values, previousId, listingSourceVersion]);
   const replacement = scheduledSource(data?.proposals??[],previousId);
-  const hasChanges = Boolean(Object.keys(changes).length && (!replacement || JSON.stringify(values) !== initialValues));
+  const hasChanges = Boolean(Object.keys(changes).length && (!replacement || JSON.stringify(values) !== initialValues
+    || listingSourceVersion !== replacement.changes.listingSourceVersion));
   const changedGroupCount = useMemo(() => {
     if (!replacement || !initialValues) return Object.keys(changes).filter(key => key !== "freeForm").length;
     const before = JSON.parse(initialValues) as AmendmentTerms;
@@ -126,6 +147,9 @@ function useWorkspaceState(contractId: string, actorId: string, perspective: "la
     || Boolean(changedFields?.financial || changedFields?.lease || changedFields?.policies || (changedFields?.property as TermRow | undefined)?.areaText);
   const payload = (validate = true): AmendmentPayload => {
     if (!data) throw new Error("Chưa có dữ liệu hợp đồng.");
+    if (listingSourceVersion && !listingSync) throw new Error("Hãy cập nhật lại dữ liệu bài đăng trước khi lưu phụ lục.");
+    if (listingSourceVersion && ("rentAmount" in changes || "charges" in changes || changedFields?.financial))
+      throw new Error("Hãy lập đề xuất tài chính riêng cho thay đổi giá thuê, tiền cọc hoặc phí.");
     if (validate) {
       const invalid = document.querySelector<HTMLInputElement>('[id^="amendment-"] input:invalid');
       if (invalid) { invalid.reportValidity(); throw new Error("Kiểm tra lại giá trị số/ngày đang nhập."); }
@@ -138,9 +162,14 @@ function useWorkspaceState(contractId: string, actorId: string, perspective: "la
   };
   const stop = () => { setEditing(false); editingRef.current = false; };
   const patch = (group: keyof AmendmentTerms, value: TermRow | TermRow[] | string) => setValues(v => ({ ...v, [group]: value }));
+  const selectListingSync = (preview: ContractListingSyncPreview | null) => {
+    setListingSync(preview);
+    setListingSourceVersion(preview?.sourceVersion);
+  };
   return { contractId, actorId, perspective, data, setData, error, savedDraft, setSavedDraft,
     editing, busy, run, load, start, stop, values, patch, changes, financial, replacement, hasChanges, changedGroupCount, editBaseline,
-    reason, setReason, effectiveOn, setEffectiveOn, payload, files, setFiles, evidenceIds, setEvidenceIds };
+    reason, setReason, effectiveOn, setEffectiveOn, payload, files, setFiles, evidenceIds, setEvidenceIds,
+    listingSync, listingSourceVersion, selectListingSync, editingFinancial, setEditingFinancial };
 }
 type Workspace = ReturnType<typeof useWorkspaceState>;
 const Context = createContext<Workspace | null>(null);

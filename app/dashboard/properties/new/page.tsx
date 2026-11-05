@@ -244,6 +244,10 @@ function CreatePropertyListingContent() {
 
     const branch = branchList.find((b) => b.id === branchId);
     if (!branch) return;
+    if (isEditMode && branch.category && branch.category.toLowerCase() !== basicInfo.category) {
+      toast.error("Không thể chọn chi nhánh khác loại hình của bài đăng.");
+      return;
+    }
 
     if (branch.category) {
       const mappedCategory = branch.category.toLowerCase() as PropertyCategoryKey;
@@ -424,6 +428,8 @@ function CreatePropertyListingContent() {
     async function loadData() {
       setIsLoadingDetail(Boolean(targetListingId));
       setLoadError(null);
+      setRentedLockListing(null);
+      setLoadedListingStatus(null);
 
       try {
         let branchList: PropertyBranch[] = [];
@@ -452,7 +458,7 @@ function CreatePropertyListingContent() {
           setLoadedListingStatus(detail.status);
 
           const normalizedStatus = String(detail.status || "").trim().toUpperCase();
-          if (isEditMode && (normalizedStatus === "RENTED" || normalizedStatus === "RENTED_EXTERNALLY")) {
+          if (isEditMode && normalizedStatus === "RENTED_EXTERNALLY") {
             setRentedLockListing({
               id: detail.id,
               title: detail.title,
@@ -550,12 +556,14 @@ function CreatePropertyListingContent() {
 
   // Category change handler with confirmation
   function requestCategoryChange(newCategory: PropertyCategoryKey) {
+    if (isEditMode) return;
     if (newCategory === basicInfo.category) return;
     setPendingCategory(newCategory);
     setIsCategoryModalOpen(true);
   }
 
   function applyCategoryChange(newCategory: PropertyCategoryKey) {
+    if (isEditMode) return;
     const defaultPriceUnit = PRICE_UNITS_BY_CATEGORY[newCategory]?.[0]?.value ?? "VND_MONTH";
 
     setBasicInfo((prev) => ({
@@ -747,7 +755,7 @@ function CreatePropertyListingContent() {
     if (!requireKyc(profile, { router, redirect: true })) return;
     if (
       isEditMode &&
-      (String(loadedListingStatus || "").trim().toUpperCase() === "RENTED" || String(loadedListingStatus || "").trim().toUpperCase() === "RENTED_EXTERNALLY" || rentedLockListing)
+      (String(loadedListingStatus || "").trim().toUpperCase() === "RENTED_EXTERNALLY" || rentedLockListing)
     ) {
       const isExt = rentedLockListing?.isExternal || String(loadedListingStatus || "").trim().toUpperCase() === "RENTED_EXTERNALLY";
       toast.error(isExt ? "Tin đã cho thuê ngoài hệ thống, không thể chỉnh sửa hoặc gửi duyệt lại." : "Tin đã cho thuê qua HomeSpace, không thể chỉnh sửa hoặc gửi duyệt lại.");
@@ -857,10 +865,12 @@ function CreatePropertyListingContent() {
       });
 
       // 3. Call backend upsert API
-      await listingService.upsert(payload);
+      const saved = await listingService.upsert(payload);
 
       const successMessage =
-        action === "SAVE_DRAFT"
+        saved.pendingEditId
+          ? "Bản sửa đã gửi quản trị viên. Tin vẫn giữ trạng thái hiện tại."
+          : action === "SAVE_DRAFT"
           ? (isDuplicateMode ? "Đã lưu bản sao dưới dạng tin nháp" : "Đã lưu tin nháp")
           : isDuplicateMode
           ? "Bản sao tin đăng đã được tạo và gửi chờ duyệt"
@@ -877,9 +887,10 @@ function CreatePropertyListingContent() {
       );
       toast.error(serverMessage, { id: "submit-listing" });
 
-      if (isEditMode && axios.isAxiosError(error) && error.response?.status === 409) {
-        setLoadedListingStatus("RENTED");
-        setRentedLockListing({ id: editId!, title: basicInfo.title || "Tin đăng" });
+      // A conflict can concern a field, catalog or stale edit. It does not mean the listing is rented.
+      if (isEditMode && axios.isAxiosError(error) && error.response?.data?.code === 4012) {
+        setLoadedListingStatus("RENTED_EXTERNALLY");
+        setRentedLockListing({ id: editId!, title: basicInfo.title || "Tin đăng", isExternal: true });
       }
     } finally {
       setIsSubmitting(false);
@@ -1080,6 +1091,7 @@ function CreatePropertyListingContent() {
           branches={branches}
           errors={errors}
           isBranchSelected={Boolean(basicInfo.branchId)}
+          isEditing={isEditMode}
           onChange={(updates) => setBasicInfo((prev) => ({ ...prev, ...updates }))}
           onSelectBranch={handleSelectBranch}
           onRequestCategoryChange={requestCategoryChange}
@@ -1152,6 +1164,7 @@ function CreatePropertyListingContent() {
           isSubmitting={isSubmitting}
           submittingAction={submittingAction}
           isEditing={isEditMode}
+          requiresEditReview={isEditMode && ["PUBLISHED", "RESERVED", "RENTED", "HIDDEN", "EXPIRED"].includes(String(loadedListingStatus))}
         />
       </form>
 

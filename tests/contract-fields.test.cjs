@@ -52,6 +52,19 @@ function loader(w) {
   }
   return load;
 }
+test("lease duration shows the month total once and supports older snapshots",()=>{
+  const Lease=loader(null)("components/contract/detail/ContractLeaseSection.tsx").default;
+  for (const [lease, label] of [
+    [{durationText:"3 tháng",durationMonths:3},"3 tháng"],
+    [{durationText:"1 năm (12 tháng)",durationMonths:12},"1 năm (12 tháng)"],
+    [{durationText:"1 năm",durationMonths:12},"1 năm (12 tháng)"],
+    [{durationMonths:3},"3 tháng"],
+    [{durationText:"Theo thỏa thuận"},"Theo thỏa thuận"],
+  ]) {
+    const html=renderToStaticMarkup(React.createElement(Lease,{lease}));
+    assert.ok(html.includes(`>${label}</span>`),label);
+  }
+});
 for(const type of ["Nhà nguyên căn","Căn hộ chung cư","Phòng trọ"])test(`${type}: both bank snapshots render in view/edit; initial ledger stays read-only and unchanged`,()=>{
   const a={fullName:"Owner",bankName:"Ngân hàng A",bankAccountNumber:"000123456",bankAccountHolder:"CHU TAI KHOAN A"},b={fullName:"Tenant",bankName:"Ngân hàng B",bankAccountNumber:"000987654",bankAccountHolder:"CHU TAI KHOAN B",occupantCount:2};
   const initialPayment={status:"CONFIRMED",monthlyRent:12345,depositAmount:67890,totalAmount:80235,payerReportedAt:"2026-10-15T01:00:00Z",payeeConfirmedAt:"2026-10-15T01:05:00Z",confirmedAt:"2026-10-15T01:05:00Z",transferReference:"REF-ORIGINAL",bankTransactionReference:"BANK-ORIGINAL",paidAt:"2026-10-15T01:05:00Z",transactionCode:"LEGACY-ORIGINAL",rows:[{itemName:"Khoản đã chốt",amountText:"80.235 VNĐ",note:"Xác nhận gốc"}]};
@@ -63,7 +76,11 @@ for(const type of ["Nhà nguyên căn","Căn hộ chung cư","Phòng trọ"])tes
   for(const person of [a,b])for(const key of ["bankName","bankAccountNumber","bankAccountHolder"])assert.ok(html.includes(person[key]),key);
   assert.doesNotMatch(html,/LIVE-PROFILE-DO-NOT-USE/);
   w.editing=true;html=renderToStaticMarkup(React.createElement(Parties,props));
-  for(const person of [a,b])for(const key of ["bankName","bankAccountNumber","bankAccountHolder"])assert.ok(html.includes(`value="${person[key]}"`),key);
+  for(const person of [a,b]) {
+    assert.ok(html.includes(person.bankName));
+    for(const key of ["bankAccountNumber","bankAccountHolder"])assert.ok(html.includes(`value="${person[key]}"`),key);
+  }
+  assert.equal((html.match(/<select/g)||[]).length,2);
   html=renderToStaticMarkup(React.createElement(Initial,{initialPayment:{totalAmount:999999999}}));
   for(const value of ["REF-ORIGINAL","BANK-ORIGINAL","LEGACY-ORIGINAL","Khoản đã chốt","80.235 VNĐ"])assert.ok(html.includes(value),value);
   assert.doesNotMatch(html,/999999999|<input|<textarea|<select/);assert.equal(initialPayment.totalAmount,80235);

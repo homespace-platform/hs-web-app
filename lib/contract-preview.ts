@@ -25,13 +25,16 @@ export async function generateContractPreview(
   revisionId: string,
   signal: AbortSignal,
   onReconciling: () => void,
-  options: { attempts?: number; wait?: (ms: number, signal: AbortSignal) => Promise<void> } = {},
+  options: { attempts?: number; wait?: (ms: number, signal: AbortSignal) => Promise<void>; requirePdf?: boolean } = {},
 ): Promise<ContractDocumentResponse | null> {
+  const matches = (doc: ContractDocumentResponse | null) => doc?.status === "READY"
+    && doc.revisionId === revisionId && doc.storageObjectId
+    && (!options.requirePdf || doc.documentType === "PDF");
   signal.throwIfAborted();
   try {
     const doc = await transport.trigger(signal);
     signal.throwIfAborted();
-    if (doc?.status === "READY" && doc.revisionId === revisionId && doc.storageObjectId) return doc;
+    if (matches(doc)) return doc;
   } catch (error) {
     signal.throwIfAborted();
     if (!isUncertainPreviewError(error)) throw error;
@@ -42,7 +45,7 @@ export async function generateContractPreview(
     try {
       const doc = await transport.status(signal);
       signal.throwIfAborted();
-      if (doc?.status === "READY" && doc.revisionId === revisionId && doc.storageObjectId) return doc;
+      if (matches(doc)) return doc;
     } catch (error) {
       signal.throwIfAborted();
       if (!isUncertainPreviewError(error)) throw error;

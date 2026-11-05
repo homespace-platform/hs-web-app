@@ -334,6 +334,7 @@ export type CreateListingRequest = {
 };
 
 export type CreateListingResponse = {
+  pendingEditId?: string | null;
   id: string;
   status: ListingStatus;
   title: string;
@@ -396,6 +397,8 @@ export type ListingOwner = {
 };
 
 export type ListingDetailResponse = {
+  pendingEditId?: string | null;
+  editRejectionReason?: string | null;
   policies?: import("./listing-policy.type").ListingPolicyValue[];
   id: string;
   ownerId: string;

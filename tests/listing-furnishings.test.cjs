@@ -28,9 +28,11 @@ function load(file) {
     if (name === "@/features/auth/useAuth") return { useAuth: () => auth };
     if (name === "@/components/chat/ChatDemoProvider") return { useChatDemo: () => ({}) };
     if (name === "./ContractAmendmentWorkspace") return { useAmendmentWorkspace: () => null };
+    if (name === "./ContractDraftEditor") return { useContractDraftEditor: () => null };
     if (name === "./InlineAmendmentFields") return noComponent;
     if (name === "./utils") return load("components/contract/detail/utils.tsx");
-    if (["@/lib/rent-detail-sections", "@/lib/video-stream-url", "@/lib/contract-property-feature-labels", "@/lib/contract-amendment-input", "@/lib/contract-field-state", "@/lib/nearby-directions", "@/lib/nearby-presentation", "@/types/nearby.type"].includes(name)) return load(name.replace("@/", "") + ".ts");
+    if (name === "@/lib/nearby-sync") return load("lib/nearby-sync.ts");
+    if (["@/lib/rent-detail-sections", "@/lib/video-stream-url", "@/lib/contract-property-feature-labels", "@/lib/contract-amendment-input", "@/lib/contract-field-state", "@/lib/nearby-directions", "@/lib/nearby-presentation", "@/lib/format-time-ago", "@/types/nearby.type"].includes(name)) return load(name.replace("@/", "") + ".ts");
     if (name === "@/components/nearby/NearbyPlacesPanel") return load("components/nearby/NearbyPlacesPanel.tsx");
     if (name.startsWith("@/components/")) return noComponent;
     if (name.startsWith("@/")) return {};

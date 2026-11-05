@@ -59,11 +59,15 @@ async function fixturePage(browser,data,role,viewport={width:1280,height:900}) {
       const xref=Buffer.byteLength(pdf);pdf+=`xref\n0 5\n0000000000 65535 f \n${offsets.slice(1).map(o=>String(o).padStart(10,"0")+" 00000 n \n").join("")}trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
       return route.fulfill({contentType:"application/pdf",headers:{"access-control-allow-origin":"*"},body:Buffer.from(pdf)});
     }
+    if (url.pathname === "/api/v1/contracts/root/listing-sync") {
+      requests.push({path:url.pathname,method,body});
+      return fulfill(data.listingSync);
+    }
     if (url.pathname.startsWith("/api/v1/contracts/root/amendments")) {
       if (body) requests.push({path:url.pathname,method,body});
       if (url.pathname.endsWith("/options")) return fulfill({listingId:"listing",category:"ROOM",billingMethodsByChargeType,amenities:[{code:"WIFI",name:"WiFi",scope:"Dùng chung",sourceType:"SHARED_PROPERTY",costText:"Theo biểu phí",conditionText:"Theo nội quy"},{code:"CUSTOM",name:"Sân phơi chung",scope:"Dùng chung",sourceType:"CUSTOM",costText:"Theo biểu phí",conditionText:"Theo nội quy"}],equipments:[{name:"Máy giặt",quantity:1,condition:"Còn tốt"}],furnishingCatalog:[{code:"DESK",name:"Bàn làm việc"}]});
       if (url.pathname.endsWith("/draft")) { if (method === "PUT") data.draft=body; if (method === "DELETE") data.draft=null; return fulfill(data.draft ?? null); }
-      if (url.pathname.endsWith("/preview")) return fulfill({terms:data.currentTerms,comparison:body.changes.rentAmount ? [{field:"rentAmount",label:"Giá thuê / tháng",before:"12400000",after:body.changes.rentAmount}] : [{field:"policies.petsAllowed",label:"Vật nuôi",before:"Không được phép",after:"Được phép"}]});
+      if (url.pathname.endsWith("/preview")) return fulfill({terms:data.currentTerms,comparison:body.changes.listingSourceVersion ? data.listingSync.differences : body.changes.rentAmount ? [{field:"rentAmount",label:"Giá thuê / tháng",before:"12400000",after:body.changes.rentAmount}] : [{field:"policies.petsAllowed",label:"Vật nuôi",before:"Không được phép",after:"Được phép"}]});
       if (url.pathname.endsWith("/decision")) {
         const p=data.proposals.find(p => url.pathname.includes(p.id));
         if (url.pathname.includes("/tenant-requests/")) p.status=body.action === "ACCEPT" ? "TENANT_ACCEPTED" : "TENANT_REJECTED";
@@ -85,6 +89,7 @@ async function fixturePage(browser,data,role,viewport={width:1280,height:900}) {
 }
 async function editRent(page) {
   await page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();
+  await page.getByRole("button",{name:"Soạn thỏa thuận tài chính",exact:true}).click();
   await assertChatClearance(page,page.getByRole("region",{name:"Thao tác lưu phụ lục"}));
   await page.getByLabel("Tiền thuê hàng tháng (đ)",{exact:true}).fill("12000000");
   await page.getByLabel("Lý do và mô tả thay đổi").fill("Hai bên thỏa thuận giảm giá thuê");
@@ -96,6 +101,105 @@ async function assertChatClearance(page,bar) {
   assert.ok(Math.abs(a.y+a.height-(b.y+b.height))<=2,`Action bar and chat must align along the bottom: ${JSON.stringify({a,b})}`);
 }
 async function reviewRent(page) { await editRent(page); await page.getByRole("button",{name:"Xem lại thay đổi",exact:true}).click(); await page.getByRole("dialog").waitFor(); }
+async function listingSyncScenarios(browser) {
+  const source={sourceVersion:"approved-edit",baseRevisionId:"original",terms:{
+    property:{fullAddress:"Địa chỉ mới đã duyệt",areaText:"30 mét vuông",maxOccupants:4,unitNumber:"Phòng R202"},listingBranchId:"approved-branch",
+    equipments:[{name:"Giường mới",quantity:1,condition:"Còn tốt"}],amenities:[{name:"WiFi mới"}],policies:{petsAllowed:true}},
+    proposedMonths:3,leaseMessage:"Thời hạn sẽ được đồng bộ khi lưu bản nháp.",
+    differences:[{field:"property.fullAddress",label:"Địa chỉ tài sản",before:"12 Nguyễn Văn Bảo",after:"Địa chỉ mới đã duyệt"},
+      {field:"property.unitNumber",label:"Mã/tên phòng hoặc căn",before:"Phòng R101",after:"Phòng R202"}],
+    financialDifferences:[{field:"amountValue",label:"Tiền thuê mỗi tháng",before:"12.400.000 đ",after:"13.000.000 đ"}]};
+  for(const width of [1280,390]) {
+    const f=await fixturePage(browser,{...structuredClone(baseline),listingSync:source,
+      exportFixture:{status:"DRAFT",smartCaMode:true,draftReview:true}},"owner",{width,height:900});
+    const {page}=f,form=page.locator("#fixture-draft"),bar=page.getByRole("region",{name:"Thao tác bản nháp"});
+    assert.equal(await form.getByLabel("Địa chỉ tài sản",{exact:true}).count(),0);
+    await form.getByText("12 Nguyễn Văn Bảo",{exact:true}).waitFor();
+    await form.getByText("Phòng R101",{exact:true}).waitFor();
+    assert.equal(await form.getByRole("button",{name:/Thêm dòng|Xóa/}).count(),0);
+    await form.getByLabel("Họ và tên Bên A",{exact:true}).fill("Tên chủ nhà đã sửa");
+    await bar.getByRole("button",{name:"Cập nhật dữ liệu từ bài đăng",exact:true}).click();
+    const dialog=page.getByRole("dialog");await dialog.getByText("Chênh lệch cần thỏa thuận riêng",{exact:true}).waitFor();
+    const box=await dialog.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width);
+    await page.screenshot({path:path.join(output,`listing-sync-${width}.png`)});
+    await dialog.getByRole("button",{name:"Dùng dữ liệu đã duyệt",exact:true}).click();
+    await form.getByText("Địa chỉ mới đã duyệt",{exact:true}).waitFor();
+    await form.getByText("Phòng R202",{exact:true}).waitFor();
+    await bar.getByRole("button",{name:"Lưu",exact:true}).click();
+    assert.deepEqual(JSON.parse(await page.evaluate(()=>document.documentElement.dataset.draftContent)),{landlord:{fullName:"Tên chủ nhà đã sửa"}});
+    assert.equal(await page.evaluate(()=>document.documentElement.dataset.listingSourceVersion),"approved-edit");
+    assert.equal(await page.evaluate(()=>document.documentElement.dataset.exports),"1");
+    await page.evaluate(()=>window.finishFixtureExport());
+    await page.getByRole("status").filter({hasText:"PDF đã sẵn sàng để ký"}).waitFor();
+    assert.deepEqual(f.errors,[]);await page.close();
+  }
+  console.log("PASS desktop/mobile draft: listing fields read-only, approved diff, money separated, party input, Save auto exports");
+  const data={...structuredClone(baseline),listingSync:source};
+  const f=await fixturePage(browser,data,"owner"),{page,requests}=f;
+  await page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();
+  assert.equal(await page.getByLabel("Địa chỉ tài sản",{exact:true}).count(),0);
+  assert.equal(await page.getByLabel("Tiền thuê hàng tháng (đ)",{exact:true}).count(),0);
+  await page.getByRole("button",{name:"Cập nhật dữ liệu từ bài đăng",exact:true}).click();
+  await page.getByRole("dialog").getByRole("button",{name:"Dùng dữ liệu đã duyệt",exact:true}).click();
+  await page.locator("#amendment-property").getByText("Địa chỉ mới đã duyệt",{exact:true}).waitFor();
+  await page.locator("#amendment-property").getByText("Phòng R202",{exact:true}).waitFor();
+  assert.equal(await page.getByRole("button",{name:"Soạn thỏa thuận tài chính",exact:true}).isDisabled(),true);
+  await page.getByLabel("Lý do và mô tả thay đổi").fill("Cập nhật thông tin từ bài đăng đã duyệt");
+  await page.getByRole("button",{name:"Lưu nháp",exact:true}).click();
+  await page.getByText("Đã lưu bản nháp riêng. Chưa gửi cho người thuê.",{exact:true}).waitFor();
+  const saved=requests.find(r=>r.method==="PUT"&&r.path.endsWith("/draft"));
+  assert.deepEqual(saved.body.changes,{listingSourceVersion:"approved-edit",freeForm:true});
+  await page.reload();await page.getByRole("button",{name:"Tiếp tục bản nháp",exact:true}).click();
+  await page.locator("#amendment-property").getByText("Địa chỉ mới đã duyệt",{exact:true}).waitFor();
+  await page.getByRole("button",{name:"Xem lại thay đổi",exact:true}).click();
+  await page.getByRole("dialog").waitFor();
+  assert.equal(requests.filter(r=>r.path.endsWith("/preview")).at(-1).body.changes.listingSourceVersion,"approved-edit");
+  assert.deepEqual(f.errors,[]);await page.close();
+  console.log("PASS appendix approved-source-only payload, private draft restore and consent preview");
+  const money=await fixturePage(browser,{...structuredClone(baseline),listingSync:source},"owner");
+  await editRent(money.page);
+  assert.equal(await money.page.getByRole("button",{name:"Cập nhật dữ liệu từ bài đăng",exact:true}).isDisabled(),true);
+  await money.page.getByRole("button",{name:"Xem lại thay đổi",exact:true}).click();
+  await money.page.getByRole("dialog").waitFor();
+  const payload=money.requests.find(r=>r.path.endsWith("/preview")).body.changes;
+  assert.equal(payload.rentAmount,"12000000");assert.equal(payload.listingSourceVersion,undefined);
+  assert.deepEqual(money.errors,[]);await money.page.close();
+  const tenant=await fixturePage(browser,{...structuredClone(baseline),listingSync:source},"tenant");
+  assert.equal(await tenant.page.getByRole("button",{name:"Cập nhật dữ liệu từ bài đăng",exact:true}).count(),0);
+  await tenant.page.close();
+  const stale=await fixturePage(browser,{...structuredClone(baseline),listingSync:{...source,baseRevisionId:"stale"}},"owner");
+  await stale.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();
+  await stale.page.getByRole("button",{name:"Cập nhật dữ liệu từ bài đăng",exact:true}).click();
+  await stale.page.getByText("Phiên bản hợp đồng đã thay đổi. Tải lại trang để đối chiếu.",{exact:true}).waitFor();
+  assert.equal(await stale.page.getByRole("dialog").count(),0);await stale.page.close();
+  console.log("PASS separate negotiated financial edits, tenant permissions and stale-base rejection");
+}
+async function partyEditScenarios(browser) {
+  for(const width of [1280,390]) {
+    const f=await fixturePage(browser,{...structuredClone(baseline),exportFixture:{status:"DRAFT",smartCaMode:true,draftReview:true}},"owner",{width,height:900});
+    const {page}=f,form=page.locator("#fixture-draft"),bar=page.getByRole("region",{name:"Thao tác bản nháp"});
+    await form.getByLabel("Số CCCD / Định danh Bên A",{exact:true}).fill("075204022672");
+    await form.getByRole("combobox",{name:"Ngân hàng Bên A",exact:true}).selectOption("970436");
+    await form.getByLabel("Số tài khoản Bên A",{exact:true}).fill("000123456");
+    await form.getByLabel("Chủ tài khoản Bên A",{exact:true}).fill("NGUYEN VAN A");
+    const people=form.getByLabel("Số người cư trú Bên B",{exact:true});
+    await people.fill("2.5");await bar.getByRole("button",{name:"Lưu",exact:true}).click();
+    assert.equal(await page.evaluate(()=>document.documentElement.dataset.exports),undefined);
+    await people.fill("2");
+    await form.getByLabel("Xe máy đăng ký Bên B",{exact:true}).fill("1");
+    await form.getByLabel("Ô tô đăng ký Bên B",{exact:true}).fill("0");
+    await form.screenshot({path:path.join(output,`party-edit-${width}.png`)});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await bar.getByRole("button",{name:"Lưu",exact:true}).click();
+    const payload=JSON.parse(await page.evaluate(()=>document.documentElement.dataset.draftContent));
+    assert.deepEqual(payload.landlord,{idNumber:"075204022672",bankName:"Ngân hàng TMCP Ngoại Thương Việt Nam",bankAccountNumber:"000123456",bankAccountHolder:"NGUYEN VAN A"});
+    assert.deepEqual(payload.tenant,{occupantCount:"2",motorbikeCount:"1"});
+    await page.evaluate(()=>window.finishFixtureExport());
+    await page.getByRole("status").filter({hasText:"PDF đã sẵn sàng để ký"}).waitFor();
+    assert.deepEqual(f.errors,[]);await page.close();
+  }
+  console.log("PASS draft identity, shared bank dropdown, leading-zero account and integer people/vehicle inputs on desktop/mobile");
+}
 (async () => {
   const utility = {};
   require("node:vm").runInNewContext(require("typescript").transpileModule(fs.readFileSync(path.join(root,"lib/vnd-input.ts"),"utf8"),{compilerOptions:{module:require("typescript").ModuleKind.CommonJS,target:require("typescript").ScriptTarget.ES2020}}).outputText,{exports:utility});
@@ -119,7 +223,14 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
   console.log("PASS typed date roundtrip and month-end lease calculations without timezone drift");
   await bundle(); const browser=await chromium.launch({headless:true,...(process.argv[3] ? {executablePath:process.argv[3]} : {})});
   try {
+    if(process.argv[4] === "--party-edit-only") {await partyEditScenarios(browser);return;}
+    if(process.argv[4] === "--listing-sync-only") {
+      await listingSyncScenarios(browser);
+      return;
+    }
     if(process.argv[4]!=="--effective-documents-only") {
+    await partyEditScenarios(browser);
+    await listingSyncScenarios(browser);
     for (const width of [1280,390]) {
       const exported=await fixturePage(browser,{...structuredClone(baseline),exportFixture:{status:"DRAFT",smartCaMode:true}},"owner",{width,height:900});
       const bar=exported.page.getByRole("region",{name:"Thao tác kết xuất hợp đồng"});
@@ -140,6 +251,27 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
       assert.equal(exported.errors.length,0);
       await exported.page.close();
     }
+    const draftSave=await fixturePage(browser,{...structuredClone(baseline),exportFixture:{status:"DRAFT",smartCaMode:true,draftReview:true}},"owner");
+    const draftBar=draftSave.page.getByRole("region",{name:"Thao tác bản nháp"});
+    const saveDraft=draftBar.getByRole("button",{name:"Lưu",exact:true});
+    const draftForm=draftSave.page.locator("#fixture-draft");
+    assert.equal(await draftForm.getByLabel("Họ và tên Bên A",{exact:true}).inputValue(),"Chủ nhà đã điền");
+    assert.equal(await draftForm.getByLabel("Địa chỉ tài sản",{exact:true}).count(),0);
+    assert.equal(await draftForm.getByLabel("Số CCCD / Định danh Bên A",{exact:true}).count(),1);
+    await draftForm.getByLabel("Họ và tên Bên A",{exact:true}).fill("Tên A đã sửa");
+    await draftForm.getByLabel("Nơi thường trú Bên B",{exact:true}).fill("Địa chỉ B đã sửa");
+    assert.equal(await saveDraft.evaluate(button=>button.form?.id),"fixture-draft");
+    await saveDraft.click();
+    assert.deepEqual(JSON.parse(await draftSave.page.evaluate(()=>document.documentElement.dataset.draftContent)),{
+      landlord:{fullName:"Tên A đã sửa"},tenant:{permanentAddress:"Địa chỉ B đã sửa"},
+    });
+    assert.equal(await draftBar.getByRole("button",{name:"Đang kết xuất...",exact:true}).isDisabled(),true);
+    assert.equal(await draftSave.page.evaluate(()=>document.documentElement.dataset.exports),"1");
+    await draftSave.page.evaluate(()=>window.finishFixtureExport());
+    await draftSave.page.getByRole("status").filter({hasText:"PDF đã sẵn sàng để ký"}).waitFor();
+    await saveDraft.waitFor({state:"hidden"});
+    assert.equal(draftSave.errors.length,0);
+    await draftSave.page.close();
     const internalExport=await fixturePage(browser,{...structuredClone(baseline),exportFixture:{status:"DRAFT",smartCaMode:false}},"owner");
     const internalBar=internalExport.page.getByRole("region",{name:"Thao tác kết xuất hợp đồng"});
     await internalBar.getByRole("button",{name:"Kết xuất file",exact:true}).click();
@@ -221,7 +353,7 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
     await colors.page.getByRole("complementary",{name:"Chú thích màu trường hợp đồng"}).waitFor();
     assert.equal(await colors.page.getByText("Tên chủ nhà gốc",{exact:true}).getAttribute("data-contract-field-state"),"editable");
     assert.equal(await colors.page.getByText("Mười hai triệu bốn trăm nghìn đồng",{exact:true}).getAttribute("data-contract-field-state"),"readonly");
-    await colors.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();
+    await colors.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();await colors.page.getByRole("button",{name:"Soạn thỏa thuận tài chính",exact:true}).click();
     const nameInput=colors.page.getByLabel("Họ và tên",{exact:true}).first(),rentInput=colors.page.getByLabel("Tiền thuê hàng tháng (đ)",{exact:true});
     const blue=await nameInput.evaluate(el=>getComputedStyle(el).color);
     assert.equal(await fieldState(nameInput).getAttribute("data-contract-field-state"),"editable");
@@ -233,17 +365,12 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
     await rentInput.fill("12000000");assert.equal(await fieldState(rentInput).getAttribute("data-contract-field-state"),"changed");
     await colors.page.getByLabel("Số tài khoản",{exact:true}).first().fill("123");assert.equal(await fieldState(colors.page.getByLabel("Số tài khoản",{exact:true}).first()).getAttribute("data-contract-field-state"),"changed");
     await colors.page.getByLabel("Ngày bàn giao tài sản",{exact:true}).fill("2026-10-16");assert.equal(await fieldState(colors.page.getByLabel("Ngày bàn giao tài sản",{exact:true})).getAttribute("data-contract-field-state"),"changed");
-    await colors.page.getByRole("button",{name:"Xóa dòng equipments 1",exact:true}).click();
-    assert.equal(await fieldState(colors.page.getByLabel("Số lượng 1",{exact:true})).getAttribute("data-contract-field-state"),"editable");
-    await colors.page.getByLabel("Số lượng 1",{exact:true}).fill("3");assert.equal(await fieldState(colors.page.getByLabel("Số lượng 1",{exact:true})).getAttribute("data-contract-field-state"),"changed");
-    assert.equal(await fieldState(colors.page.getByLabel("Tên tài sản 1",{exact:true})).getAttribute("data-contract-field-state"),"editable");
-    await colors.page.getByRole("button",{name:"Thêm dòng nội thất",exact:true}).click();assert.equal(await fieldState(colors.page.getByLabel("Tên tài sản 2",{exact:true})).getAttribute("data-contract-field-state"),"changed");
-    await colors.page.getByLabel("Tên tài sản 2",{exact:true}).fill("Tủ mới");
-    await colors.page.getByLabel("Hiện trạng 2",{exact:true}).fill("Mới");
+    assert.equal(await colors.page.getByLabel("Tên tài sản 1",{exact:true}).count(),0);
+    assert.equal(await colors.page.getByRole("button",{name:"Thêm dòng nội thất",exact:true}).count(),0);
     await colors.page.getByLabel("Đơn giá Internet (đ)",{exact:true}).fill("100000");assert.equal(await fieldState(colors.page.getByLabel("Đơn giá Internet (đ)",{exact:true})).getAttribute("data-contract-field-state"),"changed");
     await colors.page.getByLabel("Cách tính 1",{exact:true}).fill("Tháng");assert.equal(await fieldState(colors.page.getByLabel("Cách tính 1",{exact:true})).getAttribute("data-contract-field-state"),"editable");
-    await colors.page.getByLabel("Vật nuôi",{exact:true}).fill("Cho nuôi mèo");assert.equal(await fieldState(colors.page.getByLabel("Vật nuôi",{exact:true})).getAttribute("data-contract-field-state"),"changed");
-    await colors.page.getByLabel("Giá trị đặc điểm 1",{exact:true}).fill("60");assert.equal(await fieldState(colors.page.getByLabel("Giá trị đặc điểm 1",{exact:true})).getAttribute("data-contract-field-state"),"changed");
+    assert.equal(await colors.page.getByLabel("Vật nuôi",{exact:true}).count(),0);
+    assert.equal(await colors.page.getByLabel("Giá trị đặc điểm 1",{exact:true}).count(),0);
     await colors.page.getByLabel("Điều khoản thỏa thuận khác",{exact:true}).fill("Thỏa thuận sửa thêm");assert.equal(await fieldState(colors.page.getByLabel("Điều khoản thỏa thuận khác",{exact:true})).getAttribute("data-contract-field-state"),"changed");
     await colors.page.getByLabel("Cách tính phí chậm trả",{exact:true}).selectOption("FIXED_ONCE");assert.equal(await fieldState(colors.page.getByLabel("Cách tính phí chậm trả",{exact:true})).getAttribute("data-contract-field-state"),"changed");
     const ledger=colors.page.getByRole("region",{name:"Ghi nhận thanh toán ban đầu"});assert.equal(await ledger.getByText("REF-COLOR",{exact:true}).getAttribute("data-contract-field-state"),"readonly");
@@ -280,17 +407,17 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
     await wish.page.getByRole("button",{name:"Gửi yêu cầu cho chủ nhà"}).click(); await wish.page.getByText("Người thuê đề nghị trao đổi",{exact:true}).waitFor();
     const requested=wish.requests.find(r => r.path.endsWith("/tenant-requests"));assert.equal(requested.body.changes,undefined);assert.equal(wish.errors.length,0);
     const responder=await fixturePage(browser,requestData,"owner"); await responder.page.getByRole("button",{name:"Chấp thuận trao đổi · Soạn phụ lục"}).click();
-    await responder.page.getByLabel("Tiền thuê hàng tháng (đ)",{exact:true}).fill("11000000"); await responder.page.getByRole("button",{name:"Xem lại thay đổi",exact:true}).click();
+    await responder.page.getByRole("button",{name:"Soạn thỏa thuận tài chính",exact:true}).click();await responder.page.getByLabel("Tiền thuê hàng tháng (đ)",{exact:true}).fill("11000000"); await responder.page.getByRole("button",{name:"Xem lại thay đổi",exact:true}).click();
     await responder.page.getByRole("checkbox",{name:/Tôi đã kiểm tra đúng/}).check();await responder.page.getByRole("button",{name:"Gửi đề xuất cho người thuê"}).click();
     await responder.page.getByText("Chờ người thuê duyệt nội dung",{exact:true}).waitFor();
     assert.equal(responder.requests.find(r => r.path.endsWith("/amendments")).body.tenantRequestId,requested.body.requestId);assert.equal(responder.errors.length,0);
     console.log("PASS text-only tenant request, landlord acceptance and linked concrete proposal");
     const draftData=structuredClone(baseline),draft=await fixturePage(browser,draftData,"owner");await editRent(draft.page);
-    await draft.page.getByLabel("Địa chỉ tài sản",{exact:true}).fill("Địa chỉ bản nháp nhập tay");
+    await draft.page.getByLabel("Điều khoản thỏa thuận khác",{exact:true}).fill("Thỏa thuận riêng của bản nháp");
     await draft.page.getByRole("button",{name:"Lưu nháp",exact:true}).click();
     await draft.page.getByText("Đã lưu bản nháp riêng. Chưa gửi cho người thuê.").waitFor();assert.equal(draftData.proposals.length,0);
     await draft.page.reload();await draft.page.getByRole("button",{name:"Tiếp tục bản nháp"}).click();assert.equal(await draft.page.getByLabel("Tiền thuê hàng tháng (đ)",{exact:true}).inputValue(),"12.000.000");
-    assert.equal(await draft.page.getByLabel("Địa chỉ tài sản",{exact:true}).inputValue(),"Địa chỉ bản nháp nhập tay");
+    assert.equal(await draft.page.getByLabel("Điều khoản thỏa thuận khác",{exact:true}).inputValue(),"Thỏa thuận riêng của bản nháp");
     console.log("PASS private server draft and reload/resume without proposal");
     const mobile=await fixturePage(browser,structuredClone(baseline),"owner",{width:390,height:844});await reviewRent(mobile.page);await mobile.page.screenshot({path:path.join(output,"review-mobile.png"),fullPage:true});
     assert.equal(await mobile.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),true);assert.equal(mobile.errors.length,0);
@@ -317,7 +444,7 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
     console.log("PASS calendar permits only backend billing boundaries and prevents navigation outside eligible months");
     const moneyData=structuredClone(baseline);moneyData.currentTerms.financial.amountValue="12400000.00";
     moneyData.currentTerms.charges=[{name:"Điện",chargeType:"ELECTRICITY",billingMethod:"PER_KWH",unitAmount:"3500.00",includedInRent:false},{name:"Gửi xe máy",chargeType:"MOTORBIKE_PARKING",billingMethod:"PER_VEHICLE_MONTH",unitAmount:"0.00",includedInRent:true}];
-    const monetary=await fixturePage(browser,moneyData,"owner",{width:390,height:844});await monetary.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();
+    const monetary=await fixturePage(browser,moneyData,"owner",{width:390,height:844});await monetary.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();await monetary.page.getByRole("button",{name:"Soạn thỏa thuận tài chính",exact:true}).click();
     const rent=monetary.page.getByLabel("Tiền thuê hàng tháng (đ)",{exact:true}), electricity=monetary.page.getByLabel("Đơn giá Điện (đ)",{exact:true}), parking=monetary.page.getByLabel("Đơn giá Gửi xe máy (đ)",{exact:true});
     assert.equal(await rent.inputValue(),"12.400.000");assert.equal(await electricity.inputValue(),"3.500");assert.equal(await parking.inputValue(),"0");
     await rent.fill("100");assert.equal(await rent.inputValue(),"100");
@@ -338,32 +465,10 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
     console.log("PASS formatted rent/rates, explicit amount suggestions, caret editing and integer-only payload");
     const equipment=await fixturePage(browser,structuredClone(baseline),"owner");
     await equipment.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();
-    assert.equal(await equipment.page.locator('select').count(),1,"Only late-fee mode uses a bounded dropdown");
-    await equipment.page.getByRole("button",{name:"Thêm dòng nội thất",exact:true}).click();
-    await equipment.page.getByLabel("Tên tài sản 2",{exact:true}).fill("Đàn piano không có trên Listing");
-    await equipment.page.getByLabel("Hiện trạng 2",{exact:true}).fill("Mới, bàn giao ngày áp dụng");
-    await equipment.page.getByRole("button",{name:"Xóa dòng equipments 1",exact:true}).click();
-    await equipment.page.getByRole("button",{name:"Thêm dòng tiện ích",exact:true}).click();
-    await equipment.page.getByLabel("Tiện ích 1",{exact:true}).fill("Phòng đọc sách tự nhập");
-    assert.equal(await equipment.page.getByLabel("Phạm vi 1",{exact:true}).count(),0);
-    assert.equal(await equipment.page.getByLabel("Chi phí 1",{exact:true}).count(),0);
-    assert.equal(await equipment.page.getByLabel("Điều kiện 1",{exact:true}).count(),0);
-    assert.equal(await equipment.page.getByRole("radio").count(),0,"Non-financial amendments cannot apply immediately either");
-    await equipment.page.getByLabel("Lý do và mô tả thay đổi").fill("Bổ sung piano và phòng đọc theo thỏa thuận riêng");
-    await equipment.page.getByRole("button",{name:"Xem lại thay đổi",exact:true}).click();
-    await equipment.page.getByRole("checkbox",{name:/Tôi đã kiểm tra đúng/}).check();
-    await equipment.page.getByRole("button",{name:"Gửi đề xuất cho người thuê"}).click();
-    await equipment.page.getByText("Chờ người thuê duyệt nội dung",{exact:true}).waitFor();
-    const immediate=equipment.requests.find(r=>r.path.endsWith("/amendments"));
-    assert.equal(immediate.body.effectiveOn,"2026-11-14");assert.equal(immediate.body.changes.freeForm,true);assert.equal(immediate.body.changes.applyImmediately,undefined);
-    assert.equal(immediate.body.changes.equipments.length,1);
-    assert.equal(immediate.body.changes.equipments[0].name,"Đàn piano không có trên Listing");
-    assert.equal(immediate.body.changes.amenities[0].name,"Phòng đọc sách tự nhập");
-    assert.equal("scope" in immediate.body.changes.amenities[0],false);
-    assert.equal("costText" in immediate.body.changes.amenities[0],false);
-    assert.equal("conditionText" in immediate.body.changes.amenities[0],false);
-    assert.equal(equipment.requests.some(r=>r.path.endsWith("/options")),false);assert.equal(equipment.errors.length,0);
-    console.log("PASS free table add/remove and hand-entered equipment/amenities without listing API");
+    for(const section of ["#amendment-equipments","#amendment-amenities"])
+      assert.equal(await equipment.page.locator(section).locator("input,select,textarea,button").count(),0);
+    assert.equal(equipment.errors.length,0);await equipment.page.close();
+    console.log("PASS Listing amenities and furnishings remain read-only in appendix editing");
 
     const fieldData=structuredClone(baseline);
     fieldData.currentTerms.landlord={fullName:"Chủ nhà",idNumber:"123",phone:"0901"};
@@ -371,10 +476,10 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
     fieldData.currentTerms.property={maxOccupants:4,areaText:"50 m²",fullAddress:"Địa chỉ ban đầu",features:[{featureName:"Số người tối đa",featureValue:"4 người"},{featureName:"Diện tích đất",featureValue:"50 m²"}]};
     fieldData.currentTerms.charges=[{name:"Internet / WiFi",chargeType:"INTERNET",billingMethod:"PER_MONTH",unitAmount:"90000",includedInRent:false}];
     const fields=await fixturePage(browser,fieldData,"owner",{width:390,height:844});
-    await fields.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();
-    await fields.page.getByLabel("Địa chỉ tài sản",{exact:true}).fill("Địa chỉ đã đối chiếu mới");
+    await fields.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();await fields.page.getByRole("button",{name:"Soạn thỏa thuận tài chính",exact:true}).click();
+    assert.equal(await fields.page.getByLabel("Địa chỉ tài sản",{exact:true}).count(),0);
     await fields.page.getByLabel("Số điện thoại",{exact:true}).first().fill("0901234567");
-    assert.equal(await fields.page.getByLabel("Số căn / phòng",{exact:true}).inputValue(),"Toàn bộ căn");
+    assert.equal(await fields.page.getByLabel("Số căn / phòng",{exact:true}).count(),0);
     assert.equal(await fields.page.getByLabel("Họ và tên",{exact:true}).first().isDisabled(),false);
     await fields.page.getByLabel("Họ và tên",{exact:true}).first().fill("Tên chủ nhà trên phụ lục");
     await fields.page.getByLabel("Số CCCD / Định danh",{exact:true}).first().fill("00123456");
@@ -384,22 +489,16 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
     await fields.page.getByLabel("Ngày bàn giao tài sản",{exact:true}).fill("2026-10-16");
     await fields.page.getByLabel("Kỳ hạn thanh toán",{exact:true}).fill("Mỗi 3 tháng");
     await fields.page.getByLabel("Tiền đặt cọc bảo đảm (đ)",{exact:true}).fill("20000000");
-    for(const label of ["Số người cư trú","Xe máy đăng ký","Ô tô đăng ký","Số người tối đa","Số xe tối đa","Số tháng thuê","Số lượng 1"])assert.equal(await fields.page.getByLabel(label,{exact:true}).getAttribute("type"),"number");
-    await fields.page.getByLabel("Số người tối đa",{exact:true}).fill("6");
-    assert.equal(await fields.page.getByLabel("Giá trị đặc điểm 1",{exact:true}).inputValue(),"6");
-    await fields.page.getByLabel("Giá trị đặc điểm 1",{exact:true}).fill("5");
-    assert.equal(await fields.page.getByLabel("Số người tối đa",{exact:true}).inputValue(),"5");
-    assert.equal(await fields.page.getByRole("button",{name:"Thêm đặc điểm",exact:true}).count(),0);
-    assert.equal(await fields.page.getByRole("button",{name:/Xóa đặc điểm/}).count(),0);
-    assert.equal(await fields.page.getByLabel("Tên đặc điểm 2",{exact:true}).count(),0);
-    await fields.page.getByLabel("Giá trị đặc điểm 2",{exact:true}).fill("55.5");
+    for(const label of ["Số người cư trú","Xe máy đăng ký","Ô tô đăng ký","Số tháng thuê"])assert.equal(await fields.page.getByLabel(label,{exact:true}).getAttribute("type"),"number");
+    assert.equal(await fields.page.getByLabel("Số người tối đa",{exact:true}).count(),0);
+    assert.equal(await fields.page.getByLabel("Giá trị đặc điểm 1",{exact:true}).count(),0);
     await fields.page.getByLabel("Cách tính 1",{exact:true}).fill("Người / tháng");
     await fields.page.getByRole("button",{name:"Thêm dòng phí",exact:true}).click();
     await fields.page.getByLabel("Khoản phí 2",{exact:true}).fill("Phí thỏa thuận riêng");
     await fields.page.getByRole("button",{name:"Xóa dòng charges 2",exact:true}).click();
     const tops=await fields.page.locator("#amendment-charges tbody tr").first().evaluate(row=>Array.from(row.querySelectorAll("input")).slice(0,2).map(input=>input.getBoundingClientRect().top));
     assert.ok(Math.abs(tops[0]-tops[1])<=1,"Charge inputs must share the same top edge: "+tops.join(","));
-    assert.equal(await fields.page.locator("select").count(),1,"Only the bounded late-fee mode uses a dropdown");
+    assert.equal(await fields.page.locator("select").count(),3,"Only the bounded late-fee mode uses a dropdown");
     assert.equal(await fields.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
     await fields.page.screenshot({path:path.join(output,"free-form-mobile.png"),fullPage:true});
     await fields.page.locator("#amendment-property").screenshot({path:path.join(output,"free-form-property.png")});
@@ -410,11 +509,9 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
     await fields.page.getByRole("button",{name:"Gửi đề xuất cho người thuê"}).click();
     await fields.page.getByText("Chờ người thuê duyệt nội dung",{exact:true}).waitFor();
     const fieldPayload=fields.requests.find(r=>r.path.endsWith("/amendments")).body.changes;
-    assert.equal(fieldPayload.fields.property.fullAddress,"Địa chỉ đã đối chiếu mới");
+    assert.equal(fieldPayload.fields.property,undefined);
     assert.equal(fieldPayload.fields.landlord.phone,"0901234567");
-    assert.equal(fieldPayload.featureRows.length,2);
-    assert.equal(fieldPayload.featureRows.find(r=>r.featureName==="Diện tích đất").featureValue,"55.5 mét vuông");
-    assert.equal(fieldPayload.fields.property.maxOccupants,"5");
+    assert.equal(fieldPayload.featureRows,undefined);
     assert.equal(fieldPayload.charges[0].billingMethod,"Người / tháng");
     assert.equal(fieldPayload.fields.landlord.fullName,"Tên chủ nhà trên phụ lục");
     assert.equal(fieldPayload.fields.landlord.idNumber,"00123456");assert.equal(fieldPayload.fields.landlord.bankAccountNumber,"0001234");
@@ -436,14 +533,10 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
     policyData.currentTerms.policies={listingPolicies:[policyRow("petPolicy","Nuôi thú cưng","PERMISSION","ALLOWED","Cho phép"),policyRow("smokingPolicy","Hút thuốc","PERMISSION","NOT_ALLOWED","Không cho phép"),policyRow("quietHoursPolicy","Giờ yên tĩnh","TEXT","Sau 23:00","Sau 23:00"),policyRow("depositRefundDays","Thời hạn hoàn cọc","INTEGER","7","7 ngày")],latePaymentFeeMode:"NONE"};
     const policy=await fixturePage(browser,policyData,"owner",{width:390,height:844});
     await policy.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();
-    await policy.page.getByLabel("Nuôi thú cưng",{exact:true}).fill("Chỉ nuôi mèo đã đăng ký, tối đa 2 con");
-    await policy.page.getByLabel("Thời hạn hoàn cọc",{exact:true}).fill("10");
-    await policy.page.getByRole("button",{name:"Thêm chính sách",exact:true}).click();
-    await policy.page.getByLabel("Tên chính sách 5",{exact:true}).fill("Giờ dùng sân thượng");
-    await policy.page.getByLabel("Giờ dùng sân thượng",{exact:true}).fill("18:00–21:00");
-    await policy.page.getByRole("button",{name:"Xóa chính sách 3",exact:true}).click();
+    assert.equal(await policy.page.getByLabel("Nuôi thú cưng",{exact:true}).count(),0);
+    assert.equal(await policy.page.getByRole("button",{name:"Thêm chính sách",exact:true}).count(),0);
     await policy.page.getByLabel("Điều khoản thỏa thuận khác",{exact:true}).fill("Hai bên thống nhất nội dung viết tay mới");
-    assert.equal(await policy.page.locator("select").count(),1,"Listing policies remain free text; late-fee mode has three choices");
+    assert.equal(await policy.page.locator("select").count(),3,"Listing policies remain free text; late-fee mode has three choices");
     assert.equal(await policy.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
     await policy.page.getByLabel("Lý do và mô tả thay đổi").fill("Đề nghị nội quy mới đúng thỏa thuận giữa hai bên");
     await policy.page.getByRole("button",{name:"Xem lại thay đổi",exact:true}).click();
@@ -451,11 +544,9 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
     await policy.page.getByRole("button",{name:"Gửi đề xuất cho người thuê"}).click();
     await policy.page.getByText("Chờ người thuê duyệt nội dung",{exact:true}).waitFor();
     const policyPayload=policy.requests.find(r=>r.path.endsWith("/amendments")).body.changes;
-    assert.equal(policyPayload.policyRows[0].text,"Chỉ nuôi mèo đã đăng ký, tối đa 2 con");
-    assert.equal(policyPayload.policyRows.find(r=>r.code==="depositRefundDays").text,"10");
-    assert.equal(policyPayload.policyRows.some(r=>r.code==="quietHoursPolicy"),false);
+    assert.equal(policyPayload.policyRows,undefined);
     assert.equal(policyPayload.specialTerms,"Hai bên thống nhất nội dung viết tay mới");assert.equal(policy.errors.length,0);
-    console.log("PASS free policy text/add/remove, numeric refund period and full special-term replacement");
+    console.log("PASS Listing policies locked and separate special terms editable");
     const labelData=structuredClone(baseline);
     labelData.currentTerms.property.features=[{featureName:"Tình trạng nội thất",featureValue:"FULLY_FURNISHED"},{featureName:"Loại lối đi",featureValue:"ĐƯỜNG NỘI BỘ"}];
     const labels=await fixturePage(browser,labelData,"owner");
@@ -463,17 +554,15 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
     await labels.page.getByText("Đường nội bộ",{exact:true}).waitFor();
     assert.equal(await labels.page.getByText("FULLY_FURNISHED",{exact:true}).count(),0);
     await labels.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();
-    assert.equal(await labels.page.getByLabel("Giá trị đặc điểm 1",{exact:true}).inputValue(),"Đầy đủ nội thất");
-    assert.equal(await labels.page.getByLabel("Giá trị đặc điểm 2",{exact:true}).inputValue(),"Đường nội bộ");
-    await labels.page.getByLabel("Giá trị đặc điểm 1",{exact:true}).fill("Nội thất theo biên bản ABC - PCCC");
-    assert.equal(await labels.page.getByLabel("Giá trị đặc điểm 1",{exact:true}).inputValue(),"Nội thất theo biên bản ABC - PCCC");
+    assert.equal(await labels.page.getByLabel("Giá trị đặc điểm 1",{exact:true}).count(),0);
+    await labels.page.getByText("Đầy đủ nội thất",{exact:true}).waitFor();
     assert.equal(labelData.currentTerms.property.features[0].featureValue,"FULLY_FURNISHED");
     assert.equal(labels.errors.length,0);
     console.log("PASS translated legacy feature labels in view/edit without rewriting source codes or manual text");
     const rulesData=structuredClone(baseline);rulesData.currentTerms.policies={latePaymentFeeMode:"NONE",latePaymentFeeAmount:0,latePaymentFeeGraceDays:0,latePaymentFeeCap:0};
     rulesData.currentTerms.systemTerms="Quy trình hệ thống: sau hết 5 ngày quá hạn mở phương án; tối đa 5 ngày tính phạt.";
     const rules=await fixturePage(browser,rulesData,"owner");
-    await rules.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();
+    await rules.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();await rules.page.getByRole("button",{name:"Soạn thỏa thuận tài chính",exact:true}).click();
     for(const label of ["Số ngày đến hạn thanh toán","Số ngày ân hạn","Trần phí chậm trả (đ)"])assert.equal(await rules.page.getByLabel(label,{exact:true}).count(),0);
     assert.match(await rules.page.getByLabel("Hạn thanh toán do hệ thống quản lý",{exact:true}).innerText(),/5 ngày lịch, tính cả ngày chốt kỳ/);
     assert.match(await rules.page.getByLabel("Quy tắc phạt do hệ thống quản lý",{exact:true}).innerText(),/Không áp dụng phí phạt/);
@@ -501,7 +590,7 @@ async function reviewRent(page) { await editRent(page); await page.getByRole("bu
     console.log("PASS rate/mode-only proposal, computed ceiling and system timing as read-only labels with protected document clause");
     const dailyData=structuredClone(baseline);dailyData.currentTerms.policies={latePaymentFeeMode:"FIXED_PER_DAY",latePaymentFeeAmount:100000,latePaymentFeeGraceDays:0,latePaymentFeeCap:1000000};
     const once=await fixturePage(browser,dailyData,"owner");
-    await once.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();
+    await once.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();await once.page.getByRole("button",{name:"Soạn thỏa thuận tài chính",exact:true}).click();
     const onceMode=once.page.getByRole("combobox",{name:"Cách tính phí chậm trả",exact:true});
     assert.equal(await onceMode.inputValue(),"FIXED_PER_DAY");
     assert.equal(await once.page.getByRole("button",{name:"Xem lại thay đổi",exact:true}).isDisabled(),true);

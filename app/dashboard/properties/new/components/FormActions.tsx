@@ -10,6 +10,7 @@ interface FormActionsProps {
   isSubmitting?: boolean;
   submittingAction?: ListingSubmissionAction | null;
   isEditing?: boolean;
+  requiresEditReview?: boolean;
 }
 
 export default function FormActions({
@@ -20,12 +21,14 @@ export default function FormActions({
   isSubmitting = false,
   submittingAction = null,
   isEditing = false,
+  requiresEditReview = false,
 }: FormActionsProps) {
   return (
     <div className="sticky bottom-4 z-20 flex flex-col gap-3 rounded-2xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span>
-          Kiểm tra kỹ các thông tin trước khi lưu nháp hoặc gửi bài đăng để kiểm duyệt.
+          {requiresEditReview ? "Admin duyệt nội dung mới. Trạng thái cho thuê tiếp tục theo hồ sơ hiện tại."
+            : "Kiểm tra kỹ các thông tin trước khi lưu nháp hoặc gửi bài đăng để kiểm duyệt."}
         </span>
       </div>
 
@@ -49,8 +52,7 @@ export default function FormActions({
           Kiểm tra dữ liệu
         </button>
 
-        {/* Nút 1: Lưu nháp */}
-        <button
+        {!requiresEditReview && <button
           type="button"
           onClick={onSaveDraft}
           disabled={isSubmitting}
@@ -67,7 +69,7 @@ export default function FormActions({
               <span>Lưu nháp</span>
             </>
           )}
-        </button>
+        </button>}
 
         {/* Nút 2: Gửi duyệt */}
         <button

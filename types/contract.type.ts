@@ -97,6 +97,7 @@ export interface PolicySnapshot {
   latePaymentFeeCap?: number | null;
   billingRules?: Record<string, unknown>;
   overdueLandlordTerminationAfterFiveDays?: boolean;
+  overdueUnilateralTermination24h?: boolean;
   depositRefundDays?: number;
   sublettingAllowed?: boolean;
   petsAllowed?: boolean;
@@ -106,7 +107,13 @@ export interface PolicySnapshot {
 
 export interface UpdateContractRevisionRequest {
   baseRevisionId?: string;
+  listingSourceVersion?: string;
   landlord?: Record<string, unknown>;
+  landlordContact?: { phone?: string; email?: string };
+  draftContent?: {
+    landlord?: Record<string, unknown>;
+    tenant?: Record<string, unknown>;
+  };
   tenant?: Record<string, unknown>;
   property?: Record<string, unknown>;
   lease?: Record<string, unknown>;
@@ -118,7 +125,18 @@ export interface UpdateContractRevisionRequest {
   policies?: Record<string, unknown>;
   meters?: Record<string, unknown>;
   specialTerms?: string | null;
+  additionalTerms?: string;
   revisionNote?: string | null;
+}
+
+export interface ContractListingSyncPreview {
+  sourceVersion: string;
+  baseRevisionId: string;
+  terms: Pick<import("./contract-amendment.type").AmendmentTerms, "property" | "equipments" | "amenities" | "policies" | "lease">;
+  proposedMonths?: number | null;
+  leaseMessage?: string | null;
+  differences: import("./contract-amendment.type").AmendmentComparison[];
+  financialDifferences: import("./contract-amendment.type").AmendmentComparison[];
 }
 
 export interface ContractResponse {
@@ -180,6 +198,8 @@ export interface ContractRevisionResponse {
   policies?: Record<string, unknown> | null;
   meters: Record<string, unknown> | null;
   specialTerms?: string | null;
+  systemTerms?: string | null;
+  additionalTerms?: string | null;
   revisionNote?: string | null;
   schemaVersion?: number | null;
   createdAt: string;

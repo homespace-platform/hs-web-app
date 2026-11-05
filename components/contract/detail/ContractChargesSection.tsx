@@ -60,7 +60,7 @@ export default function ContractChargesSection({
         </span>
       </div>
 
-      {w?.editing ? <InlineAmendmentFields group="charges" /> : items.length > 0 ? (
+      {w?.editing && w.editingFinancial ? <InlineAmendmentFields group="charges" /> : items.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-border/80">
           <table className="w-full text-xs">
             <thead className="bg-muted/40 text-muted-foreground border-b border-border/80">

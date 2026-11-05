@@ -102,7 +102,7 @@ function DashboardPropertyViewContent() {
   const isRented = String(rawListing.status || "").trim().toUpperCase() === "RENTED";
   const isRentedExternally = String(rawListing.status || "").trim().toUpperCase() === "RENTED_EXTERNALLY";
   const isViolation = String(rawListing.status || "").trim().toUpperCase() === "VIOLATION";
-  const canEdit = !isViolation && !isRented && !isRentedExternally;
+  const canEdit = !isViolation && !isRentedExternally;
   const canDuplicate = !isViolation;
 
   // Top Bar with Breadcrumbs, Status Pill and Landlord Actions
@@ -146,6 +146,10 @@ function DashboardPropertyViewContent() {
           <span>Danh sách tin</span>
         </Link>
 
+        {rawListing.pendingEditId && <span className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">Bản sửa đang chờ duyệt</span>}
+        {rawListing.editRejectionReason && <span className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-900">
+          Bản sửa bị từ chối · {rawListing.editRejectionReason}
+        </span>}
         {/* Change Status Action Menu */}
         <ListingStatusActionMenu
           listing={{

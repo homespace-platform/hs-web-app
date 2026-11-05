@@ -15,11 +15,12 @@ import { toast } from "sonner";
 import { contractService } from "@/services/contract.service";
 import type {
   ContractCompletenessResponse,
+  ContractListingSyncPreview,
   ContractDocumentResponse,
   ContractPaymentBreakdownResponse,
   ContractResponse,
   ContractRevisionResponse,
-  PolicySnapshot,
+  UpdateContractRevisionRequest,
   SignatureStateResponse,
 } from "@/types/contract.type";
 import { useAuth } from "@/features/auth/useAuth";
@@ -33,11 +34,12 @@ import ContractFinancialSection from "@/components/contract/detail/ContractFinan
 import ContractAmenitiesSection from "@/components/contract/detail/ContractAmenitiesSection";
 import ContractChargesSection from "@/components/contract/detail/ContractChargesSection";
 import ContractEquipmentSection from "@/components/contract/detail/ContractEquipmentSection";
-import ContractPoliciesSection from "@/components/contract/detail/ContractPoliciesSection";
+import ContractPoliciesSection, { type DraftPolicyFields } from "@/components/contract/detail/ContractPoliciesSection";
 import ContractHandoverSection from "@/components/contract/detail/ContractHandoverSection";
 import ContractMissingFieldsNotice from "@/components/contract/detail/ContractMissingFieldsNotice";
 import ContractInitialPaymentSection from "@/components/contract/detail/ContractInitialPaymentSection";
 import { ContractFieldLegend } from "@/components/contract/detail/ContractFieldState";
+import { ContractSnapshotReadOnly } from "@/components/contract/detail/utils";
 import ContractDocumentSection from "@/components/contract/detail/ContractDocumentSection";
 import ContractSignaturePanel from "@/components/contract/detail/ContractSignaturePanel";
 import SmartCaSignaturePanel from "@/components/contract/detail/SmartCaSignaturePanel";
@@ -49,6 +51,12 @@ import ContractAmendmentWorkspace, { ContractTermsNotice } from "@/components/co
 import { contractListPath, contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
 import { generateContractPreview } from "@/lib/contract-preview";
 import { missingRequiredInitialMeters, validateInitialMeterReading } from "@/lib/contract-initial-meters";
+import { VIETNAMESE_PHONE_REGEX } from "@/validation/user.schema";
+import type { AmendmentTerms } from "@/types/contract-amendment.type";
+import { ContractDraftEditor, draftContentPatch, draftEditorValues } from "@/components/contract/detail/ContractDraftEditor";
+import ListingSyncControl from "@/components/contract/detail/ListingSyncControl";
+
+const DRAFT_FORM_ID = "lease-draft-form";
 
 export default function ContractDetailView({ perspective }: { perspective: "landlord" | "tenant" }) {
   const params = useParams();
@@ -78,8 +86,14 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   // Meter states for draft editing
   const [electricityInitial, setElectricityInitial] = useState("");
   const [waterInitial, setWaterInitial] = useState("");
-  const [savingMeters, setSavingMeters] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftPolicy, setDraftPolicy] = useState<Partial<DraftPolicyFields>>({});
+  const [feeError, setFeeError] = useState<string>();
+  const [retryPreview, setRetryPreview] = useState(false);
+  const [draftConflict, setDraftConflict] = useState(false);
   const [meterErrors, setMeterErrors] = useState<{ electricity?: string; water?: string }>({});
+  const [draftEdits, setDraftEdits] = useState<Partial<AmendmentTerms>>({});
+  const [listingSyncPreview, setListingSyncPreview] = useState<ContractListingSyncPreview | null>(null);
 
   const isLandlord = Boolean(
     perspective === "landlord" && profile?.id && contract?.landlordId && profile.id === contract.landlordId
@@ -94,6 +108,14 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     setRendering(false);
     setReconcilingPreview(false);
     setCurrentPreview(null);
+    setDraftPolicy({});
+    setDraftConflict(false);
+    setRetryPreview(false);
+    setSavingDraft(false);
+    setMeterErrors({});
+    setFeeError(undefined);
+    setDraftEdits({});
+    setListingSyncPreview(null);
     try {
       const c = await contractService.getContract(contractId);
       if (c.agreementKind === "DEPOSIT") {
@@ -163,12 +185,12 @@ export default function ContractDetailView({ perspective }: { perspective: "land
             (document) =>
               document.revisionId === revision.id &&
               (contract?.status !== "DRAFT" || document.id === currentPreview?.id) &&
-              (signatureState?.signatureMode !== "SMARTCA" || document.documentType === "PDF") &&
+              ((signatureState?.signatureMode !== "SMARTCA" && (contract?.status !== "DRAFT" || contract.parentContractId)) || document.documentType === "PDF") &&
               document.status === "READY" &&
               Boolean(document.storageObjectId)
           )
       ),
-    [documents, revision, contract?.status, currentPreview, signatureState?.signatureMode]
+    [documents, revision, contract?.status, contract?.parentContractId, currentPreview, signatureState?.signatureMode]
   );
 
   const electricityRequired = useMemo(() =>
@@ -191,144 +213,135 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     (!isWaterPerPerson && waterInitial.trim() !== String(revision.meters?.waterInitial ?? "").trim())
   ));
 
-  async function handleSaveMeters() {
-    if (!contractId || !revision) return;
-    const errors = {
-      electricity: validateInitialMeterReading(electricityInitial, electricityRequired, "chỉ số điện ban đầu"),
-      water: isWaterPerPerson ? undefined : validateInitialMeterReading(waterInitial, waterRequired, "chỉ số nước ban đầu"),
-    };
-    setMeterErrors(errors);
-    if (errors.electricity || errors.water) return;
+  const reviewDraft = Boolean(isLandlord && contract?.status === "DRAFT" && !contract.parentContractId);
+  const signatureLocked = Boolean(contract?.landlordConfirmedAt || signatureState?.allRequests?.some(({status}) =>
+    ["CREATED", "PENDING_USER_CONFIRMATION", "PROVIDER_SIGNED", "EMBEDDING", "SIGNED"].includes(status)));
+  const reviewLocked = draftConflict || signatureLocked || onboarding?.stage === "CANCELLATION_REFUND_PENDING";
+  const savedFeeMode = (revision?.policies?.latePaymentFeeMode as DraftPolicyFields["feeMode"]) ?? "NONE";
+  const savedFeeAmount = String(revision?.policies?.latePaymentFeeAmount ?? "");
+  const draftFields: DraftPolicyFields = {
+    feeMode: draftPolicy.feeMode ?? savedFeeMode,
+    feeAmount: draftPolicy.feeAmount ?? savedFeeAmount,
+    additionalTerms: draftPolicy.additionalTerms ?? revision?.additionalTerms ?? undefined,
+  };
+  const feeDirty = draftFields.feeMode !== savedFeeMode ||
+    (draftFields.feeMode !== "NONE" && Number(draftFields.feeAmount) !== Number(savedFeeAmount));
+  const termsDirty = (draftFields.additionalTerms ?? "").trim() !== (revision?.additionalTerms ?? "").trim();
+  const baseTerms = useMemo(() => draftEditorValues(revision), [revision]);
+  const draftContent = useMemo(() => draftContentPatch(baseTerms, draftEdits), [baseTerms, draftEdits]);
+  const draftDirty = reviewDraft && Boolean(metersDirty || feeDirty || termsDirty || draftContent || listingSyncPreview);
 
-    setSavingMeters(true);
-    try {
-      const updated = await contractService.updateRevision(contractId, {
-        baseRevisionId: revision.id,
-        meters: {
-          electricityInitial: electricityInitial.trim(),
-          waterInitial: isWaterPerPerson
-            ? String(revision.meters?.waterInitial ?? "")
-            : waterInitial.trim(),
-        },
-        revisionNote: "Cập nhật chỉ số điện nước ban đầu.",
-      });
-      setRevision(updated);
-      setElectricityInitial(String(updated.meters?.electricityInitial ?? ""));
-      setWaterInitial(String(updated.meters?.waterInitial ?? ""));
-      const [comp, docs] = await Promise.all([
-        contractService.getCompleteness(contractId),
-        contractService.getDocuments(contractId),
-      ]);
-      setCompleteness(comp);
-      setDocuments(docs);
-      toast.success("Đã lưu chỉ số ban đầu. Vui lòng kết xuất lại hợp đồng.");
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, "Không thể lưu chỉ số ban đầu."));
-    } finally {
-      setSavingMeters(false);
-    }
-  }
-
-  // ACTION: TRIGGER PREVIEW
   async function handleRender() {
-    if (!contractId || !revision || previewRequest.current) return;
-    if (metersDirty) {
-      toast.warning("Vui lòng lưu chỉ số điện nước trước khi kết xuất hợp đồng.");
-      document.getElementById("contract-handover")?.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
-    const request = new AbortController();
-    previewRequest.current = request;
-    setRendering(true);
-    setReconcilingPreview(false);
-    try {
-      const doc = await generateContractPreview({
-        trigger: (signal) => contractService.triggerPreview(contractId, signal),
-        status: (signal) => contractService.getPreviewStatus(contractId, signal),
-      }, revision.id, request.signal, () => setReconcilingPreview(true));
-      if (request.signal.aborted) return;
-      if (!doc) {
-        toast.info("Chưa xác nhận được kết quả kết xuất. Hệ thống có thể vẫn đang xử lý; bạn có thể kiểm tra lại sau, không cần tạo hợp đồng mới.");
+    if (!contractId || !revision || previewRequest.current || (reviewDraft && reviewLocked)) return;
+    if (reviewDraft) {
+      const errors = {
+        electricity: validateInitialMeterReading(electricityInitial, electricityRequired, "chỉ số điện ban đầu"),
+        water: isWaterPerPerson ? undefined : validateInitialMeterReading(waterInitial, waterRequired, "chỉ số nước ban đầu"),
+      };
+      setMeterErrors(errors);
+      const amount = Number(draftFields.feeAmount);
+      const invalidFee = draftFields.feeMode !== "NONE" && (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1_000_000_000);
+      setFeeError(invalidFee ? "Nhập mức phạt là số tiền nguyên dương, tối đa 1 tỷ đồng." : undefined);
+      const invalidPhone = [draftContent?.landlord, draftContent?.tenant].some(party =>
+        party?.phone !== undefined && !VIETNAMESE_PHONE_REGEX.test(String(party.phone).trim()));
+      const form = document.getElementById(DRAFT_FORM_ID) as HTMLFormElement | null;
+      if (errors.electricity || errors.water || invalidFee || invalidPhone) {
+        const section = errors.electricity || errors.water ? "contract-handover"
+          : invalidPhone ? "contract-parties" : "contract-policies";
+        if (invalidPhone) toast.error("Nhập số điện thoại di động Việt Nam hợp lệ.");
+        document.getElementById(section)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
         return;
       }
-      toast.success(
-        "Đã tạo bản xem trước từ nội dung vừa lưu."
-      );
-      setDocuments((prev) => [doc, ...prev.filter((d) => d.id !== doc.id)]);
-      setCurrentPreview(doc);
-      // A refresh failure must not turn an already confirmed export into an error toast.
-      const refreshed = await Promise.allSettled([
-        contractService.getDocuments(contractId), contractService.getCompleteness(contractId),
-      ]);
-      if (request.signal.aborted) return;
-      if (refreshed[0].status === "fulfilled") {
-        const docs = refreshed[0].value;
-        setDocuments(docs.some(d => d.id === doc.id) ? docs : [doc, ...docs]);
+      if (form && !form.reportValidity()) return;
+    }
+
+    const request = new AbortController();
+    previewRequest.current = request;
+    let targetRevision = revision;
+    let draftSaved = false;
+    let previewReady = false;
+    try {
+      if (draftDirty) {
+        setSavingDraft(true);
+        const payload: UpdateContractRevisionRequest = { baseRevisionId: revision.id, revisionNote: "Hoàn thiện bản nháp hợp đồng." };
+        if (metersDirty) payload.meters = {
+          electricityInitial: electricityInitial.trim(),
+          ...(isWaterPerPerson ? {} : { waterInitial: waterInitial.trim() }),
+        };
+        if (termsDirty) payload.additionalTerms = draftFields.additionalTerms?.trim();
+        if (draftContent) payload.draftContent = draftContent;
+        if (listingSyncPreview) payload.listingSourceVersion = listingSyncPreview.sourceVersion;
+        if (feeDirty) payload.policies = {
+          latePaymentFeeMode: draftFields.feeMode,
+          latePaymentFeeAmount: draftFields.feeMode === "NONE" ? 0 : Number(draftFields.feeAmount),
+        };
+        targetRevision = await contractService.updateRevision(contractId, payload, request.signal);
+        if (request.signal.aborted) return;
+        draftSaved = true;
+        setRevision(targetRevision);
+        setCurrentPreview(null);
+        setDraftPolicy({});
+        setDraftEdits({});
+        setListingSyncPreview(null);
+        setElectricityInitial(String(targetRevision.meters?.electricityInitial ?? ""));
+        setWaterInitial(String(targetRevision.meters?.waterInitial ?? ""));
+        setSavingDraft(false);
       }
-      if (refreshed[1].status === "fulfilled") setCompleteness(refreshed[1].value);
-    } catch (err) {
+
+      setRendering(true);
+      setReconcilingPreview(false);
+      const doc = await generateContractPreview({
+        trigger: (signal) => contractService.triggerPreview(contractId, signal, reviewDraft ? targetRevision.id : undefined),
+        status: (signal) => contractService.getPreviewStatus(contractId, signal),
+      }, targetRevision.id, request.signal, () => setReconcilingPreview(true), {requirePdf: reviewDraft});
       if (request.signal.aborted) return;
-      toast.error(
-        getApiErrorMessage(err, "Không thể kết xuất bản xem trước hợp đồng.")
-      );
+      setRetryPreview(!doc);
+      if (doc) {
+        previewReady = true;
+        setDocuments((prev) => [doc, ...prev.filter((d) => d.id !== doc.id)]);
+        setCurrentPreview(doc);
+        toast.success(draftSaved ? "Đã lưu và kết xuất PDF. Bạn có thể xem lại trước khi ký." : "Đã tạo bản xem trước hợp đồng.");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        toast.info(draftSaved ? "Đã lưu bản nháp. Chưa xác nhận được kết quả kết xuất PDF." : "Chưa xác nhận được kết quả kết xuất. Bạn có thể thử kết xuất lại.");
+      }
+    } catch (error) {
+      if (request.signal.aborted) return;
+      const code = (error as { response?: { data?: { code?: number | string } } })?.response?.data?.code;
+      if (String(code) === "6072") {
+        setDraftConflict(true);
+        setCurrentPreview(null);
+      }
+      setRetryPreview(reviewDraft && (!draftDirty || draftSaved));
+      const message = getApiErrorMessage(error, draftDirty && !draftSaved ? "Không thể lưu bản nháp." : "Không thể kết xuất bản xem trước.");
+      toast.error(draftSaved ? "Đã lưu bản nháp. " + message : message);
     } finally {
       if (previewRequest.current === request) {
-        previewRequest.current = null;
-        setRendering(false);
-        setReconcilingPreview(false);
+        if (draftSaved || previewReady) {
+          const [comp, docs] = await Promise.allSettled([contractService.getCompleteness(contractId), contractService.getDocuments(contractId)]);
+          if (!request.signal.aborted && comp.status === "fulfilled" && comp.value.revisionId === targetRevision.id) setCompleteness(comp.value);
+          if (!request.signal.aborted && docs.status === "fulfilled") {
+            setDocuments((prev) => [...docs.value, ...prev.filter(d => d.revisionId === targetRevision.id && !docs.value.some(item => item.id === d.id))]);
+          }
+        }
+        if (previewRequest.current === request) {
+          previewRequest.current = null;
+          setSavingDraft(false);
+          setRendering(false);
+          setReconcilingPreview(false);
+        }
       }
     }
   }
 
-  // ACTION: SAVE SPECIAL TERMS
-  async function handleSaveSpecialTerms(terms: string) {
-    if (!contractId || !revision) return;
-    try {
-      const updated = await contractService.updateRevision(contractId, {
-        baseRevisionId: revision.id,
-        specialTerms: terms,
-        revisionNote: "Cập nhật điều khoản thỏa thuận riêng.",
-      });
-      setRevision(updated);
-      toast.success("Đã lưu nội dung bản soạn thảo.");
-      const comp = await contractService.getCompleteness(contractId);
-      setCompleteness(comp);
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, "Không thể cập nhật điều khoản hợp đồng."));
-      throw err;
-    }
-  }
-
-  async function handleSaveLateFee(policy: Pick<PolicySnapshot, "latePaymentFeeMode" | "latePaymentFeeAmount">) {
-    if (!contractId || !revision) return;
-    try {
-      const updated = await contractService.updateRevision(contractId, {
-        baseRevisionId: revision.id,
-        policies: policy,
-        revisionNote: "Cập nhật điều khoản phí chậm thanh toán.",
-      });
-      setRevision(updated);
-      const [comp, docs] = await Promise.all([
-        contractService.getCompleteness(contractId), contractService.getDocuments(contractId),
-      ]);
-      setCompleteness(comp);
-      setDocuments(docs);
-      toast.success("Đã lưu phí chậm thanh toán. Vui lòng kết xuất lại hợp đồng trước khi ký.");
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, "Không thể lưu phí chậm thanh toán."));
-      throw err;
-    }
-  }
+  const draftBusy = savingDraft || rendering || reconcilingPreview;
+  const readyToSign = hasReadyCurrentDocument && !draftDirty && !draftBusy && !draftConflict;
 
   // ACTION: SEND TO TENANT
   async function handleSendToTenant() {
     if (!contractId) return;
-    if (metersDirty) {
-      toast.warning("Vui lòng lưu chỉ số điện nước và kết xuất lại hợp đồng trước khi gửi.");
-      document.getElementById("contract-handover")?.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
-    if (!hasReadyCurrentDocument) {
+    if (!readyToSign || previewRequest.current) {
       toast.warning(
         "Dữ liệu đã thay đổi hoặc chưa có file kết xuất. Vui lòng kết xuất file xem trước trước khi gửi."
       );
@@ -401,18 +414,22 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   const isAmendment = contract.agreementKind === "AMENDMENT";
   const landlord = revision.landlord || {};
   const tenant = revision.tenant || {};
-  const property = revision.property || {};
-  const lease = revision.lease || {};
+  const property = listingSyncPreview?.terms.property ?? revision.property ?? {};
+  const lease = listingSyncPreview?.terms.lease ?? revision.lease ?? {};
   const financial = revision.financial || {};
-  const amenities = revision.amenities || [];
+  const amenities = listingSyncPreview?.terms.amenities ?? revision.amenities ?? [];
   const charges = revision.charges || [];
-  const equipments = revision.equipments || [];
-  const policies = revision.policies;
-  const missingMeterReadings = missingRequiredInitialMeters(revision.meters, electricityRequired, waterRequired);
+  const equipments = listingSyncPreview?.terms.equipments ?? revision.equipments ?? [];
+  const policies = listingSyncPreview?.terms.policies ?? revision.policies;
+  const missingMeterReadings = missingRequiredInitialMeters(
+    reviewDraft ? { electricityInitial, waterInitial } : revision.meters, electricityRequired, waterRequired
+  );
   const prioritizeMeters = isDraft && missingMeterReadings.length > 0;
   const missingFieldsNotice = <ContractMissingFieldsNotice completeness={completeness} isLandlord={isLandlord}
-    meterFields={prioritizeMeters ? missingMeterReadings : []} />;
+    meterFields={reviewDraft || prioritizeMeters ? missingMeterReadings : undefined}
+    hasLandlordPhone={reviewDraft && VIETNAMESE_PHONE_REGEX.test(String(draftEdits.landlord?.phone ?? "").trim())} />;
   const handoverSection = <ContractHandoverSection
+    formId={reviewDraft ? DRAFT_FORM_ID : undefined}
     originalElectricityInitial={String(revision.meters?.electricityInitial??"")}
     originalWaterInitial={String(revision.meters?.waterInitial??"")}
     electricityInitial={electricityInitial}
@@ -422,18 +439,41 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     waterRequired={waterRequired}
     isDraft={isDraft}
     isLandlord={isLandlord}
-    isDirty={metersDirty}
-    saving={savingMeters}
+    disabled={reviewLocked || draftBusy}
     priority={prioritizeMeters}
     missingFieldsNotice={missingFieldsNotice}
     errors={meterErrors}
     onElectricityChange={(value) => { setElectricityInitial(value); setMeterErrors((prev) => ({ ...prev, electricity: undefined })); }}
     onWaterChange={(value) => { setWaterInitial(value); setMeterErrors((prev) => ({ ...prev, water: undefined })); }}
-    onSave={handleSaveMeters}
   />;
+  const policiesSection = <ContractPoliciesSection
+    policies={policies}
+    financial={financial}
+    specialTerms={revision.specialTerms}
+    isDraft={isDraft}
+    draft={reviewDraft ? draftFields : undefined}
+    draftSystemTerms={reviewDraft ? revision.systemTerms ?? revision.specialTerms : undefined}
+    originalAdditionalTerms={revision.additionalTerms}
+    draftDisabled={reviewLocked || draftBusy}
+    feeError={feeError}
+    onDraftChange={(changes) => { setDraftPolicy((prev) => ({ ...prev, ...changes })); setFeeError(undefined); }}
+  />;
+  const contractSections = <>
+    <ContractFieldLegend draft={isDraft} />
+    <ContractPartiesSection landlord={landlord} tenant={tenant} />
+    <ContractPropertySection property={property} />
+    <ContractLeaseSection lease={lease} />
+    <ContractFinancialSection financial={financial} />
+    <ContractInitialPaymentSection initialPayment={revision.initialPayment} />
+    <ContractAmenitiesSection amenities={amenities} />
+    <ContractChargesSection charges={charges} />
+    <ContractEquipmentSection equipments={equipments} />
+    {policiesSection}
+  </>;
 
   return (
     <ContractAmendmentWorkspace contractId={contract.id} actorId={profile.id} perspective={perspective} enabled={!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status)}>
+    <ContractSnapshotReadOnly.Provider value={isDraft}>
     <div className="space-y-6 animate-in fade-in-50 duration-200 pb-52 max-w-6xl mx-auto">
       <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm">
         <p className="font-semibold">{isAmendment ? "Phụ lục điều chỉnh hợp đồng" : perspective === "landlord" ? "Hợp đồng cho thuê" : "Hợp đồng đi thuê"}</p>
@@ -451,26 +491,53 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         contract={contract}
         revision={revision}
         completeness={completeness}
-        latestDoc={latestDoc}
-        hasReadyDoc={hasReadyCurrentDocument}
+        latestDoc={draftDirty || draftConflict ? null : latestDoc}
+        hasReadyDoc={hasReadyCurrentDocument && !draftDirty && !draftConflict}
         isLandlord={isLandlord}
         isTenant={isTenant}
         rendering={rendering}
         reconcilingPreview={reconcilingPreview}
         sending={sending}
         onRender={handleRender}
+        draftReview={reviewDraft ? { formId: DRAFT_FORM_ID, saving: savingDraft, retry: retryPreview && !draftDirty, locked: reviewLocked } : undefined}
+        listingSyncAction={reviewDraft && <ListingSyncControl contractId={contractId} baseRevisionId={revision.id}
+          disabled={reviewLocked || draftBusy} onSelect={setListingSyncPreview} />}
         onSend={handleSendToTenant}
         smartCaMode={signatureState?.signatureMode === "SMARTCA"}
         cancellationRefundPending={onboarding?.stage === "CANCELLATION_REFUND_PENDING"}
       />
 
-      {prioritizeMeters && handoverSection}
-
-      {/* 2. WARNING BANNER: INCOMPLETE FIELDS FOR TEMPLATE */}
-      {!prioritizeMeters && missingFieldsNotice}
+      {reviewDraft && <>
+        <section className="space-y-2 rounded-xl border bg-card p-4 text-sm">
+          <h2 className="font-semibold">Rà soát bản nháp trước khi ký</h2>
+          <p>Kiểm tra và sửa trực tiếp các ô bên dưới. Bấm <strong>Lưu</strong> để lưu bản nháp và tự tạo PDF xem trước.</p>
+          <div className="flex flex-wrap gap-4 text-xs font-semibold text-primary">
+            <a href="#contract-handover">Chỉ số điện nước</a>
+            <a href="#contract-parties">Thông tin hai bên</a>
+            <a href="#contract-property">Thông tin bất động sản</a>
+            <a href="#contract-policies">Phí chậm trả & thỏa thuận</a>
+          </div>
+          {draftDirty && <p role="status" className="text-xs font-medium text-amber-700 dark:text-amber-400">Có thay đổi chưa lưu</p>}
+          {listingSyncPreview && <div className="flex flex-wrap items-center gap-3 text-xs">
+            <span>Đã đưa dữ liệu bài đăng vào form. Bấm Lưu để áp dụng.</span>
+            <button type="button" className="text-primary underline" disabled={draftBusy || reviewLocked}
+              onClick={() => setListingSyncPreview(null)}>Bỏ dữ liệu vừa lấy</button>
+          </div>}
+          {draftConflict && <div role="alert" className="space-y-2 text-amber-800">
+            <p>Bản nháp đã thay đổi ở nơi khác. Hãy đối chiếu nội dung trước khi chỉnh sửa lại.</p>
+            <button type="button" className="underline" onClick={() => {
+              if (!draftDirty || window.confirm("Tải bản mới và bỏ các chỉnh sửa chưa lưu trên trang này?")) void load();
+            }}>Tải lại bản nháp</button>
+          </div>}
+          {signatureLocked && <p className="text-amber-800">Bản nháp đang xử lý chữ ký. Hãy theo dõi trạng thái ký bên dưới.</p>}
+        </section>
+        {!prioritizeMeters && missingFieldsNotice}
+        {handoverSection}
+      </>}
+      {!reviewDraft && (prioritizeMeters ? handoverSection : missingFieldsNotice)}
 
       {isLandlord && isDraft && !contract.parentContractId && <p className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
-        Ngày thuê, thời hạn, tiền thuê, tiền cọc và số người/xe lấy từ hồ sơ đã chấp thuận. Bản nháp cho hoàn thiện công tơ, thỏa thuận riêng và phí chậm trả. Đổi ngày nhận nhà dùng đề nghị nhận nhà sớm bên dưới; các điều khoản sau ký được điều chỉnh qua phụ lục.
+        Ngày thuê, thời hạn, tiền thuê, tiền cọc và số người/xe lấy từ hồ sơ đã chấp thuận. Đổi ngày nhận nhà dùng đề nghị nhận nhà sớm bên dưới. Các điều khoản sau ký được điều chỉnh qua phụ lục.
       </p>}
 
       {isTenant && isDraft && <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
@@ -492,7 +559,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         state={signatureState}
         isLandlord={isLandlord}
         isTenant={isTenant}
-        hasReadyPdf={Boolean(!rendering && !metersDirty && !savingMeters && hasReadyCurrentDocument && revision && documents.some(d => d.revisionId === revision.id && d.documentType === "PDF" && d.status === "READY"))}
+        hasReadyPdf={Boolean(readyToSign && documents.some(d => d.revisionId === revision.id && d.documentType === "PDF" && d.status === "READY"))}
         onUpdated={refreshSignedState}
       /> : <ContractSignaturePanel
         contract={contract}
@@ -500,7 +567,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         blockedReason={onboarding?.message ?? "Đang kiểm tra ngày bắt đầu thuê và trạng thái thanh toán…"}
         isLandlord={isLandlord}
         isTenant={isTenant}
-        canSend={Boolean(!rendering && !metersDirty && completeness?.complete && hasReadyCurrentDocument)}
+        canSend={Boolean(completeness?.complete && readyToSign)}
         sending={sending}
         signing={signing}
         onSend={handleSendToTenant}
@@ -517,43 +584,17 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       <div className="space-y-6">
         <>
         {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status) && <ContractTermsNotice />}
-        {/* CHỦ THỂ BÊN A VÀ BÊN B */}
-        <ContractFieldLegend />
-        <ContractPartiesSection landlord={landlord} tenant={tenant} />
-
-        {/* THÔNG TIN BẤT ĐỘNG SẢN BÀN GIAO */}
-        <ContractPropertySection property={property} />
-
-        {/* THỜI HẠN THUÊ VÀ BÀN GIAO */}
-        <ContractLeaseSection lease={lease} />
-
-        {/* GIÁ THUÊ VÀ ĐẶT CỌC */}
-        <ContractFinancialSection financial={financial} />
-
-
-        {/* BẢNG TIỆN ÍCH DÙNG CHUNG VÀ CHÍNH SÁCH */}
-        <ContractInitialPaymentSection initialPayment={revision.initialPayment} />
-        <ContractAmenitiesSection amenities={amenities} />
-
-        {/* BẢNG PHÍ DỊCH VỤ VÀ ĐIỆN NƯỚC */}
-        <ContractChargesSection charges={charges} />
-
-        {/* BẢNG TRANG THIẾT BỊ VÀ NỘI THẤT */}
-        <ContractEquipmentSection equipments={equipments} />
-
-        {/* CHÍNH SÁCH VẬN HÀNH VÀ ĐIỀU KHOẢN THỎA THUẬN RIÊNG */}
-        <ContractPoliciesSection
-          policies={policies}
-          financial={financial}
-          specialTerms={revision.specialTerms}
-          isDraft={isDraft}
-          isLandlord={isLandlord}
-          onSaveSpecialTerms={handleSaveSpecialTerms}
-          onSaveLateFee={handleSaveLateFee}
-        />
+        {reviewDraft ? <form id={DRAFT_FORM_ID} aria-label="Nội dung bản nháp hợp đồng" noValidate className="space-y-6"
+          onSubmit={event => { event.preventDefault(); void handleRender(); }}>
+          <ContractDraftEditor.Provider value={{ base: baseTerms, values: { ...baseTerms, ...draftEdits },
+            busy: reviewLocked || draftBusy,
+            patch: (group, value) => setDraftEdits(previous => ({ ...previous, [group]: value })) }}>
+            {contractSections}
+          </ContractDraftEditor.Provider>
+        </form> : contractSections}
 
         {/* CHỈ SỐ BAN ĐẦU ĐƯA VÀO HỢP ĐỒNG */}
-        {!prioritizeMeters && handoverSection}
+        {!reviewDraft && !prioritizeMeters && handoverSection}
 
         </>
         {/* DANH SÁCH FILE VĂN BẢN KẾT XUẤT */}
@@ -583,6 +624,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         </Link>
       </div>
     </div>
+    </ContractSnapshotReadOnly.Provider>
     </ContractAmendmentWorkspace>
   );
 }

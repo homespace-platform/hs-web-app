@@ -77,7 +77,7 @@ export default function ListingItemCard({
   const isRented = String(item.status || "").trim().toUpperCase() === "RENTED";
   const isRentedExternally = String(item.status || "").trim().toUpperCase() === "RENTED_EXTERNALLY";
   const isViolation = String(item.status || "").trim().toUpperCase() === "VIOLATION";
-  const canEdit = !isViolation && !isRented && !isRentedExternally;
+  const canEdit = !isViolation && !isRentedExternally;
   const canDuplicate = !isViolation;
 
   const handleOpenDetail = () => {

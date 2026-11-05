@@ -1,6 +1,8 @@
 import React from "react";
 import { fieldStateClass, fieldStateText } from "@/lib/contract-field-state";
 
+export const ContractSnapshotReadOnly = React.createContext(false);
+
 export function str(v: unknown): string {
   if (v == null) return "—";
   const s = String(v).trim();
@@ -36,6 +38,8 @@ export function FieldRow({
   highlight?: boolean;
   editable?: boolean;
 }) {
+  const snapshotReadOnly = React.useContext(ContractSnapshotReadOnly);
+  const canEdit = editable && !snapshotReadOnly;
   return (
     <div className="flex items-start justify-between gap-3 py-1.5 text-xs border-b border-border/50 last:border-0">
       <span className="min-w-0 max-w-[48%] text-muted-foreground shrink-0 flex items-center gap-1.5">
@@ -47,9 +51,9 @@ export function FieldRow({
         )}
       </span>
       <span
-        data-contract-field-state={editable?"editable":"readonly"}
-        title={fieldStateText[editable?"editable":"readonly"]}
-        className={`min-w-0 flex-1 font-semibold text-right break-words [overflow-wrap:anywhere] ${fieldStateClass[editable?"editable":"readonly"]} ${highlight?"font-bold":""}`}
+        data-contract-field-state={canEdit?"editable":"readonly"}
+        title={fieldStateText[canEdit?"editable":"readonly"]}
+        className={`min-w-0 flex-1 font-semibold text-right break-words [overflow-wrap:anywhere] ${fieldStateClass[canEdit?"editable":"readonly"]} ${highlight?"font-bold":""}`}
       >
         {str(value)}
       </span>

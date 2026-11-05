@@ -5,7 +5,6 @@ import { Sparkles } from "lucide-react";
 import { str } from "./utils";
 import type { AmenitySnapshot } from "@/types/contract.type";
 import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
-import InlineAmendmentFields from "./InlineAmendmentFields";
 
 interface ContractAmenitiesSectionProps {
   amenities?: (AmenitySnapshot | Record<string, unknown>)[] | null;
@@ -13,7 +12,7 @@ interface ContractAmenitiesSectionProps {
 
 export default function ContractAmenitiesSection({ amenities }: ContractAmenitiesSectionProps) {
   const w = useAmendmentWorkspace();
-  const items = w?.data?.currentTerms.amenities ?? amenities ?? [];
+  const items = (w?.editing ? w.listingSync?.terms.amenities : undefined) ?? w?.data?.currentTerms.amenities ?? amenities ?? [];
   return (
     <section id="amendment-amenities" className="scroll-mt-24 rounded-2xl border border-border bg-card p-4.5 space-y-3 shadow-2xs">
       <div className="flex items-center justify-between gap-2 border-b border-border/70 pb-2">
@@ -30,7 +29,7 @@ export default function ContractAmenitiesSection({ amenities }: ContractAmenitie
           {items.length} tiện ích
         </span>
       </div>
-      {w?.editing ? <InlineAmendmentFields group="amenities" /> : items.length > 0 ? (
+      {items.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-border/80">
           <table className="w-full text-xs">
             <thead className="bg-muted/40 text-muted-foreground border-b border-border/80">
@@ -43,7 +42,7 @@ export default function ContractAmenitiesSection({ amenities }: ContractAmenitie
               {items.map((item, idx) => (
                 <tr key={idx} className="hover:bg-muted/30 transition-colors">
                   <td className="py-2.5 px-3 text-center text-muted-foreground">{idx + 1}</td>
-                  <td data-contract-field-state="editable" className="py-2.5 px-3 font-semibold text-blue-700! dark:text-blue-400!">{str(item.name)}</td>
+                  <td data-contract-field-state="readonly" className="py-2.5 px-3 font-semibold">{str(item.name)}</td>
                 </tr>
               ))}
             </tbody>

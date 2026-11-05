@@ -46,6 +46,12 @@ test("an unconfirmed POST body is reconciled instead of falsely announcing succe
     status: async () => { reads++; return ready; } }, "rev", new AbortController().signal, () => {}, { wait });
   assert.equal(result, ready); assert.equal(reads, 1);
 });
+test("a saved lease review never unlocks signing with DOCX alone", async () => {
+  const docx = { ...ready, id: "docx", documentType: "DOCX" };
+  const result = await generateContractPreview({ trigger: async () => docx, status: async () => docx },
+    "rev", new AbortController().signal, () => {}, { attempts: 1, wait, requirePdf: true });
+  assert.equal(result, null);
+});
 test("transient polling failure can recover, exhausted budget stays unknown", async () => {
   let reads = 0;
   const transport = { trigger: async () => { throw { code: "ECONNABORTED" }; }, status: async () => {

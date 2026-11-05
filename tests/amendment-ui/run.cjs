@@ -119,13 +119,11 @@ async function listingSyncScenarios(browser) {
     assert.equal(await form.getByRole("button",{name:/Thêm dòng|Xóa/}).count(),0);
     await form.getByLabel("Họ và tên Bên A",{exact:true}).fill("Tên chủ nhà đã sửa");
     await bar.getByRole("button",{name:"Cập nhật dữ liệu từ bài đăng",exact:true}).click();
-    const dialog=page.getByRole("dialog");await dialog.getByText("Chênh lệch cần thỏa thuận riêng",{exact:true}).waitFor();
-    const box=await dialog.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width);
-    await page.screenshot({path:path.join(output,`listing-sync-${width}.png`)});
-    await dialog.getByRole("button",{name:"Dùng dữ liệu đã duyệt",exact:true}).click();
+    assert.equal(await page.getByRole("dialog").count(),0);
     await form.getByText("Địa chỉ mới đã duyệt",{exact:true}).waitFor();
     await form.getByText("Phòng R202",{exact:true}).waitFor();
-    await bar.getByRole("button",{name:"Lưu",exact:true}).click();
+    assert.equal(await bar.getByRole("button",{name:/Đang lưu bản nháp/}).isDisabled(),true);
+    await page.screenshot({path:path.join(output,`listing-sync-${width}.png`)});
     assert.deepEqual(JSON.parse(await page.evaluate(()=>document.documentElement.dataset.draftContent)),{landlord:{fullName:"Tên chủ nhà đã sửa"}});
     assert.equal(await page.evaluate(()=>document.documentElement.dataset.listingSourceVersion),"approved-edit");
     assert.equal(await page.evaluate(()=>document.documentElement.dataset.exports),"1");
@@ -133,14 +131,14 @@ async function listingSyncScenarios(browser) {
     await page.getByRole("status").filter({hasText:"PDF đã sẵn sàng để ký"}).waitFor();
     assert.deepEqual(f.errors,[]);await page.close();
   }
-  console.log("PASS desktop/mobile draft: listing fields read-only, approved diff, money separated, party input, Save auto exports");
+  console.log("PASS desktop/mobile: one-click approved listing update and export, no comparison dialog or second Save");
   const data={...structuredClone(baseline),listingSync:source};
   const f=await fixturePage(browser,data,"owner"),{page,requests}=f;
   await page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();
   assert.equal(await page.getByLabel("Địa chỉ tài sản",{exact:true}).count(),0);
   assert.equal(await page.getByLabel("Tiền thuê hàng tháng (đ)",{exact:true}).count(),0);
   await page.getByRole("button",{name:"Cập nhật dữ liệu từ bài đăng",exact:true}).click();
-  await page.getByRole("dialog").getByRole("button",{name:"Dùng dữ liệu đã duyệt",exact:true}).click();
+  assert.equal(await page.getByRole("dialog").count(),0);
   await page.locator("#amendment-property").getByText("Địa chỉ mới đã duyệt",{exact:true}).waitFor();
   await page.locator("#amendment-property").getByText("Phòng R202",{exact:true}).waitFor();
   assert.equal(await page.getByRole("button",{name:"Soạn thỏa thuận tài chính",exact:true}).isDisabled(),true);
@@ -170,7 +168,7 @@ async function listingSyncScenarios(browser) {
   const stale=await fixturePage(browser,{...structuredClone(baseline),listingSync:{...source,baseRevisionId:"stale"}},"owner");
   await stale.page.getByRole("button",{name:"Điều chỉnh hợp đồng",exact:true}).click();
   await stale.page.getByRole("button",{name:"Cập nhật dữ liệu từ bài đăng",exact:true}).click();
-  await stale.page.getByText("Phiên bản hợp đồng đã thay đổi. Tải lại trang để đối chiếu.",{exact:true}).waitFor();
+  await stale.page.getByText("Phiên bản hợp đồng đã thay đổi. Tải lại trang trước khi cập nhật.",{exact:true}).waitFor();
   assert.equal(await stale.page.getByRole("dialog").count(),0);await stale.page.close();
   console.log("PASS separate negotiated financial edits, tenant permissions and stale-base rejection");
 }

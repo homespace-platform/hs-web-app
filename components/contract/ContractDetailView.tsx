@@ -94,6 +94,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   const [meterErrors, setMeterErrors] = useState<{ electricity?: string; water?: string }>({});
   const [draftEdits, setDraftEdits] = useState<Partial<AmendmentTerms>>({});
   const [listingSyncPreview, setListingSyncPreview] = useState<ContractListingSyncPreview | null>(null);
+  const [syncingListing, setSyncingListing] = useState(false);
 
   const isLandlord = Boolean(
     perspective === "landlord" && profile?.id && contract?.landlordId && profile.id === contract.landlordId
@@ -116,6 +117,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     setFeeError(undefined);
     setDraftEdits({});
     setListingSyncPreview(null);
+    setSyncingListing(false);
     try {
       const c = await contractService.getContract(contractId);
       if (c.agreementKind === "DEPOSIT") {
@@ -190,7 +192,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
               Boolean(document.storageObjectId)
           )
       ),
-    [documents, revision, contract?.status, contract?.parentContractId, currentPreview, signatureState?.signatureMode]
+    [documents, revision, contract, currentPreview, signatureState?.signatureMode]
   );
 
   const electricityRequired = useMemo(() =>
@@ -231,8 +233,14 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   const draftContent = useMemo(() => draftContentPatch(baseTerms, draftEdits), [baseTerms, draftEdits]);
   const draftDirty = reviewDraft && Boolean(metersDirty || feeDirty || termsDirty || draftContent || listingSyncPreview);
 
-  async function handleRender() {
+  async function handleRender(sourceOverride?: ContractListingSyncPreview) {
     if (!contractId || !revision || previewRequest.current || (reviewDraft && reviewLocked)) return;
+    const source = sourceOverride ?? listingSyncPreview;
+    const needsSave = draftDirty || Boolean(reviewDraft && source);
+    if (sourceOverride && sourceOverride.baseRevisionId !== revision.id) {
+      toast.error("Phiên bản hợp đồng đã thay đổi. Tải lại trang trước khi cập nhật.");
+      return;
+    }
     if (reviewDraft) {
       const errors = {
         electricity: validateInitialMeterReading(electricityInitial, electricityRequired, "chỉ số điện ban đầu"),
@@ -262,7 +270,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     let draftSaved = false;
     let previewReady = false;
     try {
-      if (draftDirty) {
+      if (needsSave) {
         setSavingDraft(true);
         const payload: UpdateContractRevisionRequest = { baseRevisionId: revision.id, revisionNote: "Hoàn thiện bản nháp hợp đồng." };
         if (metersDirty) payload.meters = {
@@ -271,7 +279,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         };
         if (termsDirty) payload.additionalTerms = draftFields.additionalTerms?.trim();
         if (draftContent) payload.draftContent = draftContent;
-        if (listingSyncPreview) payload.listingSourceVersion = listingSyncPreview.sourceVersion;
+        if (source) payload.listingSourceVersion = source.sourceVersion;
         if (feeDirty) payload.policies = {
           latePaymentFeeMode: draftFields.feeMode,
           latePaymentFeeAmount: draftFields.feeMode === "NONE" ? 0 : Number(draftFields.feeAmount),
@@ -313,8 +321,8 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         setDraftConflict(true);
         setCurrentPreview(null);
       }
-      setRetryPreview(reviewDraft && (!draftDirty || draftSaved));
-      const message = getApiErrorMessage(error, draftDirty && !draftSaved ? "Không thể lưu bản nháp." : "Không thể kết xuất bản xem trước.");
+      setRetryPreview(reviewDraft && (!needsSave || draftSaved));
+      const message = getApiErrorMessage(error, needsSave && !draftSaved ? "Không thể lưu bản nháp." : "Không thể kết xuất bản xem trước.");
       toast.error(draftSaved ? "Đã lưu bản nháp. " + message : message);
     } finally {
       if (previewRequest.current === request) {
@@ -335,7 +343,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     }
   }
 
-  const draftBusy = savingDraft || rendering || reconcilingPreview;
+  const draftBusy = savingDraft || rendering || reconcilingPreview || syncingListing;
   const readyToSign = hasReadyCurrentDocument && !draftDirty && !draftBusy && !draftConflict;
 
   // ACTION: SEND TO TENANT
@@ -499,9 +507,13 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         reconcilingPreview={reconcilingPreview}
         sending={sending}
         onRender={handleRender}
-        draftReview={reviewDraft ? { formId: DRAFT_FORM_ID, saving: savingDraft, retry: retryPreview && !draftDirty, locked: reviewLocked } : undefined}
+        draftReview={reviewDraft ? { formId: DRAFT_FORM_ID, saving: savingDraft || syncingListing, retry: retryPreview && !draftDirty, locked: reviewLocked } : undefined}
         listingSyncAction={reviewDraft && <ListingSyncControl contractId={contractId} baseRevisionId={revision.id}
-          disabled={reviewLocked || draftBusy} onSelect={setListingSyncPreview} />}
+          disabled={reviewLocked || draftBusy} onBusyChange={setSyncingListing} onSelect={async source => {
+            if (previewRequest.current) return;
+            setListingSyncPreview(source);
+            await handleRender(source);
+          }} />}
         onSend={handleSendToTenant}
         smartCaMode={signatureState?.signatureMode === "SMARTCA"}
         cancellationRefundPending={onboarding?.stage === "CANCELLATION_REFUND_PENDING"}
@@ -519,7 +531,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
           </div>
           {draftDirty && <p role="status" className="text-xs font-medium text-amber-700 dark:text-amber-400">Có thay đổi chưa lưu</p>}
           {listingSyncPreview && <div className="flex flex-wrap items-center gap-3 text-xs">
-            <span>Đã đưa dữ liệu bài đăng vào form. Bấm Lưu để áp dụng.</span>
+            <span>Đã tải dữ liệu bài đăng. Hoàn thiện các ô còn thiếu để lưu và kết xuất.</span>
             <button type="button" className="text-primary underline" disabled={draftBusy || reviewLocked}
               onClick={() => setListingSyncPreview(null)}>Bỏ dữ liệu vừa lấy</button>
           </div>}

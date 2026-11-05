@@ -90,6 +90,34 @@ test("saving synchronized data sends only the approved version and then exports 
   ]);
 });
 
+test("the update button saves its explicit source immediately, including when comparison lists are empty", async () => {
+  const h = harness({ draftDirty: false, draftContent: undefined, metersDirty: false, termsDirty: false, feeDirty: false });
+  await h.run({sourceVersion: "approved-edit", baseRevisionId: "reviewed", differences: [], financialDifferences: []});
+  assert.deepEqual(h.calls, [
+    ["save", "contract", {baseRevisionId: "reviewed", revisionNote: "Hoàn thiện bản nháp hợp đồng.", listingSourceVersion: "approved-edit"}],
+    ["match", "saved", true], ["preview", "contract", "saved"],
+  ]);
+});
+
+test("one-click sync includes the current unsaved meter, contact and policy inputs", async () => {
+  const h = harness(); await h.run({sourceVersion: "approved-edit", baseRevisionId: "reviewed"});
+  assert.equal(h.calls[0][2].listingSourceVersion, "approved-edit");
+  assert.equal(h.calls[0][2].meters.electricityInitial, "0");
+  assert.equal(h.calls[0][2].draftContent.landlord.fullName, "Chủ nhà đã sửa");
+  assert.equal(h.calls[0][2].policies.latePaymentFeeAmount, 50000);
+});
+
+test("an explicit source from another revision cannot save or generate a file", async () => {
+  const h = harness(); await h.run({sourceVersion: "approved-edit", baseRevisionId: "stale"});
+  assert.deepEqual(h.calls, []); assert.match(h.errors[0], /Phiên bản hợp đồng đã thay đổi/);
+});
+
+test("one-click sync still requires complete meter readings before saving the contract", async () => {
+  const h = harness({electricityInitial: ""});
+  await h.run({sourceVersion: "approved-edit", baseRevisionId: "reviewed"});
+  assert.deepEqual(h.calls, []);
+});
+
 test("invalid mandatory readings, fees and contact fields stop before save or export", async () => {
   for (const input of [{electricityInitial: "-1"}, {waterInitial: ""}, {draftContent: {tenant: {phone: ""}}},
     {document: {getElementById: () => ({reportValidity: () => false})}}, {

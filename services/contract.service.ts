@@ -96,9 +96,9 @@ export const contractService = {
     return response.data.result;
   },
 
-  async previewListingSync(contractId: string): Promise<ContractListingSyncPreview> {
+  async previewListingSync(contractId: string, signal?: AbortSignal): Promise<ContractListingSyncPreview> {
     const response = await axiosClient.get<ApiResponse<ContractListingSyncPreview>>(
-      `/api/v1/contracts/${contractId}/listing-sync`
+      `/api/v1/contracts/${contractId}/listing-sync`, { signal }
     );
     return response.data.result;
   },

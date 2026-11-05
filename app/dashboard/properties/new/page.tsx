@@ -78,6 +78,7 @@ function CreatePropertyListingContent() {
   const [isLoadingDetail, setIsLoadingDetail] = useState(Boolean(targetListingId));
   const [branches, setBranches] = useState<PropertyBranch[]>([]);
   const [rentedLockListing, setRentedLockListing] = useState<{ id: string; title: string; isExternal?: boolean } | null>(null);
+  const [loadedPendingEdit, setLoadedPendingEdit] = useState(false);
   const [loadedListingStatus, setLoadedListingStatus] = useState<string | null>(null);
 
   // Section 1: Basic Info
@@ -429,6 +430,7 @@ function CreatePropertyListingContent() {
       setIsLoadingDetail(Boolean(targetListingId));
       setLoadError(null);
       setRentedLockListing(null);
+      setLoadedPendingEdit(false);
       setLoadedListingStatus(null);
 
       try {
@@ -456,6 +458,7 @@ function CreatePropertyListingContent() {
           if (!active) return;
 
           setLoadedListingStatus(detail.status);
+          setLoadedPendingEdit(Boolean(detail.pendingEditId));
 
           const normalizedStatus = String(detail.status || "").trim().toUpperCase();
           if (isEditMode && normalizedStatus === "RENTED_EXTERNALLY") {
@@ -1164,7 +1167,7 @@ function CreatePropertyListingContent() {
           isSubmitting={isSubmitting}
           submittingAction={submittingAction}
           isEditing={isEditMode}
-          requiresEditReview={isEditMode && ["PUBLISHED", "RESERVED", "RENTED", "HIDDEN", "EXPIRED"].includes(String(loadedListingStatus))}
+          requiresEditReview={isEditMode && (loadedPendingEdit || ["PUBLISHED", "RESERVED", "RENTED", "HIDDEN", "EXPIRED"].includes(String(loadedListingStatus)))}
         />
       </form>
 

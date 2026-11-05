@@ -202,7 +202,8 @@ const RESUBMIT_AFTER_HIDDEN_ACTION: ListingOwnerAction = {
 export const LISTING_OWNER_ACTIONS: Partial<Record<ListingStatus, ListingOwnerAction[]>> = {
   PUBLISHED: [HIDE_ACTION, RENTED_EXTERNALLY_ACTION],
   HIDDEN: [REPUBLISH_ACTION, RENTED_EXTERNALLY_ACTION, RESUBMIT_AFTER_HIDDEN_ACTION],
-  RENTED_EXTERNALLY: [AVAILABLE_AGAIN_ACTION],
+  RENTED_EXTERNALLY: [AVAILABLE_AGAIN_ACTION, { ...RESUBMIT_ACTION, requiresClosedPublicationWindow: true,
+    description: "Xác nhận phòng đã trống và gửi quản trị viên duyệt lại để cấp thời hạn hiển thị mới." }],
   EXPIRED: [RESUBMIT_ACTION],
   REJECTED: [RESUBMIT_ACTION],
 };

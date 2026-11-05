@@ -45,19 +45,22 @@ function ExportHeaderFixture() {
     setReady(true);
     setRendering(false);
   };
+  const save = async (source = listingSync) => {
+    document.documentElement.dataset.draftContent = JSON.stringify(draftContentPatch(draftBase, edits));
+    document.documentElement.dataset.listingSourceVersion = source?.sourceVersion ?? "";
+    await render();
+  };
   return <AppRouterContext.Provider value={{back(){},forward(){},refresh(){},push(){},replace(){},prefetch(){},bfcacheId:"fixture"}}>
     <ContractHeader backPath="/contracts" contract={{id:"root",contractNumber:"HD-EXPORT",status:exportFixture!.status,paymentStatus:"PAID"} as ContractResponse}
       revision={{} as ContractRevisionResponse} completeness={{complete:true} as ContractCompletenessResponse} latestDoc={null} hasReadyDoc={ready}
       isLandlord={role==="owner"} isTenant={role==="tenant"} rendering={rendering} sending={false} smartCaMode={exportFixture!.smartCaMode}
-      draftReview={exportFixture!.draftReview ? {formId:"fixture-draft",saving:false,retry:false,locked:false} : undefined}
-      listingSyncAction={exportFixture!.draftReview && role === "owner" ? <ListingSyncControl contractId="root" baseRevisionId="original" onSelect={setListingSync}/> : undefined}
+      draftReview={exportFixture!.draftReview ? {formId:"fixture-draft",saving:rendering,retry:false,locked:false} : undefined}
+      listingSyncAction={exportFixture!.draftReview && role === "owner" ? <ListingSyncControl contractId="root" baseRevisionId="original" disabled={rendering} onSelect={async source => { setListingSync(source); await save(source); }}/> : undefined}
       onRender={render}
       onSend={async()=>{}}/>
     {exportFixture!.draftReview && <form id="fixture-draft" onSubmit={event => {
       event.preventDefault();
-      document.documentElement.dataset.draftContent = JSON.stringify(draftContentPatch(draftBase, edits));
-      document.documentElement.dataset.listingSourceVersion = listingSync?.sourceVersion ?? "";
-      void render();
+      void save();
     }}>
       <ContractDraftEditor.Provider value={{ values: {...draftBase,...edits}, base: draftBase, busy: rendering,
         patch: (group, value) => setEdits(previous => ({...previous,[group]:value})) }}>

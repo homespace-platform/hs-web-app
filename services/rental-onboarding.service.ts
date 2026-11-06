@@ -16,8 +16,9 @@ export interface RentalOnboarding {
   canRequestCancellation?: boolean;
   depositAgreementContractId?: string | null; depositAgreementStatus?: string | null;
   depositAgreementRequired?: boolean;
+  depositAgreementTenantSigned?: boolean;
   deposit?: import("@/types/deposit-ledger.type").DepositLedger | null;
-  defaultCase?: {eligibleKind?:"FIRST_RENT"|"TENANT_SIGNING";notifiedAt?:string;respondBy?:string;reason?:string;disputedAt?:string;completedAt?:string;canComplete:boolean;policyVersion?:string};
+  defaultCase?: {eligibleKind?:"FIRST_RENT"|"TENANT_SIGNING";notifiedAt?:string;respondBy?:string;reason?:string;disputedAt?:string;completedAt?:string;canComplete:boolean;policyVersion?:string;automatic?:boolean};
   history: { id: string; occurredAt: string; action: string; note?: string }[];
 }
 const base = (id: string) => `/api/v1/rental-requests/${id}/onboarding`;

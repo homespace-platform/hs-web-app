@@ -478,7 +478,7 @@ export default function RentalRequestDetailModal({
             </div>
           ) : (
             <>
-              {["ACCEPTED", "COMPLETED", "CANCELLED_BY_RENTER","CANCELLED_BY_SYSTEM","CANCELLED_BY_OWNER"].includes(detail.status) && <RentalOnboardingPanel rentalRequestId={detail.id} isLandlord={mode === "RECEIVED"} onSnapshot={setOnboarding} onUpdated={async () => {
+              {["ACCEPTED", "COMPLETED", "CANCELLED_BY_RENTER","CANCELLED_BY_SYSTEM","CANCELLED_BY_OWNER"].includes(detail.status) && <RentalOnboardingPanel rentalRequestId={detail.id} compact={mode !== "RECEIVED"} isLandlord={mode === "RECEIVED"} onSnapshot={setOnboarding} onUpdated={async () => {
                 const fresh = await rentalRequestService.getRequestById(detail.id);
                 setDetail(fresh);
                 await loadDetailedPayment(detail.id);
@@ -863,7 +863,7 @@ export default function RentalRequestDetailModal({
                           ? onboarding.message
                           : onboarding?.depositAgreementRequired === false
                           ? "Không yêu cầu đặt cọc: bỏ qua hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày bắt đầu thuê và xác nhận đủ tiền thuê tháng đầu."
-                          : "Hợp đồng cọc được lập sau khi xác nhận nhận cọc; xem trong phần Đặt cọc & nhận nhà phía trên. Hợp đồng thuê được chuẩn bị riêng khi đến ngày vào và xác nhận đủ tiền tháng đầu."}
+                          : "Hợp đồng cọc được lập sau khi xác nhận nhận cọc; xem và ký trong mục Hợp đồng → Hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày vào và xác nhận đủ tiền tháng đầu."}
                       </p>
                       <RentalContractFallbackButton request={detail} mode={mode} contract={linkedContract} view={onboarding}
                         busy={creatingContract} disabled={isProcessingAction} onCreate={onCreateDraft} />

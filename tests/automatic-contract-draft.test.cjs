@@ -13,15 +13,16 @@ test('automatic workflow stays on Core with an explicit owner fallback shared by
   assert.match(detail,/onCreate=\{onCreateDraft\}/);
   assert.doesNotMatch(detail,/Chỉ nhận cọc chưa tạo bản nháp/);
   assert.match(detail,/Hợp đồng cọc được lập sau khi xác nhận nhận cọc/);
-  assert.match(detail,/Hợp đồng thuê được chuẩn bị riêng/);
+  assert.match(detail,/Hợp đồng thuê được chuẩn bị khi đến ngày vào/);
   assert.match(detail,/onboarding\.message/);
   assert.doesNotMatch(detail,/Hệ thống đang tự tạo bản nháp/);
 });
 
 test('empty contract lists describe the automatic workflow and never ask the owner to create manually',()=>{
   const list=read('components/contract/ContractListView.tsx');
-  assert.match(list,/Hợp đồng cọc sẽ xuất hiện sau khi xác nhận nhận cọc/);
-  assert.match(list,/ưu tiên hiển thị hợp đồng thuê và giữ lại tài liệu cọc/);
+  assert.match(list,/hợp đồng cọc sẽ xuất hiện sau khi xác nhận nhận cọc/);
+  assert.match(list,/role="tablist"/);
+  assert.match(list,/agreementKind,/);
   assert.doesNotMatch(list,/Bạn có thể tạo hợp đồng từ|xác nhận cọc và tạo hợp đồng/);
 });
 test('a missing draft is retried rather than cached forever',()=>{

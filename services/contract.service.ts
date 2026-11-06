@@ -72,6 +72,7 @@ export const contractService = {
     role?: "LANDLORD" | "TENANT";
     billableOnly?: boolean;
     includeDepositFallback?: boolean;
+    agreementKind?: "LEASE" | "DEPOSIT";
     page?: number;
     size?: number;
   }): Promise<PageResponse<ContractResponse>> {

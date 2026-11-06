@@ -20,10 +20,12 @@ const statuses: Record<string, string> = { CONFIRMED: "Đã xác nhận", TRANSF
 const decisions: Record<string, string> = { REQUESTED: "Chờ chủ nhà duyệt", APPROVED: "Đã đồng ý", REJECTED: "Không đồng ý", EXPIRED: "Đã hết hạn", WITHDRAWN: "Đã rút" };
 const button = "rounded-lg border px-3 py-2 text-sm disabled:opacity-50";
 
-export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onUpdated, onSnapshot, showComplaints=true }: {
+export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onUpdated, onSnapshot, showComplaints=true, showDepositAgreement=true, compact=false }: {
   rentalRequestId: string; isLandlord?: boolean; onUpdated?: (view: RentalOnboarding) => void | Promise<void>;
   onSnapshot?: (view: RentalOnboarding) => void;
   showComplaints?: boolean;
+  showDepositAgreement?: boolean;
+  compact?: boolean;
 }) {
   const [view, setView] = useState<RentalOnboarding | null>(null);
   const [error, setError] = useState("");
@@ -60,6 +62,15 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
     try { const url = await storageService.getPaymentProofViewUrl(id); if (tab) tab.location.href = url; }
     catch { tab?.close(); toast.error("Không mở được chứng từ."); }
   }
+  if(compact)return <section className="space-y-3 rounded-2xl border bg-card p-4">
+    <h3 className="font-semibold">Hợp đồng & tiến trình thuê</h3>
+    {error && <p role="alert" className="text-sm text-amber-700">{error}</p>}
+    <p className="text-sm text-muted-foreground">{view?.message || "Đang kiểm tra tiến trình thuê…"}</p>
+    <p className="text-xs text-muted-foreground">Xem, ký HĐ cọc, theo dõi hạn thanh toán và gửi yêu cầu trong mục Hợp đồng.</p>
+    <a className="inline-flex rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground" href={view?.depositAgreementContractId
+      ? `/dashboard/tenant/contracts/${encodeURIComponent(view.depositAgreementContractId)}`
+      : `/dashboard/tenant/contracts/reservations/${encodeURIComponent(rentalRequestId)}`}>Mở hồ sơ hợp đồng →</a>
+  </section>;
   return <section className="space-y-4 rounded-2xl border bg-card p-4">
     <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">Đặt cọc & nhận nhà</h3><button type="button" className={button} disabled={busy} onClick={() => void load()}>Làm mới</button></div>
     {error && <p role="alert" className="text-sm text-amber-700">{error} Dữ liệu đang hiển thị có thể chưa cập nhật.</p>}
@@ -67,18 +78,19 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
       <div className="rounded-xl bg-muted/40 p-3 text-sm"><p>Bắt đầu thuê: <strong>{date(view.startsOn)}</strong> · Kết thúc: <strong>{date(view.endExclusive)}</strong> (không bao gồm ngày này)</p><p className="mt-2">{view.message}</p><p className="mt-2 text-xs text-muted-foreground">Cập nhật {instant(view.serverNow)} · Giờ Việt Nam</p></div>
       {view.depositAgreementRequired === false
         ? <p className="text-sm text-muted-foreground">Không yêu cầu đặt cọc · Bỏ qua hợp đồng cọc. Thanh toán tiền thuê và ký hợp đồng thuê theo tiến trình bên trên.</p>
-        : view.deposit && <DepositAgreementPanel rentalRequestId={rentalRequestId} isLandlord={!!isOwner} onUpdated={async()=>{await load();}}/>}
+        : showDepositAgreement && view.deposit && <DepositAgreementPanel rentalRequestId={rentalRequestId} isLandlord={!!isOwner} onUpdated={async()=>{await load();}}/>}
       {view.deposit && <DepositLedgerSummary ledger={view.deposit} />}
       {view.defaultCase?.notifiedAt && <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
         <p className="font-semibold">{view.defaultCase.completedAt ? "Đã hủy hồ sơ và chốt giữ cọc" : view.stage === "CANCELLATION_REFUND_PENDING" ? "Đang chờ hoàn tiền · Thông báo giữ cọc cũ hết hiệu lực" : !noticeOpen ? "Hồ sơ đã kết thúc / hoàn tất ký · Thông báo cũ không còn áp dụng" : view.defaultCase.disputedAt ? "Đang có phản hồi · Chặn giữ cọc, cần đối soát" : "Thông báo cuối cùng trước khi xử lý giữ cọc"}</p>
         <p>{view.defaultCase.reason}</p><p>Hạn phản hồi: {instant(view.defaultCase.respondBy)} (giờ Việt Nam). Tiền thuê đã nhận phải hoàn riêng.</p>
         {!isOwner && noticeOpen && !view.defaultCase.completedAt && !view.defaultCase.disputedAt && <button type="button" disabled={busy} className={button} onClick={()=>{const note=window.prompt("Nội dung phản hồi / yêu cầu đối soát (ít nhất 10 ký tự):");if(note&&note.trim().length>=10)void action(()=>service.disputeDefault(rentalRequestId,note.trim()));}}>Phản hồi / Yêu cầu đối soát</button>}
-        {isOwner && view.defaultCase.canComplete && <button type="button" disabled={busy} className={button} onClick={()=>{
+        {view.defaultCase.automatic && !view.defaultCase.completedAt && !view.defaultCase.disputedAt && noticeOpen && <p className="text-xs font-semibold">Hệ thống tự xử lý khi hết hạn cuối nếu nghĩa vụ vẫn chưa hoàn tất và không cần đối soát.</p>}
+        {isOwner && !view.defaultCase.automatic && view.defaultCase.canComplete && <button type="button" disabled={busy} className={button} onClick={()=>{
           const note=window.prompt("Lý do chốt giữ cọc (10–500 ký tự):");
           if(note && note.trim().length>=10 && note.trim().length<=500 && window.confirm("Tôi xác nhận đã thông báo cho người thuê, đã đủ hạn phản hồi, chưa bàn giao nhà/chìa khóa và không có tranh chấp hay khoản chuyển đang chờ xác minh. Hủy hồ sơ, giữ 100% cọc thực nhận; hoàn riêng tiền thuê đã nhận?"))void action(()=>service.completeDefault(rentalRequestId,note.trim()));
         }}>Chốt giữ cọc & hủy hồ sơ chưa ký</button>}
       </div>}
-      {isOwner && view.defaultCase?.eligibleKind && !view.defaultCase.completedAt && !view.defaultCase.canComplete && <button type="button" disabled={busy} className={button} onClick={()=>{const note=window.prompt("Nội dung thông báo cuối cùng, nêu nghĩa vụ quá hạn và cách liên hệ (ít nhất 10 ký tự):");if(note&&note.trim().length>=10 && window.confirm("Gửi thông báo cuối cùng và mở thêm ít nhất 24 giờ để người thuê thanh toán/ký hoặc phản hồi? Không tự giữ cọc ở bước này."))void action(()=>service.notifyDefault(rentalRequestId,note.trim()));}}>Thông báo quá hạn trước khi xử lý cọc</button>}
+      {isOwner && !view.defaultCase?.automatic && view.defaultCase?.eligibleKind && !view.defaultCase.completedAt && !view.defaultCase.canComplete && <button type="button" disabled={busy} className={button} onClick={()=>{const note=window.prompt("Nội dung thông báo cuối cùng, nêu nghĩa vụ quá hạn và cách liên hệ (ít nhất 10 ký tự):");if(note&&note.trim().length>=10 && window.confirm("Gửi thông báo cuối cùng và mở thêm ít nhất 24 giờ để người thuê thanh toán/ký hoặc phản hồi? Không tự giữ cọc ở bước này."))void action(()=>service.notifyDefault(rentalRequestId,note.trim()));}}>Thông báo quá hạn trước khi xử lý cọc</button>}
       {isOwner && !view.defaultCase?.policyVersion && view.stage !== "COMPLETED" && <p className="text-xs text-muted-foreground">Hồ sơ chưa ghi nhận đồng ý điều kiện giữ cọc trước thanh toán; không cho phép chốt mất cọc tự động hay hồi tố.</p>}
       {view.stage === "WAITING_START" && <p className="text-sm">Mở tiền tháng đầu và ký từ {instant(view.paymentOpensAt)}. {view.depositAgreementRequired === false ? "Không phát sinh khoản chuyển cọc hoặc bước ký hợp đồng cọc." : "Cọc đã nhận được giữ riêng, không thu lại."}</p>}
       {view.signingDueAt && view.stage !== "COMPLETED" && <p className="text-sm">Hạn hoàn tất ký: {instant(view.signingDueAt)}. Quá hạn cần đối soát hồ sơ, phòng không tự được giải phóng.</p>}
@@ -104,7 +116,8 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
         <PaymentDisputePanel payment={p} onUpdated={load} />
       </article>)}</div>
       {!isOwner && view.canRequestEarlierStart && <button type="button" className={button} onClick={() => setShowForm(!showForm)}>Đề nghị nhận nhà và bắt đầu hợp đồng sớm</button>}
-      {!isOwner && view.canRequestCancellation && !view.cancellationRequestedAt && view.stage !== "COMPLETED" && <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Lý do đề nghị hủy và hoàn tiền (tối thiểu 10 ký tự):"); if (note && note.trim().length >= 10) void action(() => service.cancel(rentalRequestId, note.trim())); }}>Đề nghị hủy và hoàn tiền</button>}
+      {view.depositAgreementTenantSigned && noticeOpen && <p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">Bạn đã ký HĐ cọc: không còn thao tác hủy tự nguyện để yêu cầu hoàn cọc. Hãy thanh toán tháng đầu và ký HĐ thuê đúng hạn. Nếu có lỗi hoặc tranh chấp, bạn vẫn có thể gửi khiếu nại.</p>}
+      {!isOwner && !view.depositAgreementTenantSigned && view.canRequestCancellation && !view.cancellationRequestedAt && view.stage !== "COMPLETED" && <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Lý do đề nghị hủy và hoàn tiền (tối thiểu 10 ký tự):"); if (note && note.trim().length >= 10) void action(() => service.cancel(rentalRequestId, note.trim())); }}>Đề nghị hủy và hoàn tiền</button>}
       {view.cancellationRequestedAt && view.stage === "CANCELLATION_REQUESTED" && <div className="rounded-xl border p-3 text-sm"><p>{view.cancellationReason}</p>{isOwner && <div className="mt-2 flex gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm("Đồng ý hủy và tạo nghĩa vụ hoàn toàn bộ khoản đã xác nhận? Bạn cần chuyển khoản hoàn và người thuê xác nhận nhận tiền.")) void action(() => service.decideCancel(rentalRequestId, true)); }}>Đồng ý hủy, hoàn tiền</button><button type="button" className={button} disabled={busy} onClick={() => void action(() => service.decideCancel(rentalRequestId, false))}>Không đồng ý hủy</button></div>}</div>}
       {showForm && <form className="space-y-3 rounded-xl border p-3" onSubmit={e => { e.preventDefault(); void action(() => service.request(rentalRequestId, startsOn, reason)); }}>
         <label className="block text-sm">Ngày bắt đầu thuê mới<input required type="date" min={new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(view.serverNow))} max={view.startsOn} value={startsOn} onChange={e => setStartsOn(e.target.value)} className="mt-1 block rounded-lg border p-2" /></label>

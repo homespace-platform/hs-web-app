@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FileCheck, Loader2, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -48,14 +48,25 @@ function contractStatusLabel(contract: ContractResponse): string {
 }
 
 export default function ContractListView({ perspective }: { perspective: "landlord" | "tenant" }) {
+  return <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Đang tải hợp đồng…</p>}><ContractListContent perspective={perspective}/></Suspense>;
+}
+
+function ContractListContent({ perspective }: { perspective: "landlord" | "tenant" }) {
   const router = useRouter();
+  const searchParams=useSearchParams();
+  const agreementKind=searchParams.get("kind")==="DEPOSIT"?"DEPOSIT":"LEASE";
+  const sequence=useRef({value:0});
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ContractResponse[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState<ContractStatus | "ALL">("ALL");
+  const statusOptions=agreementKind==="DEPOSIT"
+    ? (["ALL","DRAFT","LANDLORD_SIGNATURE_PENDING","TENANT_SIGNATURE_PENDING","ACTIVE","TERMINATED","CANCELLED"] as const)
+    : (["ALL","DRAFT","LANDLORD_SIGNATURE_PENDING","TENANT_SIGNATURE_PENDING","PENDING_REVIEW","ACTIVE","EXPIRED","CLOSED","TERMINATED","CANCELLED"] as const);
 
   const load = useCallback(async (silent = false) => {
+    const current=++sequence.current.value;
     if (!silent) setLoading(true);
     try {
       const res = await contractService.listContracts({
@@ -63,21 +74,23 @@ export default function ContractListView({ perspective }: { perspective: "landlo
         role: perspective.toUpperCase() as "LANDLORD" | "TENANT",
         page,
         size: 12,
-        includeDepositFallback: true,
+        agreementKind,
       });
+      if(current!==sequence.current.value)return;
       setItems(res.result || []);
       setTotalPages(res.totalPages || 1);
     } catch (err) {
-      if (!silent) toast.error(getApiErrorMessage(err, "Không thể tải danh sách hợp đồng."));
+      if (current===sequence.current.value && !silent) toast.error(getApiErrorMessage(err, "Không thể tải danh sách hợp đồng."));
     } finally {
-      if (!silent) setLoading(false);
+      if (current===sequence.current.value) setLoading(false);
     }
-  }, [page, perspective, statusFilter]);
+  }, [page, perspective, statusFilter, agreementKind]);
 
   useEffect(() => {
+    const counter=sequence.current;
     void load();
     const timer = window.setInterval(() => { if (document.visibilityState === "visible") void load(true); }, 30000);
-    return () => window.clearInterval(timer);
+    return () => {++counter.value;window.clearInterval(timer);};
   }, [load]);
 
   return (
@@ -104,8 +117,16 @@ export default function ContractListView({ perspective }: { perspective: "landlo
         </button>
       </div>
 
+      <div className="flex gap-2 rounded-2xl border bg-card p-2" role="tablist" aria-label="Loại hợp đồng">
+        {(["LEASE","DEPOSIT"] as const).map(kind=><button key={kind} type="button" role="tab" aria-selected={agreementKind===kind}
+          className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${agreementKind===kind?"bg-primary text-primary-foreground":"text-muted-foreground hover:bg-muted"}`}
+          onClick={()=>{setPage(1);setStatusFilter("ALL");router.replace(`/dashboard/${perspective}/contracts?kind=${kind}`,{scroll:false});}}>
+          {kind==="DEPOSIT"?"Hợp đồng cọc":"Hợp đồng thuê"}
+        </button>)}
+      </div>
+      {agreementKind==="DEPOSIT" && <p className="text-sm text-muted-foreground">Xem và ký cọc, theo dõi hạn vào ở, thanh toán tháng đầu và xử lý hồ sơ giữ phòng tại đây. Sau khi ký cọc, bạn cần hoàn tất nghĩa vụ đúng hạn.</p>}
       <div className="flex flex-wrap gap-2">
-        {(["ALL", "DRAFT", "LANDLORD_SIGNATURE_PENDING", "TENANT_SIGNATURE_PENDING", "PENDING_REVIEW", "ACTIVE", "EXPIRED", "CLOSED", "TERMINATED", "CANCELLED"] as const).map((key) => (
+        {statusOptions.map((key) => (
           <button
             key={key}
             type="button"
@@ -119,7 +140,7 @@ export default function ContractListView({ perspective }: { perspective: "landlo
                 : "bg-card border-border text-muted-foreground hover:bg-muted"
             }`}
           >
-            {key === "ALL" ? "Tất cả" : key === "ACTIVE" ? "Đã ký / Hiệu lực" : key === "DRAFT" && perspective === "tenant" ? "Bản nháp để xem trước" : STATUS_LABEL[key]}
+            {key === "ALL" ? "Tất cả" : agreementKind==="DEPOSIT" && key==="DRAFT" ? "Chờ chủ nhà ký" : key === "ACTIVE" ? agreementKind==="DEPOSIT"?"Đã ký đủ HĐ cọc":"Đã ký / Hiệu lực" : key === "DRAFT" && perspective === "tenant" ? "Bản nháp để xem trước" : STATUS_LABEL[key]}
           </button>
         ))}
       </div>
@@ -131,7 +152,7 @@ export default function ContractListView({ perspective }: { perspective: "landlo
         </div>
       ) : items.length === 0 ? (
         <div className="bg-card rounded-2xl border border-dashed border-border p-10 text-center shadow-2xs space-y-2">
-          <p className="text-sm font-semibold text-foreground">Chưa có hợp đồng</p>
+          <p className="text-sm font-semibold text-foreground">{agreementKind==="DEPOSIT"?"Chưa có hợp đồng cọc":"Chưa có hợp đồng thuê"}</p>
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
             {perspective === "landlord"
               ? "Với hồ sơ có cọc, hợp đồng cọc sẽ xuất hiện sau khi xác nhận nhận cọc. Hồ sơ không đặt cọc hoặc cọc 0 đồng bỏ qua hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày bắt đầu và xác nhận đủ tiền thuê. "

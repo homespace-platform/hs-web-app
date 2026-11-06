@@ -413,8 +413,10 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   }
 
   if (contract.agreementKind === "DEPOSIT") return <div className="mx-auto max-w-4xl space-y-4 pb-8">
-    <Link href={contractListPath(perspective)} className="text-sm text-primary underline">Về danh sách hợp đồng</Link>
+    <Link href={`${contractListPath(perspective)}?kind=DEPOSIT`} className="text-sm text-primary underline">← Hợp đồng cọc của tôi</Link>
+    <div className="rounded-2xl border bg-card p-4"><h1 className="text-xl font-bold">Hợp đồng cọc & giữ phòng</h1><p className="mt-2 text-sm text-muted-foreground">1. Xác nhận cọc → 2. Ký HĐ cọc → 3. Thanh toán tháng đầu và ký HĐ thuê.</p></div>
     <DepositAgreementPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} onUpdated={refreshSignedState}/>
+    <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} showDepositAgreement={false} onUpdated={refreshSignedState}/>
   </div>;
   if (!revision) return null;
 

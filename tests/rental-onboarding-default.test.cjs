@@ -8,11 +8,29 @@ const source=fs.readFileSync(path.join(__dirname,"../components/rental-request/R
 const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 const mod={exports:{}};
 vm.runInThisContext(`(function(require,module,exports){${output}\n})`)(name=>name==="react"?testReact:name.startsWith("@/services/")?{rentalOnboardingService:{},default:{}}:name==="@/utils/apiError"?{getApiErrorMessage:()=>"error"}:["./RentalPaymentModal","./RentalWorkflowPanel","./DepositAgreementPanel","@/components/payment/PaymentDisputePanel","@/components/payment/DepositLedgerSummary","@/components/complaint/ComplaintPanel"].includes(name)?{default:()=>null}:require(name),mod,mod.exports);
-function render(role,defaultCase={},stage="REQUIRES_REVIEW",extra={}) {
+function render(role,defaultCase={},stage="REQUIRES_REVIEW",extra={},props={}) {
   snapshot={stage,askerRole:role,serverNow:"2026-11-03T03:00:00Z",startsOn:"2026-11-01",endExclusive:"2027-02-01",payments:[],startChanges:[],history:[],canRequestCancellation:true,
     defaultCase:{eligibleKind:"FIRST_RENT",canComplete:false,...defaultCase},...extra};index=0;
-  return renderToStaticMarkup(React.createElement(mod.exports.default,{rentalRequestId:"rental"}));
+  return renderToStaticMarkup(React.createElement(mod.exports.default,{rentalRequestId:"rental",...props}));
 }
+
+test("a tenant deposit signature removes voluntary cancellation even if a stale response offers it",()=>{
+  const html=render("TENANT",{},"WAITING_START",{depositAgreementTenantSigned:true,canRequestCancellation:true});
+  assert.doesNotMatch(html,/Đề nghị hủy và hoàn tiền/);assert.match(html,/không còn thao tác hủy tự nguyện/);
+});
+test("automatic default explains the deadline and does not ask the owner to finalize manually",()=>{
+  const html=render("LANDLORD",{automatic:true,canComplete:true,notifiedAt:"2026-11-02T03:00:00Z"});
+  assert.match(html,/Hệ thống tự xử lý khi hết hạn cuối/);assert.doesNotMatch(html,/Chốt giữ cọc &amp; hủy|Thông báo quá hạn trước khi xử lý cọc/);
+});
+test("request summary links to the deposit workspace without embedding payment and signature controls",()=>{
+  const html=render("TENANT",{},"WAITING_START",{depositAgreementContractId:"deposit-id",depositAgreementTenantSigned:true},{compact:true});
+  assert.match(html,/href="\/dashboard\/tenant\/contracts\/deposit-id"/);assert.match(html,/Mở hồ sơ hợp đồng/);
+  assert.doesNotMatch(html,/Đề nghị hủy và hoàn tiền|Sổ cọc|Chuyển khoản \/ Gửi chứng từ/);
+});
+for(const exempt of [false,true])test("request keeps a usable contract workspace before a PDF exists, deposit exemption="+exempt,()=>{
+  const html=render("TENANT",{},"WAITING_START",{depositAgreementRequired:!exempt},{compact:true});
+  assert.match(html,/href="\/dashboard\/tenant\/contracts\/reservations\/rental"/);
+});
 test("owner has notice first; retention is exposed only with server completion permission",()=>{
   assert.match(render("LANDLORD"),/Thông báo quá hạn trước khi xử lý cọc/);
   assert.doesNotMatch(render("LANDLORD"),/Chốt giữ cọc &amp; hủy/);

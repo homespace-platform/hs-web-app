@@ -19,6 +19,7 @@ import InvoiceLineCalculation from "./InvoiceLineCalculation";
 import { chooseInvoice, paymentModulePath } from "@/lib/payment-module";
 import { findInvoicePayment } from "@/lib/invoice-list";
 import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
+import PaymentReceiptActions from "@/components/payment/PaymentReceiptActions";
 import ComplaintPanel from "@/components/complaint/ComplaintPanel";
 
 type Extra = { description: string; amount: string };
@@ -351,6 +352,7 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
               </div>}
             </div>}
           </>}
+          {payment?.status==="CONFIRMED" && payment.totalAmount>0 && <PaymentReceiptActions paymentId={payment.id}/>}
           {payment && !["ROLLED_OVER", "CANCELLED"].includes(invoice.status) && <PaymentDisputePanel payment={payment} onUpdated={refresh} />}
         </article>;
       })}</div></div>}

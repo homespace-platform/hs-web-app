@@ -23,7 +23,7 @@ function load(source, lifecycle, namespace = false) {
     : name === "next/link" ? { default: ({ children, ...props }) => React.createElement("a", props, children) }
     : name === "next/image" ? { default: ({ unoptimized, ...props }) => React.createElement("img", props) }
     : name === "./SettlementPaymentPanel" ? { default: () => null }
-    : name === "@/components/payment/PaymentDisputePanel" ? { default: () => null }
+    : ["@/components/payment/PaymentReceiptActions","@/components/payment/PaymentDisputePanel"].includes(name) ? { default: () => null }
     : ["@/components/complaint/ComplaintPanel","@/components/rental-request/RentalWorkflowPanel"].includes(name) ? { default: () => null }
     : name === "@/components/payment/DepositLedgerSummary" ? { default: load(fs.readFileSync(path.join(__dirname, "../components/payment/DepositLedgerSummary.tsx"), "utf8"), false) }
     : name === "./MeterReading" ? MeterComponents

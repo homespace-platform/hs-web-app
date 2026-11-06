@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { ReceiptText, RefreshCw, Search } from "lucide-react";
 import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
 import ContractPaymentCard, { type ContractPaymentBundle } from "@/components/dashboard/invoices/ContractPaymentCard";
@@ -61,6 +62,7 @@ export default function InvoicesPage() {
       <div><h1 className="flex items-center gap-2 text-2xl font-bold"><ReceiptText className="size-6 text-primary" />Hóa đơn & thanh toán</h1><p className="mt-2 text-sm text-muted-foreground">{role === "landlord" ? "Quản lý các khoản thu và hoàn cọc cho người thuê." : "Theo dõi các khoản thanh toán và tiền cọc được hoàn."}</p></div>
       <button type="button" disabled={loading} onClick={() => setRefreshKey(key => key + 1)} className="inline-flex h-10 items-center gap-2 rounded-xl border bg-card px-4 text-sm font-semibold disabled:opacity-50"><RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} />Làm mới</button>
     </header>
+    <Link href="/dashboard/invoices/receipts" className="flex items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-4 text-primary"><div><span className="font-bold">Chứng từ đã thanh toán</span><p className="mt-1 text-xs">Xem, tải PDF và in các phiếu xác nhận thu tiền, hoàn tiền.</p></div><span aria-hidden="true">→</span></Link>
     <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 sm:flex-row sm:items-end">
       <label className="flex-1 text-sm font-medium">Tìm hợp đồng trong trang này<div className="relative mt-2"><Search className="absolute left-3 top-3 size-4 text-muted-foreground" /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Nhập mã hợp đồng…" className="h-10 w-full rounded-xl border bg-background pl-9 pr-3" /></div></label>
       <label className="text-sm font-medium">Trạng thái hợp đồng<select value={status} onChange={event => { setStatus(event.target.value as ContractStatus | ""); setPage(1); }} className="mt-2 block h-10 w-full rounded-xl border bg-background px-3 sm:w-60"><option value="">Tất cả hợp đồng</option><option value="DRAFT">Chờ nhận nhà / Bản nháp</option><option value="LANDLORD_SIGNATURE_PENDING">Chờ chủ nhà ký</option><option value="TENANT_SIGNATURE_PENDING">Chờ người thuê ký</option><option value="ACTIVE">Đang thuê</option><option value="EXPIRED">Đã hết thời hạn thuê</option><option value="CLOSED">Đã kết thúc hợp đồng</option><option value="TERMINATED">Đã chấm dứt</option><option value="CANCELLED">Đã hủy</option></select></label>

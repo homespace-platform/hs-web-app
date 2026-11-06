@@ -1,4 +1,5 @@
 "use client";
+import PaymentReceiptActions from "@/components/payment/PaymentReceiptActions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -61,6 +62,7 @@ export default function SettlementPaymentPanel({ payment, isLandlord, refresh }:
     {payment.status === "DISPUTED" && <p className="text-xs text-rose-700">Đang tranh chấp; cần đối soát, không tự đóng hồ sơ.</p>}
     </details>
     <PaymentDisputePanel payment={payment} onUpdated={refresh} />
+    {payment.status==="CONFIRMED" && payment.totalAmount>0 && <PaymentReceiptActions paymentId={payment.id}/>}
   </div>;
 }
 

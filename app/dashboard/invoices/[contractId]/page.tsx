@@ -59,6 +59,7 @@ function ContractInvoicesPage() {
       <div><h1 className="flex items-center gap-2 text-xl font-bold"><ReceiptText className="size-5 text-primary" />Hóa đơn & thanh toán</h1><p className="mt-2 text-sm font-semibold">{contract.contractNumber}</p><p className="mt-1 text-sm text-muted-foreground">{contractStateLabels[contract.status]}</p></div>
       <Link href={contractDetailPath(role, contract.id)} className="rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-muted">Xem hợp đồng</Link>
     </header>
+    <Link href={`/dashboard/invoices/receipts?contract=${encodeURIComponent(contract.id)}`} className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-semibold text-primary">Xem / tải chứng từ đã thanh toán →</Link>
     <nav aria-label="Các mục thanh toán của hợp đồng" className="grid grid-cols-2 gap-2">{paymentSections.map((item, index) => {
       const Icon = icons[index], selected = section === item.id;
       return <Link key={item.id} href={paymentModulePath(contractId, item.id)} aria-current={selected ? "page" : undefined} className={selected ? "min-w-0 rounded-xl border border-primary bg-primary/5 p-3 ring-1 ring-primary sm:p-4" : "min-w-0 rounded-xl border bg-card p-3 hover:bg-muted/40 sm:p-4"}>

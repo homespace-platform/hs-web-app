@@ -9,6 +9,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import RentalPaymentModal from "./RentalPaymentModal";
 import DepositAgreementPanel from "./DepositAgreementPanel";
 import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
+import PaymentReceiptActions from "@/components/payment/PaymentReceiptActions";
 import DepositLedgerSummary from "@/components/payment/DepositLedgerSummary";
 import ComplaintPanel from "@/components/complaint/ComplaintPanel";
 import RentalWorkflowPanel from "./RentalWorkflowPanel";
@@ -116,6 +117,7 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
           </>}
         </div>
         <PaymentDisputePanel payment={p} onUpdated={load} />
+        {p.status==="CONFIRMED" && p.totalAmount>0 && <PaymentReceiptActions paymentId={p.id}/>}
       </article>)}</div>
       {!isOwner && view.canRequestEarlierStart && <button type="button" className={button} onClick={() => setShowForm(!showForm)}>Đề nghị nhận nhà và bắt đầu hợp đồng sớm</button>}
       {view.depositAgreementTenantSigned && noticeOpen && <p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">Bạn đã ký HĐ cọc: không còn thao tác hủy tự nguyện để yêu cầu hoàn cọc. Hãy thanh toán tháng đầu và ký HĐ thuê đúng hạn. Nếu có lỗi hoặc tranh chấp, bạn vẫn có thể gửi khiếu nại.</p>}

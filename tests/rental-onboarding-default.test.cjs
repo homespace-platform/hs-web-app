@@ -22,6 +22,17 @@ test("automatic default explains the deadline and does not ask the owner to fina
   const html=render("LANDLORD",{automatic:true,canComplete:true,notifiedAt:"2026-11-02T03:00:00Z"});
   assert.match(html,/Hệ thống tự xử lý khi hết hạn cuối/);assert.doesNotMatch(html,/Chốt giữ cọc &amp; hủy|Thông báo quá hạn trước khi xử lý cọc/);
 });
+test("completed unpaid-rent default shows the result without promising a refund or repeating the old warning",()=>{
+  const message="Người thuê không thanh toán tháng đầu đúng hạn nên hồ sơ giữ phòng đã bị hủy. Chủ nhà giữ tiền cọc đã nhận. Không có tiền thuê cần hoàn.";
+  const html=render("LANDLORD",{notifiedAt:"2026-11-09T00:01:00Z",respondBy:"2026-11-10T00:01:00Z",completedAt:"2026-11-10T00:01:01Z",reason:"Hết hạn sẽ tự chấm dứt HĐ cọc"},"CANCELLED_BY_SYSTEM",{message});
+  assert.match(html,/Đã hủy giữ phòng · Chủ nhà giữ tiền cọc/);assert.match(html,/Không có tiền thuê cần hoàn/);
+  assert.match(html,/Hạn cuối đã kết thúc:/);assert.match(html,/Đã hủy lúc:/);
+  assert.doesNotMatch(html,/Tiền thuê đã nhận phải hoàn riêng|sẽ tự chấm dứt|Hạn phản hồi:/);
+});
+test("an open final notice never invents a received rent payment",()=>{
+  const html=render("TENANT",{notifiedAt:"2026-11-09T00:01:00Z",respondBy:"2026-11-10T00:01:00Z",reason:"Người thuê chưa thanh toán tháng đầu."});
+  assert.match(html,/Hạn cuối:/);assert.doesNotMatch(html,/Tiền thuê đã nhận phải hoàn riêng|Đã hủy lúc:/);
+});
 test("request summary links to the deposit workspace without embedding payment and signature controls",()=>{
   const html=render("TENANT",{},"WAITING_START",{depositAgreementContractId:"deposit-id",depositAgreementTenantSigned:true},{compact:true});
   assert.match(html,/href="\/dashboard\/tenant\/contracts\/deposit-id"/);assert.match(html,/Mở hồ sơ hợp đồng/);

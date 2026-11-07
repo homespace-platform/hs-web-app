@@ -53,7 +53,7 @@ function ReceiptActions({ paymentId, receipt }: Props) {
         );
         return;
       }
-      const blob = await paymentReceiptService.pdf(source.id, download);
+      const blob = await paymentReceiptService.pdf(source.id);
       if (token !== counter.value) return;
       const url = URL.createObjectURL(blob);
       if (download) {
@@ -96,7 +96,7 @@ function ReceiptActions({ paymentId, receipt }: Props) {
         ) : (
           <Eye className="size-3.5" />
         )}
-        Xem chứng từ
+        Xem hóa đơn PDF
       </button>
       <button
         type="button"

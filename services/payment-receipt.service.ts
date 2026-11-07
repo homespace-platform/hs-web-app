@@ -48,12 +48,19 @@ export const paymentReceiptService = {
       )
     ).data.result;
   },
-  async pdf(id: string, download = false) {
-    return (
-      await axiosClient.get<Blob>(
-        `/api/v1/payment-receipts/${encodeURIComponent(id)}/pdf`,
-        { params: { download }, responseType: "blob" },
-      )
-    ).data;
+  async pdf(id: string) {
+    const { data } = await axiosClient.get<ApiResponse<string>>(
+      `/api/v1/payment-receipts/${encodeURIComponent(id)}/content`,
+    );
+    let bytes = "";
+    try {
+      if (typeof data?.result === "string") bytes = atob(data.result);
+    } catch { /* Treat invalid content like an empty response. */ }
+    if (!bytes.startsWith("%PDF-")) {
+      throw new Error("Không nhận được nội dung hóa đơn PDF. Vui lòng thử lại.");
+    }
+    return new Blob([Uint8Array.from(bytes, (byte) => byte.charCodeAt(0))], {
+      type: "application/pdf",
+    });
   },
 };

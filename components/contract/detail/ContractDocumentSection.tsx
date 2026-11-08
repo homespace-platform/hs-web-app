@@ -12,6 +12,8 @@ import type { AmendmentProposal } from "@/types/contract-amendment.type";
 import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
 import { AmendmentComparisonTable } from "./ContractAmendmentPanel";
 import ContractPdfViewerModal from "./ContractPdfViewerModal";
+import ContractBlockchainProof from "./ContractBlockchainProof";
+import { supportsLeaseProof } from "@/lib/contract-blockchain-proof";
 
 const smallButton = "inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50";
 type Action = (doc: ContractDocumentResponse, download?: boolean) => Promise<void>;
@@ -99,6 +101,7 @@ export default function ContractDocumentSection({documents,contract}:{documents:
   const visible=proposals.filter(p=>!closedDocumentProposals.has(p.status));
   const rootRows=documents.filter(d=>d.contractId===contract.id);
   const rootSigned=Boolean(contract.signedAt);
+  const proofDocument=rootSigned&&supportsLeaseProof(contract)?primaryDocument(rootRows,true,contract.currentRevisionId):undefined;
   const action:Action=async(doc,download=false)=>{
     if(busy)return;
     const tab=download?window.open("about:blank","_blank"):null;
@@ -122,6 +125,7 @@ export default function ContractDocumentSection({documents,contract}:{documents:
       <DocumentFiles rows={rootRows} signed={rootSigned} revisionId={contract.currentRevisionId} busy={busy} action={action}>
         <SigningHistory contractId={contract.id} revisionId={contract.currentRevisionId??undefined} rootSignedAt={contract.signedAt}/>
       </DocumentFiles>
+      {proofDocument&&<ContractBlockchainProof document={proofDocument}/>}
     </DocumentCard>
     {w?.error&&<p role="alert" className="text-xs">Chưa tải được lịch sử điều chỉnh; không thể xác định đầy đủ các phụ lục. <button type="button" onClick={()=>void w.load()} className="text-primary underline">Tải lại lịch sử điều chỉnh</button></p>}
     {!contract.parentContractId&&["ACTIVE","EXPIRED","CLOSED","TERMINATED"].includes(contract.status)&&!w?.data&&!w?.error&&<p className="text-xs text-muted-foreground">Đang kiểm tra lịch sử điều chỉnh…</p>}

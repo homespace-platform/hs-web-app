@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2, PenLine, RefreshCw, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { contractService } from "@/services/contract.service";
@@ -26,31 +26,42 @@ interface Props {
 const inProgress = new Set(["CREATED", "PENDING_USER_CONFIRMATION", "PROVIDER_SIGNED", "EMBEDDING"]);
 
 export default function SmartCaSignaturePanel({ contract, state, isLandlord, isTenant, hasReadyPdf, onUpdated, signingAllowed = true, blockedReason }: Props) {
-  const [localCurrent, setCurrent] = useState<SignatureRequestResponse | null>(null);
+  const [localCurrent, setCurrent] = useState<{
+    contractId: string; source: SignatureStateResponse["activeRequest"]; request: SignatureRequestResponse;
+  } | null>(null);
   const [certificates, setCertificates] = useState<CertificateOptionResponse[]>([]);
   const [serial, setSerial] = useState("");
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [refreshError, setRefreshError] = useState("");
+  const refreshing = useRef(false);
 
-  const current = localCurrent ?? state.activeRequest ?? null;
+  // Dữ liệu server mới phải thay được bản PENDING cũ đang giữ trong component.
+  const current = localCurrent?.contractId === contract.id && localCurrent.source === state.activeRequest
+    ? localCurrent.request : state.activeRequest ?? null;
 
   const myTurn = (isLandlord && contract.status === "DRAFT")
     || (isTenant && contract.status === "TENANT_SIGNATURE_PENDING");
   const pending = current && inProgress.has(current.status);
 
   const refresh = useCallback(async (showError = false) => {
-    if (!current || !inProgress.has(current.status)) return;
+    if (!current || !inProgress.has(current.status) || refreshing.current) return;
+    refreshing.current = true;
     try {
       const next = await contractService.refreshSmartCaSignature(contract.id, current.id);
-      setCurrent(next);
+      setCurrent({ contractId: contract.id, source: state.activeRequest, request: next });
+      setRefreshError("");
       if (next.status === "SIGNED") {
         toast.success("Chữ ký số đã được xác minh và lưu vào PDF hợp đồng.");
+      }
+      if (!inProgress.has(next.status)) {
         await onUpdated();
       }
     } catch (error) {
+      setRefreshError("Chưa đồng bộ được trạng thái ký số. Hãy kiểm tra lại; lỗi kết nối không có nghĩa yêu cầu đã bị từ chối.");
       if (showError) toast.error(getApiErrorMessage(error, "Không thể kiểm tra trạng thái ký số."));
-    }
-  }, [contract.id, current, onUpdated]);
+    } finally { refreshing.current = false; }
+  }, [contract.id, current, state.activeRequest, onUpdated]);
 
   useEffect(() => {
     if (!pending) return;
@@ -77,7 +88,8 @@ export default function SmartCaSignaturePanel({ contract, state, isLandlord, isT
     setBusy(true);
     try {
       const next = await contractService.initiateSmartCaSignature(contract.id, serial);
-      setCurrent(next);
+      setCurrent({ contractId: contract.id, source: state.activeRequest, request: next });
+      setRefreshError("");
       toast.info("Đã gửi yêu cầu. Mở ứng dụng VNPT SmartCA trên điện thoại để xác nhận.");
       await onUpdated();
     } catch (error) {
@@ -105,9 +117,15 @@ export default function SmartCaSignaturePanel({ contract, state, isLandlord, isT
     </section>;
   }
 
-  if (current?.status === "FAILED" && !myTurn) {
+  if (current?.status === "FAILED" && (!myTurn || current.failureCode === "PROVIDER_STATE_UNKNOWN")) {
     return <section className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
       {current.failureReason || "Xử lý chữ ký số thất bại."} Không gửi yêu cầu ký mới cho tới khi giao dịch cũ được đối soát.
+    </section>;
+  }
+  if (current && ["REJECTED", "EXPIRED", "CANCELLED"].includes(current.status) && !myTurn) {
+    return <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <p>{current.failureReason || "Yêu cầu ký đã kết thúc mà chưa có chữ ký. Hãy tải lại trạng thái hợp đồng để tiếp tục."}</p>
+      <button type="button" onClick={() => void onUpdated().catch(() => toast.error("Chưa tải lại được hợp đồng."))} className="mt-2 text-xs font-semibold underline">Tải lại trạng thái hợp đồng</button>
     </section>;
   }
   if (!signingAllowed && !pending) {
@@ -131,14 +149,15 @@ export default function SmartCaSignaturePanel({ contract, state, isLandlord, isT
       </div>
     </div>
     {pending ? <div className="rounded-xl border border-sky-200 bg-white p-4 space-y-2 text-sm">
-      <p className="font-semibold">{current?.status === "PENDING_USER_CONFIRMATION"
+      <p className="font-semibold">{current?.status === "PENDING_USER_CONFIRMATION" || current?.status === "CREATED"
         ? "Đang chờ bạn xác nhận trên ứng dụng VNPT SmartCA"
         : "Đã nhận kết quả ký; đang xác minh và lưu PDF"}</p>
       {current?.docId && <p className="text-xs">Mã tài liệu để đối chiếu trên app: <strong>{current.docId}</strong></p>}
       <p className="text-xs text-muted-foreground">Trạng thái được đồng bộ bởi máy chủ ngay cả khi bạn đóng trang này.</p>
+      {refreshError && <p role="alert" className="text-xs text-amber-800">{refreshError}</p>}
       <button type="button" onClick={() => void refresh(true)} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold"><RefreshCw className="h-4 w-4" /> Kiểm tra ngay</button>
     </div> : <>
-      {current && ["REJECTED", "EXPIRED", "FAILED"].includes(current.status) &&
+      {current && ["REJECTED", "EXPIRED", "FAILED", "CANCELLED"].includes(current.status) &&
         <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">{current.failureReason || "Yêu cầu ký chưa hoàn tất. Vui lòng kiểm tra trước khi thử lại."}</p>}
       {!hasReadyPdf && <p className="text-xs text-amber-700">Cần kết xuất PDF của bản sửa đổi hiện tại trước khi ký.</p>}
       <button type="button" disabled={busy || !hasReadyPdf} onClick={() => void loadCertificates()} className="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50">{busy ? "Đang tải..." : "Chọn chứng thư SmartCA"}</button>

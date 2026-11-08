@@ -67,6 +67,7 @@ vm.runInThisContext(`(function(require,module,exports){${panelOutput}\n})`)(name
   if(name==="@/lib/deposit-agreement-loader")return mod.exports;
   if(name==="@/utils/apiError")return {getApiErrorMessage:()=>"error"};
   if(name==="@/components/contract/detail/SmartCaSignaturePanel")return {default:()=>null};
+  if(name==="@/components/contract/detail/ContractBlockchainProof")return {default:({document})=>React.createElement("span",{"data-blockchain-document":document.id})};
   if(name==="@/components/contract/detail/ContractPdfViewerModal")return {default:()=>null};
   if(name==="@/lib/contract-document-history")return {primaryDocument:(rows)=>rows.find(d=>d.status==="READY"&&d.documentType==="PDF")};
   return require(name);
@@ -93,4 +94,11 @@ test("exemption tells both parties to continue with the lease and offers no depo
   const html=renderPanel({rentalId:"rental",data:{...ready,required:false,signingAllowed:false,agreement:null,documents:[]}});
   assert.match(html,/Bỏ qua hợp đồng cọc/);assert.match(html,/ký hợp đồng thuê/);
   assert.doesNotMatch(html,/<button|Chưa có hồ sơ hợp đồng cọc|Đã xác nhận cọc/);
+});
+
+test("deposit proof is attached only to its own final signed PDF",()=>{
+  const data={...ready,agreement:{...ready.agreement,status:"ACTIVE",signedAt:"2026-11-08T01:00:00Z"},documents:[{id:"final",contractId:"deposit-doc",status:"READY",purpose:"SIGNED_FINAL",documentType:"PDF"}]};
+  assert.match(renderPanel({rentalId:"rental",data}),/data-blockchain-document="final"/);
+  assert.doesNotMatch(renderPanel({rentalId:"rental",data:{...data,documents:[{...data.documents[0],purpose:"SIGNED_LANDLORD"}]}}),/data-blockchain-document/);
+  assert.doesNotMatch(renderPanel({rentalId:"rental",data:{...data,documents:[{...data.documents[0],contractId:"other-contract"}]}}),/data-blockchain-document/);
 });

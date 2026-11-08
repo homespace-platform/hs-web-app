@@ -37,6 +37,7 @@ export interface SignatureRequestResponse {
   confirmedAt?: string | null;
   expiresAt?: string | null;
   failureReason?: string | null;
+  failureCode?: string | null;
 }
 
 export interface SignatureStateResponse {

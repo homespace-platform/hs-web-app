@@ -33,7 +33,8 @@ async function fixturePage(browser,data,role,viewport={width:1280,height:900}) {
     if(data.historyFixture&&/^\/api\/v1\/contracts\/[^/]+$/.test(url.pathname)){
       requests.push({path:url.pathname,method,body});const id=url.pathname.split("/").pop();
       const contract=data.historyFixture.contract;
-      return fulfill(id==="root"?(data.historyFixture.rootContract??contract):id===contract.id?contract:null);
+      const appendixFiles=data.historyFixture.files[id];
+      return fulfill(id==="root"?(data.historyFixture.rootContract??contract):id===contract.id?contract:appendixFiles?{id,currentRevisionId:data.historyFixture.agreementRevisions?.[id]??appendixFiles[0]?.revisionId??null}:null);
     }
     if(data.historyFixture&&url.pathname==="/api/v1/contracts/root/effective-document"){
       requests.push({path:url.pathname,method,body});
@@ -662,12 +663,11 @@ async function partyEditScenarios(browser) {
       const section=dossier.page.getByRole("region",{name:"Hợp đồng và các lần điều chỉnh",exact:true});await section.waitFor();
       const original=section.getByRole("article",{name:"Hợp đồng gốc",exact:true});
       await original.getByRole("button",{name:"Xem bản đã ký",exact:true}).waitFor();
-      assert.equal(await original.getByText("HD_technical_root-word.docx",{exact:true}).isVisible(),false);
-      await original.getByText("Lịch sử tệp (4)",{exact:true}).click();
-      await original.getByText("HD_technical_root-word.docx",{exact:true}).waitFor();
-      assert.equal(await original.getByRole("button",{name:"Xem",exact:true}).count(),4);
+      await original.getByText("HD_technical_root-final.pdf",{exact:true}).waitFor();
+      assert.equal(await original.getByText("HD_technical_root-word.docx",{exact:true}).count(),0);
+      assert.equal(await original.getByText("HD_technical_root-preview.pdf",{exact:true}).count(),0);
+      assert.equal(await original.getByRole("button",{name:"Xem bản đã ký",exact:true}).count(),1);
       assert.match(await original.innerText(),/13:29/);assert.doesNotMatch(await original.innerText(),/2026-10-14T06/);
-      await original.getByText("Lịch sử tệp (4)",{exact:true}).click();
       const applied=section.getByRole("article",{name:"Điều chỉnh lần 1 — Giá thuê",exact:true});
       await applied.getByRole("button",{name:"Xem bản đã ký",exact:true}).waitFor();
       await applied.getByText("Xem thay đổi (1 nội dung)",{exact:true}).click();
@@ -694,15 +694,9 @@ async function partyEditScenarios(browser) {
       await dossier.page.getByRole("button",{name:"Đóng (Esc)",exact:true}).waitFor();
       assert.equal(dossier.requests.filter(r=>r.path==="/api/v1/contracts/documents/root-final").length,before+1);
       await dossier.page.getByRole("button",{name:"Đóng (Esc)",exact:true}).click();
-      await original.getByText("Lịch sử tệp (4)",{exact:true}).click();
-      const oldWord=original.getByText("HD_technical_root-word.docx",{exact:true}).locator("..").locator("..");
-      const popupPromise=dossier.page.waitForEvent("popup");
-      await oldWord.getByRole("button",{name:"Tải về",exact:true}).click();
-      const popup=await popupPromise;await popup.waitForURL(/files\/root-word\.pdf\?fresh=1/);await popup.close();
-      assert.equal(dossier.requests.filter(r=>r.path==="/api/v1/contracts/documents/root-word").length,1,"Even old Word downloads refresh their authorized URL");
       assert.equal(dossier.errors.length,0);assert.equal(dossier.requests.filter(r=>r.method!=="GET").length,0,"History reads must never mutate contract/signature state");
     }
-    console.log("PASS document dossier for both parties: signed PDFs, collapsed old Word/PDF files, future/pending/rejected states, comparison/timeline, retry, fresh URLs and mobile layout");
+    console.log("PASS document dossier for both parties: signed PDF only, future/pending/rejected states, comparison/timeline, retry, fresh URLs and mobile layout");
     for(const role of ["owner","tenant"]){
       const data=structuredClone(historyData);delete data.failDocumentOnce;
       const current=await fixturePage(browser,data,role,{width:role==="owner"?1280:390,height:900});

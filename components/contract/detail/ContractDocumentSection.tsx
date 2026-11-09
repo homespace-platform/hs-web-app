@@ -6,7 +6,7 @@ import { Download, Eye, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { contractService } from "@/services/contract.service";
 import { contractDetailPath } from "@/lib/contract-routes";
-import { amendmentDocumentStatus, amendmentDocumentTitle, appliedAmendment, closedDocumentProposals, concreteProposals, documentDate, documentStage, documentTime, primaryDocument, requiresVerifiedContent, signedAmendment, sortedDocuments, verifiedSignatureTimes } from "@/lib/contract-document-history";
+import { amendmentDocumentStatus, amendmentDocumentTitle, appliedAmendment, closedDocumentProposals, concreteProposals, documentDate, documentStage, documentTime, primaryDocument, requiresVerifiedContent, signedAmendment, visibleDocument, verifiedSignatureTimes } from "@/lib/contract-document-history";
 import type { ContractDocumentResponse, ContractResponse, SignatureRequestResponse } from "@/types/contract.type";
 import type { AmendmentProposal } from "@/types/contract-amendment.type";
 import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
@@ -27,13 +27,10 @@ function FileActions({ doc, action, busy, main = false }: { doc: ContractDocumen
   return <div className="flex shrink-0 flex-wrap gap-2"><button type="button" disabled={busy} onClick={() => void action(doc)} className={smallButton}><Eye className="h-3.5 w-3.5"/>{main ? doc.purpose==="SIGNED_FINAL" ? "Xem bản đã ký" : "Xem bản đang soạn / ký" : "Xem"}</button><button type="button" disabled={busy} onClick={() => void action(doc,true)} className={smallButton+(main ? " border-primary bg-primary text-primary-foreground" : "")}><Download className="h-3.5 w-3.5"/>{main && doc.purpose==="SIGNED_FINAL" ? "Tải PDF đã ký" : "Tải về"}</button></div>;
 }
 function DocumentFiles({ rows, signed, revisionId, busy, action, children }: { rows: ContractDocumentResponse[]; signed: boolean; revisionId?: string | null; busy: boolean; action: Action; children?:ReactNode }) {
-  const primary=primaryDocument(rows,signed,revisionId);
+  const current=visibleDocument(rows,signed,revisionId);
   return <div className="space-y-3">
-    {primary ? <FileActions doc={primary} action={action} busy={busy} main/> : <p className="text-xs text-muted-foreground">{signed ? "Chưa tải được bản PDF ký đủ hai bên. Các tệp còn lại không thay thế bản ký hoàn chỉnh." : "Chưa có bản PDF hiện tại. Các bản cũ được giữ trong lịch sử tệp."}</p>}
-    <details className="rounded-xl border bg-muted/15"><summary className="cursor-pointer p-3 text-xs font-semibold">Lịch sử tệp ({rows.length})</summary><div className="divide-y border-t px-3">
-      {sortedDocuments(rows).map(doc=><div key={doc.id} className="flex min-w-0 flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 space-y-1"><p className="text-xs font-medium">{documentStage(doc)}{doc.id===primary?.id && <span className="ml-2 text-primary">· Bản hiển thị bên ngoài</span>}</p><p className="break-all text-xs text-muted-foreground">{doc.fileName || "Tài liệu "+doc.documentType}</p><p className="text-xs text-muted-foreground">{fileSize(doc.fileSize)} · Tạo lúc {documentTime(doc.generatedAt)}</p>{doc.status==="STALE"&&<p className="text-xs text-amber-700 dark:text-amber-300">Bản soạn thảo cũ · Không dùng để ký hiện tại</p>}</div><FileActions doc={doc} action={action} busy={busy}/></div>)}
-      {!rows.length&&<p className="py-3 text-xs text-muted-foreground">Chưa có tệp được ghi nhận.</p>}
-    </div>{children&&<div className="border-t p-3">{children}</div>}</details>
+    {current ? <div className="flex min-w-0 flex-col gap-3 rounded-xl border bg-muted/15 p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 space-y-1"><p className="text-xs font-medium">{documentStage(current)}</p><p className="break-all text-xs text-muted-foreground">{current.fileName || "Tài liệu "+current.documentType}</p><p className="text-xs text-muted-foreground">{fileSize(current.fileSize)} · Tạo lúc {documentTime(current.generatedAt)}</p></div><FileActions doc={current} action={action} busy={busy} main/></div> : <p className="text-xs text-muted-foreground">{signed ? "Chưa tải được bản PDF ký đủ hai bên. Các tệp soạn thảo không thay thế bản ký hoàn chỉnh." : "Chưa có tệp sẵn sàng cho phiên bản hợp đồng hiện tại."}</p>}
+    {children&&<div className="rounded-xl border p-3">{children}</div>}
   </div>;
 }
 function SigningHistory({ contractId, revisionId, proposal, rootSignedAt }: { contractId: string; revisionId?: string; proposal?: AmendmentProposal; rootSignedAt?: string | null }) {
@@ -67,24 +64,26 @@ function DocumentCard({ title, status, children }: { title:string;status:string;
 }
 function AmendmentDocumentCard({ proposal:p, number, serverNow, action, busy }: { proposal:AmendmentProposal;number?:number;serverNow:string;action:Action;busy:boolean }) {
   const w=useAmendmentWorkspace();
-  const [files,setFiles]=useState<ContractDocumentResponse[]|null>(null),[error,setError]=useState(false),[retry,setRetry]=useState(0);
+  const [fileState,setFileState]=useState<{agreementId:string;rows:ContractDocumentResponse[];revisionId:string|null}|null>(null),[error,setError]=useState(false),[retry,setRetry]=useState(0);
   const agreementId=p.agreementContractId;
   useEffect(()=>{
     if(!agreementId)return;
     let cancelled=false;
-    contractService.getDocuments(agreementId).then(rows=>{if(!cancelled){setFiles(rows.filter(d=>d.contractId===agreementId));setError(false);}})
+    Promise.all([contractService.getDocuments(agreementId),contractService.getContract(agreementId)])
+      .then(([rows,agreement])=>{if(agreement?.id!==agreementId)throw new Error("Unexpected amendment contract");if(!cancelled){setFileState({agreementId,rows:rows.filter(d=>d.contractId===agreementId),revisionId:agreement.currentRevisionId??null});setError(false);}})
       .catch(()=>{if(!cancelled)setError(true);});
     return ()=>{cancelled=true;};
   },[agreementId,p.agreementStatus,p.signedAt,retry]);
   const signed=signedAmendment(p),applied=appliedAmendment(p,serverNow);
   const title=(number ? "Điều chỉnh lần "+number : "Đề xuất điều chỉnh")+" — "+amendmentDocumentTitle(p);
-  const main=primaryDocument(files??[],signed);
+  const currentFiles=fileState?.agreementId===agreementId?fileState:null;
+  const main=currentFiles?visibleDocument(currentFiles.rows,signed,currentFiles.revisionId):undefined;
   return <DocumentCard title={title} status={amendmentDocumentStatus(p,serverNow)}>
     <p className="text-xs text-muted-foreground">{signed ? "Ký đủ: "+documentTime(p.signedAt)+" · " : ""}{p.immediateEffect ? "Áp dụng sau khi ký đủ và được hệ thống ghi nhận" : (applied?"Áp dụng từ":"Dự kiến áp dụng")+": "+documentDate(p.effectiveOn)}</p>
     {!applied&&<p className="text-xs text-muted-foreground">{closedDocumentProposals.has(p.status)?"Đề xuất này không thay đổi điều khoản của hợp đồng.":"Điều khoản đang áp dụng chưa thay đổi bởi đề xuất này."}</p>}
-    <details><summary className="cursor-pointer text-xs font-semibold text-primary">Xem thay đổi ({p.comparison.length} nội dung)</summary><div className="mt-3 space-y-3"><p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">Lý do: {p.reason}</p><AmendmentComparisonTable rows={p.comparison} beforeLabel="Trước điều chỉnh" afterLabel={signed?"Sau điều chỉnh":"Nội dung đề xuất"}/>{p.responseNote&&<p className="whitespace-pre-wrap break-words text-xs">Phản hồi: {p.responseNote}</p>}{agreementId&&<SigningHistory key={p.id+":"+p.agreementStatus+":"+(p.signedAt??"")} contractId={agreementId} revisionId={main?.revisionId} proposal={p}/>}</div></details>
+      <details><summary className="cursor-pointer text-xs font-semibold text-primary">Xem thay đổi ({p.comparison.length} nội dung)</summary><div className="mt-3 space-y-3"><p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">Lý do: {p.reason}</p><AmendmentComparisonTable rows={p.comparison} beforeLabel="Trước điều chỉnh" afterLabel={signed?"Sau điều chỉnh":"Nội dung đề xuất"}/>{p.responseNote&&<p className="whitespace-pre-wrap break-words text-xs">Phản hồi: {p.responseNote}</p>}{agreementId&&<SigningHistory key={p.id+":"+p.agreementStatus+":"+(p.signedAt??"")} contractId={agreementId} revisionId={currentFiles?.revisionId??undefined} proposal={p}/>}</div></details>
     {agreementId&&<>
-      {error?<p role="alert" className="text-xs">Không tải được lịch sử tệp phụ lục. <button type="button" onClick={()=>setRetry(n=>n+1)} className="text-primary underline">Tải lại tệp phụ lục</button></p>:files===null?<p className="flex items-center gap-2 text-xs"><Loader2 className="h-3.5 w-3.5 animate-spin"/>Đang tải tệp phụ lục…</p>:<DocumentFiles rows={files} signed={signed} busy={busy} action={action}/>}
+      {error?<p role="alert" className="text-xs">Không tải được lịch sử tệp phụ lục. <button type="button" onClick={()=>setRetry(n=>n+1)} className="text-primary underline">Tải lại tệp phụ lục</button></p>:currentFiles===null?<p className="flex items-center gap-2 text-xs"><Loader2 className="h-3.5 w-3.5 animate-spin"/>Đang tải tệp phụ lục…</p>:<DocumentFiles rows={currentFiles.rows} signed={signed} revisionId={currentFiles.revisionId} busy={busy} action={action}/>}
       {signed&&main&&<ContractBlockchainProof document={main}/>}
       {w&&p.status==="APPROVED"&&<Link href={contractDetailPath(w.perspective,agreementId)} className="inline-block text-xs font-semibold text-primary underline">Mở phụ lục để xem và ký</Link>}
     </>}

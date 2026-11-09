@@ -15,6 +15,34 @@ test("all historical files remain sorted without mutation; stale files never bec
   const rows=[doc("word","PREVIEW","STALE","DOCX"),doc("older","PREVIEW","READY","PDF","2026-10-14T00:00:00Z")];
   assert.equal(h.sortedDocuments(rows).length,2);assert.equal(h.primaryDocument(rows,false).id,"older");assert.match(h.documentStage(rows[0]),/Không phải bản ký/);
 });
+test("visible file advances from Word to preview, landlord signature, then final PDF",()=>{
+  const word=doc("word","PREVIEW","READY","DOCX");
+  const preview=doc("preview","PREVIEW");
+  const landlord=doc("landlord","SIGNED_LANDLORD");
+  const final=doc("final","SIGNED_FINAL");
+  assert.equal(h.visibleDocument([word],false,"signed").id,"word");
+  assert.equal(h.visibleDocument([word,preview],false,"signed").id,"preview");
+  assert.equal(h.visibleDocument([word,preview,landlord],false,"signed").id,"landlord");
+  assert.equal(h.visibleDocument([word,preview,landlord,final],true,"signed").id,"final");
+  assert.equal(h.visibleDocument([word,preview,landlord],true,"signed"),undefined);
+});
+test("visible file ignores stale and other revisions without mutating history",()=>{
+  const rows=[doc("old-final","SIGNED_FINAL","READY","PDF","2026-10-16T00:00:00Z","old"),
+    doc("current-word","PREVIEW","READY","DOCX","2026-10-17T00:00:00Z","current"),
+    doc("failed-preview","PREVIEW","FAILED","PDF","2026-10-18T00:00:00Z","current")];
+  const original=JSON.stringify(rows);
+  assert.equal(h.visibleDocument(rows,false,"current").id,"current-word");
+  assert.equal(h.visibleDocument(rows,false).id,"current-word");
+  assert.equal(h.visibleDocument(rows,true,"current"),undefined);
+  assert.equal(JSON.stringify(rows),original);
+});
+test("a newer amendment revision without a ready file never exposes the previous signed PDF",()=>{
+  const rows=[doc("old-final","SIGNED_FINAL","READY","PDF","2026-10-16T00:00:00Z","previous"),
+    doc("new-preview","PREVIEW","GENERATING","PDF",undefined,"current")];
+  assert.equal(h.visibleDocument(rows,true,"current"),undefined);
+  assert.equal(h.visibleDocument(rows,false,"current"),undefined);
+  assert.equal(h.visibleDocument(rows,false,null),undefined);
+});
 test("only applied verified amendments count, using Vietnam server time rather than browser time",()=>{
   assert.equal(h.appliedAmendment(proposal("APPLIED",{signedAt:"2026-10-20T00:00:00Z"}),"2026-11-14T17:00:00Z"),true);
   for(const status of ["REQUESTED","APPROVED","SCHEDULED","REJECTED","WITHDRAWN","EXPIRED","SUPERSEDED"])assert.equal(h.appliedAmendment(proposal(status,{signedAt:"2026-10-20T00:00:00Z"}),"2026-12-15T00:00:00Z"),false);

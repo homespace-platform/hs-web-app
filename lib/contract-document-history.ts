@@ -22,6 +22,16 @@ export function primaryDocument(rows: ContractDocumentResponse[], signed: boolea
   if (signed) return ready.find(d => d.purpose === "SIGNED_FINAL");
   return ready.find(d => d.purpose === "SIGNED_LANDLORD") ?? ready.find(d => d.purpose === "OFFICIAL") ?? ready.find(d => d.purpose === "PREVIEW");
 }
+export function visibleDocument(rows: ContractDocumentResponse[], signed: boolean, revisionId?: string | null): ContractDocumentResponse | undefined {
+  const ready = sortedDocuments(rows).filter(d => d.status === "READY" && (revisionId === undefined || (revisionId !== null && d.revisionId === revisionId)));
+  const current = revisionId === undefined ? ready.filter(d => d.revisionId === ready[0]?.revisionId) : ready;
+  if (signed) return current.find(d => d.documentType === "PDF" && d.purpose === "SIGNED_FINAL");
+  return current.find(d => d.documentType === "PDF" && d.purpose === "SIGNED_FINAL")
+    ?? current.find(d => d.documentType === "PDF" && d.purpose === "SIGNED_LANDLORD")
+    ?? current.find(d => d.documentType === "PDF" && d.purpose === "OFFICIAL")
+    ?? current.find(d => d.documentType === "PDF" && d.purpose === "PREVIEW")
+    ?? current.find(d => d.documentType === "DOCX");
+}
 export function documentStage(doc: ContractDocumentResponse): string {
   if (doc.documentType === "DOCX") return "Word soạn thảo · Không phải bản ký";
   return ({ SIGNED_FINAL: "PDF đã ký đủ hai bên", SIGNED_LANDLORD: "PDF chủ nhà đã ký · Chưa đủ hai bên", OFFICIAL: "PDF trước khi ký", PREVIEW: "PDF bản xem trước" })[doc.purpose] ?? "Tài liệu lưu trữ";

@@ -6,7 +6,7 @@ import { depositAgreementService, type DepositAgreementView } from "@/services/d
 import { contractService } from "@/services/contract.service";
 import type { ContractDocumentResponse, SignatureStateResponse } from "@/types/contract.type";
 import ContractPdfViewerModal from "@/components/contract/detail/ContractPdfViewerModal";
-import { primaryDocument } from "@/lib/contract-document-history";
+import { primaryDocument, requiresVerifiedContent } from "@/lib/contract-document-history";
 import SmartCaSignaturePanel from "@/components/contract/detail/SmartCaSignaturePanel";
 import ContractBlockchainProof from "@/components/contract/detail/ContractBlockchainProof";
 import { loadDepositAgreement } from "@/lib/deposit-agreement-loader";
@@ -89,7 +89,7 @@ export default function DepositAgreementPanel({ rentalRequestId, isLandlord, onU
     const sequence = counter.value;
     try {
       const doc = await contractService.getDocument(id);
-      if (!doc.viewUrl && !doc.downloadUrl) throw new Error("Chưa có đường dẫn tài liệu.");
+      if (!requiresVerifiedContent(doc) && !doc.viewUrl && !doc.downloadUrl) throw new Error("Chưa có đường dẫn tài liệu.");
       if (sequence === counter.value) setPreview({ rentalId: rentalRequestId, document: doc });
     } catch (failure) {
       if (sequence === counter.value) toast.error(getApiErrorMessage(failure, "Không mở được tài liệu cọc."));

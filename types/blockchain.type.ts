@@ -1,5 +1,14 @@
 export type BlockchainProofStatus = "NOT_AVAILABLE" | "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED";
 
+export interface DocumentIntegrityResponse {
+  documentId: string;
+  status: "MATCH" | "MISMATCH" | "PENDING" | "NOT_AVAILABLE" | "UNAVAILABLE" | "MISSING";
+  documentHash?: string | null;
+  onChainDocumentHash?: string | null;
+  checkedAt: string;
+  message?: string | null;
+}
+
 export interface ContractBlockchainProofResponse {
   documentId: string;
   contractId: string;

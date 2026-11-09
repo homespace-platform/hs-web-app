@@ -25,7 +25,7 @@ import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
 import { appliedAmendment } from "@/lib/contract-document-history";
 import { contractService } from "@/services/contract.service";
 import { toast } from "sonner";
-import { documentTime } from "@/lib/contract-document-history";
+import { documentTime, requiresVerifiedContent } from "@/lib/contract-document-history";
 import { FieldRow } from "./utils";
 
 const STATUS_CONFIG: Record<
@@ -136,8 +136,9 @@ export default function ContractHeader({
   const openDocument = async (download = false, ownAppendix = false) => {
     const effective = showEffectiveDocument && !ownAppendix;
     if ((!effective && !latestDoc) || opening) return;
-    const tab = download ? window.open("about:blank","_blank") : null;
-    if (download && !tab) { toast.error("Hãy cho phép trình duyệt mở cửa sổ tải về rồi thử lại."); return; }
+    const verified = effective || requiresVerifiedContent(latestDoc);
+    const tab = download && !verified ? window.open("about:blank","_blank") : null;
+    if (download && !verified && !tab) { toast.error("Hãy cho phép trình duyệt mở cửa sổ tải về rồi thử lại."); return; }
     if (tab) tab.opener = null;
     setOpening(true);
     try {
@@ -149,9 +150,10 @@ export default function ContractHeader({
       if (!fresh || fresh.status !== "READY" || (effective
         ? fresh.purpose !== "SIGNED_FINAL" || fresh.documentType !== "PDF"
         : fresh.id !== latestDoc!.id || fresh.contractId !== contract.id)
-        || !(download ? fresh.downloadUrl : fresh.viewUrl || fresh.downloadUrl))
+        || (!requiresVerifiedContent(fresh) && !(download ? fresh.downloadUrl : fresh.viewUrl || fresh.downloadUrl)))
         throw new Error(effective ? "Chưa tải được PDF đã ký của hợp đồng đang áp dụng. Vui lòng thử lại; hệ thống không mở thay bằng bản cũ." : "Chưa mở được tài liệu hiện tại. Hãy tải lại hồ sơ rồi thử lại.");
-      if (tab) tab.location.href = fresh.downloadUrl!;
+      if (download && requiresVerifiedContent(fresh)) { tab?.close(); await contractService.downloadDocument(fresh); }
+      else if (tab) tab.location.href = fresh.downloadUrl!;
       else { setViewDoc(fresh); setShowPreviewModal(true); }
     } catch (e) { tab?.close(); toast.error(e instanceof Error ? e.message : "Không mở được tài liệu."); }
     finally { setOpening(false); }
@@ -240,7 +242,7 @@ export default function ContractHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start">
-          {(showEffectiveDocument || latestDoc?.downloadUrl) && (
+          {(showEffectiveDocument || requiresVerifiedContent(latestDoc) || latestDoc?.downloadUrl) && (
             <button
               type="button"
               disabled={opening}
@@ -252,7 +254,7 @@ export default function ContractHeader({
             </button>
           )}
 
-          {(showEffectiveDocument || latestDoc?.viewUrl) && (
+          {(showEffectiveDocument || requiresVerifiedContent(latestDoc) || latestDoc?.viewUrl) && (
             <button
               type="button"
               disabled={opening}

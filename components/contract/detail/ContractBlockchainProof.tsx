@@ -5,7 +5,7 @@ import { ExternalLink, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
 import { contractBlockchainService } from "@/services/contract-blockchain.service";
 import { blockchainProofPending, blockchainTransactionUrl, hashPdfForProof } from "@/lib/contract-blockchain-proof";
 import { documentTime } from "@/lib/contract-document-history";
-import type { ContractBlockchainProofResponse } from "@/types/blockchain.type";
+import type { ContractBlockchainProofResponse, DocumentIntegrityResponse } from "@/types/blockchain.type";
 import type { ContractDocumentResponse } from "@/types/contract.type";
 
 const buttonClass = "inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50";
@@ -17,6 +17,14 @@ const labels = {
   CONFIRMED: "Đã ghi nhận trên blockchain",
   FAILED: "Ghi nhận blockchain chưa thành công",
 };
+const integrityLabels: Record<DocumentIntegrityResponse["status"], string> = {
+  MATCH: "PDF đang lưu khớp bản đã ghi nhận trên blockchain.",
+  MISMATCH: "PDF đang lưu không khớp bản đã ký. Tệp này bị chặn xem/tải để đối soát.",
+  PENDING: "PDF đang lưu khớp bản lúc ký; chưa xác nhận đầy đủ trên blockchain.",
+  NOT_AVAILABLE: "Chưa có dữ liệu đối chiếu cho PDF cũ. Tài liệu chưa được xác thực blockchain.",
+  UNAVAILABLE: "Tạm thời chưa xác thực được PDF. Lỗi kết nối không có nghĩa file bị sửa.",
+  MISSING: "Không tìm thấy PDF đang lưu. Hệ thống cần kiểm tra hoặc khôi phục tài liệu.",
+};
 
 function ProofForDocument({ document: doc }: { document: ContractDocumentResponse }) {
   const [proof, setProof] = useState<ContractBlockchainProofResponse | null>(null);
@@ -24,6 +32,9 @@ function ProofForDocument({ document: doc }: { document: ContractDocumentRespons
   const [loadError, setLoadError] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [verification, setVerification] = useState<Verification>({ status: "idle" });
+  const [integrity, setIntegrity] = useState<DocumentIntegrityResponse | null>(null);
+  const [integrityLoading, setIntegrityLoading] = useState(true);
+  const [integrityError, setIntegrityError] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const verifyRequest = useRef<AbortController | null>(null);
 
@@ -70,6 +81,28 @@ function ProofForDocument({ document: doc }: { document: ContractDocumentRespons
     };
   }, [doc.id, doc.contractId, doc.revisionId, refresh]);
 
+  const readyToCheck = !!proof || !!loadError;
+  const confirmed = proof?.status === "CONFIRMED";
+  useEffect(() => {
+    if (!readyToCheck) return;
+    const request = new AbortController();
+    async function check() {
+      setIntegrityLoading(true);
+      setIntegrity(null);
+      try {
+        const result = await contractBlockchainService.checkIntegrity(doc.id, request.signal);
+        if (request.signal.aborted) return;
+        if (result.documentId !== doc.id) throw new Error("INTEGRITY_DOCUMENT_MISMATCH");
+        setIntegrity(result);
+        setIntegrityError("");
+      } catch {
+        if (!request.signal.aborted) setIntegrityError("Chưa kiểm tra được PDF đang lưu. Hãy thử lại; lỗi kết nối không có nghĩa file không khớp.");
+      } finally { if (!request.signal.aborted) setIntegrityLoading(false); }
+    }
+    void check();
+    return () => request.abort();
+  }, [doc.id, doc.revisionId, readyToCheck, confirmed, refresh]);
+
   async function verifyFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
@@ -99,10 +132,17 @@ function ProofForDocument({ document: doc }: { document: ContractDocumentRespons
         <h4 className="flex items-center gap-1.5 text-xs font-semibold"><ShieldCheck className="h-4 w-4"/>Bằng chứng blockchain</h4>
         <p className="text-xs" role="status">{proof ? labels[proof.status] : loading ? "Đang tải bằng chứng…" : "Chưa kiểm tra được bằng chứng"}</p>
       </div>
-      <button type="button" onClick={() => { setVerification({ status: "idle" }); setRefresh(n => n + 1); }} disabled={loading || verifying} className={buttonClass}><RefreshCw className="h-3.5 w-3.5"/>Làm mới bằng chứng</button>
+      <button type="button" onClick={() => { setVerification({ status: "idle" }); setRefresh(n => n + 1); }} disabled={loading || verifying || integrityLoading} className={buttonClass}><RefreshCw className="h-3.5 w-3.5"/>Kiểm tra lại</button>
     </div>
     <p className="text-xs text-muted-foreground">Ghi nhận hash của đúng PDF đã ký đủ hai bên để đối chiếu về sau. Tệp PDF được giữ riêng tư.</p>
     {loadError && <p role="alert" className="text-xs text-amber-800 dark:text-amber-300">{loadError}</p>}
+    <div className="space-y-1 border-t pt-3 text-xs" aria-label="Tính toàn vẹn của PDF đang lưu">
+      <p className="font-semibold">PDF đang lưu</p>
+      {integrityLoading ? <p role="status">Đang kiểm tra tài liệu…</p> : integrityError ? <p role="alert" className="text-amber-800 dark:text-amber-300">{integrityError}</p> : integrity && <>
+        <p role={integrity.status === "MISMATCH" || integrity.status === "MISSING" ? "alert" : "status"} className={integrity.status === "MATCH" ? "text-emerald-800 dark:text-emerald-300" : "text-amber-800 dark:text-amber-300"}>{integrityLabels[integrity.status]}</p>
+        <p className="text-muted-foreground">Kiểm tra lúc: {documentTime(integrity.checkedAt)}</p>
+      </>}
+    </div>
     {proof?.status === "NOT_AVAILABLE" && <p className="text-xs text-muted-foreground">Tài liệu này chưa có proof. PDF đã ký vẫn xem và tải bình thường.</p>}
     {proof?.status === "FAILED" && <p className="text-xs text-amber-800 dark:text-amber-300">PDF đã ký vẫn được lưu. Hệ thống cần kiểm tra việc ghi nhận blockchain; bạn không cần ký hay thanh toán lại.</p>}
     {proof && proof.status !== "NOT_AVAILABLE" && <div className="space-y-2 text-xs">
@@ -116,7 +156,8 @@ function ProofForDocument({ document: doc }: { document: ContractDocumentRespons
         {proof.blockNumber != null && <div><dt className="text-muted-foreground">Block ghi nhận</dt><dd>{proof.blockNumber}</dd></div>}
       </dl></details>}
     </div>}
-    {proof?.status === "CONFIRMED" && <div className="space-y-2 border-t pt-3">
+    {proof?.status === "CONFIRMED" && <details className="space-y-2 border-t pt-3"><summary className="cursor-pointer text-xs font-semibold">Đối chiếu PDF từ bên ngoài</summary>
+      <p className="text-xs text-muted-foreground">Dùng cho bản hợp đồng nhận qua email, Zalo hoặc lưu trên máy. PDF đang lưu trên hệ thống được kiểm tra tự động ở trên.</p>
       <input ref={input} type="file" accept="application/pdf,.pdf" aria-label="Chọn PDF để đối chiếu blockchain" className="hidden" onChange={event => void verifyFile(event)} disabled={verifying || loading || !!loadError}/>
       <button type="button" className={buttonClass} disabled={verifying || loading || !!loadError} onClick={() => input.current?.click()}>{verifying && <Loader2 className="h-3.5 w-3.5 animate-spin"/>}{verifying ? "Đang đối chiếu…" : "Chọn PDF để đối chiếu"}</button>
       <p className="text-xs text-muted-foreground">Tính hash ngay trên máy bạn và chỉ gửi hash để đối chiếu, không upload PDF. Tối đa 20 MB.</p>
@@ -125,7 +166,7 @@ function ProofForDocument({ document: doc }: { document: ContractDocumentRespons
       {verification.status === "mismatch" && <p role="status" className="text-xs text-amber-800 dark:text-amber-300">Tệp không khớp với hash đã ghi nhận. Hãy kiểm tra bạn đã chọn đúng PDF cuối đã ký.</p>}
       {verification.status === "missing" && <p role="status" className="text-xs text-amber-800 dark:text-amber-300">Chưa tìm thấy proof trên blockchain. Hãy làm mới bằng chứng trước khi đối chiếu lại.</p>}
       {verification.status === "error" && <p role="alert" className="text-xs text-amber-800 dark:text-amber-300">{verification.message}</p>}
-    </div>}
+    </details>}
   </section>;
 }
 

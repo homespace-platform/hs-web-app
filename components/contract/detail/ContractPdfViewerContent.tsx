@@ -253,7 +253,7 @@ export default function ContractPdfViewerContent({
         {doc.downloadUrl && (
           <a
             href={doc.downloadUrl}
-            download
+            download={doc.fileName || "hop-dong.pdf"}
             target="_blank"
             rel="noreferrer"
             className="h-8 px-3 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold inline-flex items-center gap-1.5 shadow-xs transition-colors"
@@ -336,7 +336,7 @@ export default function ContractPdfViewerContent({
             {doc.downloadUrl && (
               <a
                 href={doc.downloadUrl}
-                download
+                download={doc.fileName || "hop-dong.pdf"}
                 className="px-4 py-2 rounded-xl border border-border bg-card text-foreground text-xs font-semibold inline-flex items-center gap-2 hover:bg-muted transition-colors"
               >
                 <Download className="w-4 h-4" /> Tải về

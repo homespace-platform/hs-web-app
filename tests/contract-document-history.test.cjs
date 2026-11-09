@@ -60,10 +60,10 @@ function clickableHeader(service,props={}) {
   const React=require("react"),state=[],errors=[];
   const react={...React,useState(initial){const index=state.length;state.push(initial);return [initial,value=>{state[index]=value;}];}};
   const source=ts.transpileModule(fs.readFileSync(path.join(__dirname,"../components/contract/detail/ContractHeader.tsx"),"utf8"),{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText;
-  const module={exports:{}};
+  const compiled={exports:{}};
   const resolve=name=>name==="react"?react:name==="./utils"?{FieldRow:()=>null}:name==="next/navigation"?{useRouter:()=>({push(){}})}:name==="./ContractAmendmentWorkspace"?{useAmendmentWorkspace:()=>null}:name==="@/lib/contract-document-history"?h:name==="@/services/contract.service"?{contractService:service}:name==="sonner"?{toast:{error:value=>errors.push(value)}}:name==="./ContractPdfViewerModal"?{__esModule:true,default:()=>null}:require(name);
-  vm.runInThisContext(`(function(require,module,exports){${source}\n})`)(resolve,module,module.exports);
-  const tree=module.exports.default({backPath:"/contracts",contract:{id:"root",status:"ACTIVE",paymentStatus:"PAID"},revision:{},latestDoc:{...doc("root-signed","SIGNED_FINAL"),viewUrl:"https://files.example/old",downloadUrl:"https://files.example/old-download"},completeness:null,hasReadyDoc:true,isLandlord:true,isTenant:false,rendering:false,sending:false,onRender:async()=>{},onSend:async()=>{},...props});
+  vm.runInThisContext(`(function(require,module,exports){${source}\n})`)(resolve,compiled,compiled.exports);
+  const tree=compiled.exports.default({backPath:"/contracts",contract:{id:"root",status:"ACTIVE",paymentStatus:"PAID"},revision:{},latestDoc:{...doc("root-signed","SIGNED_FINAL"),viewUrl:"https://files.example/old",downloadUrl:"https://files.example/old-download"},completeness:null,hasReadyDoc:true,isLandlord:true,isTenant:false,rendering:false,sending:false,onRender:async()=>{},onSend:async()=>{},...props});
   const text=node=>node==null?"":typeof node!=="object"?String(node):Array.isArray(node)?node.map(text).join(""):text(node.props?.children);
   const buttons=[];const visit=node=>{if(!node||typeof node!=="object")return;if(Array.isArray(node)){node.forEach(visit);return;}if(node.type==="button")buttons.push(node);visit(node.props?.children);};visit(tree);
   return {state,errors,button:label=>buttons.find(b=>text(b).includes(label))};
@@ -79,17 +79,17 @@ test("header resolves the effective PDF on every view click, including an append
   view.props.onClick();await flush();assert.equal(header.state[1].id,"december-signed");assert.deepEqual(calls,["root","root"]);
 });
 test("current document actions remain available without stale root URLs and downloads use the effective PDF",async()=>{
-  const previous=global.window,tab={location:{href:""},opener:{},close(){assert.fail("successful download must stay open");}};
-  global.window={open:()=>tab};
+  const previous=global.window,calls=[];
+  global.window={open:()=>assert.fail("signed PDF must use authorized content, never a direct URL")};
   try {
-    const header=clickableHeader({getEffectiveDocument:async()=>({...doc("appendix-final","SIGNED_FINAL"),contractId:"appendix",downloadUrl:"https://files.example/effective-download"})},{latestDoc:null});
+    const header=clickableHeader({getEffectiveDocument:async()=>({...doc("appendix-final","SIGNED_FINAL"),contractId:"appendix"}),downloadDocument:async file=>calls.push(file.id)},{latestDoc:null});
     assert.ok(header.button("Xem hợp đồng đang áp dụng"));
     header.button("Tải PDF đang áp dụng").props.onClick();await flush();
-    assert.equal(tab.location.href,"https://files.example/effective-download");assert.equal(tab.opener,null);assert.deepEqual(header.errors,[]);
+    assert.deepEqual(calls,["appendix-final"]);assert.deepEqual(header.errors,[]);
   } finally {global.window=previous;}
 });
 test("missing, unsigned, stale or failed effective PDFs never silently open the old root PDF",async()=>{
-  for(const current of [null,{...doc("unsigned","SIGNED_LANDLORD"),viewUrl:"url"},{...doc("stale","SIGNED_FINAL","STALE"),viewUrl:"url"},{...doc("failed","SIGNED_FINAL","FAILED"),viewUrl:"url"},{...doc("word","SIGNED_FINAL","READY","DOCX"),viewUrl:"url"},{...doc("no-url","SIGNED_FINAL")}]) {
+  for(const current of [null,{...doc("unsigned","SIGNED_LANDLORD"),viewUrl:"url"},{...doc("stale","SIGNED_FINAL","STALE"),viewUrl:"url"},{...doc("failed","SIGNED_FINAL","FAILED"),viewUrl:"url"},{...doc("word","SIGNED_FINAL","READY","DOCX"),viewUrl:"url"}]) {
     const header=clickableHeader({getEffectiveDocument:async()=>current,getDocument:()=>assert.fail("must not fall back to the old root PDF")});
     header.button("Xem hợp đồng đang áp dụng").props.onClick();await flush();
     assert.equal(header.state[1],null);assert.equal(header.errors.length,1);assert.match(header.errors[0],/không mở thay bằng bản cũ/);
@@ -102,7 +102,7 @@ test("viewing an individual appendix still opens that exact file, not whichever 
   header.button("Xem bản soạn thảo").props.onClick();await flush();assert.equal(header.state[1].id,current.id);assert.equal(calls,1);
 });
 function effectiveServiceFixture() {
-  const module={exports:{}},calls=[];
+  const compiled={exports:{}},calls=[];
   const root={id:"root",currentRevisionId:"r0",status:"ACTIVE"},pl2={id:"pl2",parentContractId:"root",currentRevisionId:"r2",status:"ACTIVE"};
   const state={serverNow:"2026-11-15T03:00:00Z",currentTermsRevisionId:"r1",proposals:[
     proposal("SCHEDULED",{id:"pl2",effectiveOn:"2026-12-15",signedAt:"2026-11-15T03:00:00Z",agreementContractId:"pl2"}),
@@ -125,8 +125,8 @@ function effectiveServiceFixture() {
   };
   const source=ts.transpileModule(fs.readFileSync(path.join(__dirname,"../services/contract.service.ts"),"utf8"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText;
   const resolve=name=>name==="@/lib/axios-client"?{__esModule:true,default:{get}}:name==="@/lib/contract-document-history"?h:require(name);
-  vm.runInThisContext(`(function(require,module,exports){${source}\n})`)(resolve,module,module.exports);
-  return {api:module.exports.contractService,state,files,calls,override:value=>{freshOverride=value;}};
+  vm.runInThisContext(`(function(require,module,exports){${source}\n})`)(resolve,compiled,compiled.exports);
+  return {api:compiled.exports.contractService,state,files,calls,override:value=>{freshOverride=value;}};
 }
 test("15 November selects PL1 rather than already-signed PL2, without requiring a newly deployed endpoint",async()=>{
   const f=effectiveServiceFixture();

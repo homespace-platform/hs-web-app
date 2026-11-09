@@ -3,7 +3,8 @@ import type { BlockchainProofStatus } from "@/types/blockchain.type";
 export const blockchainProofPending = (status?: BlockchainProofStatus | null) => status === "PENDING" || status === "SUBMITTED";
 
 export function supportsLeaseProof(contract: { parentContractId?: string | null; agreementKind?: string | null }): boolean {
-  return !contract.parentContractId && (!contract.agreementKind || contract.agreementKind === "LEASE");
+  return contract.agreementKind === "AMENDMENT" ? Boolean(contract.parentContractId)
+    : !contract.parentContractId && (!contract.agreementKind || contract.agreementKind === "LEASE");
 }
 
 export function blockchainTransactionUrl(chainId?: number | null, transactionHash?: string | null): string | undefined {

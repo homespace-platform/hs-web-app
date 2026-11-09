@@ -171,7 +171,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       doc.id === currentPreview?.id && doc.revisionId === revision?.id && doc.status === "READY"
     ) ?? null;
     const ready = documents.filter(
-      (d) => d.status === "READY" && (d.viewUrl || d.downloadUrl)
+      (d) => d.status === "READY" && (d.viewUrl || d.downloadUrl || (d.documentType === "PDF" && d.purpose === "SIGNED_FINAL" && d.storageObjectId))
     );
     const preferred = ["SIGNED_FINAL", "SIGNED_LANDLORD", "OFFICIAL", "PREVIEW"];
     return ready.sort((a, b) => preferred.indexOf(a.purpose) - preferred.indexOf(b.purpose))[0]

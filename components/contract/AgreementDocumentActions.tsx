@@ -8,6 +8,7 @@ import { contractService } from "@/services/contract.service";
 import type { ContractDocumentResponse, ContractResponse } from "@/types/contract.type";
 import { contractDetailPath } from "@/lib/contract-routes";
 import { loadAgreementPreview } from "@/lib/agreement-preview";
+import { requiresVerifiedContent } from "@/lib/contract-document-history";
 import { getApiErrorMessage } from "@/utils/apiError";
 import ContractPdfViewerModal from "./detail/ContractPdfViewerModal";
 
@@ -34,7 +35,7 @@ export default function AgreementDocumentActions({ contract, perspective, showPr
     try {
       const result = await loadAgreementPreview(id, contractService);
       if (sequence !== request.current) return;
-      if (!result.document.viewUrl && !result.document.downloadUrl) throw new Error("Tài liệu chưa có đường dẫn xem.");
+      if (!requiresVerifiedContent(result.document) && !result.document.viewUrl && !result.document.downloadUrl) throw new Error("Tài liệu chưa có đường dẫn xem.");
       setPreview(result.document);
       if (result.depositFallback) toast.info("PDF hợp đồng thuê chưa sẵn sàng. Đang hiển thị hợp đồng cọc.");
     } catch (error) {

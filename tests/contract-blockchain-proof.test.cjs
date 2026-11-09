@@ -31,6 +31,7 @@ function nodes(node, predicate, rows = []) {
 }
 
 function fixture(service, visible = true) {
+  service = { checkIntegrity: async id => ({ documentId: id, status: "MATCH", checkedAt: "2026-11-09T00:00:00Z" }), ...service };
   let slots = [], cursor = 0, effects = [], tree, currentKey;
   const timers = new Map(), listeners = new Set();
   const document = { visibilityState: visible ? "visible" : "hidden", addEventListener: (_, fn) => listeners.add(fn), removeEventListener: (_, fn) => listeners.delete(fn) };
@@ -73,12 +74,13 @@ test("SHA-256 is computed from exact file bytes; empty and oversized files never
   await assert.rejects(helper.hashPdfForProof({ size: 20 * 1024 * 1024 + 1, arrayBuffer() { assert.fail("large file"); } }), /20 MB/);
 });
 
-test("explorer URLs only allow a Sepolia transaction hash and scope excludes child agreements", () => {
+test("explorer URLs only allow a Sepolia transaction hash and scope includes only root leases and child amendments", () => {
   assert.equal(helper.blockchainTransactionUrl(11155111, "0x" + "c".repeat(64)), "https://sepolia.etherscan.io/tx/0x" + "c".repeat(64));
   assert.equal(helper.blockchainTransactionUrl(1, "0x" + "c".repeat(64)), undefined);
   assert.equal(helper.blockchainTransactionUrl(11155111, "javascript:alert(1)"), undefined);
   assert.equal(helper.supportsLeaseProof({}), true);
   assert.equal(helper.supportsLeaseProof({ agreementKind: "LEASE" }), true);
+  assert.equal(helper.supportsLeaseProof({ agreementKind: "AMENDMENT", parentContractId: "root" }), true);
   for (const kind of ["DEPOSIT", "RENEWAL", "AMENDMENT", "MOVE_IN"]) assert.equal(helper.supportsLeaseProof({ agreementKind: kind }), false);
   assert.equal(helper.supportsLeaseProof({ parentContractId: "root" }), false);
 });
@@ -139,7 +141,7 @@ test("actual PDF verification sends only SHA-256 and distinguishes mismatch, mis
   f.unmount();
 });
 
-test("the lease dossier places proof next to the original signed PDF and excludes appendices", () => {
+test("the dossier places proof next to signed root leases and child amendments only", () => {
   const section = load("components/contract/detail/ContractDocumentSection.tsx", name => {
     if (name === "@/lib/contract-blockchain-proof") return helper;
     if (name === "@/lib/contract-document-history") return history;
@@ -154,7 +156,50 @@ test("the lease dossier places proof next to the original signed PDF and exclude
   }).default;
   const html = extra => renderToStaticMarkup(React.createElement(section, { documents: [pdf], contract: { id: "contract", signedAt: "2026-11-08T01:00:00Z", currentRevisionId: "revision", status: "ACTIVE", ...extra } }));
   assert.match(html({}), /data-proof-document="pdf"/);
+  assert.match(html({ agreementKind: "AMENDMENT", parentContractId: "root" }), /data-proof-document="pdf"/);
   for (const agreementKind of ["AMENDMENT", "RENEWAL", "DEPOSIT"]) assert.doesNotMatch(html({ agreementKind }), /data-proof-document/);
   assert.doesNotMatch(html({ parentContractId: "root" }), /data-proof-document/);
   assert.doesNotMatch(html({ signedAt: null }), /data-proof-document/);
+});
+
+test("stored PDF is checked automatically, without re-reading bytes on each pending proof poll", async () => {
+  let reads = 0, confirmed = false;
+  const f = fixture({ getProof: async () => proof(confirmed ? "CONFIRMED" : "SUBMITTED"), checkIntegrity: async id => {
+    reads++; return { documentId: id, status: confirmed ? "MATCH" : "PENDING", checkedAt: "2026-11-09T00:00:00Z" };
+  } });
+  f.render(); await flush(); f.render(); await flush(); f.render();
+  assert.equal(reads, 1); assert.match(f.text(), /khớp bản lúc ký/);
+  f.tick(); await flush(); f.render(); await flush(); f.render(); assert.equal(reads, 1);
+  confirmed = true;
+  f.tick(); await flush(); f.render(); await flush(); f.render();
+  assert.equal(reads, 2); assert.match(f.text(), /PDF đang lưu khớp bản đã ghi nhận/);
+  f.unmount();
+});
+
+test("confirmed registration and current storage mismatch remain separate; check again can recover", async () => {
+  let status = "MISMATCH", reads = 0;
+  const f = fixture({ getProof: async () => proof("CONFIRMED"), checkIntegrity: async id => {
+    reads++; return { documentId: id, status, checkedAt: "2026-11-09T00:00:00Z" };
+  } });
+  f.render(); await flush(); f.render(); await flush(); f.render();
+  assert.match(f.text(), /Đã ghi nhận trên blockchain/); assert.match(f.text(), /PDF đang lưu không khớp/);
+  status = "MATCH"; f.button("Kiểm tra lại").props.onClick(); f.render(); await flush(); f.render();
+  assert.equal(reads, 2); assert.match(f.text(), /PDF đang lưu khớp/); assert.doesNotMatch(f.text(), /PDF đang lưu không khớp/);
+  f.unmount();
+});
+
+test("a stale integrity response is aborted on document change and RPC failures are not mismatches", async () => {
+  const old = deferred(), calls = [], next = { ...pdf, id: "new-pdf", revisionId: "new-rev" };
+  const f = fixture({ getProof: async id => proof("CONFIRMED", id === pdf.id ? pdf : next), checkIntegrity: async (id, signal) => {
+    calls.push({ id, signal });
+    if (id === pdf.id) return old.promise;
+    throw new Error("RPC unavailable");
+  } });
+  f.render(); await flush(); f.render();
+  f.render(next); await flush(); f.render(next); await flush(); f.render(next);
+  assert.equal(calls[0].signal.aborted, true);
+  old.resolve({ documentId: pdf.id, status: "MISMATCH", checkedAt: "2026-11-09T00:00:00Z" });
+  await flush(); f.render(next);
+  assert.match(f.text(), /Chưa kiểm tra được PDF đang lưu/); assert.doesNotMatch(f.text(), /PDF đang lưu không khớp/);
+  f.unmount();
 });

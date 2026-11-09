@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useLayoutEffect, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import type { ContractDocumentResponse } from "@/types/contract.type";
+import { requiresVerifiedContent } from "@/lib/contract-document-history";
+import { contractService } from "@/services/contract.service";
 
 interface ContractPdfViewerModalProps {
   isOpen: boolean;
@@ -16,6 +18,34 @@ const DynamicPdfViewerContent = dynamic(
   () => import("./ContractPdfViewerContent"),
   { ssr: false }
 );
+
+function SignedPdfContent({ document: doc, onClose }: { document: ContractDocumentResponse; onClose: () => void }) {
+  const [content, setContent] = useState<{ identity: string; url?: string; error?: string } | null>(null);
+  const [retry, setRetry] = useState(0);
+  const identity = `${doc.id}:${doc.revisionId}`;
+  useEffect(() => {
+    const request = new AbortController();
+    let url: string | undefined;
+    contractService.getDocumentContent(doc.id, false, request.signal).then(bytes => {
+      if (request.signal.aborted) return;
+      url = URL.createObjectURL(bytes);
+      setContent({ identity, url });
+    }).catch(error => {
+      if (!request.signal.aborted) setContent({ identity, error: error instanceof Error ? error.message : "Chưa xác thực được tài liệu." });
+    });
+    return () => { request.abort(); if (url) URL.revokeObjectURL(url); };
+  }, [doc.id, identity, retry]);
+  if (content?.identity === identity && content.url) {
+    return <DynamicPdfViewerContent document={{ ...doc, viewUrl: content.url, downloadUrl: content.url }} onClose={onClose}/>;
+  }
+  return <div className="flex h-full items-center justify-center bg-background p-6"><div className="max-w-lg space-y-4 rounded-xl border p-6">
+    {content?.identity === identity && content.error ? <>
+      <p role="alert" className="text-sm">{content.error}</p>
+      <button type="button" className="rounded-lg border px-4 py-2 text-sm" onClick={() => { setContent(null); setRetry(n => n + 1); }}>Thử lại</button>
+    </> : <p role="status" className="text-sm">Đang kiểm tra và tải PDF đã ký…</p>}
+    <button type="button" className="ml-3 rounded-lg border px-4 py-2 text-sm" onClick={onClose}>Đóng</button>
+  </div></div>;
+}
 
 export default function ContractPdfViewerModal({
   isOpen,
@@ -50,11 +80,11 @@ export default function ContractPdfViewerModal({
         if (event.shiftKey && (window.document.activeElement === first || window.document.activeElement === container.current)) { event.preventDefault(); last.focus(); }
         else if (!event.shiftKey && (window.document.activeElement === last || window.document.activeElement === container.current)) { event.preventDefault(); first.focus(); }
       }}>
-    <DynamicPdfViewerContent
+    {requiresVerifiedContent(doc) ? <SignedPdfContent key={`${doc.id}:${doc.revisionId}`} document={doc} onClose={onClose}/> : <DynamicPdfViewerContent
       key={`${doc.id}_${doc.viewUrl || doc.downloadUrl}`}
       onClose={onClose}
       document={doc}
-    />
+    />}
     </div>, window.document.body
   );
 }

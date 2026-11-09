@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Isolated TypeScript component tests use CommonJS. */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs"), path = require("node:path"), vm = require("node:vm"), ts = require("typescript");
@@ -56,7 +57,7 @@ const React = require("react"), { renderToStaticMarkup } = require("react-dom/se
 const Actions = load("components/contract/AgreementDocumentActions.tsx", {
   "next/link": { default: ({ href, children, ...props }) => React.createElement("a", { href, ...props }, children) },
   "@/services/contract.service": { contractService: {} }, "@/lib/contract-routes": { contractDetailPath: (role, id) => `/${role}/${id}` },
-  "@/lib/agreement-preview": { loadAgreementPreview }, "@/utils/apiError": { getApiErrorMessage: String },
+  "@/lib/agreement-preview": { loadAgreementPreview }, "@/lib/contract-document-history": history, "@/utils/apiError": { getApiErrorMessage: String },
   "./detail/ContractPdfViewerModal": { default: () => null },
 }).default;
 test("deposit cards expose preview and signing directly to either party", () => {

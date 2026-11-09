@@ -6,7 +6,7 @@ import { Download, Eye, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { contractService } from "@/services/contract.service";
 import { contractDetailPath } from "@/lib/contract-routes";
-import { amendmentDocumentStatus, amendmentDocumentTitle, appliedAmendment, closedDocumentProposals, concreteProposals, documentDate, documentStage, documentTime, primaryDocument, signedAmendment, sortedDocuments, verifiedSignatureTimes } from "@/lib/contract-document-history";
+import { amendmentDocumentStatus, amendmentDocumentTitle, appliedAmendment, closedDocumentProposals, concreteProposals, documentDate, documentStage, documentTime, primaryDocument, requiresVerifiedContent, signedAmendment, sortedDocuments, verifiedSignatureTimes } from "@/lib/contract-document-history";
 import type { ContractDocumentResponse, ContractResponse, SignatureRequestResponse } from "@/types/contract.type";
 import type { AmendmentProposal } from "@/types/contract-amendment.type";
 import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
@@ -84,6 +84,7 @@ function AmendmentDocumentCard({ proposal:p, number, serverNow, action, busy }: 
     <details><summary className="cursor-pointer text-xs font-semibold text-primary">Xem thay đổi ({p.comparison.length} nội dung)</summary><div className="mt-3 space-y-3"><p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">Lý do: {p.reason}</p><AmendmentComparisonTable rows={p.comparison} beforeLabel="Trước điều chỉnh" afterLabel={signed?"Sau điều chỉnh":"Nội dung đề xuất"}/>{p.responseNote&&<p className="whitespace-pre-wrap break-words text-xs">Phản hồi: {p.responseNote}</p>}{agreementId&&<SigningHistory key={p.id+":"+p.agreementStatus+":"+(p.signedAt??"")} contractId={agreementId} revisionId={main?.revisionId} proposal={p}/>}</div></details>
     {agreementId&&<>
       {error?<p role="alert" className="text-xs">Không tải được lịch sử tệp phụ lục. <button type="button" onClick={()=>setRetry(n=>n+1)} className="text-primary underline">Tải lại tệp phụ lục</button></p>:files===null?<p className="flex items-center gap-2 text-xs"><Loader2 className="h-3.5 w-3.5 animate-spin"/>Đang tải tệp phụ lục…</p>:<DocumentFiles rows={files} signed={signed} busy={busy} action={action}/>}
+      {signed&&main&&<ContractBlockchainProof document={main}/>}
       {w&&p.status==="APPROVED"&&<Link href={contractDetailPath(w.perspective,agreementId)} className="inline-block text-xs font-semibold text-primary underline">Mở phụ lục để xem và ký</Link>}
     </>}
     {!agreementId&&<p className="text-xs text-muted-foreground">Chưa tạo văn bản ký. Đề xuất và phản hồi được giữ trong lịch sử điều chỉnh.</p>}
@@ -104,15 +105,17 @@ export default function ContractDocumentSection({documents,contract}:{documents:
   const proofDocument=rootSigned&&supportsLeaseProof(contract)?primaryDocument(rootRows,true,contract.currentRevisionId):undefined;
   const action:Action=async(doc,download=false)=>{
     if(busy)return;
-    const tab=download?window.open("about:blank","_blank"):null;
-    if(download&&!tab){toast.error("Trình duyệt chặn cửa sổ tải về. Hãy cho phép mở cửa sổ rồi thử lại.");return;}
+    const verified=requiresVerifiedContent(doc);
+    const tab=download&&!verified?window.open("about:blank","_blank"):null;
+    if(download&&!verified&&!tab){toast.error("Trình duyệt chặn cửa sổ tải về. Hãy cho phép mở cửa sổ rồi thử lại.");return;}
     if(tab)tab.opener=null;
     setBusy(true);
     try{
       // Refresh short-lived URLs through the authorized API, never reuse a stale signed URL.
       const fresh=await contractService.getDocument(doc.id);
-      if(!fresh||fresh.id!==doc.id||fresh.contractId!==doc.contractId||!["READY","STALE"].includes(fresh.status)||!(download?fresh.downloadUrl:fresh.viewUrl||fresh.downloadUrl))throw new Error("Không mở được tệp. Vui lòng tải lại hồ sơ hoặc thử lại.");
-      if(tab)tab.location.href=fresh.downloadUrl!;else setPreviewDoc(fresh);
+      if(!fresh||fresh.id!==doc.id||fresh.contractId!==doc.contractId||!["READY","STALE"].includes(fresh.status)||(!requiresVerifiedContent(fresh)&&!(download?fresh.downloadUrl:fresh.viewUrl||fresh.downloadUrl)))throw new Error("Không mở được tệp. Vui lòng tải lại hồ sơ hoặc thử lại.");
+      if(download&&requiresVerifiedContent(fresh)){tab?.close();await contractService.downloadDocument(fresh);}
+      else if(tab)tab.location.href=fresh.downloadUrl!;else setPreviewDoc(fresh);
     }catch(e){tab?.close();toast.error(e instanceof Error?e.message:"Không mở được tài liệu.");}finally{setBusy(false);}
   };
   const title=contract.agreementKind==="AMENDMENT"?"Phụ lục đang xem":contract.agreementKind==="RENEWAL"?"Văn bản gia hạn đang xem":"Hợp đồng gốc";

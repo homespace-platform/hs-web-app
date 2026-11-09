@@ -1,6 +1,10 @@
 import type { ContractDocumentResponse, SignatureRequestResponse } from "@/types/contract.type";
 import type { AmendmentProposal } from "@/types/contract-amendment.type";
 
+export function requiresVerifiedContent(doc?: ContractDocumentResponse | null): boolean {
+  return doc?.documentType === "PDF" && doc.purpose === "SIGNED_FINAL" && doc.status === "READY";
+}
+
 export function documentTime(value?: string | null): string {
   if (!value || !Number.isFinite(Date.parse(value))) return "Chưa ghi nhận thời điểm";
   return new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" }).format(new Date(value));

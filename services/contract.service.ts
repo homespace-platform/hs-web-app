@@ -18,6 +18,41 @@ import type {
 } from "@/types/contract.type";
 
 export const contractService = {
+  async getDocumentContent(documentId: string, download = false, signal?: AbortSignal): Promise<Blob> {
+    try {
+      const response = await axiosClient.get<Blob>(
+        `/api/v1/contracts/documents/${encodeURIComponent(documentId)}/content`,
+        { params: { download }, responseType: "blob", signal },
+      );
+      return response.data;
+    } catch (error) {
+      const failure = error as { response?: { data?: unknown } };
+      if (failure.response?.data instanceof Blob) {
+        try {
+          const body = JSON.parse(await failure.response.data.text());
+          throw new Error(typeof body.message === "string" ? body.message : "Chưa xác thực được tài liệu. Vui lòng thử lại.");
+        } catch (parsed) {
+          if (parsed instanceof Error && !(parsed instanceof SyntaxError)) throw parsed;
+        }
+      }
+      throw new Error("Chưa tải được PDF đã kiểm tra. Hãy thử lại; lỗi kết nối không có nghĩa tài liệu bị sửa.");
+    }
+  },
+
+  async downloadDocument(document: ContractDocumentResponse): Promise<void> {
+    const bytes = await contractService.getDocumentContent(document.id, true);
+    const url = URL.createObjectURL(bytes);
+    const link = window.document.createElement("a");
+    link.href = url;
+    link.download = document.fileName || "hop-dong-da-ky.pdf";
+    window.document.body.appendChild(link);
+    try { link.click(); } finally {
+      link.remove();
+      // Give the browser time to consume the download before releasing its bytes.
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
+  },
+
   async getSignatureState(contractId: string): Promise<SignatureStateResponse> {
     const response = await axiosClient.get<ApiResponse<SignatureStateResponse>>(
       `/api/v1/contracts/${contractId}/signatures/state`

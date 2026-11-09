@@ -11,6 +11,7 @@ import storageService from "@/services/storage.service";
 import AmendmentEffectiveDatePicker from "./AmendmentEffectiveDatePicker";
 import { contractDetailPath } from "@/lib/contract-routes";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { formatAmendmentComparisonText } from "@/lib/contract-amendment-comparison";
 import Workspace, { useAmendmentWorkspace, activeAmendment, amendmentInput as input, amendmentButton as button, amendmentMoney as money, amendmentDate as date, amendmentTime as time } from "./ContractAmendmentWorkspace";
 import type { AmendmentComparison, AmendmentPayload, AmendmentProposal, AmendmentStatus } from "@/types/contract-amendment.type";
 
@@ -24,7 +25,7 @@ export function AmendmentComparisonTable({ rows, beforeLabel = "Đang áp dụng
     if (["rentAmount","financial.depositAmountValue","policies.latePaymentFeeAmount","policies.latePaymentFeeCap"].includes(r.field)&&/^\d+(\.\d+)?$/.test(v))return money(v);
     if(r.field==="policies.latePaymentFeeMode")return ({NONE:"Không phạt",FIXED_ONCE:"Phạt một lần",FIXED_PER_DAY:"Phạt theo ngày"} as Record<string,string>)[v]??v;
     if(r.field==="policies.latePaymentFeeGraceDays"&&v==="0")return "Không thêm ngày ân hạn sau deadline (quy tắc hệ thống)";
-    return v;
+    return formatAmendmentComparisonText(r.field, v);
   };
   return <><div className="space-y-3 sm:hidden">{rows.map(r => <article key={r.field} className="overflow-hidden rounded-xl border text-sm [overflow-wrap:anywhere]"><h4 className="bg-muted/30 px-3 py-2 font-semibold">{r.label}</h4><div className="p-3"><p className="mb-1 text-xs text-muted-foreground">{beforeLabel}</p><p className="whitespace-pre-wrap text-muted-foreground">{value(r,r.before)}</p></div><div className="border-t bg-primary/5 p-3"><p className="mb-1 text-xs font-medium text-primary">{afterLabel}</p><p className="whitespace-pre-wrap">{value(r,r.after)}</p></div></article>)}</div>
     <div className="hidden overflow-x-auto rounded-xl border sm:block"><table className="w-full table-fixed text-left text-sm"><thead className="bg-muted/40 text-xs text-muted-foreground"><tr><th className="w-1/5 p-3">Nội dung</th><th className="p-3">{beforeLabel}</th><th className="p-3">{afterLabel}</th></tr></thead><tbody>{rows.map(r => <tr key={r.field} className="border-t align-top"><th className="break-words p-3 font-medium">{r.label}</th><td className="whitespace-pre-wrap break-words p-3 text-muted-foreground">{value(r,r.before)}</td><td className="whitespace-pre-wrap break-words bg-primary/5 p-3">{value(r,r.after)}</td></tr>)}</tbody></table></div></>;

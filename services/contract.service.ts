@@ -20,13 +20,13 @@ import type {
 export const contractService = {
   async getDocumentContent(documentId: string, download = false, signal?: AbortSignal): Promise<Blob> {
     try {
-      // POST keeps download managers from intercepting the authenticated PDF viewer request.
+      // The app endpoint sends opaque bytes so download managers do not capture the PDF response.
       const response = await axiosClient.post<Blob>(
         `/api/v1/contracts/documents/${encodeURIComponent(documentId)}/content`,
         null,
         { params: { download }, responseType: "blob", signal },
       );
-      return response.data;
+      return new Blob([response.data], { type: "application/pdf" });
     } catch (error) {
       const failure = error as { response?: { data?: unknown } };
       if (failure.response?.data instanceof Blob) {

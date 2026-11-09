@@ -77,7 +77,8 @@ test("verified content routes use auth client, encoded document identity, blob r
     "@/lib/axios-client": { default: { post: async (url, body, options) => { calls.push({ url, body, options }); return { data: bytes }; } } },
     "@/lib/contract-document-history": history,
   });
-  assert.equal(await contractService.getDocumentContent("doc/a", true, signal), bytes);
+  const pdf = await contractService.getDocumentContent("doc/a", true, signal);
+  assert.equal(pdf.type, "application/pdf"); assert.equal(await pdf.text(), "PDF");
   assert.equal(calls[0].url, "/api/v1/contracts/documents/doc%2Fa/content");
   assert.equal(calls[0].body, null);
   assert.deepEqual(calls[0].options.params, { download: true }); assert.equal(calls[0].options.responseType, "blob"); assert.equal(calls[0].options.signal, signal);

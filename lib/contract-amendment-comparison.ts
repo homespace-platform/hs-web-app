@@ -17,6 +17,6 @@ const billingMethodLabels: Record<string, string> = {
 /** Older charge snapshots may have a billing method code but no display text. */
 export function formatAmendmentComparisonText(field: string, value: string): string {
   if (!field.startsWith("charges.")) return value;
-  return value.replace(/(^Cách tính:\s*)([A-Z][A-Z_]+)(?=\s*$)/gm,
+  return value.replace(/(^Cách tính:\s*)([A-Z][A-Z0-9_]+)(?=\s*$)/gm,
     (_match, prefix: string, method: string) => prefix + (billingMethodLabels[method] ?? "Chưa xác định"));
 }

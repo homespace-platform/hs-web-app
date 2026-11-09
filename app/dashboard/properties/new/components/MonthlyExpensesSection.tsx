@@ -387,10 +387,11 @@ export default function MonthlyExpensesSection({
             >
               <option value="INCLUDED">Đã bao gồm trong giá thuê</option>
               <option value="MONTHLY">Thu theo phòng / tháng</option>
+              <option value="PER_PERSON">Thu theo người / tháng</option>
               <option value="NONE">Không áp dụng</option>
             </select>
 
-            {data.garbageFeeType === "MONTHLY" ? (
+            {(data.garbageFeeType === "MONTHLY" || data.garbageFeeType === "PER_PERSON") ? (
               <div className="relative">
                 <input
                   type="number"
@@ -402,7 +403,7 @@ export default function MonthlyExpensesSection({
                   className={`${inputClass} pr-20`}
                 />
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
-                  đ/tháng
+                  {data.garbageFeeType === "PER_PERSON" ? "đ/người/tháng" : "đ/tháng"}
                 </span>
               </div>
             ) : (

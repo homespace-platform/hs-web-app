@@ -80,6 +80,8 @@ function CreatePropertyListingContent() {
   const [rentedLockListing, setRentedLockListing] = useState<{ id: string; title: string; isExternal?: boolean } | null>(null);
   const [loadedPendingEdit, setLoadedPendingEdit] = useState(false);
   const [loadedListingStatus, setLoadedListingStatus] = useState<string | null>(null);
+  const [vehicleLimits, setVehicleLimits] = useState<{ maxMotorbikeCount: number | null; maxCarCount: number | null } | null>(null);
+  const [chargeBaseline, setChargeBaseline] = useState<{ charges: ListingDetailResponse["charges"]; expenses: MonthlyExpensesData } | null>(null);
 
   // Section 1: Basic Info
   const [basicInfo, setBasicInfo] = useState<BasicInfoData>({
@@ -343,6 +345,7 @@ function CreatePropertyListingContent() {
         newExpenses.garbageFee = garb.amount ? String(garb.amount) : "";
         if (garb.includedInRent || garb.billingMethod === "INCLUDED") newExpenses.garbageFeeType = "INCLUDED";
         else if (garb.billingMethod === "NOT_APPLICABLE") newExpenses.garbageFeeType = "NONE";
+        else if (garb.billingMethod === "PER_PERSON_MONTH") newExpenses.garbageFeeType = "PER_PERSON";
         else newExpenses.garbageFeeType = "MONTHLY";
       }
 
@@ -433,6 +436,8 @@ function CreatePropertyListingContent() {
       setLoadError(null);
       setRentedLockListing(null);
       setLoadedPendingEdit(false);
+      setChargeBaseline(null);
+      setVehicleLimits(null);
       setLoadedListingStatus(null);
 
       try {
@@ -461,6 +466,7 @@ function CreatePropertyListingContent() {
 
           setLoadedListingStatus(detail.status);
           setLoadedPendingEdit(Boolean(detail.pendingEditId));
+          setVehicleLimits({ maxMotorbikeCount: detail.maxMotorbikeCount ?? null, maxCarCount: detail.maxCarCount ?? null });
 
           const normalizedStatus = String(detail.status || "").trim().toUpperCase();
           if (isEditMode && normalizedStatus === "RENTED_EXTERNALLY") {
@@ -497,6 +503,7 @@ function CreatePropertyListingContent() {
           setSelectedAmenities(formState.selectedAmenities);
           setListingPolicies((detail.policies ?? []).map(p => ({code:p.code,value:p.value,note:p.note ?? ""})));
           setMonthlyExpenses(formState.monthlyExpenses);
+          setChargeBaseline({ charges: detail.charges ?? [], expenses: formState.monthlyExpenses });
           setPricing(formState.pricing);
           setAddressMode(formState.addressMode);
           setSelectedAddress(branchList.find(branch => branch.id === formState.basicInfo.branchId) ?? detail.address ?? null);
@@ -849,6 +856,9 @@ function CreatePropertyListingContent() {
         catalogAmenityCodes: listingOptions.amenities.map((item) => item.code),
         policies: policyInputs(listingPolicies,definitions),
         monthlyExpenses,
+        vehicleLimits,
+        originalCharges: chargeBaseline?.charges,
+        originalMonthlyExpenses: chargeBaseline?.expenses,
         pricing,
         addressMode,
         savedAddressId: savedUserAddress?.id,

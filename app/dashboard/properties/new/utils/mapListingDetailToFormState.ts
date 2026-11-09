@@ -96,6 +96,7 @@ export function buildExpensesFromBranch(branch: PropertyBranch, category: Proper
       expenses.garbageFee = garb.amount ? String(garb.amount) : "";
       if (garb.includedInRent || garb.billingMethod === "INCLUDED") expenses.garbageFeeType = "INCLUDED";
       else if (garb.billingMethod === "NOT_APPLICABLE") expenses.garbageFeeType = "NONE";
+      else if (garb.billingMethod === "PER_PERSON_MONTH") expenses.garbageFeeType = "PER_PERSON";
       else expenses.garbageFeeType = "MONTHLY";
     }
 
@@ -167,7 +168,7 @@ export function buildExpensesFromListingCharges(
   return {
     electricityType: elec?.includedInRent || elec?.billingMethod === "INCLUDED" ? "INCLUDED" : "KWH",
     electricityPrice: elec?.amount != null ? String(elec.amount) : "3500",
-    waterType: water?.includedInRent
+    waterType: water?.includedInRent || water?.billingMethod === "INCLUDED"
       ? "INCLUDED"
       : water?.billingMethod === "PER_PERSON_MONTH"
       ? "PER_PERSON"
@@ -186,19 +187,43 @@ export function buildExpensesFromListingCharges(
         ? "MONTHLY"
         : "NONE",
     managementFee: category === "apartment" && mgmt?.amount != null ? String(mgmt.amount) : "",
-    internetType: net?.includedInRent ? "INCLUDED" : net?.amount != null ? "MONTHLY" : "SELF_PAY",
+    internetType: net?.includedInRent || net?.billingMethod === "INCLUDED"
+      ? "INCLUDED"
+      : net?.billingMethod === "NOT_APPLICABLE"
+      ? "SELF_PAY"
+      : net?.amount != null
+      ? "MONTHLY"
+      : "SELF_PAY",
     internetFee: net?.amount != null ? String(net.amount) : "",
-    garbageFeeType: garb?.includedInRent ? "INCLUDED" : "MONTHLY",
+    garbageFeeType: !garb || garb.includedInRent || garb.billingMethod === "INCLUDED"
+      ? "INCLUDED" : garb.billingMethod === "NOT_APPLICABLE" ? "NONE"
+      : garb.billingMethod === "PER_PERSON_MONTH" ? "PER_PERSON" : "MONTHLY",
     garbageFee: garb?.amount != null ? String(garb.amount) : "",
-    motorbikeParkingType: moto?.includedInRent ? "INCLUDED" : moto?.amount != null ? "PER_VEHICLE" : "NONE",
+    motorbikeParkingType: !moto
+      ? "NONE"
+      : moto.billingMethod === "FREE" || moto.includedInRent || moto.billingMethod === "INCLUDED"
+      ? "INCLUDED"
+      : moto.billingMethod === "NOT_APPLICABLE"
+      ? "NONE"
+      : moto.amount != null
+      ? "PER_VEHICLE"
+      : "NONE",
     motorbikeParkingFee: moto?.amount != null ? String(moto.amount) : "",
-    carParkingType: car?.includedInRent ? "INCLUDED" : car?.amount != null ? "PER_VEHICLE" : "NONE",
+    carParkingType: !car
+      ? "NONE"
+      : car.billingMethod === "FREE" || car.includedInRent || car.billingMethod === "INCLUDED"
+      ? "INCLUDED"
+      : car.billingMethod === "NOT_APPLICABLE"
+      ? "NONE"
+      : car.amount != null
+      ? "PER_VEHICLE"
+      : "NONE",
     carParkingFee: car?.amount != null ? String(car.amount) : "",
     customFees: customs.map((c, i) => ({
       id: `custom-${i}`,
       name: c.customName || "",
       amount: c.amount != null ? String(c.amount) : "",
-      unit: "tháng",
+      unit: c.unit || "tháng",
     })),
   };
 }

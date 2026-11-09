@@ -414,6 +414,8 @@ export type ListingDetailResponse = {
   status: ListingStatus;
   availableFrom: string;
   areaM2: number;
+  maxMotorbikeCount?: number | null;
+  maxCarCount?: number | null;
   pricing: ListingPricingRequest;
   apartmentDetail?: ApartmentDetailRequest | null;
   houseDetail?: HouseDetailRequest | null;

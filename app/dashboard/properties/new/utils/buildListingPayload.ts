@@ -39,6 +39,9 @@ export interface BuildPayloadParams {
   selectedAmenities: string[];
   catalogAmenityCodes?: string[];
   monthlyExpenses: MonthlyExpensesData;
+  originalCharges?: ListingChargeRequest[];
+  originalMonthlyExpenses?: MonthlyExpensesData;
+  vehicleLimits?: { maxMotorbikeCount: number | null; maxCarCount: number | null } | null;
   pricing: PricingData;
   addressMode: "saved" | "new";
   savedAddressId?: string | null;
@@ -261,7 +264,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
   }
 
   // Build Charges
-  const charges: ListingChargeRequest[] = [
+  let charges: ListingChargeRequest[] = [
     {
       chargeType: "ELECTRICITY",
       billingMethod:
@@ -336,9 +339,11 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
     },
     {
       chargeType: "SERVICE_OR_GARBAGE",
-      billingMethod: monthlyExpenses.garbageFeeType === "MONTHLY" ? "PER_MONTH" : "INCLUDED",
+      billingMethod: monthlyExpenses.garbageFeeType === "MONTHLY" ? "PER_MONTH"
+        : monthlyExpenses.garbageFeeType === "PER_PERSON" ? "PER_PERSON_MONTH"
+        : monthlyExpenses.garbageFeeType === "NONE" ? "NOT_APPLICABLE" : "INCLUDED",
       amount:
-        monthlyExpenses.garbageFeeType === "MONTHLY" && monthlyExpenses.garbageFee
+        (monthlyExpenses.garbageFeeType === "MONTHLY" || monthlyExpenses.garbageFeeType === "PER_PERSON") && monthlyExpenses.garbageFee
           ? Number(monthlyExpenses.garbageFee)
           : null,
       includedInRent: monthlyExpenses.garbageFeeType === "INCLUDED",
@@ -385,6 +390,58 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
       sortOrder: 9 + idx,
     })),
   ];
+  if (params.originalCharges && params.originalMonthlyExpenses) {
+    const before = params.originalMonthlyExpenses;
+    const feeControls: { type: ListingChargeRequest["chargeType"]; fields: (keyof MonthlyExpensesData)[] }[] = [
+      { type: "ELECTRICITY", fields: ["electricityType", "electricityPrice"] },
+      { type: "WATER", fields: ["waterType", "waterPrice"] },
+      { type: "MANAGEMENT", fields: ["managementFeeType", "managementFee"] },
+      { type: "INTERNET", fields: ["internetType", "internetFee"] },
+      { type: "SERVICE_OR_GARBAGE", fields: ["garbageFeeType", "garbageFee"] },
+      { type: "MOTORBIKE_PARKING", fields: ["motorbikeParkingType", "motorbikeParkingFee"] },
+      { type: "CAR_PARKING", fields: ["carParkingType", "carParkingFee"] },
+    ];
+    const changed = new Set(feeControls.filter(({ fields }) => fields.some(field => {
+      const oldValue = before[field], newValue = monthlyExpenses[field];
+      return field.toLowerCase().endsWith("fee") || field.toLowerCase().endsWith("price")
+        ? Number(oldValue || 0) !== Number(newValue || 0)
+        : oldValue !== newValue;
+    })).map(({ type }) => type));
+    const oldCustom = before.customFees.map(({ name, amount, unit }) => [name, Number(amount || 0), unit]);
+    const newCustom = monthlyExpenses.customFees.map(({ name, amount, unit }) => [name, Number(amount || 0), unit]);
+    if (JSON.stringify(oldCustom) !== JSON.stringify(newCustom)) changed.add("OTHER");
+    const remaining = new Map(charges.filter(charge => charge.chargeType !== "OTHER")
+      .map(charge => [charge.chargeType, charge]));
+    const resolved: ListingChargeRequest[] = [];
+    for (const original of params.originalCharges) {
+      if (changed.has(original.chargeType)) {
+        const replacement = remaining.get(original.chargeType);
+        if (replacement) {
+          resolved.push({
+            ...replacement,
+            sortOrder: original.sortOrder ?? replacement.sortOrder,
+            ...(original.description != null ? { description: original.description } : {}),
+            ...(original.currency != null ? { currency: original.currency } : {}),
+            ...(original.customName != null && replacement.customName == null
+              ? { customName: original.customName }
+              : {}),
+          });
+          remaining.delete(original.chargeType);
+        }
+      } else resolved.push(original);
+    }
+    for (const charge of charges) {
+      if (charge.chargeType === "OTHER") {
+        if (changed.has("OTHER")) resolved.push(charge);
+        continue;
+      }
+      if (changed.has(charge.chargeType) && remaining.has(charge.chargeType)) {
+        resolved.push(charge);
+        remaining.delete(charge.chargeType);
+      }
+    }
+    charges = resolved;
+  }
 
   // Build Media
   const media: ListingMediaRequest[] = uploadedMediaList.map((item, idx) => ({
@@ -426,6 +483,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
       })(),
     category,
     areaM2,
+    ...(params.vehicleLimits ?? {}),
     pricing: pricingPayload,
     apartmentDetail,
     houseDetail,

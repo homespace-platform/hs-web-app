@@ -74,17 +74,18 @@ test("viewer blocks errors and stale content; switching PDF aborts old request a
 test("verified content routes use auth client, encoded document identity, blob response and cancellation", async () => {
   const calls = [], bytes = new Blob(["PDF"]), signal = new AbortController().signal;
   const { contractService } = load("services/contract.service.ts", {
-    "@/lib/axios-client": { default: { get: async (url, options) => { calls.push({ url, options }); return { data: bytes }; } } },
+    "@/lib/axios-client": { default: { post: async (url, body, options) => { calls.push({ url, body, options }); return { data: bytes }; } } },
     "@/lib/contract-document-history": history,
   });
   assert.equal(await contractService.getDocumentContent("doc/a", true, signal), bytes);
   assert.equal(calls[0].url, "/api/v1/contracts/documents/doc%2Fa/content");
+  assert.equal(calls[0].body, null);
   assert.deepEqual(calls[0].options.params, { download: true }); assert.equal(calls[0].options.responseType, "blob"); assert.equal(calls[0].options.signal, signal);
 });
 
 test("PDF error response surfaces a safe backend reason instead of downloading its JSON body", async () => {
   const { contractService } = load("services/contract.service.ts", {
-    "@/lib/axios-client": { default: { get: async () => { throw { response: { data: new Blob([JSON.stringify({ message: "PDF không khớp bản đã ký." })], { type: "application/json" }) } }; } } },
+    "@/lib/axios-client": { default: { post: async () => { throw { response: { data: new Blob([JSON.stringify({ message: "PDF không khớp bản đã ký." })], { type: "application/json" }) } }; } } },
     "@/lib/contract-document-history": history,
   });
   await assert.rejects(contractService.getDocumentContent("doc"), /PDF không khớp bản đã ký/);
@@ -93,7 +94,7 @@ test("PDF error response surfaces a safe backend reason instead of downloading i
 test("download uses checked bytes and original file name, then releases its object URL", async () => {
   const calls = [], scheduled = [], link = { click() { calls.push(["click", this.href, this.download]); }, remove() { calls.push(["remove"]); } };
   const { contractService } = load("services/contract.service.ts", {
-    "@/lib/axios-client": { default: { get: async () => ({ data: new Blob(["verified PDF"]) }) } },
+    "@/lib/axios-client": { default: { post: async () => ({ data: new Blob(["verified PDF"]) }) } },
     "@/lib/contract-document-history": history,
   }, { URL: { createObjectURL: () => "blob:checked", revokeObjectURL: value => calls.push(["release", value]) },
     window: { document: { createElement: () => link, body: { appendChild: () => calls.push(["append"]) } } },

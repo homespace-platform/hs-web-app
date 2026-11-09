@@ -242,6 +242,12 @@ export default function ContractHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start">
+          {contract.signedAt && !contract.parentContractId && (
+            <a href="#contract-blockchain-proof" className="h-9 px-3.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 text-primary hover:bg-primary/5">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Bằng chứng blockchain
+            </a>
+          )}
           {(showEffectiveDocument || requiresVerifiedContent(latestDoc) || latestDoc?.downloadUrl) && (
             <button
               type="button"

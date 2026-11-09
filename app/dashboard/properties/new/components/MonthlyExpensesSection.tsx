@@ -59,7 +59,7 @@ export default function MonthlyExpensesSection({
 
   function handleUpdateCustomFee(
     id: string,
-    field: keyof CustomMonthlyFee,
+    field: "name" | "amount",
     value: string | number
   ) {
     const updated = data.customFees.map((item) =>
@@ -515,7 +515,7 @@ export default function MonthlyExpensesSection({
                 <Layers className="h-4 w-4 text-slate-500" /> Các khoản phí tùy chỉnh khác
               </p>
               <p className="text-[11px] text-muted-foreground">
-                Thêm các khoản phí như thang máy, hồ bơi, giặt ủi... nếu có
+                Thêm các khoản phí thu hằng tháng như thang máy, hồ bơi, giặt ủi... nếu có
               </p>
             </div>
             <button
@@ -554,15 +554,9 @@ export default function MonthlyExpensesSection({
                     placeholder="Số tiền (đ)"
                     className={`${inputClass} sm:w-36`}
                   />
-                  <input
-                    type="text"
-                    value={fee.unit}
-                    onChange={(e) =>
-                      handleUpdateCustomFee(fee.id, "unit", e.target.value)
-                    }
-                    placeholder="Đơn vị (tháng/lần)"
-                    className={`${inputClass} sm:w-32`}
-                  />
+                  <span className="flex h-10 items-center rounded-xl bg-muted/50 px-3 text-sm text-muted-foreground sm:w-32">
+                    đ/tháng
+                  </span>
                   <button
                     type="button"
                     onClick={() => handleRemoveCustomFee(fee.id)}

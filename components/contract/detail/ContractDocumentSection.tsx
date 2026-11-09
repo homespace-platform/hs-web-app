@@ -14,6 +14,7 @@ import { AmendmentComparisonTable } from "./ContractAmendmentPanel";
 import ContractPdfViewerModal from "./ContractPdfViewerModal";
 import ContractBlockchainProof from "./ContractBlockchainProof";
 import { supportsLeaseProof } from "@/lib/contract-blockchain-proof";
+import { depositAgreementService, type DepositAgreementView } from "@/services/deposit-agreement.service";
 
 const smallButton = "inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50";
 type Action = (doc: ContractDocumentResponse, download?: boolean) => Promise<void>;
@@ -94,6 +95,14 @@ function AmendmentDocumentCard({ proposal:p, number, serverNow, action, busy }: 
 export default function ContractDocumentSection({documents,contract}:{documents:ContractDocumentResponse[];contract:ContractResponse}) {
   const w=useAmendmentWorkspace();
   const [previewDoc,setPreviewDoc]=useState<ContractDocumentResponse|null>(null),[busy,setBusy]=useState(false);
+  const [deposit,setDeposit]=useState<DepositAgreementView|null>(null),[depositError,setDepositError]=useState(false);
+  useEffect(()=>{
+    if(!contract.depositAgreementContractId || contract.parentContractId)return;
+    let active=true;
+    depositAgreementService.get(contract.rentalRequestId).then(value=>{if(active){setDeposit(value);setDepositError(value.agreement?.id!==contract.depositAgreementContractId);}})
+      .catch(()=>{if(active)setDepositError(true);});
+    return ()=>{active=false;};
+  },[contract.depositAgreementContractId,contract.parentContractId,contract.rentalRequestId]);
   const proposals=concreteProposals(w?.data?.proposals??[]);
   const serverNow=w?.data?.serverNow??contract.updatedAt;
   const signed=proposals.filter(signedAmendment);
@@ -102,6 +111,9 @@ export default function ContractDocumentSection({documents,contract}:{documents:
   const visible=proposals.filter(p=>!closedDocumentProposals.has(p.status));
   const rootRows=documents.filter(d=>d.contractId===contract.id);
   const rootSigned=Boolean(contract.signedAt);
+  const depositContract=deposit && deposit.agreement?.id===contract.depositAgreementContractId?deposit.agreement:null;
+  const depositRows=depositContract?deposit!.documents.filter(d=>d.contractId===depositContract.id):[];
+  const depositPdf=depositContract?.signedAt?primaryDocument(depositRows,true,depositContract.currentRevisionId):undefined;
   const proofDocument=rootSigned&&supportsLeaseProof(contract)?primaryDocument(rootRows,true,contract.currentRevisionId):undefined;
   const action:Action=async(doc,download=false)=>{
     if(busy)return;
@@ -122,13 +134,22 @@ export default function ContractDocumentSection({documents,contract}:{documents:
   return <><section id="contract-document-history" className="scroll-mt-24 min-w-0 space-y-4 rounded-2xl border bg-card p-4 sm:p-5" aria-label="Hợp đồng và các lần điều chỉnh">
     <h2 className="flex items-center gap-2 text-sm font-bold"><FileText className="h-4 w-4 text-primary"/>Hợp đồng &amp; các lần điều chỉnh</h2>
     {!contract.parentContractId&&w?.data&&<p className="rounded-xl bg-primary/5 p-3 text-xs text-muted-foreground">{contract.status==="ACTIVE"?applied.length?"Điều khoản hiện tại theo hợp đồng gốc và "+applied.length+" lần điều chỉnh đã áp dụng. Các mục không thay đổi vẫn theo văn bản trước đó.":"Chưa có phụ lục nào được áp dụng; điều khoản hiện tại theo hợp đồng gốc.":"Hồ sơ lưu trữ: các mốc dưới đây ghi lại những điều chỉnh đã được áp dụng, không có nghĩa hợp đồng vẫn đang có hiệu lực."}</p>}
-    <DocumentCard title={title} status={rootSigned?"Đã ký đủ hai bên":"Chưa hoàn tất ký"}>
+    {contract.depositAgreementContractId && !contract.parentContractId && <>
+      {depositError && <p role="alert" className="text-xs text-amber-800">Chưa tải được HĐ cọc liên kết. Hãy tải lại trang để xem đầy đủ nguồn gốc hồ sơ.</p>}
+      {!deposit && !depositError && <p className="text-xs text-muted-foreground">Đang tải HĐ cọc liên kết…</p>}
+      {depositContract && <DocumentCard title="1. Hợp đồng cọc" status={depositContract.signedAt?"Đã ký đủ hai bên":"Chưa hoàn tất ký"}>
+        <p className="text-xs text-muted-foreground">{depositContract.contractNumber} · {depositContract.signedAt?"Ký đủ: "+documentTime(depositContract.signedAt):"Chưa có bản ký hoàn chỉnh"}</p>
+        <DocumentFiles rows={depositRows} signed={Boolean(depositContract.signedAt)} revisionId={depositContract.currentRevisionId} busy={busy} action={action}/>
+        {depositPdf && <ContractBlockchainProof document={depositPdf}/>}
+      </DocumentCard>}
+    </>}
+    <DocumentCard title={contract.parentContractId?title:contract.depositAgreementContractId?"2. Hợp đồng thuê":title} status={rootSigned?"Đã ký đủ hai bên":"Chưa hoàn tất ký"}>
       <p className="text-xs text-muted-foreground">{rootSigned?"Hoàn tất ký: "+documentTime(contract.signedAt):"Bản soạn thảo / đang ký chưa phải bản ký hoàn chỉnh."}</p>
       {applied.length>0&&<p className="text-xs">Hợp đồng gốc được giữ nguyên; đọc cùng các điều chỉnh đã áp dụng bên dưới.</p>}
       <DocumentFiles rows={rootRows} signed={rootSigned} revisionId={contract.currentRevisionId} busy={busy} action={action}>
         <SigningHistory contractId={contract.id} revisionId={contract.currentRevisionId??undefined} rootSignedAt={contract.signedAt}/>
       </DocumentFiles>
-      {proofDocument&&<ContractBlockchainProof document={proofDocument}/>}
+      {proofDocument&&<div id="contract-blockchain-proof" className="scroll-mt-24"><ContractBlockchainProof document={proofDocument}/></div>}
     </DocumentCard>
     {w?.error&&<p role="alert" className="text-xs">Chưa tải được lịch sử điều chỉnh; không thể xác định đầy đủ các phụ lục. <button type="button" onClick={()=>void w.load()} className="text-primary underline">Tải lại lịch sử điều chỉnh</button></p>}
     {!contract.parentContractId&&["ACTIVE","EXPIRED","CLOSED","TERMINATED"].includes(contract.status)&&!w?.data&&!w?.error&&<p className="text-xs text-muted-foreground">Đang kiểm tra lịch sử điều chỉnh…</p>}

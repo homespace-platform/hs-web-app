@@ -24,6 +24,8 @@ export interface ContractBlockchainProofResponse {
   registeredAt?: string | null;
   confirmedAt?: string | null;
   errorCode?: string | null;
+  caseId?: string | null;
+  documentKind?: number | null;
   message?: string | null;
 }
 

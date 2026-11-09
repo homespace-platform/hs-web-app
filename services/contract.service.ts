@@ -20,8 +20,10 @@ import type {
 export const contractService = {
   async getDocumentContent(documentId: string, download = false, signal?: AbortSignal): Promise<Blob> {
     try {
-      const response = await axiosClient.get<Blob>(
+      // POST keeps download managers from intercepting the authenticated PDF viewer request.
+      const response = await axiosClient.post<Blob>(
         `/api/v1/contracts/documents/${encodeURIComponent(documentId)}/content`,
+        null,
         { params: { download }, responseType: "blob", signal },
       );
       return response.data;

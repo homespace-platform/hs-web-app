@@ -16,7 +16,7 @@ export default function ContractFinancialSection({
   financial: originalFinancial,
 }: ContractFinancialSectionProps) {
   const w = useAmendmentWorkspace();
-  const financial = w?.data?.currentTerms.financial ?? originalFinancial;
+  const financial = (w?.editing ? w.listingSync?.terms.financial : undefined) ?? w?.data?.currentTerms.financial ?? originalFinancial;
   const noDeposit = isZeroDeposit(financial.depositAmountValue ?? financial.depositAmountNumber);
   if (w?.editing && w.editingFinancial) return <section id="amendment-rent" className="scroll-mt-24 rounded-2xl border bg-card p-4.5 space-y-3">
     <h3 className="text-sm font-bold">Giá thuê định kỳ và tiền đặt cọc</h3>

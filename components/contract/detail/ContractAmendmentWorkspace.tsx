@@ -144,7 +144,8 @@ function useWorkspaceState(contractId: string, actorId: string, perspective: "la
   }, [replacement, initialValues, changes, values]);
   const changedFields = changes.fields as TermRow | undefined;
   const financial = ["rentAmount","charges","occupantCount","motorbikeCount","carCount"].some(k => k in changes)
-    || Boolean(changedFields?.financial || changedFields?.lease || changedFields?.policies || (changedFields?.property as TermRow | undefined)?.areaText);
+    || Boolean(changedFields?.financial || changedFields?.lease || changedFields?.policies || (changedFields?.property as TermRow | undefined)?.areaText)
+    || Boolean(listingSync?.differences.some(row => /^(charges|financial|meters)(\.|$)/.test(row.field) || row.field === "property.areaText"));
   const payload = (validate = true): AmendmentPayload => {
     if (!data) throw new Error("Chưa có dữ liệu hợp đồng.");
     if (listingSourceVersion && !listingSync) throw new Error("Hãy cập nhật lại dữ liệu bài đăng trước khi lưu phụ lục.");

@@ -133,7 +133,8 @@ export interface UpdateContractRevisionRequest {
 export interface ContractListingSyncPreview {
   sourceVersion: string;
   baseRevisionId: string;
-  terms: Pick<import("./contract-amendment.type").AmendmentTerms, "property" | "equipments" | "amenities" | "policies" | "lease">;
+  terms: Pick<import("./contract-amendment.type").AmendmentTerms, "property" | "equipments" | "amenities" | "policies" | "lease">
+    & Partial<Pick<import("./contract-amendment.type").AmendmentTerms, "financial" | "charges" | "meters">>;
   proposedMonths?: number | null;
   leaseMessage?: string | null;
   differences: import("./contract-amendment.type").AmendmentComparison[];

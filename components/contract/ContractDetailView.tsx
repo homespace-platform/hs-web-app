@@ -2,7 +2,6 @@
 
 import RentalOnboardingPanel from "@/components/rental-request/RentalOnboardingPanel";
 import DepositAgreementPanel from "@/components/rental-request/DepositAgreementPanel";
-import AgreementDocumentActions from "./AgreementDocumentActions";
 import type { RentalOnboarding } from "@/services/rental-onboarding.service";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -195,20 +194,22 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     [documents, revision, contract, currentPreview, signatureState?.signatureMode]
   );
 
+  const draftCharges = useMemo(() => listingSyncPreview?.terms.charges ?? revision?.charges ?? [],
+    [listingSyncPreview?.terms.charges, revision?.charges]);
   const electricityRequired = useMemo(() =>
-    (revision?.charges || []).some((charge) =>
+    draftCharges.some((charge) =>
       charge.chargeType === "ELECTRICITY" && charge.billingMethod === "PER_KWH"
-    ), [revision?.charges]);
+    ), [draftCharges]);
 
   const waterRequired = useMemo(() =>
-    (revision?.charges || []).some((charge) =>
+    draftCharges.some((charge) =>
       charge.chargeType === "WATER" && ["PER_M3", "STATE_WATER_RATE"].includes(String(charge.billingMethod))
-    ), [revision?.charges]);
+    ), [draftCharges]);
 
   const isWaterPerPerson = useMemo(() =>
-    !waterRequired && (revision?.charges || []).some((charge) =>
+    !waterRequired && draftCharges.some((charge) =>
       charge.chargeType === "WATER" && charge.billingMethod === "PER_PERSON_MONTH"
-    ), [revision?.charges, waterRequired]);
+    ), [draftCharges, waterRequired]);
 
   const metersDirty = Boolean(revision && (
     electricityInitial.trim() !== String(revision.meters?.electricityInitial ?? "").trim() ||
@@ -426,9 +427,9 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   const tenant = revision.tenant || {};
   const property = listingSyncPreview?.terms.property ?? revision.property ?? {};
   const lease = listingSyncPreview?.terms.lease ?? revision.lease ?? {};
-  const financial = revision.financial || {};
+  const financial = listingSyncPreview?.terms.financial ?? revision.financial ?? {};
   const amenities = listingSyncPreview?.terms.amenities ?? revision.amenities ?? [];
-  const charges = revision.charges || [];
+  const charges = listingSyncPreview?.terms.charges ?? revision.charges ?? [];
   const equipments = listingSyncPreview?.terms.equipments ?? revision.equipments ?? [];
   const policies = listingSyncPreview?.terms.policies ?? revision.policies;
   const missingMeterReadings = missingRequiredInitialMeters(
@@ -492,10 +493,6 @@ export default function ContractDetailView({ perspective }: { perspective: "land
           : "Xem nội dung, tài liệu và xác nhận ký với tư cách bên đi thuê."}</p>
       </div>
       {/* 1. CONTRACT HEADER */}
-      {!contract.parentContractId && contract.depositAgreementContractId && <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
-        <div><p className="text-sm font-semibold">Hợp đồng đặt cọc giữ phòng</p><p className="text-xs text-muted-foreground">Tài liệu cọc được lưu riêng để tra cứu sau khi ký hợp đồng thuê.</p></div>
-        <AgreementDocumentActions contract={contract} perspective={perspective} showPrimary={false} showDetails={false}/>
-      </section>}
       <ContractHeader
         backPath={isAmendment && contract.parentContractId ? contractDetailPath(perspective, contract.parentContractId) : contractListPath(perspective)}
         contract={contract}

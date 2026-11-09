@@ -379,6 +379,7 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
       chargeType: "OTHER" as const,
       billingMethod: "PER_MONTH" as const,
       amount: Number(fee.amount) || 0,
+      unit: "tháng",
       customName: fee.name || "Phí khác",
       includedInRent: false,
       sortOrder: 9 + idx,

@@ -45,8 +45,8 @@ export default function ContractPoliciesSection({
   onDraftChange,
 }: ContractPoliciesSectionProps) {
   const w = useAmendmentWorkspace();
-  const policies = w?.data?.currentTerms.policies ?? originalPolicies;
-  const financial = w?.data?.currentTerms.financial ?? originalFinancial;
+  const policies = (w?.editing ? w.listingSync?.terms.policies : undefined) ?? w?.data?.currentTerms.policies ?? originalPolicies;
+  const financial = (w?.editing ? w.listingSync?.terms.financial : undefined) ?? w?.data?.currentTerms.financial ?? originalFinancial;
   const noDeposit = isZeroDeposit(financial?.depositAmountValue ?? financial?.depositAmountNumber);
   const specialTerms = w?.data?.currentTerms.specialTerms ?? originalSpecialTerms;
   const p = policies || {};

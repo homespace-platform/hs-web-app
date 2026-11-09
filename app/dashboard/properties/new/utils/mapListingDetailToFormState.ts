@@ -270,13 +270,6 @@ export function mapListingDetailToFormState(
       type: "warning",
       message: "Chi nhánh của tin gốc không còn tồn tại hoặc bạn không còn quyền sở hữu. Hệ thống đã chuyển sang đăng tin độc lập.",
     };
-  } else if (branch) {
-    if (branch.isComplete === false || (branch.missingCharges && branch.missingCharges.length > 0)) {
-      branchNotice = {
-        type: "warning",
-        message: `Chi nhánh "${branch.name}" chưa hoàn chỉnh biểu phí (${branch.missingCharges?.join(", ")}). Vui lòng cập nhật biểu phí chi nhánh trước khi gửi duyệt.`,
-      };
-    }
   }
 
   const basicInfo: BasicInfoData = {
@@ -378,8 +371,8 @@ export function mapListingDetailToFormState(
   }));
 
   // 7. Monthly Expenses & Location
-  let monthlyExpenses: MonthlyExpensesData;
-  monthlyExpenses = branch ? buildExpensesFromBranch(branch, category) : buildExpensesFromListingCharges(detail.charges, category);
+  // Once saved, each listing owns its fees. Branch defaults only prefill a new listing.
+  const monthlyExpenses: MonthlyExpensesData = buildExpensesFromListingCharges(detail.charges, category);
 
   // 8. Pricing
   const pricing: PricingData = {

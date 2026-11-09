@@ -152,6 +152,8 @@ function ProofForDocument({ document: doc }: { document: ContractDocumentRespons
       {proof.documentHash && <details><summary className="cursor-pointer font-semibold">Thông tin đối chiếu</summary><dl className="mt-2 space-y-2">
         <div><dt className="text-muted-foreground">SHA-256 của PDF đã ký</dt><dd className="break-all font-mono">{proof.documentHash}</dd></div>
         {proof.onChainDocumentId && <div><dt className="text-muted-foreground">ID tài liệu trên blockchain</dt><dd className="break-all font-mono">{proof.onChainDocumentId}</dd></div>}
+        {proof.status === "CONFIRMED" && proof.caseId && <div><dt className="text-muted-foreground">Mã hồ sơ liên kết các văn bản</dt><dd className="break-all font-mono">{proof.caseId}</dd></div>}
+        {proof.status === "CONFIRMED" && proof.documentKind && <div><dt className="text-muted-foreground">Loại văn bản</dt><dd>{({1:"Hợp đồng cọc",2:"Hợp đồng thuê",3:"Phụ lục"} as Record<number,string>)[proof.documentKind]??"Chưa xác định"}</dd></div>}
         {proof.transactionHash && <div><dt className="text-muted-foreground">Mã giao dịch</dt><dd className="break-all font-mono">{proof.transactionHash}</dd></div>}
         {proof.blockNumber != null && <div><dt className="text-muted-foreground">Block ghi nhận</dt><dd>{proof.blockNumber}</dd></div>}
       </dl></details>}

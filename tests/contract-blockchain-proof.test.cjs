@@ -151,6 +151,7 @@ test("the dossier places proof next to signed root leases and child amendments o
     if (name === "./ContractAmendmentWorkspace") return { useAmendmentWorkspace: () => null };
     if (name === "./ContractAmendmentPanel") return { AmendmentComparisonTable: () => null };
     if (name === "@/services/contract.service") return { contractService: {} };
+    if (name === "@/services/deposit-agreement.service") return { depositAgreementService: { get: async () => ({ agreement: null, documents: [] }) } };
     if (name === "next/link") return { default: "a" };
     return require(name);
   }).default;

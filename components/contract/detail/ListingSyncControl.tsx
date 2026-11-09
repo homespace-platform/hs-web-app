@@ -30,6 +30,12 @@ export default function ListingSyncControl({ contractId, baseRevisionId, disable
         toast.error("Phiên bản hợp đồng đã thay đổi. Tải lại trang trước khi cập nhật.");
         return;
       }
+      if (source.financialDifferences?.length) {
+        toast.info("Các khoản đã chốt được giữ nguyên: " + source.financialDifferences
+          .map(row => `${row.label}: ${row.before} → ${row.after}`).join("; ")
+          + ". Giá bài đăng mới không tự thay thế giá thuê, tiền cọc hoặc kỳ thanh toán đã xác nhận.");
+      }
+      if (source.leaseMessage) toast.info(source.leaseMessage);
       await onSelect(source);
     } catch (error) {
       if (!request.signal.aborted) toast.error(getApiErrorMessage(error, "Không cập nhật được dữ liệu bài đăng đã duyệt."));

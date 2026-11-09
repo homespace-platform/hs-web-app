@@ -222,7 +222,7 @@ function CreatePropertyListingContent() {
   function handleSelectBranch(branchId: string, branchList = branches) {
     if (!branchId) {
       setBasicInfo((prev) => ({ ...prev, branchId: "" }));
-      setMonthlyExpenses({
+      if (!isEditMode && !isDuplicateMode) setMonthlyExpenses({
         electricityType: "KWH",
         electricityPrice: "3500",
         waterType: "M3",
@@ -258,7 +258,7 @@ function CreatePropertyListingContent() {
         branchId,
         category: mappedCategory,
       }));
-      setPricing((prev) => ({
+      if (!isEditMode && !isDuplicateMode) setPricing((prev) => ({
         ...prev,
         priceUnit: defaultPriceUnit,
       }));
@@ -278,7 +278,8 @@ function CreatePropertyListingContent() {
       });
     }
 
-    // Initialize clean expenses state for branch (no lingering custom fees from other branches!)
+    // Branch rates only prefill a new listing. Existing listings keep their own approved rates.
+    if (!isEditMode && !isDuplicateMode) {
     const isApartment = (branch.category ? branch.category.toLowerCase() : basicInfo.category) === "apartment";
     const newExpenses: MonthlyExpensesData = {
       electricityType: "KWH",
@@ -375,6 +376,7 @@ function CreatePropertyListingContent() {
     }
 
     setMonthlyExpenses(newExpenses);
+    }
 
     if (branch.buildingRules && !basicInfo.description) {
       setBasicInfo((prev) => ({
@@ -531,11 +533,6 @@ function CreatePropertyListingContent() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetListingId, isDuplicateMode, editId, duplicateFrom, branchIdParam]);
-
-  const selectedBranch = useMemo(
-    () => branches.find((b) => b.id === basicInfo.branchId) ?? null,
-    [branches, basicInfo.branchId]
-  );
 
   // Bàn giao thô được phép bỏ trống bảng thiết bị; mọi mức có nội thất đều phải
   // kê khai để dùng làm biên bản bàn giao trong hợp đồng.
@@ -703,8 +700,10 @@ function CreatePropertyListingContent() {
     if (pricing.depositType === "AMOUNT" && (!pricing.depositAmount || Number(pricing.depositAmount) <= 0)) {
       addError("field-deposit-amount", "depositAmount", "Vui lòng nhập số tiền đặt cọc.");
     }
-    if (pricing.depositType === "MONTHS" && (!pricing.depositMonths || Number(pricing.depositMonths) <= 0)) {
-      addError("field-deposit-months", "depositMonths", "Vui lòng nhập số tháng đặt cọc.");
+    if (pricing.depositType === "MONTHS" && !Number.isSafeInteger(Number(pricing.depositMonths))) {
+      addError("field-deposit-months", "depositMonths", "Số tháng đặt cọc phải là số nguyên dương.");
+    } else if (pricing.depositType === "MONTHS" && Number(pricing.depositMonths) <= 0) {
+      addError("field-deposit-months", "depositMonths", "Số tháng đặt cọc phải là số nguyên dương.");
     }
 
     // 4. A selected and server-resolvable Vietmap address is required.
@@ -778,13 +777,6 @@ function CreatePropertyListingContent() {
     if (action === "SUBMIT_FOR_REVIEW") {
       const missing = definitions.find(d => d.required && !listingPolicies.some(p => p.code === d.code && p.value.trim()));
       if (missing) { toast.error(`Cần nhập chính sách: ${missing.label}`); document.getElementById("section-policies")?.scrollIntoView({behavior:"smooth"}); return; }
-    }
-
-    if (selectedBranch && (selectedBranch.isComplete === false || (selectedBranch.missingCharges && selectedBranch.missingCharges.length > 0))) {
-      toast.error(
-        `Không thể gửi hoặc lưu tin đăng vì biểu phí của chi nhánh "${selectedBranch.name}" chưa hoàn thiện (còn thiếu: ${selectedBranch.missingCharges?.join(", ")}). Vui lòng cập nhật biểu phí chi nhánh trước.`
-      );
-      return;
     }
 
     try {
@@ -1121,8 +1113,6 @@ function CreatePropertyListingContent() {
           category={basicInfo.category}
           data={monthlyExpenses}
           errors={errors}
-          isBranchSelected={Boolean(basicInfo.branchId)}
-          selectedBranch={selectedBranch}
           onChange={(updates) =>
             setMonthlyExpenses((prev) => ({ ...prev, ...updates }))
           }

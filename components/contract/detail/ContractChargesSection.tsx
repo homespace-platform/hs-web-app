@@ -36,7 +36,7 @@ export default function ContractChargesSection({
   charges,
 }: ContractChargesSectionProps) {
   const w = useAmendmentWorkspace();
-  const items = w?.data?.currentTerms.charges ?? charges ?? [];
+  const items = (w?.editing ? w.listingSync?.terms.charges : undefined) ?? w?.data?.currentTerms.charges ?? charges ?? [];
 
   return (
     <section id="amendment-charges" className="scroll-mt-24 rounded-2xl border border-border bg-card p-4.5 space-y-3 shadow-2xs">

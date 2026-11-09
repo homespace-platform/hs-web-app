@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Node VM fixtures load CommonJS modules. */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -105,6 +106,23 @@ test("one-click sync includes the current unsaved meter, contact and policy inpu
   assert.equal(h.calls[0][2].meters.electricityInitial, "0");
   assert.equal(h.calls[0][2].draftContent.landlord.fullName, "Chủ nhà đã sửa");
   assert.equal(h.calls[0][2].policies.latePaymentFeeAmount, 50000);
+});
+
+test("approved utility sync replaces the draft with the saved rates before requesting its exact PDF revision", async () => {
+  const requests = [];
+  const charges = [{chargeType: "ELECTRICITY", unitAmount: 4000}, {chargeType: "WATER", unitAmount: 30000}];
+  const h = harness({draftDirty: false, draftContent: undefined, metersDirty: false, termsDirty: false, feeDirty: false,
+    contractService: {updateRevision: async (_id, payload) => {
+      requests.push(payload);
+      return {id: "approved-rates", charges, meters: {electricityInitial: "0", waterInitial: "25"}};
+    }},
+  });
+  await h.run({sourceVersion: "approved-edit", baseRevisionId: "reviewed", terms: {charges}});
+  assert.equal(requests[0].listingSourceVersion, "approved-edit");
+  assert.equal(requests[0].charges, undefined);
+  assert.deepEqual(h.saved[0].charges, charges);
+  assert.deepEqual(h.calls, [["match", "approved-rates", true], ["preview", "contract", "approved-rates"]]);
+  assert.equal(h.previews.at(-1).revisionId, "approved-rates");
 });
 
 test("an explicit source from another revision cannot save or generate a file", async () => {

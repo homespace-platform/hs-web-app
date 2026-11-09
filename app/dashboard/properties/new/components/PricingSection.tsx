@@ -174,10 +174,10 @@ export default function PricingSection({
               <input
                 type="number"
                 min="1"
-                step="0.5"
+                step="1"
                 value={data.depositMonths ?? ""}
                 onChange={(e) => onChange({ depositMonths: e.target.value })}
-                placeholder="Ví dụ: 1 hoặc 2 tháng"
+                placeholder="Ví dụ: 1 hoặc 2 tháng (số nguyên)"
                 className={`${inputClass} ${
                   errors.depositMonths ? "border-destructive focus:border-destructive" : ""
                 }`}

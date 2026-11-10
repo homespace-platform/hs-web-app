@@ -8,11 +8,16 @@ import { Loader2, Copy, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/features/auth/useAuth";
 import type { VietmapAddress } from "@/services/vietmap.service";
 import listingService from "@/services/listing.service";
+import membershipService from "@/services/membership.service";
 import storageService from "@/services/storage.service";
 import branchService, { type PropertyBranch } from "@/services/branch.service";
 import type { ListingOptionsResponse, ListingSubmissionAction, ListingDetailResponse } from "@/types/listing.type";
+import type { MembershipView } from "@/types/membership.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { isKycSatisfied, requireKyc } from "@/lib/kyc-gate";
+import { isListingQuotaExhaustedError } from "@/lib/membership";
+import MembershipStatusCard from "@/components/membership/MembershipStatusCard";
+import InsufficientQuotaModal from "@/components/membership/InsufficientQuotaModal";
 import {
   buildCreateListingPayload,
   furnishingStatusToFormValue,
@@ -82,6 +87,29 @@ function CreatePropertyListingContent() {
   const [loadedListingStatus, setLoadedListingStatus] = useState<string | null>(null);
   const [vehicleLimits, setVehicleLimits] = useState<{ maxMotorbikeCount: number | null; maxCarCount: number | null } | null>(null);
   const [chargeBaseline, setChargeBaseline] = useState<{ charges: ListingDetailResponse["charges"]; expenses: MonthlyExpensesData } | null>(null);
+  const [membership, setMembership] = useState<MembershipView | null>(null);
+  const [loadingMembership, setLoadingMembership] = useState(false);
+  const [quotaExhaustedModalOpen, setQuotaExhaustedModalOpen] = useState(false);
+  const [quotaExhaustedBanner, setQuotaExhaustedBanner] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingMembership(true);
+    membershipService
+      .getMyMembership()
+      .then((me) => {
+        if (!cancelled) setMembership(me);
+      })
+      .catch(() => {
+        // Ignore if membership endpoint is temporarily unreachable
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingMembership(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Section 1: Basic Info
   const [basicInfo, setBasicInfo] = useState<BasicInfoData>({
@@ -759,7 +787,10 @@ function CreatePropertyListingContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittingAction, setSubmittingAction] = useState<ListingSubmissionAction | null>(null);
 
-  async function handleSaveListing(action: ListingSubmissionAction) {
+  async function handleSaveListing(
+    action: ListingSubmissionAction,
+    options?: { redirectTo?: string },
+  ) {
     if (isSubmitting) return;
     if (!requireKyc(profile, { router, redirect: true })) return;
     if (
@@ -872,6 +903,9 @@ function CreatePropertyListingContent() {
       // 3. Call backend upsert API
       const saved = await listingService.upsert(payload);
 
+      setQuotaExhaustedModalOpen(false);
+      setQuotaExhaustedBanner(false);
+
       const successMessage =
         saved.pendingEditId
           ? "Bản sửa đã gửi quản trị viên. Tin vẫn giữ trạng thái hiện tại."
@@ -883,14 +917,27 @@ function CreatePropertyListingContent() {
           ? "Tin đăng đã được cập nhật và gửi duyệt"
           : "Tin đã được gửi chờ duyệt";
       toast.success(successMessage, { id: "submit-listing" });
-      router.push("/dashboard/properties");
+      router.push(options?.redirectTo || "/dashboard/properties");
     } catch (error: unknown) {
       console.error("Submit listing error:", error);
-      const serverMessage = getApiErrorMessage(
-        error,
-        "Thao tác thất bại. Vui lòng kiểm tra lại kết nối và thử lại."
-      );
-      toast.error(serverMessage, { id: "submit-listing" });
+      if (isListingQuotaExhaustedError(error)) {
+        setQuotaExhaustedBanner(true);
+        setQuotaExhaustedModalOpen(true);
+        toast.error(
+          "Không đủ lượt đăng tin khả dụng (409 LISTING_QUOTA_EXHAUSTED). Dữ liệu bài đăng được giữ nguyên — bạn có thể Lưu tin nháp miễn phí ngay!",
+          { id: "submit-listing" },
+        );
+        membershipService
+          .getMyMembership()
+          .then((me) => setMembership(me))
+          .catch(() => {});
+      } else {
+        const serverMessage = getApiErrorMessage(
+          error,
+          "Thao tác thất bại. Vui lòng kiểm tra lại kết nối và thử lại."
+        );
+        toast.error(serverMessage, { id: "submit-listing" });
+      }
 
       // A conflict can concern a field, catalog or stale edit. It does not mean the listing is rented.
       if (isEditMode && axios.isAxiosError(error) && error.response?.data?.code === 4012) {
@@ -1070,6 +1117,14 @@ function CreatePropertyListingContent() {
         </p>
       </div>
 
+      {/* Membership & Quota Banner */}
+      <MembershipStatusCard
+        compact
+        membership={membership}
+        profile={profile}
+        loading={loadingMembership}
+      />
+
       {/* Duplicate Mode Banner */}
       {isDuplicateMode && (
         <div className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 text-blue-900 shadow-2xs dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200">
@@ -1158,6 +1213,33 @@ function CreatePropertyListingContent() {
           onGenerateAiDescription={handleGenerateAiDescription}
         />
 
+        {/* Cảnh báo hết lượt ngay trên thanh hành động nếu gửi duyệt bị từ chối vì hết quota */}
+        {quotaExhaustedBanner && (
+          <div
+            role="alert"
+            className="rounded-2xl border border-amber-300 bg-amber-50/90 dark:border-amber-800/70 dark:bg-amber-950/40 p-4 text-xs text-amber-950 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          >
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+              <div className="space-y-0.5 leading-relaxed">
+                <p className="font-bold">
+                  Bạn đã hết lượt đăng tin khả dụng — Nội dung bài đăng vẫn được giữ nguyên!
+                </p>
+                <p>
+                  Hãy bấm <strong>&quot;Lưu nháp&quot;</strong> (miễn phí) để không mất dữ liệu vừa nhập, sau đó mua hoặc nâng cấp gói hội viên để gửi duyệt.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setQuotaExhaustedModalOpen(true)}
+              className="shrink-0 rounded-xl bg-amber-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-amber-700 transition-colors cursor-pointer"
+            >
+              Xem tùy chọn lưu nháp & mua gói
+            </button>
+          </div>
+        )}
+
         {/* Hành động cuối form */}
         <FormActions
           onCancel={() => router.back()}
@@ -1170,6 +1252,19 @@ function CreatePropertyListingContent() {
           requiresEditReview={isEditMode && (loadedPendingEdit || ["PUBLISHED", "RESERVED", "RENTED", "HIDDEN", "EXPIRED"].includes(String(loadedListingStatus)))}
         />
       </form>
+
+      {/* Insufficient Quota Modal without losing draft */}
+      <InsufficientQuotaModal
+        isOpen={quotaExhaustedModalOpen}
+        membership={membership}
+        context="editor"
+        isSavingDraft={isSubmitting && submittingAction === "SAVE_DRAFT"}
+        onSaveDraftOnly={() => handleSaveListing("SAVE_DRAFT")}
+        onSaveDraftAndBuyPlan={() =>
+          handleSaveListing("SAVE_DRAFT", { redirectTo: "/dashboard/membership" })
+        }
+        onClose={() => setQuotaExhaustedModalOpen(false)}
+      />
 
       {/* Confirmation Modal when switching categories */}
       <CategoryChangeConfirmModal

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   MapPin,
@@ -28,11 +29,17 @@ import {
   CalendarX,
   ExternalLink,
   ShieldCheck,
+  Crown,
+  Plus,
 } from "lucide-react";
+import { useAuth } from "@/features/auth/useAuth";
 import listingService from "@/services/listing.service";
+import membershipService from "@/services/membership.service";
 import type { ListingCategory, ListingStatus, MyListingSummaryResponse } from "@/types/listing.type";
+import type { MembershipView } from "@/types/membership.type";
 import { getListingStatusConfig } from "@/config/listing-status.config";
 import { getApiErrorMessage } from "@/utils/apiError";
+import MembershipStatusCard from "@/components/membership/MembershipStatusCard";
 import ListingItemCard from "./components/ListingItemCard";
 import ListingStatusActionMenu from "./components/ListingStatusActionMenu";
 
@@ -95,11 +102,14 @@ function formatDate(iso?: string | null): string {
 
 export default function MyPropertiesPage() {
   const router = useRouter();
+  const { authenticated, profile } = useAuth();
 
   // State
   const [listings, setListings] = useState<MyListingSummaryResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [membership, setMembership] = useState<MembershipView | null>(null);
+  const [loadingMembership, setLoadingMembership] = useState(false);
 
   // Filters & Pagination
   const [keywordInput, setKeywordInput] = useState("");
@@ -111,7 +121,7 @@ export default function MyPropertiesPage() {
   const [totalElements, setTotalElements] = useState(0);
   const [reloadKey, setReloadKey] = useState(0);
 
-  // Fetch status counts on load & reload
+  // Fetch status counts & membership on load & reload
   useEffect(() => {
     let cancelled = false;
     listingService
@@ -124,10 +134,26 @@ export default function MyPropertiesPage() {
       .catch((err) => {
         console.warn("Could not load listing status counts:", err);
       });
+
+    if (authenticated) {
+      setLoadingMembership(true);
+      membershipService
+        .getMyMembership()
+        .then((me) => {
+          if (!cancelled) setMembership(me);
+        })
+        .catch(() => {
+          // Keep previous or null if membership service unavailable
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingMembership(false);
+        });
+    }
+
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [reloadKey, authenticated]);
 
   // Debounce search input by 400ms
   useEffect(() => {
@@ -223,8 +249,22 @@ export default function MyPropertiesPage() {
           </p>
         </div>
 
-        {/* Header Action: Làm mới */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        {/* Header Action: Làm mới & Đăng tin */}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <Link
+            href="/dashboard/membership"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-foreground hover:bg-muted/60 border border-border transition-all shadow-2xs"
+          >
+            <Crown className="h-3.5 w-3.5 text-primary" />
+            <span>Gói hội viên</span>
+          </Link>
+          <Link
+            href="/dashboard/properties/new"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-2xs"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Đăng tin mới</span>
+          </Link>
           <button
             onClick={() => {
               setLoading(true);
@@ -239,6 +279,15 @@ export default function MyPropertiesPage() {
           </button>
         </div>
       </div>
+
+      {/* Membership & Quota Banner */}
+      <MembershipStatusCard
+        compact
+        membership={membership}
+        profile={profile}
+        loading={loadingMembership}
+        onRefresh={() => setReloadKey((k) => k + 1)}
+      />
 
       {/* Segmented Status Tabs & Search Toolbar */}
       <div className="bg-card rounded-2xl border border-border shadow-2xs overflow-hidden">

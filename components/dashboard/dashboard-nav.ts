@@ -8,6 +8,7 @@ import {
   FileCheck,
   Calendar,
   ReceiptText,
+  Crown,
   type LucideIcon,
 } from "lucide-react";
 import type { DashboardRole } from "@/lib/dashboard-role";
@@ -41,6 +42,11 @@ export const LANDLORD_NAV: DashboardNavGroup[] = [
     items: [
       { title: "Khách hàng", path: "/dashboard/customers", icon: Users },
       { title: "Tin đăng", path: "/dashboard/properties", icon: FileText },
+      {
+        title: "Gói hội viên & Lượt đăng",
+        path: "/dashboard/membership",
+        icon: Crown,
+      },
       {
         title: "Chi nhánh / Tòa nhà",
         path: "/dashboard/branches",

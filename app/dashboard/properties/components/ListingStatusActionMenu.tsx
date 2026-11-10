@@ -26,6 +26,8 @@ import {
 } from "@/config/listing-status.config";
 import type { ListingDetailResponse, ListingStatus } from "@/types/listing.type";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { isListingQuotaExhaustedError } from "@/lib/membership";
+import InsufficientQuotaModal from "@/components/membership/InsufficientQuotaModal";
 
 const ACTION_ICONS: Record<ListingOwnerActionIcon, LucideIcon> = {
   hide: EyeOff,
@@ -58,6 +60,7 @@ export default function ListingStatusActionMenu({
   const [pendingAction, setPendingAction] = useState<ListingOwnerAction | null>(null);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [quotaExhaustedOpen, setQuotaExhaustedOpen] = useState(false);
 
   const actions = getListingOwnerActions(listing.status, listing.expiresAt);
   const currentStatus = getListingStatusConfig(listing.status);
@@ -126,7 +129,14 @@ export default function ListingStatusActionMenu({
       // Đồng bộ badge số lượng tin yêu thích trên Header & Dropdown qua Redux
       dispatch(fetchFavoriteIds({ force: true }));
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, "Không thể đổi trạng thái tin đăng. Vui lòng thử lại."));
+      if (isListingQuotaExhaustedError(error)) {
+        setModalOpen(false);
+        setPendingAction(null);
+        setQuotaExhaustedOpen(true);
+        toast.error("Bạn đã hết lượt đăng tin khả dụng. Vui lòng mua hoặc nâng cấp gói hội viên để đăng lại tin.");
+      } else {
+        toast.error(getApiErrorMessage(error, "Không thể đổi trạng thái tin đăng. Vui lòng thử lại."));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -310,6 +320,13 @@ export default function ListingStatusActionMenu({
       </button>
 
       {typeof document !== "undefined" && modalContent && createPortal(modalContent, document.body)}
+
+      <InsufficientQuotaModal
+        isOpen={quotaExhaustedOpen}
+        context="republish"
+        listingTitle={listing.title}
+        onClose={() => setQuotaExhaustedOpen(false)}
+      />
     </>
   );
 }

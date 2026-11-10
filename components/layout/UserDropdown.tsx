@@ -5,27 +5,36 @@ import Link from "next/link";
 import { useAuth } from "@/features/auth/useAuth";
 import {
   LayoutGrid,
-  Wallet,
   LogOut,
   ChevronDown,
   ChevronUp,
   ChevronRight,
-  ArrowRight,
   Heart,
   Clock,
-  Calendar,
   Settings,
+  Crown,
+  Infinity as InfinityIcon,
 } from "lucide-react";
 import UserAvatar from "@/components/common/UserAvatar";
 import { useAppSelector } from "@/store/hooks";
 import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
+import membershipService from "@/services/membership.service";
+import {
+  getTierShortLabel,
+  isMembershipExpired,
+  isUnlimitedMembership,
+} from "@/lib/membership";
+import type { MembershipView } from "@/types/membership.type";
 
 export default function UserDropdown() {
-  const { username, avatarUrl, logout } = useAuth();
+  const { authenticated, username, avatarUrl, profile, logout } = useAuth();
   const favoriteCount = useAppSelector((state) => state.favorite.count);
   const historyCount = useAppSelector((state) => state.history.count);
   const { openRolePicker } = useDashboardRole();
   const [isOpen, setIsOpen] = useState(false);
+  const [membership, setMembership] = useState<MembershipView | null>(null);
+  const [loadingMembership, setLoadingMembership] = useState(false);
+  const [membershipError, setMembershipError] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -47,14 +56,45 @@ export default function UserDropdown() {
     };
   }, [isOpen]);
 
-  const displayName = username || "Người dùng";
-  const initialLetter = displayName.charAt(0).toUpperCase() || "U";
+  useEffect(() => {
+    if (!authenticated) {
+      setMembership(null);
+      setLoadingMembership(false);
+      setMembershipError(false);
+      return;
+    }
+    if (!isOpen) return;
 
-  // Mock wallet data
-  const walletData = {
-    available: "0 đ",
-    holding: "0 đ",
-  };
+    let cancelled = false;
+    setLoadingMembership(true);
+    setMembershipError(false);
+
+    membershipService
+      .getMyMembership()
+      .then((me) => {
+        if (!cancelled) {
+          setMembership(me);
+          setMembershipError(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMembership(null);
+          setMembershipError(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingMembership(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticated, isOpen]);
+
+  const displayName = username || "Người dùng";
+  const unlimited = isUnlimitedMembership(membership, profile);
+  const expired = !unlimited && membership !== null && isMembershipExpired(membership.expiresAt);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -94,44 +134,8 @@ export default function UserDropdown() {
       {/* Dropdown Menu Panel */}
       {isOpen && (
         <div className="absolute right-0 mt-2.5 w-[calc(100vw-32px)] sm:w-80 max-w-sm bg-popover text-popover-foreground rounded-3xl shadow-2xl border border-border p-3.5 z-50 animate-in fade-in-50 zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto no-scrollbar">
-          {/* 1. Wallet Card ("SỐ DƯ VÍ") */}
-          <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30 rounded-2xl p-3.5 mb-3">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-1.5 text-primary">
-                <Wallet className="w-4 h-4" />
-                <span className="text-xs font-extrabold uppercase tracking-wide">
-                  SỐ DƯ VÍ
-                </span>
-              </div>
-              <Link
-                href="#"
-                onClick={() => setIsOpen(false)}
-                className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-0.5"
-              >
-                <span>Xem tất cả</span>
-                <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
-
-            {/* 2 Wallet Sub-Boxes */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="bg-card rounded-xl p-2.5 border border-border shadow-2xs">
-                <p className="text-[11px] text-muted-foreground font-medium">Khả dụng</p>
-                <p className="text-sm font-bold text-foreground mt-0.5">
-                  {walletData.available}
-                </p>
-              </div>
-              <div className="bg-card rounded-xl p-2.5 border border-border shadow-2xs">
-                <p className="text-[11px] text-muted-foreground font-medium">Đang giữ</p>
-                <p className="text-sm font-bold text-foreground mt-0.5">
-                  {walletData.holding}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* 2. Nhóm: Bảng điều khiển & Tiện ích */}
-          <nav className="space-y-0.5">
+          {/* 1. Nhóm: Bảng điều khiển & Gói hội viên */}
+          <nav className="space-y-1">
             {/* Bảng điều khiển */}
             <button
               type="button"
@@ -147,6 +151,52 @@ export default function UserDropdown() {
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
             </button>
+
+            {/* Gói hội viên & Lượt đăng tin (True package/quota summary) */}
+            <Link
+              href="/dashboard/membership"
+              onClick={() => setIsOpen(false)}
+              data-testid="user-menu-membership-link"
+              className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 text-foreground transition-colors group"
+            >
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                  {unlimited ? (
+                    <InfinityIcon className="w-4 h-4" />
+                  ) : (
+                    <Crown className="w-4 h-4" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-semibold">Gói hội viên & Lượt đăng</span>
+                    {unlimited ? (
+                      <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-extrabold text-primary">
+                        ADMIN
+                      </span>
+                    ) : !loadingMembership && membership ? (
+                      <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-extrabold text-primary">
+                        {getTierShortLabel(membership.tier)}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                    {unlimited
+                      ? "Không giới hạn lượt đăng (∞)"
+                      : loadingMembership || (!membership && !membershipError)
+                      ? "Đang tải thông tin gói & lượt đăng..."
+                      : membership
+                      ? `Còn ${membership.remainingUses} lượt khả dụng${
+                          membership.reservedUses > 0
+                            ? ` • ${membership.reservedUses} chờ duyệt`
+                            : ""
+                        }${expired ? " • Đã hết hạn" : ""}`
+                      : "Tạm thời chưa tải được hạn mức • Xem chi tiết"}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground/60 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+            </Link>
 
             {/* Divider */}
             <div className="my-1.5 border-t border-border" />

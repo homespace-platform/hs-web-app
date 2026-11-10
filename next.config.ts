@@ -1,6 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return process.env.NODE_ENV === "development"
+      ? [{
+          source: "/dashboard/membership/return",
+          destination: "http://localhost:3000/dashboard/membership/return",
+          permanent: false,
+          has: [{ type: "host", value: ".*\\.trycloudflare\\.com" }],
+        }]
+      : [];
+  },
+  allowedDevOrigins: process.env.DEV_TUNNEL_ORIGIN
+    ? [process.env.DEV_TUNNEL_ORIGIN]
+    : [],
   images: {
     remotePatterns: [
       {

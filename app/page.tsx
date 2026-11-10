@@ -4,6 +4,7 @@ import HeroSection from "@/components/home/HeroSection";
 import FeaturedProperties from "@/components/home/FeaturedProperties";
 import PopularLocations from "@/components/home/PopularLocations";
 import LocationMapExplorer from "@/components/home/LocationMapExplorer";
+import LandlordCta from "@/components/home/LandlordCta";
 
 export default function HomePage() {
   return (
@@ -24,6 +25,9 @@ export default function HomePage() {
 
         {/* 4. Interactive Price Explorer ("Tham khảo giá thuê nhà") */}
         <LocationMapExplorer />
+
+        {/* 5. Listing Membership Plans & Landlord Offers ("Bảng gói hội viên & Lượt đăng tin") */}
+        <LandlordCta />
       </main>
 
       {/* Footer */}

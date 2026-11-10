@@ -160,13 +160,6 @@ export default function MembershipCheckoutModal({
       return;
     }
     if (!targetTier || !quote || submittingCheckout) return;
-    if (selectedProvider !== "SEPAY") {
-      const unavailableMsg =
-        "Cổng thanh toán VNPAY hiện tạm thời không khả dụng. Vui lòng chọn SePay.";
-      setCheckoutError(unavailableMsg);
-      toast.error(unavailableMsg);
-      return;
-    }
     setSubmittingCheckout(true);
     setCheckoutError(null);
     setHasPendingOrderConflict(false);
@@ -469,26 +462,21 @@ export default function MembershipCheckoutModal({
 
                 <div className="space-y-2">
                   {MEMBERSHIP_PAYMENT_PROVIDERS.map((providerOpt) => {
-                    const isSelected =
-                      providerOpt.enabled &&
-                      selectedProvider === providerOpt.code;
+                    const isSelected = selectedProvider === providerOpt.code;
                     return (
                       <button
                         key={providerOpt.code}
                         type="button"
                         role="radio"
                         aria-checked={isSelected}
-                        aria-disabled={!providerOpt.enabled}
-                        disabled={!providerOpt.enabled || submittingCheckout}
+                        disabled={submittingCheckout}
                         data-testid={`payment-provider-option-${providerOpt.code}`}
                         onClick={() => {
-                          if (!providerOpt.enabled || submittingCheckout) return;
+                          if (submittingCheckout) return;
                           setSelectedProvider(providerOpt.code);
                         }}
                         className={`w-full rounded-2xl border p-3.5 text-left transition-all ${
-                          !providerOpt.enabled
-                            ? "border-border/60 bg-muted/40 opacity-65 cursor-not-allowed"
-                            : isSelected
+                          isSelected
                             ? "border-primary bg-primary/5 ring-2 ring-primary/15 cursor-pointer"
                             : "border-border bg-card hover:border-primary/40 cursor-pointer"
                         }`}
@@ -511,19 +499,12 @@ export default function MembershipCheckoutModal({
                                 <span className="text-xs font-extrabold text-foreground">
                                   {providerOpt.label}
                                 </span>
-                                <span
-                                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                    providerOpt.enabled
-                                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                                      : "bg-amber-500/15 text-amber-800 dark:text-amber-300"
-                                  }`}
-                                >
+                                <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
                                   {providerOpt.badge}
                                 </span>
                               </div>
                               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                {providerOpt.disabledReason ??
-                                  providerOpt.description}
+                                {providerOpt.description}
                               </p>
                             </div>
                           </div>

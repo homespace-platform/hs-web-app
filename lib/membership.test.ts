@@ -133,11 +133,13 @@ describe("membership domain logic and DTO adapters", () => {
   it("normalizes checkout and order responses and classifies trusted order statuses", () => {
     const checkout = normalizeCheckoutResponse({
       orderId: "ord_123",
-      paymentUrl: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_TxnRef=ord_123",
+      paymentUrl: "https://pay-sandbox.sepay.vn/v1/checkout/init",
       amountVnd: 129_000,
+      provider: "SEPAY",
     });
     assert.equal(checkout.orderId, "ord_123");
     assert.equal(checkout.amountVnd, 129_000);
+    assert.equal(checkout.provider, "SEPAY");
 
     const paidOrder = normalizeOrderView({
       id: "ord_123",
@@ -298,13 +300,16 @@ describe("membership domain logic and DTO adapters", () => {
     assert.equal(cancelledMeta.tone, "danger");
     assert.match(cancelledMeta.description, /REVIEW/);
 
-    const cancelledOutcome = resolveCancelOrderOutcome({ status: "CANCELLED" });
+    const cancelledOutcome = resolveCancelOrderOutcome({
+      status: "CANCELLED",
+      provider: "SEPAY",
+    });
     assert.equal(cancelledOutcome.outcome, "cancelled");
     assert.equal(cancelledOutcome.cancelled, true);
     assert.equal(cancelledOutcome.shouldStopPolling, true);
     assert.equal(cancelledOutcome.shouldClearPendingOrder, true);
     assert.match(cancelledOutcome.noticeMessage, /HomeSpace đã được hủy/);
-    assert.match(cancelledOutcome.noticeMessage, /VNPAY/);
+    assert.match(cancelledOutcome.noticeMessage, /SePay/);
     assert.match(cancelledOutcome.noticeMessage, /REVIEW/);
 
     const paidRaceOutcome = resolveCancelOrderOutcome({ status: "PAID" });
@@ -359,6 +364,7 @@ describe("membership domain logic and DTO adapters", () => {
     assert.match(returnPageSource, /data-testid="cancel-pending-order-button"/);
     assert.match(returnPageSource, /data-testid="confirm-cancel-order-button"/);
     assert.match(returnPageSource, /data-testid="new-membership-checkout-link"/);
+    assert.doesNotMatch(returnPageSource, /vnp_/i);
   });
 
   it("normalizes and validates SePay checkout response (strict HTTPS host/path + signed fields) and submits hidden HTML POST form", () => {
@@ -448,8 +454,13 @@ describe("membership domain logic and DTO adapters", () => {
 
     // Reject wrong provider
     assert.equal(
-      validateCheckoutResponse({ ...sepayCheckout, provider: "VNPAY" }, "SEPAY")
-        .valid,
+      validateCheckoutResponse(
+        {
+          ...sepayCheckout,
+          provider: "LEGACY" as unknown as "SEPAY",
+        },
+        "SEPAY",
+      ).valid,
       false,
     );
     assert.equal(
@@ -751,14 +762,16 @@ describe("membership domain logic and DTO adapters", () => {
     }
   });
 
-  it("maps OrderView.provider for SEPAY, VNPAY, and legacy null -> VNPAY across return and cancel texts", () => {
+  it("maps OrderView.provider for SEPAY and renders legacy/null provider values safely without implying SePay", () => {
     assert.equal(normalizeOrderProvider("SEPAY"), "SEPAY");
-    assert.equal(normalizeOrderProvider("VNPAY"), "VNPAY");
-    assert.equal(normalizeOrderProvider(null), "VNPAY");
-    assert.equal(normalizeOrderProvider(undefined), "VNPAY");
+    assert.equal(normalizeOrderProvider("sepay"), "SEPAY");
+    assert.equal(normalizeOrderProvider(null), null);
+    assert.equal(normalizeOrderProvider(undefined), null);
+    assert.equal(normalizeOrderProvider("LEGACY"), null);
     assert.equal(getPaymentProviderDisplayName("SEPAY"), "SePay");
-    assert.equal(getPaymentProviderDisplayName("VNPAY"), "VNPAY");
-    assert.equal(getPaymentProviderDisplayName(null), "VNPAY");
+    assert.equal(getPaymentProviderDisplayName(null), "Cổng thanh toán");
+    assert.equal(getPaymentProviderDisplayName(undefined), "Cổng thanh toán");
+    assert.equal(getPaymentProviderDisplayName("LEGACY"), "Cổng thanh toán");
 
     const sepayOrder = normalizeOrderView({
       id: "ord_sp",
@@ -776,15 +789,27 @@ describe("membership domain logic and DTO adapters", () => {
       status: "CANCELLED",
       provider: null,
     });
-    assert.equal(legacyNullOrder.provider, "VNPAY");
+    assert.equal(legacyNullOrder.provider, null);
+
+    const legacyStringOrder = normalizeOrderView({
+      id: "ord_legacy_str",
+      tier: "STARTER",
+      amountVnd: 49_000,
+      status: "CANCELLED",
+      provider: "LEGACY",
+    });
+    assert.equal(legacyStringOrder.provider, null);
 
     const sepayCancelOutcome = resolveCancelOrderOutcome(sepayOrder);
     assert.match(sepayCancelOutcome.noticeMessage, /SePay/);
-    assert.doesNotMatch(sepayCancelOutcome.noticeMessage, /VNPAY/);
 
     const legacyCancelOutcome = resolveCancelOrderOutcome(legacyNullOrder);
-    assert.match(legacyCancelOutcome.noticeMessage, /VNPAY/);
+    assert.match(legacyCancelOutcome.noticeMessage, /Cổng thanh toán/);
     assert.doesNotMatch(legacyCancelOutcome.noticeMessage, /SePay/);
+
+    const legacyStringCancelOutcome = resolveCancelOrderOutcome(legacyStringOrder);
+    assert.match(legacyStringCancelOutcome.noticeMessage, /Cổng thanh toán/);
+    assert.doesNotMatch(legacyStringCancelOutcome.noticeMessage, /SePay/);
 
     assert.match(
       getOrderStatusPresentation("PAID", "SEPAY").description,
@@ -792,34 +817,45 @@ describe("membership domain logic and DTO adapters", () => {
     );
     assert.match(
       getOrderStatusPresentation("PAID", null).description,
-      /VNPAY/,
+      /Cổng thanh toán/,
+    );
+    assert.doesNotMatch(
+      getOrderStatusPresentation("PAID", null).description,
+      /SePay/,
     );
     assert.match(
       getOrderStatusPresentation("REVIEW", "SEPAY").description,
+      /SePay/,
+    );
+    assert.doesNotMatch(
+      getOrderStatusPresentation("REVIEW", null).description,
       /SePay/,
     );
     assert.match(
       getOrderStatusPresentation("CANCELLED", "SEPAY").description,
       /SePay/,
     );
+    assert.doesNotMatch(
+      getOrderStatusPresentation("CANCELLED", null).description,
+      /SePay/,
+    );
     assert.match(
       getOrderStatusPresentation("PENDING", "SEPAY").description,
       /SePay/,
     );
+    assert.doesNotMatch(
+      getOrderStatusPresentation("PENDING", null).description,
+      /SePay/,
+    );
   });
 
-  it("configures checkout modal provider selection (SEPAY enabled, VNPAY disabled) without wallet balance UI", () => {
+  it("configures SePay-only checkout modal provider selection without wallet balance UI", () => {
+    assert.equal(MEMBERSHIP_PAYMENT_PROVIDERS.length, 1);
     const sepayOption = MEMBERSHIP_PAYMENT_PROVIDERS.find(
       (p) => p.code === "SEPAY",
     );
-    const vnpayOption = MEMBERSHIP_PAYMENT_PROVIDERS.find(
-      (p) => p.code === "VNPAY",
-    );
     assert.ok(sepayOption);
     assert.equal(sepayOption.enabled, true);
-    assert.ok(vnpayOption);
-    assert.equal(vnpayOption.enabled, false);
-    assert.match(vnpayOption.disabledReason ?? "", /không khả dụng/);
 
     const modalSource = fs.readFileSync(
       path.join(
@@ -850,13 +886,11 @@ describe("membership domain logic and DTO adapters", () => {
       "utf8",
     );
     assert.match(pricingSource, /SePay/);
-    assert.doesNotMatch(pricingSource, /VNPAY/);
 
     const homeCtaSource = fs.readFileSync(
       path.join(repoRoot, "components", "home", "LandlordCta.tsx"),
       "utf8",
     );
     assert.match(homeCtaSource, /SePay/);
-    assert.doesNotMatch(homeCtaSource, /VNPAY/);
   });
 });

@@ -70,12 +70,7 @@ function MembershipReturnContent() {
     searchParams.get("orderId")?.trim() ||
     searchParams.get("order_id")?.trim() ||
     searchParams.get("invoice_number")?.trim() ||
-    searchParams.get("vnp_TxnRef")?.trim() ||
     "";
-  const vnpTransactionNo = searchParams.get("vnp_TransactionNo")?.trim() || null;
-  const hasLegacyVnpQueryHint = Boolean(
-    searchParams.get("vnp_TxnRef")?.trim() || vnpTransactionNo,
-  );
 
   const [resolvedOrderId, setResolvedOrderId] = useState<string>(queryOrderId);
   const [order, setOrder] = useState<MembershipOrderView | null>(null);
@@ -350,10 +345,8 @@ function MembershipReturnContent() {
     );
   }
 
-  const activeProvider: MembershipPaymentProvider = order
+  const activeProvider: MembershipPaymentProvider | null = order
     ? normalizeOrderProvider(order.provider)
-    : hasLegacyVnpQueryHint
-    ? "VNPAY"
     : "SEPAY";
   const providerLabel = getPaymentProviderDisplayName(activeProvider);
   const statusMeta = getOrderStatusPresentation(order?.status, activeProvider);
@@ -372,7 +365,7 @@ function MembershipReturnContent() {
         <div className="space-y-0.5 leading-relaxed">
           <p className="font-bold">Xác thực trạng thái đơn hàng từ máy chủ HomeSpace</p>
           <p className="text-blue-900/90 dark:text-blue-200/90">
-            Hệ thống không bao giờ xác nhận thanh toán chỉ dựa vào tham số trên thanh địa chỉ (URL). Trạng thái dưới đây được truy vấn trực tiếp từ máy chủ đơn hàng của HomeSpace sau khi đối soát kết quả thanh toán với cổng {providerLabel}.
+            Hệ thống không bao giờ xác nhận thanh toán chỉ dựa vào tham số trên thanh địa chỉ (URL). Trạng thái dưới đây được truy vấn trực tiếp từ máy chủ đơn hàng của HomeSpace sau khi đối soát kết quả thanh toán với {providerLabel}.
           </p>
         </div>
       </div>
@@ -554,13 +547,6 @@ function MembershipReturnContent() {
                     </span>
                   </div>
                 )}
-
-                {vnpTransactionNo && (
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60">
-                    <span className="text-muted-foreground">Mã tham chiếu VNPAY (hiển thị):</span>
-                    <span className="font-mono text-muted-foreground">{vnpTransactionNo}</span>
-                  </div>
-                )}
               </div>
             )}
 
@@ -615,7 +601,7 @@ function MembershipReturnContent() {
                     </h2>
                     <div id="cancel-order-confirm-desc" className="space-y-1 text-amber-900/95 dark:text-amber-200/95">
                       <p>
-                        Thao tác này chỉ <strong>hủy đơn hàng trên HomeSpace</strong> (chuyển sang trạng thái <code>CANCELLED</code>) để bạn có thể tạo giao dịch mới ngay khi gặp lỗi trên cổng thanh toán {providerLabel}.
+                        Thao tác này chỉ <strong>hủy đơn hàng trên HomeSpace</strong> (chuyển sang trạng thái <code>CANCELLED</code>) để bạn có thể tạo giao dịch mới ngay khi gặp lỗi thanh toán qua {providerLabel}.
                       </p>
                       <p>
                         Lưu ý quan trọng: Thao tác này <strong>không thể hủy hoặc hoàn trả giao dịch thu tiền phía {providerLabel}</strong> nếu bạn đã thanh toán. Nếu {providerLabel} xác nhận trừ tiền thành công muộn sau khi hủy, đơn hàng sẽ tự động chuyển sang trạng thái <strong><code>REVIEW</code></strong> để bộ phận vận hành đối soát thủ công.

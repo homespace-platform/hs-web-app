@@ -21,7 +21,6 @@ export interface MembershipPaymentProviderOption {
   description: string;
   enabled: boolean;
   badge: string;
-  disabledReason?: string;
 }
 
 export const MEMBERSHIP_PAYMENT_PROVIDERS: readonly MembershipPaymentProviderOption[] = [
@@ -33,16 +32,6 @@ export const MEMBERSHIP_PAYMENT_PROVIDERS: readonly MembershipPaymentProviderOpt
       "Thanh toán trực tuyến an toàn qua cổng SePay. Tự động kích hoạt gói sau khi máy chủ xác nhận giao dịch.",
     enabled: true,
     badge: "Đang hỗ trợ",
-  },
-  {
-    code: "VNPAY",
-    label: "VNPAY",
-    shortLabel: "VNPAY",
-    description:
-      "Cổng thanh toán VNPAY hiện tạm thời không khả dụng cho giao dịch mua gói hội viên mới.",
-    enabled: false,
-    badge: "Tạm ngưng",
-    disabledReason: "Tạm thời không khả dụng — Cổng VNPAY đang bảo trì, vui lòng sử dụng SePay.",
   },
 ] as const;
 
@@ -274,24 +263,25 @@ export function normalizeCheckoutProvider(
 ): MembershipPaymentProvider | null {
   const upper = String(value ?? "").trim().toUpperCase();
   if (upper === "SEPAY") return "SEPAY";
-  if (upper === "VNPAY") return "VNPAY";
   return null;
 }
 
 /**
- * Normalizes backend OrderView.provider where legacy null/empty maps to "VNPAY".
+ * Normalizes backend OrderView.provider. Returns "SEPAY" for SePay orders,
+ * or null for legacy/unspecified provider values so historical orders are
+ * rendered safely without implying SePay.
  */
 export function normalizeOrderProvider(
   value: unknown,
-): MembershipPaymentProvider {
-  return normalizeCheckoutProvider(value) ?? "VNPAY";
+): MembershipPaymentProvider | null {
+  return normalizeCheckoutProvider(value);
 }
 
 export function getPaymentProviderDisplayName(
   provider?: MembershipPaymentProvider | string | null,
 ): string {
   const normalized = normalizeOrderProvider(provider);
-  return normalized === "SEPAY" ? "SePay" : "VNPAY";
+  return normalized === "SEPAY" ? "SePay" : "Cổng thanh toán";
 }
 
 export function normalizeCheckoutResponse(raw: unknown): MembershipCheckoutResponse {
@@ -404,63 +394,61 @@ export function validateCheckoutResponse(
     };
   }
 
-  if (expectedProvider === "SEPAY") {
-    if (!isValidSePayActionUrl(checkout.paymentUrl)) {
-      return {
-        valid: false,
-        errorMessage:
-          "Địa chỉ cổng thanh toán SePay từ máy chủ không hợp lệ (yêu cầu HTTPS tới pay-sandbox.sepay.vn hoặc pay.sepay.vn /v1/checkout/init).",
-      };
-    }
+  if (!isValidSePayActionUrl(checkout.paymentUrl)) {
+    return {
+      valid: false,
+      errorMessage:
+        "Địa chỉ cổng thanh toán SePay từ máy chủ không hợp lệ (yêu cầu HTTPS tới pay-sandbox.sepay.vn hoặc pay.sepay.vn /v1/checkout/init).",
+    };
+  }
 
-    const fields = checkout.formFields;
-    if (!fields || typeof fields !== "object" || Array.isArray(fields)) {
-      return {
-        valid: false,
-        errorMessage: "Máy chủ không trả về dữ liệu biểu mẫu thanh toán SePay (formFields).",
-      };
-    }
-    const entries = Object.entries(fields);
-    if (
-      entries.length === 0 ||
-      entries.some(
-        ([k, v]) =>
-          typeof k !== "string" ||
-          !k.trim() ||
-          typeof v !== "string",
-      )
-    ) {
-      return {
-        valid: false,
-        errorMessage: "Dữ liệu biểu mẫu thanh toán SePay (formFields) bị trống hoặc không hợp lệ.",
-      };
-    }
+  const fields = checkout.formFields;
+  if (!fields || typeof fields !== "object" || Array.isArray(fields)) {
+    return {
+      valid: false,
+      errorMessage: "Máy chủ không trả về dữ liệu biểu mẫu thanh toán SePay (formFields).",
+    };
+  }
+  const entries = Object.entries(fields);
+  if (
+    entries.length === 0 ||
+    entries.some(
+      ([k, v]) =>
+        typeof k !== "string" ||
+        !k.trim() ||
+        typeof v !== "string",
+    )
+  ) {
+    return {
+      valid: false,
+      errorMessage: "Dữ liệu biểu mẫu thanh toán SePay (formFields) bị trống hoặc không hợp lệ.",
+    };
+  }
 
-    for (const requiredKey of SEPAY_REQUIRED_NONEMPTY_FIELDS) {
-      const value = fields[requiredKey];
-      if (typeof value !== "string" || !value.trim()) {
-        return {
-          valid: false,
-          errorMessage: `Thiếu trường bắt buộc "${requiredKey}" trong biểu mẫu thanh toán SePay.`,
-        };
-      }
-    }
-
-    if (fields.order_invoice_number.trim() !== orderId) {
+  for (const requiredKey of SEPAY_REQUIRED_NONEMPTY_FIELDS) {
+    const value = fields[requiredKey];
+    if (typeof value !== "string" || !value.trim()) {
       return {
         valid: false,
-        errorMessage:
-          "Mã đơn hàng trong biểu mẫu SePay (order_invoice_number) không khớp với orderId từ máy chủ.",
+        errorMessage: `Thiếu trường bắt buộc "${requiredKey}" trong biểu mẫu thanh toán SePay.`,
       };
     }
+  }
 
-    if (fields.order_amount.trim() !== String(amountVnd)) {
-      return {
-        valid: false,
-        errorMessage:
-          "Số tiền trong biểu mẫu SePay (order_amount) không khớp với số tiền đơn hàng từ máy chủ.",
-      };
-    }
+  if (fields.order_invoice_number.trim() !== orderId) {
+    return {
+      valid: false,
+      errorMessage:
+        "Mã đơn hàng trong biểu mẫu SePay (order_invoice_number) không khớp với orderId từ máy chủ.",
+    };
+  }
+
+  if (fields.order_amount.trim() !== String(amountVnd)) {
+    return {
+      valid: false,
+      errorMessage:
+        "Số tiền trong biểu mẫu SePay (order_amount) không khớp với số tiền đơn hàng từ máy chủ.",
+    };
   }
 
   return { valid: true, errorMessage: null };

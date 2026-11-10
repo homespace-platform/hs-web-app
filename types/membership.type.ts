@@ -2,7 +2,7 @@ export type MembershipTierCode = "FREE" | "STARTER" | "PRO" | "BUSINESS" | "ADMI
 
 export type PaidMembershipTierCode = "STARTER" | "PRO" | "BUSINESS";
 
-export type MembershipPaymentProvider = "SEPAY" | "VNPAY";
+export type MembershipPaymentProvider = "SEPAY";
 
 export interface MembershipPlanDto {
   code: MembershipTierCode;
@@ -72,7 +72,7 @@ export interface MembershipOrderView {
   tier: PaidMembershipTierCode | MembershipTierCode;
   amountVnd: number;
   status: MembershipOrderStatus;
-  provider: MembershipPaymentProvider;
+  provider: MembershipPaymentProvider | null;
   createdAt: string | null;
   paidAt: string | null;
 }

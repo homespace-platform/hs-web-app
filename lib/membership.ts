@@ -33,6 +33,14 @@ export const MEMBERSHIP_PAYMENT_PROVIDERS: readonly MembershipPaymentProviderOpt
     enabled: true,
     badge: "Đang hỗ trợ",
   },
+  {
+    code: "ETH",
+    label: "MetaMask (Sepolia ETH)",
+    shortLabel: "Sepolia ETH",
+    description: "Thanh toán gói hội viên bằng ETH thử nghiệm; hệ thống đối soát giao dịch trước khi kích hoạt gói.",
+    enabled: true,
+    badge: "Thử nghiệm",
+  },
 ] as const;
 
 export const LAST_MEMBERSHIP_ORDER_STORAGE_KEY = "hs_last_membership_order_id";
@@ -263,6 +271,7 @@ export function normalizeCheckoutProvider(
 ): MembershipPaymentProvider | null {
   const upper = String(value ?? "").trim().toUpperCase();
   if (upper === "SEPAY") return "SEPAY";
+  if (upper === "ETH") return "ETH";
   return null;
 }
 
@@ -281,7 +290,7 @@ export function getPaymentProviderDisplayName(
   provider?: MembershipPaymentProvider | string | null,
 ): string {
   const normalized = normalizeOrderProvider(provider);
-  return normalized === "SEPAY" ? "SePay" : "Cổng thanh toán";
+  return normalized === "SEPAY" ? "SePay" : normalized === "ETH" ? "Sepolia ETH" : "Cổng thanh toán";
 }
 
 export function normalizeCheckoutResponse(raw: unknown): MembershipCheckoutResponse {
@@ -392,6 +401,10 @@ export function validateCheckoutResponse(
       valid: false,
       errorMessage: "Số tiền đơn hàng từ máy chủ không hợp lệ.",
     };
+  }
+
+  if (expectedProvider === "ETH") {
+    return { valid: true, errorMessage: null };
   }
 
   if (!isValidSePayActionUrl(checkout.paymentUrl)) {

@@ -10,6 +10,9 @@ import {
 import type { ApiResponse } from "@/types/api.type";
 import type {
   MembershipCheckoutResponse,
+  MembershipEthChallenge,
+  MembershipEthQuote,
+  MembershipEthStatus,
   MembershipOrderView,
   MembershipPaymentProvider,
   MembershipPlan,
@@ -95,6 +98,37 @@ const membershipService = {
     );
     const payload = response.data?.result ?? response.data;
     return normalizeOrderView(payload);
+  },
+
+  async getEthChallenge(orderId: string, wallet: string): Promise<MembershipEthChallenge> {
+    const response = await axiosClient.get<ApiResponse<MembershipEthChallenge>>(
+      `/api/v1/membership/orders/${encodeURIComponent(orderId)}/eth/challenge`,
+      { params: { wallet } },
+    );
+    return response.data.result;
+  },
+
+  async getEthQuote(orderId: string, challengeId: string, signature: string): Promise<MembershipEthQuote> {
+    const response = await axiosClient.post<ApiResponse<MembershipEthQuote>>(
+      `/api/v1/membership/orders/${encodeURIComponent(orderId)}/eth/quote`,
+      { challengeId, signature },
+    );
+    return response.data.result;
+  },
+
+  async settleEth(orderId: string, paymentId: string, txHash: string): Promise<MembershipOrderView> {
+    const response = await axiosClient.post<ApiResponse<MembershipOrderView>>(
+      `/api/v1/membership/orders/${encodeURIComponent(orderId)}/eth/settle`,
+      { paymentId, txHash },
+    );
+    return normalizeOrderView(response.data.result);
+  },
+
+  async getEthStatus(orderId: string): Promise<MembershipEthStatus> {
+    const response = await axiosClient.get<ApiResponse<MembershipEthStatus>>(
+      `/api/v1/membership/orders/${encodeURIComponent(orderId)}/eth/status`,
+    );
+    return response.data.result;
   },
 };
 

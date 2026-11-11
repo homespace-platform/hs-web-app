@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
   X,
@@ -69,6 +70,7 @@ export default function MembershipCheckoutModal({
   onClose,
 }: MembershipCheckoutModalProps) {
   const { authenticated, login } = useAuth();
+  const router = useRouter();
   const [quote, setQuote] = useState<MembershipQuote | null>(null);
   const [loadingQuote, setLoadingQuote] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
@@ -235,6 +237,11 @@ export default function MembershipCheckoutModal({
       if (checkoutRes.orderId) {
         savePendingMembershipOrderId(checkoutRes.orderId);
         setPreservedOrderId(checkoutRes.orderId);
+      }
+
+      if (selectedProvider === "ETH") {
+        router.push(`/dashboard/membership/eth?orderId=${encodeURIComponent(checkoutRes.orderId)}`);
+        return;
       }
 
       toast.loading("Đang chuyển hướng tới cổng thanh toán SePay...", {
@@ -519,7 +526,9 @@ export default function MembershipCheckoutModal({
               <div className="rounded-xl bg-muted/50 p-3 text-[11px] text-muted-foreground flex items-start gap-2.5 leading-relaxed">
                 <ShieldCheck className="h-4 w-4 shrink-0 text-primary mt-0.5" />
                 <span>
-                  Số tiền thanh toán được xác định trực tiếp bởi máy chủ HomeSpace. Trình duyệt sẽ gửi biểu mẫu thanh toán an toàn (POST) sang cổng <strong>SePay</strong> và kết quả đơn hàng được xác thực từ máy chủ sau khi hoàn tất.
+                  Số tiền thanh toán được xác định trực tiếp bởi máy chủ HomeSpace. {selectedProvider === "ETH"
+                    ? "Bạn sẽ ký xác thực ví rồi xác nhận giao dịch Sepolia trong MetaMask. Gói chỉ kích hoạt sau khi máy chủ đối soát blockchain."
+                    : <>Trình duyệt sẽ gửi biểu mẫu thanh toán an toàn (POST) sang cổng <strong>SePay</strong> và kết quả đơn hàng được xác thực từ máy chủ sau khi hoàn tất.</>}
                 </span>
               </div>
 
@@ -566,7 +575,7 @@ export default function MembershipCheckoutModal({
               Boolean(quoteError) ||
               !quote ||
               submittingCheckout ||
-              selectedProvider !== "SEPAY"
+              !MEMBERSHIP_PAYMENT_PROVIDERS.some((provider) => provider.code === selectedProvider && provider.enabled)
             }
             onClick={handleConfirmCheckout}
             className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-5 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
@@ -574,14 +583,14 @@ export default function MembershipCheckoutModal({
             {submittingCheckout ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Đang chuyển tới SePay...</span>
+                <span>{selectedProvider === "ETH" ? "Đang tạo đơn Sepolia..." : "Đang chuyển tới SePay..."}</span>
               </>
             ) : (
               <>
                 <span>
                   {quote
-                    ? `Thanh toán ${formatExactVnd(quote.amountVnd)} qua SePay`
-                    : "Thanh toán qua SePay"}
+                    ? `Thanh toán ${formatExactVnd(quote.amountVnd)} qua ${selectedProvider === "ETH" ? "MetaMask" : "SePay"}`
+                    : `Thanh toán qua ${selectedProvider === "ETH" ? "MetaMask" : "SePay"}`}
                 </span>
                 <ArrowRight className="h-4 w-4" />
               </>

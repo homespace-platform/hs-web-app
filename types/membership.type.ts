@@ -2,7 +2,7 @@ export type MembershipTierCode = "FREE" | "STARTER" | "PRO" | "BUSINESS" | "ADMI
 
 export type PaidMembershipTierCode = "STARTER" | "PRO" | "BUSINESS";
 
-export type MembershipPaymentProvider = "SEPAY";
+export type MembershipPaymentProvider = "SEPAY" | "ETH";
 
 export interface MembershipPlanDto {
   code: MembershipTierCode;
@@ -75,4 +75,33 @@ export interface MembershipOrderView {
   provider: MembershipPaymentProvider | null;
   createdAt: string | null;
   paidAt: string | null;
+}
+
+export interface MembershipEthChallenge {
+  challengeId: string;
+  message: string;
+  expiresAt: string;
+}
+
+export interface MembershipEthQuote {
+  paymentId: string;
+  payer: string;
+  recipient: string;
+  amountVnd: number;
+  ethVnd: number;
+  amountWei: string;
+  priceUpdatedAt: string;
+  expiresAt: string;
+  chainId: number;
+  contractAddress: string;
+  signature: string;
+}
+
+export interface MembershipEthStatus {
+  orderStatus: MembershipOrderStatus;
+  paymentId: string | null;
+  txHash: string | null;
+  amountWei: string | null;
+  expiresAt: string | null;
+  confirmedAt: string | null;
 }

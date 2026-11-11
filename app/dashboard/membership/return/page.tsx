@@ -601,10 +601,10 @@ function MembershipReturnContent() {
                     </h2>
                     <div id="cancel-order-confirm-desc" className="space-y-1 text-amber-900/95 dark:text-amber-200/95">
                       <p>
-                        Thao tác này chỉ <strong>hủy đơn hàng trên HomeSpace</strong> (chuyển sang trạng thái <code>CANCELLED</code>) để bạn có thể tạo giao dịch mới ngay khi gặp lỗi thanh toán qua {providerLabel}.
+                        Thao tác này chỉ <strong>hủy đơn hàng trên HomeSpace</strong> (chuyển sang trạng thái <code>CANCELLED</code>). {activeProvider === "ETH" ? "Nếu đã lấy báo giá ETH, hệ thống chỉ cho hủy khi báo giá hết hạn và blockchain xác nhận chưa thanh toán." : `Bạn có thể tạo giao dịch mới ngay khi gặp lỗi thanh toán qua ${providerLabel}.`}
                       </p>
                       <p>
-                        Lưu ý quan trọng: Thao tác này <strong>không thể hủy hoặc hoàn trả giao dịch thu tiền phía {providerLabel}</strong> nếu bạn đã thanh toán. Nếu {providerLabel} xác nhận trừ tiền thành công muộn sau khi hủy, đơn hàng sẽ tự động chuyển sang trạng thái <strong><code>REVIEW</code></strong> để bộ phận vận hành đối soát thủ công.
+                        Lưu ý quan trọng: Thao tác này <strong>không thể hủy hoặc hoàn trả giao dịch thu tiền phía {providerLabel}</strong> nếu bạn đã thanh toán. {activeProvider === "ETH" ? "Nếu đã gửi giao dịch qua MetaMask, hãy tiếp tục đối soát thay vì hủy đơn." : `Nếu ${providerLabel} xác nhận trừ tiền thành công muộn sau khi hủy, đơn hàng sẽ chuyển sang trạng thái REVIEW để đối soát thủ công.`}
                       </p>
                     </div>
                   </div>
@@ -669,6 +669,15 @@ function MembershipReturnContent() {
                   <RefreshCw className={`h-4 w-4 ${rechecking || polling ? "animate-spin" : ""}`} />
                   <span>Kiểm tra lại trạng thái</span>
                 </button>
+              )}
+              {isPending && order?.provider === "ETH" && (
+                <Link
+                  href={`/dashboard/membership/eth?orderId=${encodeURIComponent(order.id)}`}
+                  className="inline-flex items-center gap-2 rounded-xl border border-primary px-5 py-2.5 text-xs font-bold text-primary hover:bg-primary/5"
+                >
+                  <span>Tiếp tục thanh toán / đối soát MetaMask</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
               )}
 
               {isTrustedPending && (

@@ -21,7 +21,18 @@ function load(relativePath, mocks = {}) {
 const lib = load("lib/ai-appointment-cards.ts");
 const notes = load("lib/ai-contract-cards.ts");
 const { toChatMessage } = load("lib/ai-conversation.ts");
-const link = load("components/appointment/useAppointmentDeepLink.ts", { react: { useEffect() {}, useRef: () => ({ current: false }) }, sonner: { toast: {} } });
+let search = "";
+let effect;
+let getAppointment;
+const notices = [];
+const navigations = [];
+const router = { replace: (url, options) => { navigations.push([url, options]); search = url.split("?")[1] ?? ""; } };
+const link = load("components/appointment/useAppointmentDeepLink.ts", {
+  react: { useEffect: (callback) => { effect = callback; }, useCallback: (callback) => callback },
+  "next/navigation": { useSearchParams: () => new URLSearchParams(search), usePathname: () => "/dashboard/viewing-schedules", useRouter: () => router },
+  "@/services/appointment.service": { getAppointment: (id) => getAppointment(id) },
+  sonner: { toast: { info: (message) => notices.push(message), error: (message) => notices.push(message) } },
+});
 const A1 = "00000000-0000-0000-0000-0000000000a1";
 const A2 = "00000000-0000-0000-0000-0000000000a2";
 const card = (over = {}) => ({
@@ -147,17 +158,100 @@ test("deep link accepts only a UUID id and a whitelisted status hint", () => {
   assert.equal(link.tabForStatus("EXPIRED"), null);
 });
 
-test("exact open tries the hinted status first, pages through, and returns null for a foreign id", async () => {
+test("same-page links load each exact id once and use current status, not the stale hint", async () => {
   const calls = [];
-  const target = { id: A1, status: "COMPLETED" };
-  const fetchPage = async (status, page) => {
-    calls.push(`${status}:${page}`);
-    if (status === "COMPLETED" && page === 2) return { result: [target], totalPages: 2 };
-    return { result: [{ id: "other", status }], totalPages: status === "COMPLETED" ? 2 : 1 };
+  const opened = [];
+  getAppointment = async (id) => {
+    calls.push(id);
+    return { id, ownerId: "owner", renterId: "renter", status: "CANCELLED" };
   };
-  const hit = await link.findAppointment(A1, "COMPLETED", fetchPage);
-  assert.equal(hit.appointment, target);
-  assert.deepEqual(calls, ["COMPLETED:1", "COMPLETED:2"]);
-  const miss = await link.findAppointment(A2, null, async () => ({ result: [], totalPages: 1 }));
-  assert.equal(miss, null);
+  const onOpen = (appointment, tab) => { if (appointment) opened.push([appointment.id, tab]); };
+  search = `appointmentId=${A1}&status=PENDING`;
+  link.useAppointmentDeepLink({ authenticated: true, userId: "owner", side: "OWNER", onOpen });
+  const cleanup = effect();
+  await new Promise(setImmediate);
+  cleanup();
+  search = `appointmentId=${A2}`;
+  link.useAppointmentDeepLink({ authenticated: true, userId: "owner", side: "OWNER", onOpen });
+  effect();
+  await new Promise(setImmediate);
+  assert.deepEqual(calls, [A1, A2]);
+  assert.deepEqual(opened, [[A1, "CANCELLED"], [A2, "CANCELLED"]]);
+});
+
+test("navigating away ignores a late detail response and forbidden ids show a safe notice", async () => {
+  let resolve;
+  let opened = false;
+  getAppointment = () => new Promise((done) => { resolve = done; });
+  search = `appointmentId=${A1}`;
+  link.useAppointmentDeepLink({ authenticated: true, userId: "owner", side: "OWNER", onOpen: (appointment) => { opened = Boolean(appointment); } });
+  const cleanup = effect();
+  cleanup();
+  resolve({ id: A1, status: "CONFIRMED" });
+  await new Promise(setImmediate);
+  assert.equal(opened, false);
+  getAppointment = async () => { throw { response: { status: 403 } }; };
+  link.useAppointmentDeepLink({ authenticated: true, userId: "owner", side: "OWNER", onOpen: (appointment) => { opened = Boolean(appointment); } });
+  effect();
+  await new Promise(setImmediate);
+  assert.equal(opened, false);
+  assert.match(notices.at(-1), /không có quyền/);
+});
+
+test("closing clears only the appointment query and the same booking link can open again", async () => {
+  let opened = 0;
+  let selected = { id: "old" };
+  getAppointment = async (id) => ({ id, ownerId: "owner", renterId: "renter", status: "PENDING" });
+  search = `appointmentId=${A1}&status=PENDING&keep=1`;
+  const options = { authenticated: true, userId: "owner", side: "OWNER", onOpen: (appointment) => { selected = appointment; if (appointment) opened++; } };
+  const clear = link.useAppointmentDeepLink(options);
+  let cleanup = effect();
+  assert.equal(selected, null);
+  await new Promise(setImmediate);
+  clear();
+  assert.equal(search, "keep=1");
+  assert.equal(navigations.at(-1)[1].scroll, false);
+  cleanup();
+  search = `appointmentId=${A1}&keep=1`;
+  link.useAppointmentDeepLink(options);
+  cleanup = effect();
+  await new Promise(setImmediate);
+  assert.equal(opened, 2);
+  cleanup();
+  link.useAppointmentDeepLink({ ...options, userId: "renter", side: "OWNER" });
+  effect();
+  await new Promise(setImmediate);
+  assert.equal(opened, 2);
+  assert.match(notices.at(-1), /không thuộc phía/);
+});
+
+test("appointment refresh ignores badge events and coalesces a socket/push burst", async () => {
+  let listener;
+  let refreshes = 0;
+  let detail = { id: A1, status: "PENDING" };
+  let detailReads = 0;
+  let unsubscribed = false;
+  const { useAppointmentNotifications } = load("components/appointment/useAppointmentNotifications.ts", {
+    react: { useEffect: (callback) => { effect = callback; } },
+    "@/services/notification.service": { subscribe: (callback) => { listener = callback; return () => { unsubscribed = true; }; } },
+    "@/services/appointment.service": { getAppointment: async () => { detailReads++; return { id: A1, status: "CONFIRMED" }; } },
+  });
+  useAppointmentNotifications({ authenticated: true, refresh: async () => { refreshes++; }, detailId: A1, setDetail: (update) => { detail = update(detail); } });
+  const cleanup = effect();
+  listener({ type: "unread-count", count: 2 });
+  listener({ type: "read", id: "notification" });
+  await new Promise((resolve) => setTimeout(resolve, 270));
+  assert.equal(refreshes, 0);
+  listener({ type: "appointment-changed", bookingId: A1 });
+  listener({ type: "appointment-changed" });
+  listener({ type: "appointment-changed", bookingId: A1 });
+  await new Promise((resolve) => setTimeout(resolve, 270));
+  assert.equal(refreshes, 1);
+  assert.equal(detailReads, 1);
+  assert.equal(detail.status, "CONFIRMED");
+  listener({ type: "appointment-changed" });
+  cleanup();
+  await new Promise((resolve) => setTimeout(resolve, 270));
+  assert.equal(refreshes, 1);
+  assert.equal(unsubscribed, true);
 });

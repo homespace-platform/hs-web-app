@@ -8,6 +8,13 @@ import type {
 } from "@/types/appointment.type";
 
 const appointmentService = {
+  async getAppointment(id: string): Promise<AppointmentResponse> {
+    const response = await axiosClient.get<ApiResponse<AppointmentResponse>>(
+      `/api/v1/appointments/${encodeURIComponent(id)}`,
+    );
+    return response.data.result!;
+  },
+
   /**
    * Lấy lịch rảnh và danh sách khung giờ khả dụng của bài đăng
    */

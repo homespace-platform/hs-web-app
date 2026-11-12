@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import appointmentService from "@/services/appointment.service";
 import type { AppointmentResponse } from "@/types/appointment.type";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALL_STATUSES = ["CONFIRMED", "PENDING", "COMPLETED", "CANCELLED", "REJECTED", "EXPIRED"];
-const PAGE_SIZE = 50;
-const MAX_PAGES = 20;
 
 /** Tab that shows a status. EXPIRED has no tab, so the modal opens without switching. */
 export function tabForStatus(status: string): string | null {
@@ -25,45 +25,48 @@ export function parseDeepLink(search: string): { id: string; hint: string | null
   return { id: id.toLowerCase(), hint: status && ALL_STATUSES.includes(status) ? status : null };
 }
 
-type Page = { result?: AppointmentResponse[]; totalPages?: number };
-
-/** Search the caller's own appointments (the API enforces ownership) for the exact id, hinted status first. */
-export async function findAppointment(
-  id: string, hint: string | null, fetchPage: (status: string, page: number, size: number) => Promise<Page>,
-): Promise<{ appointment: AppointmentResponse; status: string } | null> {
-  const order = hint ? [hint, ...ALL_STATUSES.filter((s) => s !== hint)] : ALL_STATUSES;
-  for (const status of order) {
-    for (let page = 1; page <= MAX_PAGES; page += 1) {
-      const res = await fetchPage(status, page, PAGE_SIZE);
-      const found = (res.result || []).find((a) => a.id.toLowerCase() === id);
-      if (found) return { appointment: found, status };
-      if (page >= (res.totalPages || 1)) break;
-    }
-  }
-  return null;
-}
-
-/**
- * Opens the exact appointment named by the chat card. Runs once after login; the id is validated as a UUID and
- * the lookup goes through the normal role-scoped list API, so another user's id simply is not found.
- */
+/** Open the latest, authorized detail when a chat/notification link changes on this page. */
 export function useAppointmentDeepLink(options: {
   authenticated: boolean;
-  fetchPage: (status: string, page: number, size: number) => Promise<Page>;
-  onOpen: (appointment: AppointmentResponse, tab: string | null) => void;
+  userId: string | null;
+  side: "OWNER" | "RENTER";
+  onOpen: (appointment: AppointmentResponse | null, tab: string | null) => void;
 }) {
-  const handled = useRef(false);
-  const { authenticated, fetchPage, onOpen } = options;
+  const search = useSearchParams().toString();
+  const pathname = usePathname();
+  const router = useRouter();
+  const { authenticated, userId, side, onOpen } = options;
+  const clearDeepLink = useCallback(() => {
+    const params = new URLSearchParams(search);
+    if (!params.has("appointmentId")) return;
+    params.delete("appointmentId");
+    params.delete("status");
+    const query = params.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+  }, [pathname, router, search]);
   useEffect(() => {
-    if (!authenticated || handled.current || typeof window === "undefined") return;
-    const link = parseDeepLink(window.location.search);
-    handled.current = true;
+    if (!authenticated || !userId) return;
+    onOpen(null, null);
+    const link = parseDeepLink(search);
     if (!link) return;
-    // No cancel flag: React strict mode re-runs this effect and `handled` already guards against a second lookup.
-    findAppointment(link.id, link.hint, fetchPage).then((hit) => {
-      if (!hit) { toast.info("Không tìm thấy lịch hẹn này trong tài khoản của bạn. Có thể lịch đã được xóa hoặc thuộc tài khoản khác."); return; }
-      onOpen(hit.appointment, tabForStatus(hit.appointment.status || hit.status));
-    }).catch(() => { toast.error("Không thể mở lịch hẹn lúc này. Vui lòng thử lại."); });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authenticated]);
+    let disposed = false;
+    void appointmentService.getAppointment(link.id).then((appointment) => {
+      if (disposed) return;
+      if ((side === "OWNER" ? appointment.ownerId : appointment.renterId) !== userId) {
+        toast.info("Lịch hẹn không thuộc phía tài khoản bạn đang xem.");
+        return;
+      }
+      onOpen(appointment, tabForStatus(appointment.status));
+    }).catch((error: unknown) => {
+      if (disposed) return;
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 403 || status === 404) {
+        toast.info("Lịch hẹn không còn tồn tại hoặc bạn không có quyền xem.");
+      } else {
+        toast.error("Không thể mở lịch hẹn lúc này. Vui lòng thử lại.");
+      }
+    });
+    return () => { disposed = true; };
+  }, [authenticated, userId, side, search, onOpen]);
+  return clearDeepLink;
 }

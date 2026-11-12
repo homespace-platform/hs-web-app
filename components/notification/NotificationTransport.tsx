@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Bell, X } from "lucide-react";
 import { io } from "socket.io-client";
 import { useAuth } from "@/features/auth/useAuth";
 import keycloak from "@/lib/keycloak";
-import notificationService, { getCategoryMeta } from "@/services/notification.service";
+import notificationService, { getCategoryMeta, getSafeActionPath } from "@/services/notification.service";
 import { startPush } from "@/services/notification-push.service";
 import type { NotificationItem } from "@/types/notification.type";
 
-type Popup = Pick<NotificationItem, "id" | "category" | "title" | "body" | "priority"> & { recipientId: string };
+type Popup = Pick<NotificationItem, "id" | "category" | "title" | "body" | "priority" | "actionPath"> & { recipientId: string };
 
 export default function NotificationTransport() {
   const { authenticated, initialized, userId } = useAuth();
+  const pathname = usePathname();
   const [popups, setPopups] = useState<Popup[]>([]);
 
   useEffect(() => {
@@ -24,24 +26,21 @@ export default function NotificationTransport() {
       const next = count > 0 ? `(${count}) ${base}` : base;
       if (document.title !== next) document.title = next;
     };
-    const observer = new MutationObserver(updateTitle);
-    observer.observe(document.head, { childList: true, characterData: true, subtree: true });
     const unsubscribe = notificationService.subscribe((event) => {
       if (event.type === "unread-count") {
         count = event.count;
         updateTitle();
-      } else {
+      } else if (event.type !== "appointment-changed") {
         void notificationService.getUnreadCount().catch(() => {});
       }
     });
     void notificationService.getUnreadCount().catch(() => {});
     return () => {
       unsubscribe();
-      observer.disconnect();
       count = 0;
       updateTitle();
     };
-  }, [initialized, authenticated, userId]);
+  }, [initialized, authenticated, userId, pathname]);
 
   useEffect(() => {
     if (!initialized || !authenticated || !userId) return;
@@ -53,6 +52,11 @@ export default function NotificationTransport() {
     const scheduleRefresh = () => {
       clearTimeout(refreshTimer);
       refreshTimer = setTimeout(() => notificationService.notifyRemoteChanged(), 150);
+    };
+    // Push carries no resource data; reconnect/focus also recover changes missed offline.
+    const recoverChanges = () => {
+      scheduleRefresh();
+      notificationService.notifyAppointmentChanged();
     };
 
     const baseUrl = process.env.NEXT_PUBLIC_NOTIFICATION_SOCKET_URL;
@@ -73,7 +77,7 @@ export default function NotificationTransport() {
       : null;
 
     if (socket) {
-      socket.on("connect", scheduleRefresh);
+      socket.on("connect", recoverChanges);
       for (const event of [
         "notification:read",
         "notification:deleted",
@@ -84,6 +88,10 @@ export default function NotificationTransport() {
         if (document.visibilityState !== "visible") return;
         if (!value || typeof value !== "object") return;
         const item = value as Partial<NotificationItem>;
+        if (item.category === "APPOINTMENT") {
+          const bookingId = item.metadata?.bookingId;
+          notificationService.notifyAppointmentChanged(typeof bookingId === "string" ? bookingId : undefined);
+        }
         if (typeof item.id !== "string" || typeof item.title !== "string" || typeof item.body !== "string") return;
         const popup = { ...item, recipientId: userId } as Popup;
         setPopups((current) => current.some(({ id }) => id === popup.id)
@@ -115,16 +123,16 @@ export default function NotificationTransport() {
     };
     const tokenTimer = setInterval(refreshSocketToken, 30_000);
     const onVisible = () => {
-      if (document.visibilityState === "visible") scheduleRefresh();
+      if (document.visibilityState === "visible") recoverChanges();
     };
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", scheduleRefresh);
+    window.addEventListener("focus", recoverChanges);
     const onWorkerMessage = (event: MessageEvent) => {
-      if (event.data?.event === "notifications.changed") scheduleRefresh();
+      if (event.data?.event === "notifications.changed") recoverChanges();
     };
     navigator.serviceWorker?.addEventListener("message", onWorkerMessage);
 
-    void startPush(scheduleRefresh).then((stop) => {
+    void startPush(recoverChanges).then((stop) => {
       if (disposed) stop();
       else stopPush = stop;
     }).catch(() => {
@@ -139,7 +147,7 @@ export default function NotificationTransport() {
       for (const timer of popupTimers) clearTimeout(timer);
       clearInterval(tokenTimer);
       document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", scheduleRefresh);
+      window.removeEventListener("focus", recoverChanges);
       navigator.serviceWorker?.removeEventListener("message", onWorkerMessage);
       socket?.disconnect();
       stopPush?.();
@@ -164,7 +172,7 @@ export default function NotificationTransport() {
               </div>
               <p className="line-clamp-2 font-semibold text-slate-900 dark:text-white">{item.title}</p>
               <p className="mt-1 line-clamp-3 text-sm leading-5 text-slate-600 dark:text-slate-300">{item.body}</p>
-              <Link href="/notifications" onClick={() => setPopups((current) => current.filter(({ id }) => id !== item.id))} className="mt-3 inline-block text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400">
+              <Link href={getSafeActionPath(item.actionPath) ?? "/notifications"} onClick={() => setPopups((current) => current.filter(({ id }) => id !== item.id))} className="mt-3 inline-block text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400">
                 Xem thông báo →
               </Link>
             </div>

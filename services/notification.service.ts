@@ -161,6 +161,7 @@ export function withDefaultPreferences(
 }
 
 export type NotificationSyncEvent =
+  | { type: "appointment-changed"; bookingId?: string }
   | { type: "refresh" }
   | { type: "unread-count"; count: number }
   | { type: "read"; id: string; item: NotificationItem }
@@ -182,6 +183,10 @@ function emitSyncEvent(event: NotificationSyncEvent): void {
 }
 
 export const notificationService = {
+  notifyAppointmentChanged(bookingId?: string): void {
+    emitSyncEvent({ type: "appointment-changed", bookingId });
+  },
+
   notifyRemoteChanged(): void {
     emitSyncEvent({ type: "refresh" });
   },

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { Suspense, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Calendar,
@@ -22,6 +22,7 @@ import AppointmentDateFilter from "@/components/appointment/AppointmentDateFilte
 import BookingAppointmentModal from "@/components/appointment/BookingAppointmentModal";
 import AppointmentCalendar from "@/components/appointment/AppointmentCalendar";
 import { useAppointmentDeepLink } from "@/components/appointment/useAppointmentDeepLink";
+import { useAppointmentNotifications } from "@/components/appointment/useAppointmentNotifications";
 
 const STATUS_TABS: { label: string; value: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { label: "Lịch xem", value: "CALENDAR", icon: Calendar },
@@ -32,7 +33,12 @@ const STATUS_TABS: { label: string; value: string; icon: React.ComponentType<{ c
 ];
 
 export default function MyViewingBookingsPage() {
-  const { authenticated, login } = useAuth();
+  const { userId } = useAuth();
+  return <Suspense fallback={null}><MyViewingBookingsContent key={userId ?? "guest"} /></Suspense>;
+}
+
+function MyViewingBookingsContent() {
+  const { authenticated, userId, login } = useAuth();
 
   // State
   const [loading, setLoading] = useState(false);
@@ -49,15 +55,11 @@ export default function MyViewingBookingsPage() {
   // Modal Chi Tiết
   const [detailAppointment, setDetailAppointment] = useState<AppointmentResponse | null>(null);
 
-  // Mở đúng lịch từ thẻ AI: ?appointmentId=<uuid>&status=<hint>
-  useAppointmentDeepLink({
-    authenticated,
-    fetchPage: (status, page, size) => appointmentService.getMyBookings({ status, page, size }),
-    onOpen: (appointment, tab) => {
+  const openLinkedAppointment = useCallback((appointment: AppointmentResponse | null, tab: string | null) => {
       if (tab) { setStatusFilter(tab); setCurrentPage(1); }
       setDetailAppointment(appointment);
-    },
-  });
+  }, []);
+  const clearDeepLink = useAppointmentDeepLink({ authenticated, userId, side: "RENTER", onOpen: openLinkedAppointment });
 
   // Modal Đổi lịch
   const [rescheduleTarget, setRescheduleTarget] = useState<AppointmentResponse | null>(null);
@@ -119,6 +121,8 @@ export default function MyViewingBookingsPage() {
     }
   }, [authenticated, statusFilter, selectedDateFilter, currentPage]);
 
+  useAppointmentNotifications({ authenticated, refresh: fetchMyBookings, detailId: detailAppointment?.id, setDetail: setDetailAppointment });
+
   useEffect(() => {
     if (authenticated) {
       fetchMyBookings();
@@ -140,7 +144,8 @@ export default function MyViewingBookingsPage() {
     if (!cancelTarget) return;
     setCancelling(true);
     try {
-      await appointmentService.cancelByRenter(cancelTarget.id, cancelReason.trim() || undefined);
+      const updated = await appointmentService.cancelByRenter(cancelTarget.id, cancelReason.trim() || undefined);
+      setDetailAppointment((current) => current?.id === updated.id ? updated : current);
       toast.success("Đã hủy lịch xem nhà thành công.");
       setCancelTarget(null);
       setCancelReason("");
@@ -331,13 +336,15 @@ export default function MyViewingBookingsPage() {
       <AppointmentDetailModal
         appointment={detailAppointment}
         isOpen={!!detailAppointment}
-        onClose={() => setDetailAppointment(null)}
+        onClose={() => { setDetailAppointment(null); clearDeepLink(); }}
         viewRole="RENTER"
         onCancel={(apt) => {
           setCancelTarget(apt);
           setCancelReason("");
         }}
         onRequestReschedule={(apt) => {
+          setDetailAppointment(null);
+          clearDeepLink();
           setRescheduleTarget(apt);
         }}
       />

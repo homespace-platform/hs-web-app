@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { Suspense, useState, useEffect, useCallback } from "react";
 import {
   Calendar,
   Clock,
@@ -23,6 +23,7 @@ import AppointmentDetailModal from "@/components/appointment/AppointmentDetailMo
 import AppointmentDateFilter from "@/components/appointment/AppointmentDateFilter";
 import AppointmentCalendar from "@/components/appointment/AppointmentCalendar";
 import { useAppointmentDeepLink } from "@/components/appointment/useAppointmentDeepLink";
+import { useAppointmentNotifications } from "@/components/appointment/useAppointmentNotifications";
 
 const STATUS_TABS: { label: string; value: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { label: "Lịch xem", value: "CALENDAR", icon: Calendar },
@@ -33,7 +34,12 @@ const STATUS_TABS: { label: string; value: string; icon: React.ComponentType<{ c
 ];
 
 export default function ViewingSchedulesHostPage() {
-  const { authenticated, login } = useAuth();
+  const { userId } = useAuth();
+  return <Suspense fallback={null}><ViewingSchedulesHostContent key={userId ?? "guest"} /></Suspense>;
+}
+
+function ViewingSchedulesHostContent() {
+  const { authenticated, userId, login } = useAuth();
 
   // State
   const [loading, setLoading] = useState(false);
@@ -50,15 +56,11 @@ export default function ViewingSchedulesHostPage() {
   // Modal Chi Tiết
   const [detailAppointment, setDetailAppointment] = useState<AppointmentResponse | null>(null);
 
-  // Mở đúng lịch từ thẻ AI: ?appointmentId=<uuid>&status=<hint>
-  useAppointmentDeepLink({
-    authenticated,
-    fetchPage: (status, page, size) => appointmentService.getOwnerAppointments({ status, page, size }),
-    onOpen: (appointment, tab) => {
+  const openLinkedAppointment = useCallback((appointment: AppointmentResponse | null, tab: string | null) => {
       if (tab) { setStatusFilter(tab); setCurrentPage(1); }
       setDetailAppointment(appointment);
-    },
-  });
+  }, []);
+  const clearDeepLink = useAppointmentDeepLink({ authenticated, userId, side: "OWNER", onOpen: openLinkedAppointment });
 
   // Dialog Xử Lý Thao Tác (Approve, Reject, Cancel, Complete, Reject Reschedule)
   const [activeDialog, setActiveDialog] = useState<{
@@ -112,6 +114,8 @@ export default function ViewingSchedulesHostPage() {
     }
   }, [authenticated, statusFilter, selectedDateFilter, currentPage]);
 
+  useAppointmentNotifications({ authenticated, refresh: fetchAppointments, detailId: detailAppointment?.id, setDetail: setDetailAppointment });
+
   useEffect(() => {
     if (authenticated) {
       fetchAppointments();
@@ -148,7 +152,8 @@ export default function ViewingSchedulesHostPage() {
     if (!activeDialog.apt) return;
     setActionLoading(true);
     try {
-      await appointmentService.approveAppointment(activeDialog.apt.id, dialogInput.trim() || undefined);
+      const updated = await appointmentService.approveAppointment(activeDialog.apt.id, dialogInput.trim() || undefined);
+      setDetailAppointment((current) => current?.id === updated.id ? updated : current);
       toast.success("Đã chấp nhận lịch xem nhà!");
       closeActionDialog();
       fetchAppointments();
@@ -168,7 +173,8 @@ export default function ViewingSchedulesHostPage() {
     }
     setActionLoading(true);
     try {
-      await appointmentService.rejectAppointment(activeDialog.apt.id, dialogInput.trim());
+      const updated = await appointmentService.rejectAppointment(activeDialog.apt.id, dialogInput.trim());
+      setDetailAppointment((current) => current?.id === updated.id ? updated : current);
       toast.success("Đã từ chối lịch xem nhà.");
       closeActionDialog();
       fetchAppointments();
@@ -188,7 +194,8 @@ export default function ViewingSchedulesHostPage() {
     }
     setActionLoading(true);
     try {
-      await appointmentService.cancelByOwner(activeDialog.apt.id, dialogInput.trim());
+      const updated = await appointmentService.cancelByOwner(activeDialog.apt.id, dialogInput.trim());
+      setDetailAppointment((current) => current?.id === updated.id ? updated : current);
       toast.success("Đã hủy lịch hẹn xem nhà.");
       closeActionDialog();
       fetchAppointments();
@@ -202,7 +209,8 @@ export default function ViewingSchedulesHostPage() {
   // 5. Xử lý Hoàn thành (Complete)
   const handleComplete = async (apt: AppointmentResponse) => {
     try {
-      await appointmentService.completeAppointment(apt.id);
+      const updated = await appointmentService.completeAppointment(apt.id);
+      setDetailAppointment((current) => current?.id === updated.id ? updated : current);
       toast.success("Đã đánh dấu hoàn thành buổi xem nhà!");
       fetchAppointments();
     } catch (err: any) {
@@ -213,7 +221,8 @@ export default function ViewingSchedulesHostPage() {
   // 6. Xử lý Đồng ý Đổi lịch
   const handleApproveReschedule = async (apt: AppointmentResponse) => {
     try {
-      await appointmentService.approveReschedule(apt.id);
+      const updated = await appointmentService.approveReschedule(apt.id);
+      setDetailAppointment((current) => current?.id === updated.id ? updated : current);
       toast.success("Đã chấp nhận thời gian hẹn mới của khách!");
       fetchAppointments();
     } catch (err: any) {
@@ -230,7 +239,8 @@ export default function ViewingSchedulesHostPage() {
     }
     setActionLoading(true);
     try {
-      await appointmentService.rejectReschedule(activeDialog.apt.id, dialogInput.trim());
+      const updated = await appointmentService.rejectReschedule(activeDialog.apt.id, dialogInput.trim());
+      setDetailAppointment((current) => current?.id === updated.id ? updated : current);
       toast.success("Đã từ chối yêu cầu đổi lịch của khách.");
       closeActionDialog();
       fetchAppointments();
@@ -426,7 +436,7 @@ export default function ViewingSchedulesHostPage() {
       <AppointmentDetailModal
         appointment={detailAppointment}
         isOpen={!!detailAppointment}
-        onClose={() => setDetailAppointment(null)}
+        onClose={() => { setDetailAppointment(null); clearDeepLink(); }}
         viewRole="OWNER"
         onApprove={(apt) => openActionDialog(apt, "APPROVE")}
         onReject={(apt) => openActionDialog(apt, "REJECT")}

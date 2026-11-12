@@ -1,14 +1,25 @@
 "use client";
 
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { MOCK_NOTIFICATIONS } from "@/data/mock-notification-data";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/features/auth/useAuth";
+import notificationService, {
+  formatNotificationDate,
+  getCategoryMeta,
+  getSafeActionPath,
+  isNotificationUnread,
+  NOTIFICATION_FILTER_TABS,
+} from "@/services/notification.service";
 import {
-  NotificationItem,
-  NotificationCategory,
+  FEED_DEFAULT_LIMIT,
+  type NotificationCategory,
+  type NotificationFilterCategory,
+  type NotificationItem,
 } from "@/types/notification.type";
+import { getApiErrorMessage } from "@/utils/apiError";
 import { toast } from "sonner";
 import {
   Bell,
@@ -18,127 +29,290 @@ import {
   Home,
   Trash2,
   Search,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
   Newspaper,
+  Calendar,
+  MessageSquare,
+  UserCheck,
+  Loader2,
+  LogIn,
+  AlertCircle,
 } from "lucide-react";
-import { getVisiblePages } from "@/lib/pagination";
-
-const ITEMS_PER_PAGE = 8;
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] =
-    useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
-  const [activeTab, setActiveTab] = useState<NotificationCategory>("all");
+  const { authenticated, initialized, userId, login } = useAuth();
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [activeTab, setActiveTab] = useState<NotificationFilterCategory>("ALL");
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
+  const isSelfMutatingRef = useRef(false);
 
-  // Sync with localStorage preferences
-  useEffect(() => {
-    try {
-      const savedPrefs = localStorage.getItem("homespace_notification_prefs");
-      if (savedPrefs) {
-        const parsed = JSON.parse(savedPrefs);
-        if (parsed.newsNotifications === false) {
-          setNotifications(MOCK_NOTIFICATIONS.filter((n) => n.category !== "news"));
-        } else {
-          setNotifications(MOCK_NOTIFICATIONS);
-        }
-      }
-    } catch {
-      // fallback
+  const loadUnreadCount = useCallback(async () => {
+    if (!initialized || !authenticated) {
+      setUnreadCount(0);
+      return;
     }
-  }, []);
+    try {
+      const count = await notificationService.getUnreadCount();
+      setUnreadCount(count);
+    } catch {
+      // Feed request handles visible error state
+    }
+  }, [initialized, authenticated]);
 
-  // Unread count
-  const unreadCount = useMemo(
-    () => notifications.filter((n) => n.isUnread).length,
-    [notifications]
-  );
-
-  // Filter logic
-  const filteredNotifications = useMemo(() => {
-    return notifications.filter((item) => {
-      // 1. Unread filter
-      if (showUnreadOnly && !item.isUnread) return false;
-
-      // 2. Category tab
-      if (activeTab !== "all" && item.category !== activeTab) return false;
-
-      // 3. Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        return (
-          item.title.toLowerCase().includes(q) ||
-          item.message.toLowerCase().includes(q) ||
-          item.tag.toLowerCase().includes(q)
-        );
-      }
-
-      return true;
-    });
-  }, [notifications, activeTab, showUnreadOnly, searchQuery]);
-
-  // Pagination
-  const totalItems = filteredNotifications.length;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
-  const currentItems = filteredNotifications.slice(startIndex, endIndex);
-
-  // Mark single as read
-  const handleItemClick = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isUnread: false } : n))
-    );
-  };
-
-  // Mark all as read
-  const handleMarkAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isUnread: false })));
-    toast.success("Đã đánh dấu tất cả thông báo là đã đọc.");
-  };
-
-  // Clear all notifications
-  const handleClearAll = () => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa toàn bộ thông báo?")) {
+  const loadFeed = useCallback(async () => {
+    if (!initialized || !authenticated) {
       setNotifications([]);
-      toast.success("Đã xóa tất cả thông báo.");
+      setNextCursor(null);
+      setHasMore(false);
+      setError(null);
+      setLoadMoreError(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setLoadMoreError(null);
+    try {
+      const page = await notificationService.getFeed({
+        limit: FEED_DEFAULT_LIMIT,
+        category: activeTab === "ALL" ? undefined : activeTab,
+        unreadOnly: showUnreadOnly ? true : undefined,
+      });
+      setNotifications(page.items);
+      setNextCursor(page.nextCursor);
+      setHasMore(page.hasMore);
+    } catch (err) {
+      setNotifications([]);
+      setNextCursor(null);
+      setHasMore(false);
+      setError(getApiErrorMessage(err, "Không thể tải danh sách thông báo."));
+    } finally {
+      setLoading(false);
+    }
+  }, [initialized, authenticated, activeTab, showUnreadOnly]);
+
+  useEffect(() => {
+    if (!initialized) return;
+    if (!authenticated) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setNextCursor(null);
+      setHasMore(false);
+      setError(null);
+      setLoadMoreError(null);
+      setLoading(false);
+      return;
+    }
+    void loadFeed();
+    void loadUnreadCount();
+  }, [initialized, authenticated, userId, loadFeed, loadUnreadCount]);
+
+  // Sync with mutations triggered from other notification views (e.g. Header dropdown)
+  useEffect(() => {
+    const unsubscribe = notificationService.subscribe?.((event) => {
+      if (isSelfMutatingRef.current) return;
+
+      if (event.type === "unread-count") {
+        setUnreadCount(event.count);
+      } else if (event.type === "refresh") {
+        void loadFeed();
+        void loadUnreadCount();
+      } else if (event.type === "read") {
+        setNotifications((prev) => {
+          const target = prev.find((n) => n.id === event.id);
+          if (target && isNotificationUnread(target)) {
+            setUnreadCount((c) => Math.max(0, c - 1));
+          }
+          if (showUnreadOnly) {
+            return prev.filter((n) => n.id !== event.id);
+          }
+          return prev.map((n) =>
+            n.id === event.id
+              ? event.item ?? { ...n, readAt: n.readAt ?? new Date().toISOString() }
+              : n,
+          );
+        });
+      } else if (event.type === "read-all") {
+        setUnreadCount(0);
+        setNotifications((prev) =>
+          showUnreadOnly
+            ? []
+            : prev.map((n) => (n.readAt ? n : { ...n, readAt: event.readAt })),
+        );
+      } else if (event.type === "delete") {
+        setNotifications((prev) => {
+          const target = prev.find((n) => n.id === event.id);
+          if (target && isNotificationUnread(target)) {
+            setUnreadCount((c) => Math.max(0, c - 1));
+          }
+          return prev.filter((n) => n.id !== event.id);
+        });
+      }
+    });
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [showUnreadOnly, loadFeed, loadUnreadCount]);
+
+  // Client-side search filter over loaded feed items
+  const filteredNotifications = useMemo(() => {
+    if (!searchQuery.trim()) return notifications;
+    const q = searchQuery.toLowerCase().trim();
+    return notifications.filter((item) => {
+      const tag = getCategoryMeta(item.category).tag.toLowerCase();
+      return (
+        item.title.toLowerCase().includes(q) ||
+        item.body.toLowerCase().includes(q) ||
+        tag.includes(q)
+      );
+    });
+  }, [notifications, searchQuery]);
+
+  // Load next cursor page
+  const handleLoadMore = async () => {
+    if (!hasMore || !nextCursor || loadingMore || loading) return;
+    setLoadingMore(true);
+    setLoadMoreError(null);
+    try {
+      const page = await notificationService.getFeed({
+        limit: FEED_DEFAULT_LIMIT,
+        cursor: nextCursor,
+        category: activeTab === "ALL" ? undefined : activeTab,
+        unreadOnly: showUnreadOnly ? true : undefined,
+      });
+      setNotifications((prev) => {
+        const existingIds = new Set(prev.map((item) => item.id));
+        const appended = page.items.filter((item) => !existingIds.has(item.id));
+        return [...prev, ...appended];
+      });
+      setNextCursor(page.nextCursor);
+      setHasMore(page.hasMore);
+    } catch (err) {
+      const message = getApiErrorMessage(err, "Không thể tải thêm thông báo.");
+      setLoadMoreError(message);
+      toast.error(message);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Mark single notification as read
+  const handleItemClick = async (item: NotificationItem) => {
+    if (!isNotificationUnread(item)) return;
+    isSelfMutatingRef.current = true;
+    try {
+      const updated = await notificationService.markRead(item.id);
+      const nextReadAt = updated?.readAt ?? new Date().toISOString();
+      setNotifications((prev) =>
+        showUnreadOnly
+          ? prev.filter((n) => n.id !== item.id)
+          : prev.map((n) =>
+              n.id === item.id ? { ...n, ...(updated ?? {}), readAt: nextReadAt } : n,
+            ),
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không thể đánh dấu đã đọc."));
+    } finally {
+      isSelfMutatingRef.current = false;
+    }
+  };
+
+  // Mark all notifications as read
+  const handleMarkAllAsRead = async () => {
+    if (markingAllRead) return;
+    setMarkingAllRead(true);
+    isSelfMutatingRef.current = true;
+    try {
+      await notificationService.markAllRead();
+      const nowIso = new Date().toISOString();
+      setNotifications((prev) =>
+        showUnreadOnly
+          ? []
+          : prev.map((n) => (n.readAt ? n : { ...n, readAt: nowIso })),
+      );
+      setUnreadCount(0);
+      toast.success("Đã đánh dấu tất cả thông báo là đã đọc.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không thể đánh dấu tất cả là đã đọc."));
+    } finally {
+      setMarkingAllRead(false);
+      isSelfMutatingRef.current = false;
     }
   };
 
   // Remove single notification
-  const handleRemoveSingle = (e: React.MouseEvent, id: string) => {
+  const handleRemoveSingle = async (
+    e: React.MouseEvent,
+    item: NotificationItem,
+  ) => {
     e.stopPropagation();
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    toast.success("Đã xóa thông báo.");
+    const wasUnread = isNotificationUnread(item);
+    isSelfMutatingRef.current = true;
+    try {
+      await notificationService.deleteNotification(item.id);
+      setNotifications((prev) => prev.filter((n) => n.id !== item.id));
+      if (wasUnread) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+      toast.success("Đã xóa thông báo.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không thể xóa thông báo."));
+    } finally {
+      isSelfMutatingRef.current = false;
+    }
   };
 
-  // Helper to render strictly 1 ICON per category
-  const renderIcon = (category: "listing" | "contract" | "payment" | "news") => {
+  const renderIcon = (category: NotificationCategory) => {
     switch (category) {
-      case "news":
+      case "SYSTEM":
         return (
           <div className="w-11 h-11 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-2xs">
             <Newspaper className="w-5 h-5" />
           </div>
         );
-      case "payment":
+      case "PAYMENT":
         return (
           <div className="w-11 h-11 rounded-full bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/60 text-rose-500 flex items-center justify-center font-bold text-base shrink-0 shadow-2xs">
             <span>¥</span>
           </div>
         );
-      case "contract":
+      case "CONTRACT":
         return (
           <div className="w-11 h-11 rounded-full bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 shadow-2xs">
             <ShieldCheck className="w-5 h-5" />
           </div>
         );
-      case "listing":
+      case "APPOINTMENT":
+        return (
+          <div className="w-11 h-11 rounded-full bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-2xs">
+            <Calendar className="w-5 h-5" />
+          </div>
+        );
+      case "CHAT":
+        return (
+          <div className="w-11 h-11 rounded-full bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 shadow-2xs">
+            <MessageSquare className="w-5 h-5" />
+          </div>
+        );
+      case "ACCOUNT":
+        return (
+          <div className="w-11 h-11 rounded-full bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 shadow-2xs">
+            <UserCheck className="w-5 h-5" />
+          </div>
+        );
+      case "LISTING":
       default:
         return (
           <div className="w-11 h-11 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-2xs">
@@ -148,31 +322,46 @@ export default function NotificationsPage() {
     }
   };
 
-  // Helper to render strictly 1 tag color style per category
-  const renderTagBadge = (
-    tag: string,
-    category: "listing" | "contract" | "payment" | "news"
-  ) => {
+  const renderTagBadge = (category: NotificationCategory) => {
+    const tag = getCategoryMeta(category).tag;
     switch (category) {
-      case "news":
+      case "SYSTEM":
         return (
           <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200/80 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-400 shrink-0">
             {tag}
           </span>
         );
-      case "payment":
+      case "PAYMENT":
         return (
           <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200/80 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-400 shrink-0">
             {tag}
           </span>
         );
-      case "contract":
+      case "CONTRACT":
         return (
           <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200/80 dark:bg-purple-950/40 dark:border-purple-800/60 dark:text-purple-400 shrink-0">
             {tag}
           </span>
         );
-      case "listing":
+      case "APPOINTMENT":
+        return (
+          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200/80 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-400 shrink-0">
+            {tag}
+          </span>
+        );
+      case "CHAT":
+        return (
+          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-600 border border-sky-200/80 dark:bg-sky-950/40 dark:border-sky-800/60 dark:text-sky-400 shrink-0">
+            {tag}
+          </span>
+        );
+      case "ACCOUNT":
+        return (
+          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-600 border border-teal-200/80 dark:bg-teal-950/40 dark:border-teal-800/60 dark:text-teal-400 shrink-0">
+            {tag}
+          </span>
+        );
+      case "LISTING":
       default:
         return (
           <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200/80 dark:bg-blue-950/40 dark:border-blue-800/60 dark:text-blue-400 shrink-0">
@@ -181,6 +370,46 @@ export default function NotificationsPage() {
         );
     }
   };
+
+  if (!initialized) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-3">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Đang tải...</p>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background text-foreground">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 flex items-center justify-center px-4">
+          <div className="max-w-md w-full text-center space-y-5 rounded-2xl border border-border bg-card p-8 shadow-sm">
+            <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+              <Bell className="w-7 h-7 text-primary" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-xl font-bold font-heading">
+                Đăng nhập để xem thông báo
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Trung tâm thông báo chỉ dành cho tài khoản đã đăng nhập.
+              </p>
+            </div>
+            <Button
+              onClick={() => login("/notifications")}
+              className="rounded-full h-10 px-6 cursor-pointer"
+            >
+              <LogIn className="w-4 h-4 mr-2" />
+              Đăng nhập
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -212,7 +441,10 @@ export default function NotificationsPage() {
                   Trung tâm thông báo
                 </h1>
                 {unreadCount > 0 && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-xs font-bold shadow-2xs">
+                  <span
+                    data-testid="notification-center-unread-badge"
+                    className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-xs font-bold shadow-2xs"
+                  >
                     {unreadCount} chưa đọc
                   </span>
                 )}
@@ -227,22 +459,16 @@ export default function NotificationsPage() {
               {unreadCount > 0 && (
                 <button
                   type="button"
-                  onClick={handleMarkAllAsRead}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold text-foreground transition-all cursor-pointer shadow-2xs"
+                  onClick={() => void handleMarkAllAsRead()}
+                  disabled={markingAllRead}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card hover:bg-muted disabled:opacity-50 text-xs font-semibold text-foreground transition-all cursor-pointer shadow-2xs"
                 >
-                  <CheckCheck className="w-4 h-4 text-primary" />
+                  {markingAllRead ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  ) : (
+                    <CheckCheck className="w-4 h-4 text-primary" />
+                  )}
                   <span>Đã đọc tất cả</span>
-                </button>
-              )}
-
-              {notifications.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearAll}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-card hover:bg-red-50 dark:hover:bg-red-950/40 text-muted-foreground hover:text-red-600 hover:border-red-200 text-xs font-semibold transition-all cursor-pointer shadow-2xs"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Xóa tất cả</span>
                 </button>
               )}
             </div>
@@ -253,93 +479,26 @@ export default function NotificationsPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               {/* Filter Tabs */}
               <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("all");
-                    setCurrentPage(1);
-                  }}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                    activeTab === "all"
-                      ? "bg-primary text-primary-foreground font-bold shadow-2xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  Tất cả ({notifications.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("listing");
-                    setCurrentPage(1);
-                  }}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                    activeTab === "listing"
-                      ? "bg-primary text-primary-foreground font-bold shadow-2xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  Tin đăng (
-                  {notifications.filter((n) => n.category === "listing").length}
-                  )
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("contract");
-                    setCurrentPage(1);
-                  }}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                    activeTab === "contract"
-                      ? "bg-primary text-primary-foreground font-bold shadow-2xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  Hợp đồng (
-                  {notifications.filter((n) => n.category === "contract").length}
-                  )
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("payment");
-                    setCurrentPage(1);
-                  }}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                    activeTab === "payment"
-                      ? "bg-primary text-primary-foreground font-bold shadow-2xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  Thanh toán (
-                  {notifications.filter((n) => n.category === "payment").length}
-                  )
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("news");
-                    setCurrentPage(1);
-                  }}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                    activeTab === "news"
-                      ? "bg-primary text-primary-foreground font-bold shadow-2xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  Tin tức (
-                  {notifications.filter((n) => n.category === "news").length}
-                  )
-                </button>
+                {NOTIFICATION_FILTER_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                      activeTab === tab.id
+                        ? "bg-primary text-primary-foreground font-bold shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
               {/* Unread Only Toggle */}
               <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-muted-foreground hover:text-foreground shrink-0">
                 <div
-                  onClick={() => {
-                    setShowUnreadOnly(!showUnreadOnly);
-                    setCurrentPage(1);
-                  }}
+                  onClick={() => setShowUnreadOnly(!showUnreadOnly)}
                   className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                     showUnreadOnly
                       ? "bg-primary"
@@ -362,10 +521,7 @@ export default function NotificationsPage() {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm kiếm nội dung thông báo..."
                 className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-muted/60 border border-border rounded-xl focus:border-primary/50 text-foreground placeholder:text-muted-foreground outline-none transition-all"
               />
@@ -373,7 +529,33 @@ export default function NotificationsPage() {
           </div>
 
           {/* Notifications Feed */}
-          {filteredNotifications.length === 0 ? (
+          {loading ? (
+            <div className="bg-card rounded-2xl border border-border p-12 text-center text-muted-foreground flex flex-col items-center justify-center gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Đang tải thông báo...
+              </p>
+            </div>
+          ) : error ? (
+            <div className="bg-card rounded-2xl border border-red-200 dark:border-red-900/60 p-10 text-center flex flex-col items-center justify-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-950/40 flex items-center justify-center text-red-500">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h3 className="font-heading font-bold text-base text-foreground">
+                Không thể tải thông báo
+              </h3>
+              <p className="text-xs sm:text-sm max-w-md text-muted-foreground">
+                {error}
+              </p>
+              <button
+                type="button"
+                onClick={() => void loadFeed()}
+                className="mt-1 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
+              >
+                Thử lại
+              </button>
+            </div>
+          ) : filteredNotifications.length === 0 ? (
             <div className="bg-card rounded-2xl border border-border p-12 text-center text-muted-foreground flex flex-col items-center justify-center gap-3">
               <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center text-muted-foreground/50">
                 <Bell className="w-8 h-8" />
@@ -389,132 +571,101 @@ export default function NotificationsPage() {
             </div>
           ) : (
             <div className="bg-card rounded-2xl border border-border divide-y divide-border/60 overflow-hidden shadow-2xs">
-              {currentItems.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => handleItemClick(item.id)}
-                  className={`p-4 sm:p-5 hover:bg-muted/50 transition-colors flex items-start gap-3.5 sm:gap-4 cursor-pointer group relative ${
-                    item.isUnread ? "bg-primary/[0.02]" : ""
-                  }`}
-                >
-                  {/* Left Icon with unread indicator dot */}
-                  <div className="relative shrink-0 pt-0.5">
-                    {item.isUnread && (
-                      <span className="absolute -top-0.5 -left-0.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-card z-10" />
-                    )}
-                    {renderIcon(item.category)}
-                  </div>
+              {filteredNotifications.map((item) => {
+                const isUnread = isNotificationUnread(item);
+                const safeHref = getSafeActionPath(item.actionPath);
 
-                  {/* Body Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                      <h2 className="text-sm sm:text-base font-bold text-foreground group-hover:text-primary transition-colors">
-                        {item.title}
-                      </h2>
-                      <div className="flex items-center gap-2">
-                        {renderTagBadge(item.tag, item.category)}
-                        <button
-                          type="button"
-                          onClick={(e) => handleRemoveSingle(e, item.id)}
-                          title="Xóa thông báo này"
-                          className="text-muted-foreground/40 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => void handleItemClick(item)}
+                    className={`p-4 sm:p-5 hover:bg-muted/50 transition-colors flex items-start gap-3.5 sm:gap-4 cursor-pointer group relative ${
+                      isUnread ? "bg-primary/[0.02]" : ""
+                    }`}
+                  >
+                    {/* Left Icon with unread indicator dot */}
+                    <div className="relative shrink-0 pt-0.5">
+                      {isUnread && (
+                        <span className="absolute -top-0.5 -left-0.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-card z-10" />
+                      )}
+                      {renderIcon(item.category)}
+                    </div>
+
+                    {/* Body Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                        <h2 className="text-sm sm:text-base font-bold text-foreground group-hover:text-primary transition-colors">
+                          {item.title}
+                        </h2>
+                        <div className="flex items-center gap-2">
+                          {renderTagBadge(item.category)}
+                          <button
+                            type="button"
+                            onClick={(e) => void handleRemoveSingle(e, item)}
+                            title="Xóa thông báo này"
+                            className="text-muted-foreground/40 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mb-2">
+                        {item.body}
+                      </p>
+
+                      <div className="flex items-center justify-between text-xs text-muted-foreground/70 font-medium">
+                        <span>{formatNotificationDate(item.createdAt)}</span>
+                        {safeHref && (
+                          <Link
+                            href={safeHref}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleItemClick(item);
+                            }}
+                            className="text-primary hover:underline font-semibold flex items-center gap-1"
+                          >
+                            <span>Xem chi tiết</span>
+                            <span>→</span>
+                          </Link>
+                        )}
                       </div>
                     </div>
-
-                    <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mb-2">
-                      {item.message}
-                    </p>
-
-                    <div className="flex items-center justify-between text-xs text-muted-foreground/70 font-medium">
-                      <span>{item.date}</span>
-                      {item.link && (
-                        <Link
-                          href={item.link}
-                          className="text-primary hover:underline font-semibold flex items-center gap-1"
-                        >
-                          <span>Xem chi tiết</span>
-                          <span>→</span>
-                        </Link>
-                      )}
-                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
+          {/* Cursor Pagination */}
+          {!loading && !error && filteredNotifications.length > 0 && (
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-border/80 pt-6">
-              <p className="text-xs text-muted-foreground font-medium order-2 sm:order-1">
-                Hiển thị <span className="font-bold text-foreground">{startIndex + 1} - {endIndex}</span> trong tổng số <span className="font-bold text-foreground">{totalItems}</span> thông báo
+              <p className="text-xs text-muted-foreground font-medium">
+                Đang hiển thị{" "}
+                <span className="font-bold text-foreground">
+                  {filteredNotifications.length}
+                </span>{" "}
+                thông báo
               </p>
 
-              <div className="flex items-center gap-2 order-1 sm:order-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (currentPage > 1) {
-                      setCurrentPage(currentPage - 1);
-                      sectionRef.current?.scrollIntoView({ behavior: "smooth" });
-                    }
-                  }}
-                  disabled={currentPage === 1}
-                  className="h-10 px-3.5 rounded-xl border border-border bg-card text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  <span>Trước</span>
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {getVisiblePages(currentPage, totalPages).map((page, index) =>
-                    page === "ellipsis" ? (
-                      <span
-                        key={`ellipsis-${index}`}
-                        className="w-10 h-10 flex items-center justify-center text-xs font-bold text-muted-foreground"
-                      >
-                        …
-                      </span>
-                    ) : (
-                      <button
-                        key={page}
-                        type="button"
-                        onClick={() => {
-                          setCurrentPage(page);
-                          sectionRef.current?.scrollIntoView({
-                            behavior: "smooth",
-                          });
-                        }}
-                        className={`w-10 h-10 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          currentPage === page
-                            ? "bg-primary text-primary-foreground shadow-xs scale-105"
-                            : "border border-border bg-card text-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    )
+              {hasMore && nextCursor && (
+                <div className="flex flex-col items-end gap-2">
+                  {loadMoreError && (
+                    <span className="text-xs text-red-500">{loadMoreError}</span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => void handleLoadMore()}
+                    disabled={loadingMore}
+                    className="h-10 px-5 rounded-xl border border-border bg-card text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer shadow-2xs"
+                  >
+                    {loadingMore && <Loader2 className="w-4 h-4 animate-spin" />}
+                    <span>
+                      {loadingMore ? "Đang tải thêm..." : "Tải thêm thông báo"}
+                    </span>
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (currentPage < totalPages) {
-                      setCurrentPage(currentPage + 1);
-                      sectionRef.current?.scrollIntoView({ behavior: "smooth" });
-                    }
-                  }}
-                  disabled={currentPage === totalPages}
-                  className="h-10 px-3.5 rounded-xl border border-border bg-card text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                >
-                  <span>Tiếp</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+              )}
             </div>
           )}
         </div>

@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import keycloak from "@/lib/keycloak";
+import { unregisterPushBeforeLogout } from "@/services/notification-push.service";
 import { sessionCleared } from "@/features/auth/authSlice";
 import { userCleared } from "@/features/user/userSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -42,7 +43,12 @@ export function useAuth() {
     void keycloak.login(redirectUri ? { redirectUri } : undefined);
   }, []);
   const register = useCallback(() => void keycloak.register(), []);
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await unregisterPushBeforeLogout();
+    } catch {
+      // Continue logout if the notification service is unavailable.
+    }
     dispatch(sessionCleared());
     dispatch(userCleared());
     router.replace("/");

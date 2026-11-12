@@ -8,6 +8,7 @@ import OnboardingInitializer from "@/features/onboarding/OnboardingInitializer";
 import { Toaster } from "@/components/ui/sonner";
 import { ChatDemoProvider } from "@/components/chat/ChatDemoProvider";
 import { DashboardRoleProvider } from "@/components/dashboard/DashboardRoleContext";
+import NotificationTransport from "@/components/notification/NotificationTransport";
 import DashboardRolePickerModal from "@/components/dashboard/DashboardRolePickerModal";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -20,6 +21,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     >
       <StoreProvider>
         <AuthInitializer>
+          <NotificationTransport />
           <ChatDemoProvider>
             <DashboardRoleProvider>
               <AuthGuard>{children}</AuthGuard>

@@ -513,7 +513,7 @@ export default function Header() {
                   )}
                 </Link>
 
-                <NotificationDropdown initialCount={5} />
+                <NotificationDropdown />
 
                 <div className="hidden items-center gap-2 sm:flex">
                   {isDashboard ? (

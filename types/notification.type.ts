@@ -1,36 +1,62 @@
-export type NotificationCategory =
-  | "all"
-  | "listing"
-  | "contract"
-  | "payment"
-  | "news";
+export const NOTIFICATION_CATEGORIES = [
+  "SYSTEM",
+  "ACCOUNT",
+  "LISTING",
+  "APPOINTMENT",
+  "CONTRACT",
+  "PAYMENT",
+  "CHAT",
+] as const;
 
-export type NotificationTagType =
-  | "deposit"
-  | "contract"
-  | "listing"
-  | "payment"
-  | "news";
+export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
+
+export type NotificationFilterCategory = "ALL" | NotificationCategory;
+
+export const NOTIFICATION_PRIORITIES = [
+  "LOW",
+  "NORMAL",
+  "HIGH",
+  "URGENT",
+] as const;
+
+export type NotificationPriority = (typeof NOTIFICATION_PRIORITIES)[number];
+
+export const NOTIFICATION_CHANNELS = ["push", "email"] as const;
+export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
+
+export const FEED_DEFAULT_LIMIT = 20;
+export const FEED_MAX_LIMIT = 50;
+
+export type NotificationMetadata = Record<string, string | number | boolean>;
 
 export interface NotificationItem {
   id: string;
-  category: "listing" | "contract" | "payment" | "news";
+  category: NotificationCategory;
+  type: string;
   title: string;
-  tag: string;
-  tagType: NotificationTagType;
-  message: string;
-  date: string;
-  isUnread: boolean;
-  link?: string;
-  author?: string;
-  readTime?: string;
+  body: string;
+  priority: NotificationPriority;
+  actionPath: string | null;
+  metadata: NotificationMetadata | null;
+  createdAt: string;
+  readAt: string | null;
 }
 
-export interface NotificationPreferences {
-  systemNotifications: boolean;
-  soundEnabled: boolean;
-  newsNotifications: boolean;
-  newsMarketReports: boolean;
-  newsLegalGuides: boolean;
-  newsPlatformUpdates: boolean;
+export interface NotificationFeedPage {
+  items: NotificationItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface NotificationFeedQuery {
+  limit?: number;
+  cursor?: string;
+  category?: NotificationCategory;
+  unreadOnly?: boolean;
+}
+
+export interface NotificationPreferenceItem {
+  category: NotificationCategory;
+  push: boolean;
+  email: boolean;
 }

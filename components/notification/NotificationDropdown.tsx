@@ -20,6 +20,8 @@ import { useAuth } from "@/features/auth/useAuth";
 import notificationService, {
   formatNotificationDate,
   getCategoryMeta,
+  getNotificationTag,
+  getNotificationRecipientSideLabel,
   getSafeActionPath,
   isNotificationUnread,
   NOTIFICATION_FILTER_TABS,
@@ -314,8 +316,9 @@ export default function NotificationDropdown() {
     }
   };
 
-  const renderTagBadge = (category: NotificationCategory) => {
-    const tag = getCategoryMeta(category).tag;
+  const renderTagBadge = (item: NotificationItem) => {
+    const { category } = item;
+    const tag = getNotificationTag(item);
     switch (category) {
       case "SYSTEM":
         return (
@@ -517,7 +520,7 @@ export default function NotificationDropdown() {
                             {item.title}
                           </h3>
                           <div className="flex items-center gap-1.5 shrink-0">
-                            {renderTagBadge(item.category)}
+                            {renderTagBadge(item)}
                             <button
                               type="button"
                               onClick={(e) => void handleDeleteItem(e, item)}
@@ -532,6 +535,12 @@ export default function NotificationDropdown() {
                         <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-3">
                           {item.body}
                         </p>
+
+                        {getNotificationRecipientSideLabel(item) && (
+                          <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+                            {getNotificationRecipientSideLabel(item)}
+                          </p>
+                        )}
 
                         <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground/70 font-medium">
                           <span>{formatNotificationDate(item.createdAt)}</span>

@@ -146,6 +146,34 @@ export function getCategoryMeta(category: NotificationCategory): NotificationCat
   );
 }
 
+const APPOINTMENT_TYPE_TAGS: Record<string, string> = {
+  BOOKING_REQUESTED: "Đặt mới",
+  BOOKING_CONFIRMED: "Xác nhận",
+  BOOKING_REJECTED: "Từ chối",
+  BOOKING_RESCHEDULE_REQUESTED: "Đổi lịch",
+  BOOKING_RESCHEDULE_APPROVED: "Đổi lịch ✓",
+  BOOKING_RESCHEDULE_REJECTED: "Đổi lịch ×",
+  BOOKING_CANCELLED: "Đã hủy",
+  BOOKING_COMPLETED: "Hoàn tất",
+  BOOKING_EXPIRED: "Hết hạn",
+};
+
+type NotificationTagItem = Pick<NotificationItem, "category" | "type" | "metadata">;
+
+export function getNotificationTag(item: NotificationTagItem): string {
+  if (item.category !== "APPOINTMENT") return getCategoryMeta(item.category).tag;
+  return Object.hasOwn(APPOINTMENT_TYPE_TAGS, item.type)
+    ? APPOINTMENT_TYPE_TAGS[item.type]
+    : getCategoryMeta(item.category).tag;
+}
+
+export function getNotificationRecipientSideLabel(item: NotificationTagItem): string | null {
+  if (item.category !== "APPOINTMENT") return null;
+  if (item.metadata?.recipientSide === "OWNER") return "Vai trò chủ nhà";
+  if (item.metadata?.recipientSide === "RENTER") return "Vai trò người thuê";
+  return null;
+}
+
 export function withDefaultPreferences(
   items: NotificationPreferenceItem[] | null | undefined,
 ): NotificationPreferenceItem[] {

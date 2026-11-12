@@ -9,6 +9,8 @@ import { useAuth } from "@/features/auth/useAuth";
 import notificationService, {
   formatNotificationDate,
   getCategoryMeta,
+  getNotificationTag,
+  getNotificationRecipientSideLabel,
   getSafeActionPath,
   isNotificationUnread,
   NOTIFICATION_FILTER_TABS,
@@ -170,7 +172,7 @@ export default function NotificationsPage() {
     if (!searchQuery.trim()) return notifications;
     const q = searchQuery.toLowerCase().trim();
     return notifications.filter((item) => {
-      const tag = getCategoryMeta(item.category).tag.toLowerCase();
+      const tag = `${getCategoryMeta(item.category).tag} ${getNotificationTag(item)}`.toLowerCase();
       return (
         item.title.toLowerCase().includes(q) ||
         item.body.toLowerCase().includes(q) ||
@@ -322,8 +324,9 @@ export default function NotificationsPage() {
     }
   };
 
-  const renderTagBadge = (category: NotificationCategory) => {
-    const tag = getCategoryMeta(category).tag;
+  const renderTagBadge = (item: NotificationItem) => {
+    const { category } = item;
+    const tag = getNotificationTag(item);
     switch (category) {
       case "SYSTEM":
         return (
@@ -598,7 +601,7 @@ export default function NotificationsPage() {
                           {item.title}
                         </h2>
                         <div className="flex items-center gap-2">
-                          {renderTagBadge(item.category)}
+                          {renderTagBadge(item)}
                           <button
                             type="button"
                             onClick={(e) => void handleRemoveSingle(e, item)}
@@ -613,6 +616,12 @@ export default function NotificationsPage() {
                       <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mb-2">
                         {item.body}
                       </p>
+
+                      {getNotificationRecipientSideLabel(item) && (
+                        <p className="text-xs text-amber-700 dark:text-amber-400 mb-2">
+                          {getNotificationRecipientSideLabel(item)}
+                        </p>
+                      )}
 
                       <div className="flex items-center justify-between text-xs text-muted-foreground/70 font-medium">
                         <span>{formatNotificationDate(item.createdAt)}</span>

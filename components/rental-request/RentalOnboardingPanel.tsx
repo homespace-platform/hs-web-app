@@ -13,6 +13,7 @@ import PaymentReceiptActions from "@/components/payment/PaymentReceiptActions";
 import DepositLedgerSummary from "@/components/payment/DepositLedgerSummary";
 import ComplaintPanel from "@/components/complaint/ComplaintPanel";
 import RentalWorkflowPanel from "./RentalWorkflowPanel";
+import { useRentalRequestSync } from "./useRentalRequestSync";
 
 const date = (s: string) => s.split("T")[0].split("-").reverse().join("/");
 const instant = (s?: string) => s ? new Date(s).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
@@ -39,22 +40,35 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
   const isOwner = view ? view.askerRole === "LANDLORD" : isLandlord;
   const noticeOpen=!!view && !["CANCELLATION_REFUND_PENDING","COMPLETED","CANCELLED_BY_SYSTEM","CANCELLED_BY_RENTER","CANCELLED_BY_OWNER","EXPIRED","REJECTED"].includes(view.stage);
   useEffect(() => { if (view) onSnapshot?.(view); }, [view, onSnapshot]);
-  const load = useCallback(async () => {
-    try { const data = await service.refresh(rentalRequestId); setView(data); setError(""); }
-    catch (e) { setError(getApiErrorMessage(e, "Chưa tải được tiến trình nhận nhà.")); }
-  }, [rentalRequestId]);
+  // The refresh endpoint is a POST that also syncs stages and expiries, so share one in-flight call
+  // between the poll, notifications, manual refresh and post-action reloads.
+  const activeId = useRef<string | null>(null);
+  const inflight = useRef<Promise<RentalOnboarding | undefined> | null>(null);
   useEffect(() => {
-    let active = true;
-    async function refresh() { try { const data = await service.refresh(rentalRequestId); if (active) { setView(data); setError(""); } } catch (e) { if (active) setError(getApiErrorMessage(e, "Chưa tải được tiến trình nhận nhà.")); } }
-    void refresh();
-    const timer = setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, 15000);
-    return () => { active = false; clearInterval(timer); };
+    activeId.current = rentalRequestId;
+    return () => { activeId.current = null; };
   }, [rentalRequestId]);
+  const load = useCallback(() => {
+    if (inflight.current) return inflight.current;
+    const id = rentalRequestId;
+    const call = service.refresh(id).then((data) => {
+      if (activeId.current === id) { setView(data); setError(""); }
+      return data;
+    }).catch((e) => {
+      if (activeId.current === id) setError(getApiErrorMessage(e, "Chưa tải được tiến trình nhận nhà."));
+      return undefined;
+    }).finally(() => { inflight.current = null; });
+    inflight.current = call;
+    return call;
+  }, [rentalRequestId]);
+  useEffect(() => { void load(); }, [load]);
+  // Silent: only `view` changes, so an open earlier-start form and its typed values are untouched.
+  useRentalRequestSync(load, { requestId: rentalRequestId, pollMs: 15000 });
   async function action(task: () => Promise<unknown>) {
     if(actionLock.current)return;
     actionLock.current=true;
     setBusy(true);
-    try { await task(); const data = await service.refresh(rentalRequestId); setView(data); await onUpdated?.(data); setShowForm(false); toast.success("Đã cập nhật hồ sơ."); }
+    try { await task(); await inflight.current; const data = await load(); if (!data) throw new Error("refresh failed"); await onUpdated?.(data); setShowForm(false); toast.success("Đã cập nhật hồ sơ."); }
     catch (e) { toast.error(getApiErrorMessage(e, "Không thể thực hiện thao tác.")); }
     finally { actionLock.current=false;setBusy(false); }
   }

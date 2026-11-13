@@ -30,7 +30,7 @@ export default function NotificationTransport() {
       if (event.type === "unread-count") {
         count = event.count;
         updateTitle();
-      } else if (event.type !== "appointment-changed" && event.type !== "listing-changed") {
+      } else if (event.type !== "appointment-changed" && event.type !== "listing-changed" && event.type !== "rental-request-changed") {
         void notificationService.getUnreadCount().catch(() => {});
       }
     });
@@ -58,6 +58,7 @@ export default function NotificationTransport() {
       scheduleRefresh();
       notificationService.notifyAppointmentChanged();
       notificationService.notifyListingChanged();
+      notificationService.notifyRentalRequestChanged();
     };
 
     const baseUrl = process.env.NEXT_PUBLIC_NOTIFICATION_SOCKET_URL;
@@ -92,6 +93,10 @@ export default function NotificationTransport() {
         if (item.category === "LISTING") {
           const listingId = item.metadata?.listingId;
           notificationService.notifyListingChanged(typeof listingId === "string" ? listingId : undefined);
+        }
+        if (item.category === "RENTAL_REQUEST") {
+          const requestId = item.metadata?.requestId;
+          notificationService.notifyRentalRequestChanged(typeof requestId === "string" ? requestId : undefined);
         }
         if (document.visibilityState !== "visible") return;
         if (item.category === "APPOINTMENT") {
@@ -175,7 +180,7 @@ export default function NotificationTransport() {
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
                 <span>HomeSpace</span><span aria-hidden="true">·</span><span>{getCategoryMeta(item.category).label}</span>
-                {item.category === "LISTING" && getNotificationTag(item) !== getCategoryMeta(item.category).tag && (<><span aria-hidden="true">·</span><span>{getNotificationTag(item)}</span></>)}
+                {(item.category === "LISTING" || item.category === "RENTAL_REQUEST") && getNotificationTag(item) !== getCategoryMeta(item.category).tag && (<><span aria-hidden="true">·</span><span>{getNotificationTag(item)}</span></>)}
               </div>
               <p className="line-clamp-2 font-semibold text-slate-900 dark:text-white">{item.title}</p>
               <p className="mt-1 line-clamp-3 text-sm leading-5 text-slate-600 dark:text-slate-300">{item.body}</p>

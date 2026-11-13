@@ -4,7 +4,7 @@ import RentalOnboardingPanel from "./RentalOnboardingPanel";
 import RentalContractFallbackButton from "./RentalContractFallbackButton";
 import type { RentalOnboarding } from "@/services/rental-onboarding.service";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -33,6 +33,8 @@ import {
 import { format, formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
+import { useAuth } from "@/features/auth/useAuth";
+import { useRentalRequestSync } from "./useRentalRequestSync";
 import paymentRequestService from "@/services/payment-request.service";
 import storageService from "@/services/storage.service";
 import { toast } from "sonner";
@@ -67,6 +69,8 @@ interface RentalRequestDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   mode: "RECEIVED" | "SENT";
+  /** Detail already loaded and ownership-verified (notification link); skips the duplicate GET. */
+  initialDetail?: RentalRequestResponse | null;
   linkedContract?: ContractResponse | null;
   onAccept?: (req: RentalRequestResponse) => void;
   onReject?: (req: RentalRequestResponse) => void;
@@ -78,6 +82,8 @@ interface RentalRequestDetailModalProps {
   onPaymentStatusChange?: () => void;
   isProcessingAction?: boolean;
 }
+
+const PAYMENT_STATUSES = ["ACCEPTED", "COMPLETED", "CANCELLED_BY_SYSTEM", "CANCELLED_BY_RENTER", "CANCELLED_BY_OWNER"];
 
 function isValidImageUrl(url?: string | null): boolean {
   if (!url || typeof url !== "string") return false;
@@ -147,6 +153,7 @@ export default function RentalRequestDetailModal({
   isOpen,
   onClose,
   mode,
+  initialDetail = null,
   linkedContract,
   onAccept,
   onReject,
@@ -158,7 +165,17 @@ export default function RentalRequestDetailModal({
   onPaymentStatusChange,
   isProcessingAction = false,
 }: RentalRequestDetailModalProps) {
+  const { userId } = useAuth();
   const [detail, setDetail] = useState<RentalRequestResponse | null>(null);
+  const activeRequestId = useRef<string | null>(null);
+  // Shared by the initial GET and silent refreshes: a result applies only if its ticket is newer than the last applied one.
+  const detailSeq = useRef(0);
+  const detailApplied = useRef(0);
+  // Never show a request on the wrong side or for another account, whatever the API returned.
+  const isOwnSide = useCallback(
+    (res: RentalRequestResponse) => !!userId && (mode === "RECEIVED" ? res.ownerId === userId : res.renterId === userId),
+    [mode, userId],
+  );
   const [onboarding, setOnboarding] = useState<RentalOnboarding | null>(null);
   const [detailedPayment, setDetailedPayment] = useState<PaymentRequest | null>(null);
   const [proofViewUrl, setProofViewUrl] = useState<string | null>(null);
@@ -203,32 +220,43 @@ export default function RentalRequestDetailModal({
   // Fetch fresh request detail when modal opens or requestId changes
   useEffect(() => {
     setOnboarding(null);
-    if (!isOpen || !requestId) {
-      setDetail(null);
-      setDetailedPayment(null);
-      setProofViewUrl(null);
-      setProofLoading(false);
-      setProofError(null);
-      setError(null);
+    setDetail(null);
+    setDetailedPayment(null);
+    setProofViewUrl(null);
+    setProofLoading(false);
+    setProofError(null);
+    setError(null);
+    activeRequestId.current = isOpen && requestId ? requestId : null;
+    // Each effect run invalidates every earlier ticket (older refreshes of a previous open of the same id).
+    const ticket = ++detailSeq.current;
+    detailApplied.current = ticket - 1;
+    if (!isOpen || !requestId) return;
+
+    if (initialDetail && initialDetail.id === requestId && isOwnSide(initialDetail)) {
+      setDetail(initialDetail);
+      setLoading(false);
+      if (PAYMENT_STATUSES.includes(initialDetail.status)) loadDetailedPayment(initialDetail.id);
       return;
     }
 
     let isMounted = true;
     setLoading(true);
-    setError(null);
 
     rentalRequestService
       .getRequestById(requestId)
       .then((res) => {
-        if (isMounted) {
-          setDetail(res);
-          if (["ACCEPTED","COMPLETED","CANCELLED_BY_SYSTEM","CANCELLED_BY_RENTER","CANCELLED_BY_OWNER"].includes(res.status)) {
-            loadDetailedPayment(res.id);
-          }
+        // A fresher silent refresh already applied: drop this older GET (its spinner is cleared in finally).
+        if (!isMounted || ticket <= detailApplied.current) return;
+        if (!isOwnSide(res)) {
+          setError("Yêu cầu thuê không thuộc tài khoản hoặc vai trò đang xem.");
+          return;
         }
+        detailApplied.current = ticket;
+        setDetail(res);
+        if (PAYMENT_STATUSES.includes(res.status)) loadDetailedPayment(res.id);
       })
       .catch(() => {
-        if (isMounted) {
+        if (isMounted && ticket > detailApplied.current) {
           setError("Không thể tải chi tiết yêu cầu thuê. Vui lòng thử lại.");
         }
       })
@@ -241,7 +269,20 @@ export default function RentalRequestDetailModal({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, requestId, loadDetailedPayment]);
+  }, [isOpen, requestId, initialDetail, isOwnSide, loadDetailedPayment]);
+
+  // Silent refresh on rental-request notifications: no loading flag, so the onboarding form stays mounted.
+  const refreshDetail = useCallback(async () => {
+    const id = activeRequestId.current;
+    if (!id) return;
+    const ticket = ++detailSeq.current;
+    const fresh = await rentalRequestService.getRequestById(id);
+    if (activeRequestId.current !== id || ticket <= detailApplied.current || !isOwnSide(fresh)) return;
+    detailApplied.current = ticket;
+    setDetail(fresh);
+    if (PAYMENT_STATUSES.includes(fresh.status)) await loadDetailedPayment(id);
+  }, [isOwnSide, loadDetailedPayment]);
+  useRentalRequestSync(refreshDetail, { enabled: isOpen && !!requestId && !!userId, requestId });
 
   if (!isOpen) return null;
 
@@ -466,7 +507,7 @@ export default function RentalRequestDetailModal({
                     setError(null);
                     rentalRequestService
                       .getRequestById(requestId)
-                      .then((res) => setDetail(res))
+                      .then((res) => (isOwnSide(res) ? setDetail(res) : setError("Yêu cầu thuê không thuộc tài khoản hoặc vai trò đang xem.")))
                       .catch(() => setError("Không thể tải chi tiết yêu cầu thuê."))
                       .finally(() => setLoading(false));
                   }
@@ -478,7 +519,7 @@ export default function RentalRequestDetailModal({
             </div>
           ) : (
             <>
-              {["ACCEPTED", "COMPLETED", "CANCELLED_BY_RENTER","CANCELLED_BY_SYSTEM","CANCELLED_BY_OWNER"].includes(detail.status) && <RentalOnboardingPanel rentalRequestId={detail.id} compact={mode !== "RECEIVED"} isLandlord={mode === "RECEIVED"} onSnapshot={setOnboarding} onUpdated={async () => {
+              {["ACCEPTED", "COMPLETED", "CANCELLED_BY_RENTER","CANCELLED_BY_SYSTEM","CANCELLED_BY_OWNER"].includes(detail.status) && <RentalOnboardingPanel key={detail.id} rentalRequestId={detail.id} compact={mode !== "RECEIVED"} isLandlord={mode === "RECEIVED"} onSnapshot={setOnboarding} onUpdated={async () => {
                 const fresh = await rentalRequestService.getRequestById(detail.id);
                 setDetail(fresh);
                 await loadDetailedPayment(detail.id);

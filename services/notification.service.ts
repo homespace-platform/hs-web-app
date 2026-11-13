@@ -94,6 +94,14 @@ export const NOTIFICATION_CATEGORY_META: Record<
     settingsDescription:
       "Yêu cầu đặt lịch, xác nhận hoặc thay đổi lịch hẹn xem bất động sản",
   },
+  RENTAL_REQUEST: {
+    category: "RENTAL_REQUEST",
+    label: "Yêu cầu thuê",
+    tag: "Yêu cầu thuê",
+    settingsTitle: "Yêu cầu thuê",
+    settingsDescription:
+      "Cập nhật yêu cầu thuê, giữ chỗ, hủy thuê, đổi ngày bắt đầu và tiếp tục thuê",
+  },
   CHAT: {
     category: "CHAT",
     label: "Tin nhắn",
@@ -129,6 +137,7 @@ export const NOTIFICATION_FILTER_TABS: ReadonlyArray<{
   { id: "CONTRACT", label: "Hợp đồng" },
   { id: "PAYMENT", label: "Thanh toán" },
   { id: "APPOINTMENT", label: "Lịch hẹn" },
+  { id: "RENTAL_REQUEST", label: "Yêu cầu thuê" },
   { id: "CHAT", label: "Tin nhắn" },
   { id: "ACCOUNT", label: "Tài khoản" },
   { id: "SYSTEM", label: "Hệ thống" },
@@ -175,9 +184,43 @@ const LISTING_STATUS_TAGS: Record<string, string> = {
   RENTED_EXTERNALLY: "Đã cho thuê",
 };
 
+const RENTAL_REQUEST_TYPE_TAGS: Record<string, string> = {
+  RENTAL_REQUEST_SUBMITTED: "Yêu cầu mới",
+  RENTAL_REQUEST_ACCEPTED: "Chấp nhận",
+  RENTAL_REQUEST_REJECTED: "Từ chối",
+  RENTAL_REQUEST_AUTO_REJECTED: "Tự động từ chối",
+  RENTAL_REQUEST_CANCELLED: "Đã hủy",
+  RENTAL_REQUEST_EXPIRED: "Hết hạn",
+  RENTAL_HOLD_EXPIRED: "Hết hạn giữ chỗ",
+  RENTAL_CANCELLATION_REQUESTED: "Yêu cầu hủy",
+  RENTAL_CANCELLATION_REFUND_PENDING: "Chờ hoàn tiền",
+  RENTAL_CANCELLATION_REJECTED: "Từ chối hủy",
+  RENTAL_CANCELLATION_WITHDRAWN: "Rút yêu cầu hủy",
+  RENTAL_CANCELLATION_DISPUTED: "Tranh chấp hủy",
+  RENTAL_START_CHANGE_REQUESTED: "Đổi ngày",
+  RENTAL_START_CHANGE_APPROVED: "Đổi ngày ✓",
+  RENTAL_START_CHANGE_REJECTED: "Đổi ngày ×",
+  RENTAL_START_CHANGE_WITHDRAWN: "Rút đổi ngày",
+  RENTAL_START_CHANGE_EXPIRED: "Đổi ngày hết hạn",
+  RENTAL_SIGNING_WINDOW_REOPENED: "Mở lại ký",
+  RENTAL_HOLD_EXTENDED: "Gia hạn giữ chỗ",
+  RENTAL_DEFAULT_NOTICE_ISSUED: "Thông báo vi phạm",
+  RENTAL_DEFAULT_DISPUTED: "Tranh chấp vi phạm",
+  RENTAL_REQUEST_CANCELLED_BY_SYSTEM: "Hệ thống hủy",
+  RENTAL_RESUME_REQUESTED: "Yêu cầu tiếp tục",
+  RENTAL_RESUMED: "Đã tiếp tục",
+  RENTAL_RESUME_REJECTED: "Từ chối tiếp tục",
+  RENTAL_RESUME_WITHDRAWN: "Rút yêu cầu tiếp tục",
+};
+
 type NotificationTagItem = Pick<NotificationItem, "category" | "type" | "metadata">;
 
 export function getNotificationTag(item: NotificationTagItem): string {
+  if (item.category === "RENTAL_REQUEST") {
+    return Object.hasOwn(RENTAL_REQUEST_TYPE_TAGS, item.type)
+      ? RENTAL_REQUEST_TYPE_TAGS[item.type]
+      : getCategoryMeta(item.category).tag;
+  }
   if (item.category === "LISTING") {
     const status = item.metadata?.status;
     const tag = item.type === "LISTING_STATUS_CHANGED"
@@ -192,7 +235,7 @@ export function getNotificationTag(item: NotificationTagItem): string {
 }
 
 export function getNotificationRecipientSideLabel(item: NotificationTagItem): string | null {
-  if (item.category !== "APPOINTMENT") return null;
+  if (item.category !== "APPOINTMENT" && item.category !== "RENTAL_REQUEST") return null;
   if (item.metadata?.recipientSide === "OWNER") return "Vai trò chủ nhà";
   if (item.metadata?.recipientSide === "RENTER") return "Vai trò người thuê";
   return null;
@@ -215,6 +258,7 @@ export function withDefaultPreferences(
 export type NotificationSyncEvent =
   | { type: "appointment-changed"; bookingId?: string }
   | { type: "listing-changed"; listingId?: string }
+  | { type: "rental-request-changed"; requestId?: string }
   | { type: "refresh" }
   | { type: "unread-count"; count: number }
   | { type: "read"; id: string; item: NotificationItem }
@@ -242,6 +286,10 @@ export const notificationService = {
 
   notifyListingChanged(listingId?: string): void {
     emitSyncEvent({ type: "listing-changed", listingId });
+  },
+
+  notifyRentalRequestChanged(requestId?: string): void {
+    emitSyncEvent({ type: "rental-request-changed", requestId });
   },
 
   notifyRemoteChanged(): void {

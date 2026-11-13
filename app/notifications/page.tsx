@@ -35,6 +35,7 @@ import {
   Calendar,
   MessageSquare,
   UserCheck,
+  KeyRound,
   Loader2,
   LogIn,
   AlertCircle,
@@ -314,6 +315,12 @@ export default function NotificationsPage() {
             <UserCheck className="w-5 h-5" />
           </div>
         );
+      case "RENTAL_REQUEST":
+        return (
+          <div className="w-11 h-11 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-2xs">
+            <KeyRound className="w-5 h-5" />
+          </div>
+        );
       case "LISTING":
       default:
         return (
@@ -361,6 +368,12 @@ export default function NotificationsPage() {
       case "ACCOUNT":
         return (
           <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-600 border border-teal-200/80 dark:bg-teal-950/40 dark:border-teal-800/60 dark:text-teal-400 shrink-0">
+            {tag}
+          </span>
+        );
+      case "RENTAL_REQUEST":
+        return (
+          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200/80 dark:bg-indigo-950/40 dark:border-indigo-800/60 dark:text-indigo-400 shrink-0">
             {tag}
           </span>
         );

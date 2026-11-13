@@ -12,6 +12,7 @@ import {
   Calendar,
   MessageSquare,
   UserCheck,
+  KeyRound,
   CreditCard,
   LoaderCircle,
   AlertCircle,
@@ -150,6 +151,8 @@ export default function NotificationsSection() {
         return <Building className="w-5 h-5" />;
       case "APPOINTMENT":
         return <Calendar className="w-5 h-5" />;
+      case "RENTAL_REQUEST":
+        return <KeyRound className="w-5 h-5" />;
       case "CONTRACT":
         return <ShieldCheck className="w-5 h-5" />;
       case "PAYMENT":

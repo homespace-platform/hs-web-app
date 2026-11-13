@@ -1,7 +1,7 @@
 "use client";
 
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -29,6 +29,9 @@ import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
+import { useAuth } from "@/features/auth/useAuth";
+import { useRentalRequestDeepLink } from "./useRentalRequestDeepLink";
+import { useRentalRequestSync } from "./useRentalRequestSync";
 import RentalRequestDetailModal from "./RentalRequestDetailModal";
 import RentalRequestAiReviewModal from "./RentalRequestAiReviewModal";
 import RentalContractFallbackButton from "./RentalContractFallbackButton";
@@ -134,8 +137,22 @@ function isValidImageUrl(url?: string | null): boolean {
   );
 }
 
+// Keyed by account and side so a login switch drops every list, contract and modal state at once.
 export default function RentalRequestsManagement({ mode }: RentalRequestsManagementProps) {
+  const { userId } = useAuth();
+  return (
+    <Suspense fallback={null}>
+      <RentalRequestsManagementView key={`${mode}:${userId ?? "anonymous"}`} mode={mode} />
+    </Suspense>
+  );
+}
+
+function RentalRequestsManagementView({ mode }: RentalRequestsManagementProps) {
   const router = useRouter();
+  const { initialized, authenticated, userId, login } = useAuth();
+  const listRequestSeq = useRef(0);
+  const listForegroundSeq = useRef(0);
+  const listAppliedSeq = useRef(0);
   const [statusFilter, setStatusFilter] = useState<RentalRequestStatus | "ALL">("ALL");
   const [page, setPage] = useState<number>(1);
   const [pageSize] = useState<number>(8);
@@ -158,6 +175,24 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   const [agreementsByRequest, setAgreementsByRequest] = useState<Record<string, ContractResponse | null>>({});
   const [openingContractId, setOpeningContractId] = useState<string | null>(null);
   const [detailRequestId, setDetailRequestId] = useState<string | null>(null);
+  // Detail already verified against the signed-in user by a notification link; avoids a second GET.
+  const [verifiedDetail, setVerifiedDetail] = useState<RentalRequestResponse | null>(null);
+  const openLinkedRequest = useCallback((request: RentalRequestResponse | null) => {
+    setVerifiedDetail(request);
+    setDetailRequestId(request?.id ?? null);
+  }, []);
+  const clearDeepLink = useRentalRequestDeepLink({ initialized, authenticated, userId, mode, login, onOpen: openLinkedRequest });
+  // Single close path: drops only ?requestId so the same or another link can open again.
+  const closeDetail = useCallback(() => {
+    setDetailRequestId(null);
+    setVerifiedDetail(null);
+    clearDeepLink();
+  }, [clearDeepLink]);
+  const openDetail = (id: string) => {
+    clearDeepLink();
+    setVerifiedDetail(null);
+    setDetailRequestId(id);
+  };
   const [paymentTarget, setPaymentTarget] = useState<RentalRequestResponse | null>(null);
   const [depositQuickTarget,setDepositQuickTarget]=useState<RentalRequestResponse|null>(null);
   const [startChangeTarget,setStartChangeTarget]=useState<RentalRequestResponse|null>(null);
@@ -188,7 +223,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
       else if(result.fileState==="INCOMPLETE") toast.info("Đã có bản nháp. Vui lòng bổ sung thông tin bắt buộc trước khi kết xuất và ký.");
       else if(result.fileState==="EXISTING") toast.info("Hợp đồng đã tồn tại. Mở để tiếp tục theo trạng thái hiện tại.");
       else toast.success("Bản nháp hợp đồng đã sẵn sàng để kiểm tra.");
-      setDetailRequestId(null);
+      closeDetail();
       router.push(contractDetailPath("landlord",result.contract.id));
     } catch(error) {
       if(!controller.signal.aborted)toast.error(getApiErrorMessage(error,"Chưa thể tạo bản nháp hợp đồng. Vui lòng kiểm tra tiến trình nhận nhà và mẫu hợp đồng."));
@@ -199,41 +234,53 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     }
   };
 
-  const fetchRequests = useCallback(async () => {
-    setLoading(true);
-    try {
-      if (mode === "SENT") {
-        const res = await rentalRequestService.getMyRequests({
-          status: statusFilter,
-          page,
-          size: pageSize,
-        });
-        setRequests(res.result || []);
-        setTotalElements(res.totalElements || 0);
-        setTotalPages(res.totalPages || 1);
-      } else {
-        const res = await rentalRequestService.getOwnerRequests({
-          status: statusFilter,
-          page,
-          size: pageSize,
-        });
-        setRequests(res.result || []);
-        setTotalElements(res.totalElements || 0);
-        setTotalPages(res.totalPages || 1);
-      }
-    } catch {
-      toast.error("Không thể tải danh sách yêu cầu thuê nhà.");
-    } finally {
-      setLoading(false);
+  const applyPage = useCallback((res: { result?: RentalRequestResponse[]; totalElements?: number; totalPages?: number }) => {
+    const next = res.result || [];
+    setRequests((previous) => (JSON.stringify(previous) === JSON.stringify(next) ? previous : next));
+    setTotalElements(res.totalElements || 0);
+    setTotalPages(res.totalPages || 1);
+  }, []);
+
+  const loadRequests = useCallback(async (silent: boolean) => {
+    if (!initialized || !authenticated || !userId) return;
+    // Every load gets a unique ticket. A result applies only if no newer foreground load started (filter/page
+    // change) and nothing newer already applied, so an old foreground can't overwrite a fresher silent result.
+    const sequence = ++listRequestSeq.current;
+    if (!silent) {
+      listForegroundSeq.current = sequence;
+      setLoading(true);
     }
-  }, [mode, statusFilter, page, pageSize]);
+    const isCurrent = () => sequence >= listForegroundSeq.current && sequence > listAppliedSeq.current;
+    try {
+      const params = { status: statusFilter, page, size: pageSize };
+      const res = mode === "SENT"
+        ? await rentalRequestService.getMyRequests(params)
+        : await rentalRequestService.getOwnerRequests(params);
+      if (!isCurrent()) return;
+      listAppliedSeq.current = sequence;
+      applyPage(res);
+    } catch {
+      if (!silent && isCurrent()) toast.error("Không thể tải danh sách yêu cầu thuê nhà.");
+    } finally {
+      // Spinner belongs to the latest foreground load, even if a silent result superseded its data.
+      if (!silent && sequence === listForegroundSeq.current) setLoading(false);
+    }
+  }, [initialized, authenticated, userId, mode, statusFilter, page, pageSize, applyPage]);
+  const fetchRequests = useCallback(() => loadRequests(false), [loadRequests]);
+  // Silent: no skeleton, no toast, and an unchanged page keeps the same array so dependants do not refetch.
+  const refreshRequests = useCallback(() => loadRequests(true), [loadRequests]);
 
   useEffect(() => {
+    if (!initialized) return;
+    if (!authenticated) {
+      setLoading(false);
+      return;
+    }
     void fetchRequests();
-  }, [fetchRequests]);
+  }, [initialized, authenticated, fetchRequests]);
 
   useEffect(() => {
-    if (mode !== "RECEIVED") return;
+    if (mode !== "RECEIVED" || !initialized || !authenticated || !userId) return;
     let active = true;
     rentalRequestService
       .getOwnerConflicts()
@@ -256,7 +303,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
     return () => {
       active = false;
     };
-  }, [mode, requests]);
+  }, [mode, requests, initialized, authenticated, userId]);
 
   const acceptFromReview = async (requestId: string) => {
     const local = requests.find((item) => item.id === requestId);
@@ -273,20 +320,25 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
   };
 
   // Tra cứu hợp đồng trong suốt vòng đời giữ chỗ và sau khi thuê thành công.
+  // Keyed by the id set so a silent refresh that changes nothing does not refetch every contract.
+  const contractRequestKey = useMemo(
+    () => requests
+      .filter((request) => ["ACCEPTED","COMPLETED","CANCELLED_BY_SYSTEM","CANCELLED_BY_RENTER","CANCELLED_BY_OWNER","EXPIRED"].includes(request.status))
+      .map((request) => request.id)
+      .join(","),
+    [requests],
+  );
   useEffect(() => {
-    const contractRequests = requests.filter(
-      (request) =>
-        ["ACCEPTED","COMPLETED","CANCELLED_BY_SYSTEM","CANCELLED_BY_RENTER","CANCELLED_BY_OWNER","EXPIRED"].includes(request.status)
-    );
+    const contractRequestIds = contractRequestKey ? contractRequestKey.split(",") : [];
     let cancelled = false;
     const loadContracts = async () => {
       const entries = await Promise.all(
-        contractRequests.map(async (r) => {
+        contractRequestIds.map(async (id) => {
           try {
-            const c = await contractService.getByRentalRequest(r.id, true);
-            return [r.id, c] as const;
+            const c = await contractService.getByRentalRequest(id, true);
+            return [id, c] as const;
           } catch {
-            return [r.id, undefined] as const;
+            return [id, undefined] as const;
           }
         }),
       );
@@ -303,7 +355,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
         return next;
       });
     };
-    if (contractRequests.length === 0) return;
+    if (contractRequestIds.length === 0) return;
     void loadContracts();
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") void loadContracts();
@@ -312,16 +364,12 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [requests]);
+  }, [contractRequestKey]);
 
-  // Deadlines come from the business clock, not the browser's real-time clock.
-  useEffect(() => {
-    if (!requests.some(r => r.status === "ACCEPTED" || r.status === "PENDING")) return;
-    const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") void fetchRequests();
-    }, 30000);
-    return () => window.clearInterval(id);
-  }, [requests, fetchRequests]);
+  // Deadlines come from the business clock, not the browser's real-time clock. The 30s poll and
+  // rental-request notifications share one bounded silent refresh (no loading flash, no duplicates).
+  const needsDeadlinePolling = requests.some((r) => r.status === "ACCEPTED" || r.status === "PENDING");
+  useRentalRequestSync(refreshRequests, { enabled: authenticated && !!userId, pollMs: needsDeadlinePolling ? 30000 : 0 });
 
   // Handle Accept
   const handleConfirmAccept = async () => {
@@ -381,7 +429,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
       toast.success("Đã hủy yêu cầu thuê của bạn.");
       setCancelTarget(null);
       setPaymentTarget(null);
-      setDetailRequestId(null);
+      closeDetail();
       await fetchRequests();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, "Hủy yêu cầu thất bại."));
@@ -774,7 +822,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
                     {/* Nút Xem chi tiết yêu cầu */}
                     <button
                       type="button"
-                      onClick={() => setDetailRequestId(req.id)}
+                      onClick={() => openDetail(req.id)}
                       className="px-3 py-1.5 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary text-xs font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5"
                       title="Xem chi tiết đầy đủ yêu cầu thuê"
                     >
@@ -1123,7 +1171,7 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
 
       {depositQuickTarget && <RentalDepositQuickViewModal key={depositQuickTarget.id} request={depositQuickTarget}
         onClose={()=>setDepositQuickTarget(null)} onUpdated={fetchRequests}
-        onOpenDetail={()=>{setDetailRequestId(depositQuickTarget.id);setDepositQuickTarget(null);}}/>}
+        onOpenDetail={()=>{openDetail(depositQuickTarget.id);setDepositQuickTarget(null);}}/>}
       {startChangeTarget && <RentalStartChangeQuickModal key={startChangeTarget.id} request={startChangeTarget} mode={mode}
         onClose={()=>setStartChangeTarget(null)} onUpdated={fetchRequests}/>}
 
@@ -1151,8 +1199,9 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
       <RentalRequestDetailModal
         requestId={detailRequestId}
         isOpen={Boolean(detailRequestId)}
-        onClose={() => setDetailRequestId(null)}
+        onClose={closeDetail}
         mode={mode}
+        initialDetail={verifiedDetail}
         linkedContract={detailRequestId ? contractsByRequest[detailRequestId] : null}
         isProcessingAction={isProcessing || creatingContractFor!==null}
         creatingContract={creatingContractFor===detailRequestId}
@@ -1161,23 +1210,23 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
           void fetchRequests();
         }}
         onAccept={(req) => {
-          setDetailRequestId(null);
+          closeDetail();
           setAcceptTarget(req);
         }}
         onReject={(req) => {
-          setDetailRequestId(null);
+          closeDetail();
           setRejectTarget(req);
         }}
         onCancel={(req) => {
-          setDetailRequestId(null);
+          closeDetail();
           setCancelTarget(req);
         }}
         onPayMock={(req) => {
-          setDetailRequestId(null);
+          closeDetail();
           setPaymentTarget(req);
         }}
         onOpenContract={(contractId) => {
-          setDetailRequestId(null);
+          closeDetail();
           router.push(contractDetailPath(mode === "RECEIVED" ? "landlord" : "tenant", contractId));
         }}
       />

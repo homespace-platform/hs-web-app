@@ -6,6 +6,9 @@ const ts=require('typescript');
 function harness(error) {
   const source=fs.readFileSync(require.resolve('../app/dashboard/properties/new/page.tsx'),'utf8');
   const ast=ts.createSourceFile('page.tsx',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+  const membership=ts.createSourceFile('membership.ts',fs.readFileSync(require.resolve('../lib/membership.ts'),'utf8'),ts.ScriptTarget.Latest,true);
+  const quotaCheck=membership.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='isListingQuotaExhaustedError');
+  assert.ok(quotaCheck);
   let save;
   function visit(node){if(ts.isFunctionDeclaration(node)&&node.name?.text==='handleSaveListing')save=node;ts.forEachChild(node,visit);}
   visit(ast);assert.ok(save);
@@ -17,15 +20,16 @@ function harness(error) {
     listingPolicies:[{code:'petPolicy',value:'Giữ vệ sinh'}],selectedBranch:null,
     basicInfo:{title:'Nội dung đang sửa',images:[{storageObjectId:'existing-photo'}],videos:[]},
     editId:'listing',duplicateFrom:null,apartmentDetails:{},houseDetails:{},roomDetails:{roomCode:'P0200'},furnishingAssets:[],
-    selectedAmenities:[],monthlyExpenses:{},pricing:{},addressMode:'new',savedUserAddress:null,selectedAddress:{refId:'map-ref'},selectedViewingDays:[],selectedViewingSlots:[],
+    selectedAmenities:[],monthlyExpenses:{},vehicleLimits:null,chargeBaseline:null,pricing:{},addressMode:'new',savedUserAddress:null,selectedAddress:{refId:'map-ref'},selectedViewingDays:[],selectedViewingSlots:[],
     buildCreateListingPayload:values=>({id:values.id,title:values.basicInfo.title,roomCode:values.roomDetails.roomCode}),policyInputs:values=>values,
     toast:{error:message=>messages.push(message),success:noop,loading:noop},getApiErrorMessage:e=>e.response.data.message,
     axios:{isAxiosError:()=>true},console:{error:noop},
     listingService:{upsert:async body=>{requests.push(body);if(rejected){rejected=false;throw error;}return {pendingEditId:'review-new'};}},
     setIsSubmitting:value=>context.isSubmitting=value,setSubmittingAction:noop,
+    setQuotaExhaustedModalOpen:noop,setQuotaExhaustedBanner:noop,
     setLoadedListingStatus:value=>context.loadedListingStatus=value,setRentedLockListing:value=>context.rentedLockListing=value,
   };
-  vm.runInNewContext(ts.transpileModule(save.getText(ast)+';globalThis.save=handleSaveListing;',{
+  vm.runInNewContext(ts.transpileModule(quotaCheck.getText(membership).replace(/^export\s+/,'')+'\n'+save.getText(ast)+';globalThis.save=handleSaveListing;',{
     compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText,context);
   return {context,requests,messages,routes};
 }

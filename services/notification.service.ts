@@ -158,9 +158,33 @@ const APPOINTMENT_TYPE_TAGS: Record<string, string> = {
   BOOKING_EXPIRED: "Hết hạn",
 };
 
+const LISTING_TYPE_TAGS: Record<string, string> = {
+  LISTING_CREATED: "Tạo tin",
+  LISTING_UPDATED: "Cập nhật",
+  LISTING_APPROVED: "Đã duyệt",
+  LISTING_REJECTED: "Từ chối",
+  LISTING_EDIT_APPROVED: "Sửa đã duyệt",
+  LISTING_EDIT_REJECTED: "Sửa bị từ chối",
+  LISTING_EXPIRED: "Hết hạn",
+};
+
+const LISTING_STATUS_TAGS: Record<string, string> = {
+  PENDING_REVIEW: "Chờ duyệt",
+  HIDDEN: "Đã ẩn",
+  VIOLATION: "Vi phạm",
+  RENTED_EXTERNALLY: "Đã cho thuê",
+};
+
 type NotificationTagItem = Pick<NotificationItem, "category" | "type" | "metadata">;
 
 export function getNotificationTag(item: NotificationTagItem): string {
+  if (item.category === "LISTING") {
+    const status = item.metadata?.status;
+    const tag = item.type === "LISTING_STATUS_CHANGED"
+      ? typeof status === "string" && Object.hasOwn(LISTING_STATUS_TAGS, status) ? LISTING_STATUS_TAGS[status] : undefined
+      : Object.hasOwn(LISTING_TYPE_TAGS, item.type) ? LISTING_TYPE_TAGS[item.type] : undefined;
+    return tag ?? getCategoryMeta(item.category).tag;
+  }
   if (item.category !== "APPOINTMENT") return getCategoryMeta(item.category).tag;
   return Object.hasOwn(APPOINTMENT_TYPE_TAGS, item.type)
     ? APPOINTMENT_TYPE_TAGS[item.type]
@@ -190,6 +214,7 @@ export function withDefaultPreferences(
 
 export type NotificationSyncEvent =
   | { type: "appointment-changed"; bookingId?: string }
+  | { type: "listing-changed"; listingId?: string }
   | { type: "refresh" }
   | { type: "unread-count"; count: number }
   | { type: "read"; id: string; item: NotificationItem }
@@ -213,6 +238,10 @@ function emitSyncEvent(event: NotificationSyncEvent): void {
 export const notificationService = {
   notifyAppointmentChanged(bookingId?: string): void {
     emitSyncEvent({ type: "appointment-changed", bookingId });
+  },
+
+  notifyListingChanged(listingId?: string): void {
+    emitSyncEvent({ type: "listing-changed", listingId });
   },
 
   notifyRemoteChanged(): void {

@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState, Suspense } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   AlertTriangle,
@@ -12,63 +12,92 @@ import {
 } from "lucide-react";
 import RentDetailView from "@/components/rent/RentDetailView";
 import ListingStatusActionMenu from "../components/ListingStatusActionMenu";
+import { useListingNotifications } from "../components/useListingNotifications";
+import { useAuth } from "@/features/auth/useAuth";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
 import { getListingStatusConfig } from "@/config/listing-status.config";
 import type { ListingDetailResponse } from "@/types/listing.type";
-import type { RentPropertyItem } from "@/types/rent.type";
+
+const NOT_FOUND_MESSAGE = "Tin đăng không tồn tại hoặc đã bị xóa.";
+const FORBIDDEN_MESSAGE = "Bạn không có quyền xem tin đăng này.";
 
 function DashboardPropertyViewContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
+  const { initialized, authenticated, userId, login } = useAuth();
 
-  const [rawListing, setRawListing] = useState<ListingDetailResponse | null>(null);
-  const [property, setProperty] = useState<RentPropertyItem | null>(null);
+  const [fetchedListing, setFetchedListing] = useState<ListingDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Only the latest request may update state (id/account change or newer refresh).
+  const requestSeq = useRef(0);
 
-  const fetchDetail = useCallback(() => {
+  const fetchDetail = useCallback(async (silent = false) => {
+    const seq = ++requestSeq.current;
+    if (!silent) {
+      setFetchedListing(null);
+      setError(null);
+      setLoading(true);
+    }
     if (!id) {
       setError("Không tìm thấy mã bài đăng.");
       setLoading(false);
       return;
     }
-
-    setLoading(true);
-    // getMyListingById calls authenticated endpoint /api/v1/listings/{id}
-    // which allows the owner to view the listing regardless of status (HIDDEN, PENDING_REVIEW, etc.)
-    listingService
-      .getMyListingById(id)
-      .then((detail) => {
-        setRawListing(detail);
-        setProperty(toRentProperty(detail));
+    if (!userId) return;
+    try {
+      // Authenticated endpoint; no public fallback, so access failures are never masked.
+      const detail = await listingService.getMyListingById(id);
+      if (seq !== requestSeq.current) return;
+      if (detail.id !== id || detail.ownerId !== userId) {
+        setFetchedListing(null);
+        setError(FORBIDDEN_MESSAGE);
+      } else {
+        setFetchedListing(detail);
         setError(null);
-      })
-      .catch((err) => {
-        console.error("Error loading property in dashboard view:", err);
-        // Fallback to getById
-        listingService
-          .getById(id)
-          .then((detail) => {
-            setRawListing(detail);
-            setProperty(toRentProperty(detail));
-            setError(null);
-          })
-          .catch(() => {
-            setError("Không thể tải thông tin bài đăng hoặc bạn không có quyền xem bài đăng này.");
-          });
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [id]);
+      }
+    } catch (err) {
+      if (seq !== requestSeq.current) return;
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404 || status === 403 || !silent) {
+        setFetchedListing(null);
+        setError(status === 404 ? NOT_FOUND_MESSAGE : status === 403 ? FORBIDDEN_MESSAGE : "Không thể tải thông tin bài đăng.");
+      } // else: keep the last verified data after a transient background failure.
+    } finally {
+      if (seq === requestSeq.current) setLoading(false);
+    }
+  }, [id, userId]);
 
+  const loginRequested = useRef(false);
   useEffect(() => {
-    fetchDetail();
-  }, [fetchDetail]);
+    if (!initialized) return;
+    if (!authenticated || !userId) {
+      requestSeq.current++;
+      setFetchedListing(null);
+      // Keep the full same-origin path, query and hash through the login redirect.
+      if (!loginRequested.current) {
+        loginRequested.current = true;
+        login(`${window.location.pathname}${window.location.search}${window.location.hash}`);
+      }
+      return;
+    }
+    loginRequested.current = false;
+    void fetchDetail();
+  }, [initialized, authenticated, userId, fetchDetail, login]);
 
-  if (loading) {
+  const refreshSilently = useCallback(() => fetchDetail(true), [fetchDetail]);
+  useListingNotifications({
+    enabled: initialized && authenticated && !!userId && !!id,
+    refresh: refreshSilently,
+    listingId: id ?? undefined,
+  });
+
+  // Never render data that belongs to another listing or account, even for one frame.
+  const visibleListing = fetchedListing && fetchedListing.id === id && fetchedListing.ownerId === userId ? fetchedListing : null;
+  const property = useMemo(() => (visibleListing ? toRentProperty(visibleListing) : null), [visibleListing]);
+
+  if ((loading || !initialized || !authenticated) && !visibleListing && !error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-muted-foreground">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -77,14 +106,14 @@ function DashboardPropertyViewContent() {
     );
   }
 
-  if (error || !property || !rawListing) {
+  if (error || !property || !visibleListing) {
     return (
       <div className="rounded-2xl border border-border bg-card p-12 text-center space-y-4 max-w-xl mx-auto my-12 shadow-sm">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
           <AlertTriangle className="h-6 w-6" />
         </div>
         <h2 className="text-base font-bold text-foreground">Không thể hiển thị tin đăng</h2>
-        <p className="text-xs text-muted-foreground">{error || "Tin đăng không tồn tại hoặc đã bị xóa."}</p>
+        <p className="text-xs text-muted-foreground">{error || NOT_FOUND_MESSAGE}</p>
         <div className="pt-2">
           <Link
             href="/dashboard/properties"
@@ -98,6 +127,7 @@ function DashboardPropertyViewContent() {
     );
   }
 
+  const rawListing = visibleListing;
   const statusConfig = getListingStatusConfig(rawListing.status);
   const isRented = String(rawListing.status || "").trim().toUpperCase() === "RENTED";
   const isRentedExternally = String(rawListing.status || "").trim().toUpperCase() === "RENTED_EXTERNALLY";
@@ -158,7 +188,7 @@ function DashboardPropertyViewContent() {
             status: rawListing.status,
             expiresAt: rawListing.expiresAt,
           }}
-          onChanged={() => fetchDetail()}
+          onChanged={() => void fetchDetail(true)}
           size="md"
         />
 

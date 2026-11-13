@@ -53,6 +53,9 @@ Check `package.json` scripts before choosing a command. Existing scripts: `npm r
 - Typecheck with `npx tsc --noEmit` when types or props change.
 - A full `npm run build` is not required for small edits. Use it for routing, configuration, `next.config.ts` or broad type changes.
 - Do not start the dev server, Gateway or backend services for ordinary changes.
+- A simple UI change (copy, styling, small component fix) is L1/L2: one agent, inspect the change, and at most a targeted lint or test of the touched files. No full build and no review skill unless requested.
+- Never rerun a passing lint or test whose inputs are unchanged. After a failure, diagnose, then rerun only the affected check.
+- Do not repeat `git status` / `git diff` without intervening edits; run `git diff --check` once after the final edit.
 - Risk: auth, payment, contract signing, deposit and notification-registration UI are L3 (verify the API contract with the service in `services/`). Component logic is L2. Text and styling are L1.
 
 ## Skills

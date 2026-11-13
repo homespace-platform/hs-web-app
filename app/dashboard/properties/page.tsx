@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -42,6 +42,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import MembershipStatusCard from "@/components/membership/MembershipStatusCard";
 import ListingItemCard from "./components/ListingItemCard";
 import ListingStatusActionMenu from "./components/ListingStatusActionMenu";
+import { useListingNotifications } from "./components/useListingNotifications";
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   HOUSE: <Home className="h-3.5 w-3.5" />,
@@ -100,42 +101,113 @@ function formatDate(iso?: string | null): string {
   }
 }
 
+const EMPTY_LISTINGS: MyListingSummaryResponse[] = [];
+const EMPTY_COUNTS: Record<string, number> = {};
+
 export default function MyPropertiesPage() {
   const router = useRouter();
-  const { authenticated, profile } = useAuth();
+  const { authenticated, profile, userId } = useAuth();
 
   // State
-  const [listings, setListings] = useState<MyListingSummaryResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [membership, setMembership] = useState<MembershipView | null>(null);
-  const [loadingMembership, setLoadingMembership] = useState(false);
+  // The account whose data the states below hold; anything else is hidden synchronously.
+  const [dataUserId, setDataUserId] = useState(userId);
+  const owned = dataUserId === userId;
+  const [rawListings, setListings] = useState<MyListingSummaryResponse[]>([]);
+  const [rawLoading, setLoading] = useState(true);
+  const [rawErrorMessage, setErrorMessage] = useState<string | null>(null);
+  const [rawMembership, setMembership] = useState<MembershipView | null>(null);
+  const [rawLoadingMembership, setLoadingMembership] = useState(false);
 
   // Filters & Pagination
   const [keywordInput, setKeywordInput] = useState("");
   const [debouncedKeyword, setDebouncedKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [rawStatusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalElements, setTotalElements] = useState(0);
+  const [rawTotalPages, setTotalPages] = useState(1);
+  const [rawTotalElements, setTotalElements] = useState(0);
   const [reloadKey, setReloadKey] = useState(0);
+  const listings = owned ? rawListings : EMPTY_LISTINGS;
+  const loading = rawLoading || !owned;
+  const errorMessage = owned ? rawErrorMessage : null;
+  const membership = owned ? rawMembership : null;
+  const loadingMembership = owned && rawLoadingMembership;
+  const statusCounts = owned ? rawStatusCounts : EMPTY_COUNTS;
+  const totalPages = owned ? rawTotalPages : 1;
+  const totalElements = owned ? rawTotalElements : 0;
 
-  // Fetch status counts & membership on load & reload
-  useEffect(() => {
-    let cancelled = false;
-    listingService
-      .getMyListingCounts()
-      .then((counts) => {
-        if (!cancelled && counts) {
-          setStatusCounts(counts);
-        }
-      })
-      .catch((err) => {
-        console.warn("Could not load listing status counts:", err);
+  // Only the latest request per kind may update state (account/query change or newer refresh).
+  const listSeq = useRef(0);
+  const countsSeq = useRef(0);
+
+  const loadList = useCallback(async () => {
+    const seq = ++listSeq.current;
+    if (!authenticated || !userId) return;
+    try {
+      const res = await listingService.getMyListings({
+        page,
+        status: statusFilter !== "ALL" ? (statusFilter as ListingStatus) : undefined,
+        keyword: debouncedKeyword || undefined,
       });
+      if (seq !== listSeq.current) return;
+      setListings(res.result || []);
+      setTotalPages(res.totalPages || 1);
+      setTotalElements(res.totalElements || 0);
+      setLoading(false);
+      setErrorMessage(null);
+    } catch (error: unknown) {
+      if (seq !== listSeq.current) return;
+      console.error("Fetch my listings error:", error);
+      setErrorMessage(getApiErrorMessage(error, "Không thể tải danh sách tin đăng của bạn."));
+      setListings([]);
+      setLoading(false);
+    }
+  }, [authenticated, userId, page, statusFilter, debouncedKeyword]);
 
-    if (authenticated) {
+  const loadCounts = useCallback(async () => {
+    const seq = ++countsSeq.current;
+    if (!authenticated || !userId) return;
+    try {
+      const counts = await listingService.getMyListingCounts();
+      if (seq === countsSeq.current && counts) setStatusCounts(counts);
+    } catch (err) {
+      console.warn("Could not load listing status counts:", err);
+    }
+  }, [authenticated, userId]);
+
+  // Notifications refresh list and counts (not membership); awaiting lets the hook coalesce in-flight work.
+  const refreshListings = useCallback(async () => {
+    await Promise.all([loadList(), loadCounts()]);
+  }, [loadList, loadCounts]);
+  useListingNotifications({ enabled: authenticated && !!userId, refresh: refreshListings });
+
+  // Drop the previous account's data when the verified user changes.
+  useEffect(() => {
+    setDataUserId(userId);
+    setListings([]);
+    setStatusCounts({});
+    setMembership(null);
+    setLoadingMembership(false);
+    setTotalPages(1);
+    setTotalElements(0);
+    setErrorMessage(null);
+    setLoading(true);
+    setStatusFilter("ALL");
+    setKeywordInput("");
+    setDebouncedKeyword("");
+    setPage(1);
+  }, [userId]);
+
+  // Fetch status counts on load, reload and account change
+  useEffect(() => {
+    void loadCounts();
+  }, [loadCounts, reloadKey]);
+
+  // Membership only reloads on manual refresh, not on every notification
+  useEffect(() => {
+    if (!authenticated || !userId) return;
+    let cancelled = false;
+    {
       setLoadingMembership(true);
       membershipService
         .getMyMembership()
@@ -153,7 +225,7 @@ export default function MyPropertiesPage() {
     return () => {
       cancelled = true;
     };
-  }, [reloadKey, authenticated]);
+  }, [reloadKey, authenticated, userId]);
 
   // Debounce search input by 400ms
   useEffect(() => {
@@ -172,38 +244,8 @@ export default function MyPropertiesPage() {
 
   // Load listings from API
   useEffect(() => {
-    let cancelled = false;
-
-    const statusParam = statusFilter !== "ALL" ? (statusFilter as ListingStatus) : undefined;
-    listingService
-      .getMyListings({
-        page,
-        status: statusParam,
-        keyword: debouncedKeyword || undefined,
-      })
-      .then((res) => {
-        if (!cancelled) {
-          setListings(res.result || []);
-          setTotalPages(res.totalPages || 1);
-          setTotalElements(res.totalElements || 0);
-          setLoading(false);
-          setErrorMessage(null);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          console.error("Fetch my listings error:", error);
-          const msg = getApiErrorMessage(error, "Không thể tải danh sách tin đăng của bạn.");
-          setErrorMessage(msg);
-          setListings([]);
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [page, statusFilter, debouncedKeyword, reloadKey]);
+    void loadList();
+  }, [loadList, reloadKey]);
 
   function handleFilterStatusChange(newStatus: string) {
     setStatusFilter(newStatus);

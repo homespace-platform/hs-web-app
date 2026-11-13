@@ -7,11 +7,11 @@ import { Bell, X } from "lucide-react";
 import { io } from "socket.io-client";
 import { useAuth } from "@/features/auth/useAuth";
 import keycloak from "@/lib/keycloak";
-import notificationService, { getCategoryMeta, getSafeActionPath } from "@/services/notification.service";
+import notificationService, { getCategoryMeta, getNotificationTag, getSafeActionPath } from "@/services/notification.service";
 import { startPush } from "@/services/notification-push.service";
 import type { NotificationItem } from "@/types/notification.type";
 
-type Popup = Pick<NotificationItem, "id" | "category" | "title" | "body" | "priority" | "actionPath"> & { recipientId: string };
+type Popup = Pick<NotificationItem, "id" | "category" | "type" | "metadata" | "title" | "body" | "priority" | "actionPath"> & { recipientId: string };
 
 export default function NotificationTransport() {
   const { authenticated, initialized, userId } = useAuth();
@@ -30,7 +30,7 @@ export default function NotificationTransport() {
       if (event.type === "unread-count") {
         count = event.count;
         updateTitle();
-      } else if (event.type !== "appointment-changed") {
+      } else if (event.type !== "appointment-changed" && event.type !== "listing-changed") {
         void notificationService.getUnreadCount().catch(() => {});
       }
     });
@@ -57,6 +57,7 @@ export default function NotificationTransport() {
     const recoverChanges = () => {
       scheduleRefresh();
       notificationService.notifyAppointmentChanged();
+      notificationService.notifyListingChanged();
     };
 
     const baseUrl = process.env.NEXT_PUBLIC_NOTIFICATION_SOCKET_URL;
@@ -85,9 +86,14 @@ export default function NotificationTransport() {
       ]) socket.on(event, scheduleRefresh);
       socket.on("notification:new", (value: unknown) => {
         scheduleRefresh();
-        if (document.visibilityState !== "visible") return;
         if (!value || typeof value !== "object") return;
         const item = value as Partial<NotificationItem>;
+        // Invalidate listing data even in hidden tabs; only the popup is visibility-gated.
+        if (item.category === "LISTING") {
+          const listingId = item.metadata?.listingId;
+          notificationService.notifyListingChanged(typeof listingId === "string" ? listingId : undefined);
+        }
+        if (document.visibilityState !== "visible") return;
         if (item.category === "APPOINTMENT") {
           const bookingId = item.metadata?.bookingId;
           notificationService.notifyAppointmentChanged(typeof bookingId === "string" ? bookingId : undefined);
@@ -169,6 +175,7 @@ export default function NotificationTransport() {
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
                 <span>HomeSpace</span><span aria-hidden="true">·</span><span>{getCategoryMeta(item.category).label}</span>
+                {item.category === "LISTING" && getNotificationTag(item) !== getCategoryMeta(item.category).tag && (<><span aria-hidden="true">·</span><span>{getNotificationTag(item)}</span></>)}
               </div>
               <p className="line-clamp-2 font-semibold text-slate-900 dark:text-white">{item.title}</p>
               <p className="mt-1 line-clamp-3 text-sm leading-5 text-slate-600 dark:text-slate-300">{item.body}</p>

@@ -275,6 +275,48 @@ function transport({ socketEnabled = true, pushFails = false } = {}) {
     cleanup() { runtime.unmount(); unsubscribe(); } };
 }
 
+test('account popup shows the account subtype without rental invalidation or forced profile/token refresh', async () => {
+  const f = transport(); await f.runtime.settle();
+  f.fire('notification:new', { id: 'account-1', category: 'ACCOUNT', type: 'ACCOUNT_DISABLED',
+    title: 'Tài khoản đã bị vô hiệu hóa', body: 'Mở tài khoản để xem', priority: 'NORMAL',
+    metadata: null, actionPath: '/settings/account-security' });
+  await f.runtime.settle(); const output = html(f.runtime);
+  assert.match(output, /Đã vô hiệu hóa/); assert.match(output, /href="\/settings\/account-security"/);
+  assert.equal(f.signals.filter(e => e.type === 'rental-request-changed' || e.type === 'listing-changed').length, 0);
+  f.cleanup(); assert.equal(f.document.title, 'HomeSpace'); assert.equal(f.timers.size, 0);
+});
+
+test('membership socket and recovery signal order changes without looping unread-title requests', async () => {
+  const f = transport(); await f.runtime.settle(); const before = f.notifications.calls.length;
+  f.notifications.notificationService.notifyMembershipChanged('member-order');
+  await f.runtime.settle(); assert.equal(f.notifications.calls.length, before);
+  const notice = { id: 'member-1', category: 'PAYMENT', type: 'MEMBERSHIP_PAYMENT_REVIEW', title: 'Cần đối soát',
+    body: 'Mở đơn để xem', metadata: { orderId: 'member-order' }, actionPath: '/dashboard/membership/return?orderId=member-order' };
+  f.document.visibilityState = 'hidden'; f.fire('notification:new', notice); await f.runtime.settle();
+  assert.equal(f.signals.find(e => e.type === 'membership-changed' && e.orderId).orderId, 'member-order'); assert.equal(f.runtime.tree, null);
+  f.document.visibilityState = 'visible'; f.fire('notification:new', { ...notice, id: 'member-2' }); await f.runtime.settle();
+  assert.match(html(f.runtime), /Chờ đối soát/);
+  f.fire('connect'); f.window.fire('focus'); f.push();
+  assert.equal(f.signals.filter(e => e.type === 'membership-changed' && !e.orderId).length, 3);
+  f.cleanup(); assert.equal(f.timers.size, 0);
+});
+
+test('payment socket invalidates hidden payment data, keeps legacy events separate and never loops unread-title requests', async () => {
+  const f = transport(); await f.runtime.settle(); const before = f.notifications.calls.length;
+  f.notifications.notificationService.notifyPaymentChanged('payment'); await f.runtime.settle(); assert.equal(f.notifications.calls.length, before);
+  const notice = { id: 'payment-1', category: 'PAYMENT', type: 'PAYMENT_RECEIPT_CONFIRMED', title: 'Đã xác nhận nhận tiền',
+    body: 'Mở khoản thanh toán để xem', metadata: { paymentId: 'payment' }, actionPath: '/dashboard/payments?paymentId=payment' };
+  f.document.visibilityState = 'hidden'; f.fire('notification:new', notice); await f.runtime.settle();
+  assert.equal(f.signals.find(e => e.type === 'payment-changed' && e.paymentId).paymentId, 'payment'); assert.equal(f.runtime.tree, null);
+  f.fire('notification:new', { ...notice, type: 'PAYMENT_SUCCESSFUL' });
+  assert.equal(f.signals.filter(e => e.type === 'payment-changed').length, 2);
+  f.document.visibilityState = 'visible'; f.fire('notification:new', { ...notice, id: 'payment-2' }); await f.runtime.settle();
+  assert.match(html(f.runtime), /href="\/dashboard\/payments\?paymentId=payment"/);
+  f.fire('connect'); f.window.fire('focus'); f.push();
+  assert.equal(f.signals.filter(e => e.type === 'payment-changed' && !e.paymentId).length, 3);
+  f.cleanup(); assert.equal(f.timers.size, 0); assert.equal(f.document.title, 'HomeSpace');
+});
+
 test('rental transport signals hidden notices, shows bounded popups and never loops unread/title', async () => {
   const f = transport(); await f.runtime.settle();
   const before = f.notifications.calls.length;

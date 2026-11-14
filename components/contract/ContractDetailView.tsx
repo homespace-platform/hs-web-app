@@ -23,6 +23,7 @@ import type {
   SignatureStateResponse,
 } from "@/types/contract.type";
 import { useAuth } from "@/features/auth/useAuth";
+import { useAgreementChangeSync } from "@/hooks/useAgreementChangeSync";
 import { getApiErrorMessage } from "@/utils/apiError";
 
 import ContractHeader from "@/components/contract/detail/ContractHeader";
@@ -119,10 +120,10 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     setSyncingListing(false);
     try {
       const c = await contractService.getContract(contractId);
-      if (c.agreementKind === "DEPOSIT") {
+      if (c.agreementKind === "DEPOSIT" || c.agreementKind === "WORKFLOW") {
         setContract(c);
         setRevision(null);
-        return; // Deposit documents must not load lease billing, meters or amendment tools.
+        return; // Deposit/workflow documents must not load lease billing, meters or amendment tools.
       }
       const [rev, comp, docs, paymentBreakdown, sigState, preview] = await Promise.all([
         contractService.getRevision(contractId),
@@ -149,17 +150,45 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     }
   }, [contractId, router, perspective]);
 
-  const refreshSignedState = useCallback(async () => {
-    if (!contractId) return;
-    const [updatedContract, docs, state] = await Promise.all([
-      contractService.getContract(contractId),
-      contractService.getDocuments(contractId),
-      contractService.getSignatureState(contractId),
-    ]);
-    setContract(updatedContract);
-    setDocuments(docs);
-    setSignatureState(state);
+  // One signed-state read at a time: callers arriving meanwhile (signal, panel onUpdated, poll) share it and get one fresh
+  // follow-up, even after a failed read, so an older response can never overwrite a newer one. Only signed-state fields are
+  // written: drafts, selected PDF and the signer's consent/certificate/busy state live outside this and survive.
+  const epoch = useRef(0); // bumped on contract change/unmount: late results of the old document or account are dropped
+  const signedStateRun = useRef<Promise<void> | null>(null);
+  const signedStateDirty = useRef(false);
+  useEffect(() => () => { epoch.current++; signedStateRun.current = null; signedStateDirty.current = false; }, [contractId]);
+  const refreshSignedState = useCallback((): Promise<void> => {
+    if (!contractId) return Promise.resolve();
+    if (signedStateRun.current) { signedStateDirty.current = true; return signedStateRun.current; }
+    const mine = epoch.current;
+    let done = false;
+    const run = (async () => {
+      let failure: unknown;
+      try {
+        do {
+          signedStateDirty.current = false;
+          failure = undefined;
+          try {
+            const [updatedContract, docs, state] = await Promise.all([
+              contractService.getContract(contractId),
+              contractService.getDocuments(contractId),
+              contractService.getSignatureState(contractId),
+            ]);
+            if (epoch.current !== mine) return;
+            setContract(updatedContract);
+            setDocuments(docs);
+            setSignatureState(state);
+          } catch (error) { failure = error; }
+        } while (signedStateDirty.current && epoch.current === mine);
+      } finally { done = true; if (epoch.current === mine) signedStateRun.current = null; }
+      if (epoch.current !== mine) return;
+      if (failure) throw failure;
+    })();
+    if (!done) signedStateRun.current = run;
+    return run;
   }, [contractId]);
+  // Signing notices for this exact document (or generic recovery). A deposit root is refreshed by its own panel.
+  useAgreementChangeSync(id => !id || id === contractId, refreshSignedState, contract?.agreementKind !== "DEPOSIT");
 
   useEffect(() => {
     void load();
@@ -419,6 +448,11 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     <DepositAgreementPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} onUpdated={refreshSignedState}/>
     <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} showDepositAgreement={false} onUpdated={refreshSignedState}/>
   </div>;
+  if (contract.agreementKind === "WORKFLOW") return <div className="mx-auto max-w-4xl space-y-3 rounded-2xl border bg-card p-5 pb-8 text-sm">
+    <p className="font-semibold">Văn bản ký riêng của hồ sơ nhận nhà / trả nhà</p>
+    <p className="text-muted-foreground">Văn bản này được xem và ký cùng hồ sơ của hợp đồng gốc, nơi có đủ nội dung và kiểm tra phiên bản đang áp dụng.</p>
+    {contract.parentContractId && <Link href={contractDetailPath(perspective, contract.parentContractId)} className="font-semibold text-primary underline">Mở hợp đồng gốc →</Link>}
+  </div>;
   if (!revision) return null;
 
   const isDraft = contract.status === "DRAFT" && !contract.parentContractId;
@@ -586,12 +620,12 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       />}
 
       {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED"].includes(contract.status) && <>
-        {contract.status === "ACTIVE" && <ContractLifecyclePanel contractId={contract.id} isLandlord={isLandlord} onUpdated={refreshSignedState} mode="renewal" />}
+        {contract.status === "ACTIVE" && <ContractLifecyclePanel key={`${profile.id}:${contract.id}`} contractId={contract.id} isLandlord={isLandlord} onUpdated={refreshSignedState} mode="renewal" />}
         <ContractAmendmentPanel contractId={contract.id} actorId={profile.id} perspective={perspective} />
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4"><div><p className="font-semibold">Hóa đơn & thanh toán</p><p className="mt-1 text-sm text-muted-foreground">Thanh toán ban đầu, hóa đơn theo kỳ và bàn giao / hoàn cọc được quản lý trong một hồ sơ riêng.</p></div><Link href={invoiceDetailPath(contract.id)} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Mở hồ sơ thanh toán →</Link></div>
       </>}
       {/* 4. MAIN CONTRACT SECTIONS */}
-      {!contract.parentContractId && ["EXPIRED","CLOSED","TERMINATED"].includes(contract.status) && <><RentalWorkflowPanel rentalRequestId={contract.rentalRequestId} kind="move-in" onUpdated={refreshSignedState}/><RentalWorkflowPanel rentalRequestId={contract.rentalRequestId} kind="early-exit" onUpdated={refreshSignedState}/><ComplaintPanel rentalRequestId={contract.rentalRequestId} onUpdated={refreshSignedState}/></>}
+      {!contract.parentContractId && ["EXPIRED","CLOSED","TERMINATED"].includes(contract.status) && <><RentalWorkflowPanel rentalRequestId={contract.rentalRequestId} kind="move-in" contractId={contract.id} onUpdated={refreshSignedState}/><RentalWorkflowPanel rentalRequestId={contract.rentalRequestId} kind="early-exit" onUpdated={refreshSignedState}/><ComplaintPanel rentalRequestId={contract.rentalRequestId} onUpdated={refreshSignedState}/></>}
       <div className="space-y-6">
         <>
         {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status) && <ContractTermsNotice />}

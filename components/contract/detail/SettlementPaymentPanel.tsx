@@ -8,29 +8,36 @@ import storageService from "@/services/storage.service";
 import type { PaymentRequest } from "@/types/payment-request.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
+import { useNotificationChangeSync } from "@/hooks/useAgreementChangeSync";
 const money = (n: number) => n.toLocaleString("vi-VN") + " đ";
 export default function SettlementPaymentPanel({ payment, isLandlord, refresh }: {
   payment: PaymentRequest; isLandlord: boolean; refresh: () => Promise<void>;
 }) {
   const mutex = useRef(false);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const [busy, setBusy] = useState(false);
   const [proof, setProof] = useState<File | null>(null);
   const [reason, setReason] = useState("");
   const refund = payment.direction === "LANDLORD_TO_TENANT";
   const payer = refund ? isLandlord : !isLandlord;
   async function perform(action: () => Promise<unknown>) {
-    if (mutex.current) return;
+    if (mutex.current || !alive.current) return;
     mutex.current = true; setBusy(true);
-    try { await action(); await refresh(); toast.success("Đã cập nhật khoản quyết toán."); }
-    catch (error) { toast.error(getApiErrorMessage(error, "Chưa thể cập nhật thanh toán.")); }
-    finally { mutex.current = false; setBusy(false); }
+    try { await action(); if (!alive.current) return; await refresh(); if (alive.current) toast.success("Đã cập nhật khoản quyết toán."); }
+    catch (error) { if (alive.current) toast.error(getApiErrorMessage(error, "Chưa thể cập nhật thanh toán.")); }
+    finally { mutex.current = false; if (alive.current) setBusy(false); }
   }
   async function report() {
     if (!proof || proof.size > 15 * 1024 * 1024) { toast.error("Chọn chứng từ không quá 15 MB."); return; }
     await perform(async () => {
       const current = await paymentService.getPaymentRequest(payment.id);
-      if (current.totalAmount !== payment.totalAmount) throw new Error("Số tiền đã thay đổi; hãy tải lại.");
+      if (!alive.current) return;
+      if (current.id !== payment.id || current.payerId !== payment.payerId || current.payeeId !== payment.payeeId
+        || current.direction !== payment.direction || current.totalAmount !== payment.totalAmount
+        || !["AWAITING_TRANSFER", "REJECTED", "OVERDUE"].includes(current.status)) throw new Error("Khoản chuyển khoản đã thay đổi; hãy tải lại.");
       const proofStorageId = await storageService.uploadPaymentProof(proof, payment.id);
+      if (!alive.current) return;
       return paymentService.reportTransfer(payment.id, { proofStorageId, expectedAmount: payment.totalAmount });
     });
   }
@@ -40,8 +47,8 @@ export default function SettlementPaymentPanel({ payment, isLandlord, refresh }:
     catch (error) { tab?.close(); toast.error(getApiErrorMessage(error, "Không mở được chứng từ.")); }
   }
   return <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/30 p-4 text-sm">
-    <h4 className="font-semibold">{payment.type === "DEPOSIT_ADJUSTMENT" ? refund ? "Hoàn chênh lệch cọc · Chủ nhà → Người thuê" : "Bổ sung cọc · Người thuê → Chủ nhà" : refund ? "Hoàn cọc · Chủ nhà → Người thuê" : "Quyết toán còn thiếu · Người thuê → Chủ nhà"}</h4>
-    <p>Số tiền: <strong>{money(payment.totalAmount)}</strong> · Trạng thái: {payment.status === "DISPUTED" ? "Đang đối soát" : payment.status === "CONFIRMED" ? "Đã nhận tiền" : payment.status === "TRANSFER_REPORTED" ? "Chờ bên nhận xác nhận" : payment.status === "OVERDUE" ? "Quá hạn, vẫn phải thanh toán" : payment.status === "REJECTED" ? "Chứng từ bị từ chối" : "Chờ chuyển khoản"}</p>
+    <h4 className="font-semibold">{payment.type === "INITIAL_PAYMENT_REFUND" ? refund ? "Hoàn tiền · Chủ nhà → Người thuê" : "Hoàn tiền · Người thuê → Chủ nhà" : payment.type === "DEPOSIT_ADJUSTMENT" ? refund ? "Hoàn chênh lệch cọc · Chủ nhà → Người thuê" : "Bổ sung cọc · Người thuê → Chủ nhà" : refund ? "Hoàn cọc · Chủ nhà → Người thuê" : "Quyết toán còn thiếu · Người thuê → Chủ nhà"}</h4>
+    <p>Số tiền: <strong>{money(payment.totalAmount)}</strong> · Trạng thái: {payment.status === "DISPUTED" ? "Đang đối soát" : payment.status === "CONFIRMED" ? "Đã nhận tiền" : payment.status === "TRANSFER_REPORTED" ? "Chờ bên nhận xác nhận" : payment.status === "OVERDUE" ? "Quá hạn, vẫn phải thanh toán" : payment.status === "REJECTED" ? "Chứng từ bị từ chối" : payment.status === "CANCELLED" ? "Đã hủy" : payment.status === "EXPIRED" ? "Đã hết hạn" : "Chờ chuyển khoản"}</p>
     {payment.status === "CONFIRMED" && <p className="text-emerald-700">Đã xác nhận nhận đủ tiền{(payment.payeeConfirmedAt || payment.confirmedAt) ? ` · ${new Date((payment.payeeConfirmedAt || payment.confirmedAt)!).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}` : ""}.</p>}
     <details open={payment.status !== "CONFIRMED"} className="space-y-3"><summary className="cursor-pointer font-medium">Thông tin chuyển khoản & chứng từ</summary>
     {payment.status !== "CONFIRMED" && <p className="text-xs">Hạn thanh toán: {payment.dueAt ? new Date(payment.dueAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—"}. Bên nhận cần kiểm tra tài khoản và xác nhận nhận tiền.</p>}
@@ -68,13 +75,19 @@ export default function SettlementPaymentPanel({ payment, isLandlord, refresh }:
 
 export function DepositAdjustmentPayments({ contractId, isLandlord }: { contractId: string; isLandlord: boolean }) {
   const [rows, setRows] = useState<PaymentRequest[]>([]), [error, setError] = useState("");
-  const generation=useRef(0);
-  const refresh = useCallback(async () => {
-    const token=++generation.current;
-    try { const payments=await paymentService.getContractPayments(contractId);if(token===generation.current){setRows(payments.filter(p=>p.type === "DEPOSIT_ADJUSTMENT")); setError("");} }
-    catch (cause) { if(token===generation.current)setError(getApiErrorMessage(cause,"Chưa tải được khoản chênh lệch cọc.")); }
+  const alive=useRef(false),inflight=useRef<Promise<void>|null>(null),dirty=useRef(false);
+  const refresh = useCallback(():Promise<void> => {
+    if(!alive.current)return Promise.resolve();
+    if(inflight.current){dirty.current=true;return inflight.current;}
+    const run=(async()=>{try{do{
+      dirty.current=false;
+      try{const payments=await paymentService.getContractPayments(contractId);if(!alive.current)return;setRows(payments.filter(p=>p.type === "DEPOSIT_ADJUSTMENT"&&p.contractId===contractId));setError("");}
+      catch(cause){if(alive.current)setError(getApiErrorMessage(cause,"Chưa tải được khoản chênh lệch cọc."));}
+    }while(dirty.current&&alive.current);}finally{inflight.current=null;}})();
+    inflight.current=run;return run;
   }, [contractId]);
-  useEffect(()=>{ const current=generation;void refresh(); const timer=window.setInterval(()=>void refresh(),30_000); return ()=>{current.current++;window.clearInterval(timer);}; },[refresh]);
+  useEffect(()=>{alive.current=true;void refresh();const timer=window.setInterval(()=>{if(document.visibilityState==="visible")void refresh();},30_000);return()=>{alive.current=false;window.clearInterval(timer);};},[refresh]);
+  useNotificationChangeSync(event=>event.type==="payment-changed"||event.type==="agreement-changed"&&(!event.agreementId||event.agreementId===contractId),refresh);
   return <section className="space-y-3" aria-label="Điều chỉnh tiền cọc">
     <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">Chênh lệch cọc theo phụ lục</h3><button type="button" onClick={()=>void refresh()} className="text-sm text-primary">Làm mới khoản cọc</button></div>
     {error ? <p role="alert" className="text-sm text-rose-700">{error}</p> : !rows.length ? <p className="text-sm text-muted-foreground">Chưa có khoản điều chỉnh cọc. Khi phụ lục đủ chữ ký và đến ngày hiệu lực, phần cọc cần bổ sung hoặc hoàn được quản lý tại đây.</p> : rows.map(payment=><SettlementPaymentPanel key={payment.id} payment={payment} isLandlord={isLandlord} refresh={refresh}/>)}

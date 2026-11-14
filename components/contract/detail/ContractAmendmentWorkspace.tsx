@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { contractAmendmentService as api } from "@/services/contract-amendment.service";
 import { contractService } from "@/services/contract.service";
 import type { ContractListingSyncPreview } from "@/types/contract.type";
+import { useAgreementChangeSync } from "@/hooks/useAgreementChangeSync";
 import { getApiErrorMessage } from "@/utils/apiError";
 import type { AmendmentPayload, AmendmentProposal, AmendmentTerms, ContractAmendments, TermRow } from "@/types/contract-amendment.type";
 
@@ -69,6 +70,9 @@ function useWorkspaceState(contractId: string, actorId: string, perspective: "la
     const timer = window.setInterval(() => { if (document.visibilityState === "visible" && !editingRef.current && !mutex.current) void load(); }, 30_000);
     return () => window.clearInterval(timer);
   }, [load, contractId, perspective, enabled]);
+  // Root amendment decisions and known signing children refresh this authorized workspace.
+  useAgreementChangeSync(id => !!id && (id === contractId || !!data?.proposals.some(p => p.agreementContractId === id)),
+    () => { if (!editingRef.current && !mutex.current) return load(); }, enabled);
   useEffect(() => {
     if (!editing) return;
     const beforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); };

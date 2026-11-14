@@ -9,7 +9,7 @@ const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const lifecycleSource = fs.readFileSync(path.join(__dirname, "../components/contract/detail/ContractLifecyclePanel.tsx"), "utf8");
 const paymentSource = fs.readFileSync(path.join(__dirname, "../components/contract/detail/SettlementPaymentPanel.tsx"), "utf8");
-let fixture = null, stateIndex = 0;
+let fixture = null, stateIndex = 0, agreementMatcher;
 const mockReact = { ...React, useState(initial) {
   const value = stateIndex++ === 0 && fixture ? fixture : initial;
   return React.useState(value);
@@ -32,6 +32,7 @@ function load(source, lifecycle, namespace = false) {
     : name.startsWith("@/services/") ? { contractLifecycleService: {}, default: {} }
     : name === "@/utils/apiError" ? { getApiErrorMessage: () => "test error" }
     : name === "@/lib/contract-routes" ? { contractDetailPath: (role, id) => `/dashboard/${role}/contracts/${id}`, invoiceDetailPath: id => `/dashboard/invoices/${id}` }
+    : name === "@/hooks/useAgreementChangeSync" ? { useNotificationChangeSync(matches) { agreementMatcher = id => matches({ type: "agreement-changed", agreementId: id }); } }
     : require(name);
   vm.runInThisContext(`(function(require,module,exports){${compiled}\n})`)(imports, mod, mod.exports);
   return namespace ? mod.exports : mod.exports.default;
@@ -53,6 +54,14 @@ function renderPayment(status, isLandlord, direction = "LANDLORD_TO_TENANT", typ
     payeeBankAccountSnapshot: { bankName: "VCB", accountNumber: "1234", accountHolderName: "TENANT" },
   } }));
 }
+
+test("lifecycle recovery accepts generic or matching root and known child signals only", () => {
+  renderLifecycle({ renewals: [{ id: "renewal", agreementContractId: "renewal-child" }] }, false);
+  assert.equal(agreementMatcher(), true);
+  assert.equal(agreementMatcher("root"), true);
+  assert.equal(agreementMatcher("renewal-child"), true);
+  assert.equal(agreementMatcher("foreign-root"), false);
+});
 test("renewal action and signing links respect party and server state", () => {
   assert.match(renderLifecycle({ canRequestRenewal: true }, false), /Gửi yêu cầu gia hạn/);
   const r = { id: "renewal", months: 3, status: "REQUESTED", note: "Tiếp tục thuê", startsOn: "2027-01-12", endExclusive: "2027-04-12" };

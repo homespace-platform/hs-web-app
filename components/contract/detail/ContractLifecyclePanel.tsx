@@ -13,6 +13,7 @@ import SettlementPaymentPanel from "./SettlementPaymentPanel";
 import DepositLedgerSummary from "@/components/payment/DepositLedgerSummary";
 import ComplaintPanel from "@/components/complaint/ComplaintPanel";
 import RentalWorkflowPanel from "@/components/rental-request/RentalWorkflowPanel";
+import { useNotificationChangeSync } from "@/hooks/useAgreementChangeSync";
 import { MeterReadingInput } from "./MeterReading";
 import { invoicePeriodLabel } from "@/lib/invoice-status";
 const dt = (value?: string) => value ? new Date(value).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
@@ -29,13 +30,16 @@ function EvidenceLinks({ ids }: { ids?: string[] }) {
     catch (error) { tab?.close(); toast.error(getApiErrorMessage(error, "Không mở được minh chứng.")); }
   }}>Xem minh chứng {i + 1} ↗</button>)}</div>;
 }
-export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdated, mode = "all" }: {
-  contractId: string; isLandlord: boolean; onUpdated?: () => Promise<void>; mode?: "all" | "renewal" | "settlement";
+export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdated, mode = "all", hideMoveIn = false }: {
+  contractId: string; isLandlord: boolean; onUpdated?: () => Promise<void>; mode?: "all" | "renewal" | "settlement"; hideMoveIn?: boolean;
 }) {
   const [data, setData] = useState<ContractLifecycle | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const mutex = useRef(false);
+  const alive = useRef(false), inflight = useRef<Promise<void> | null>(null), dirty = useRef(false);
+  const parent = useRef(onUpdated), version = useRef<number | null>(null);
+  useEffect(() => { parent.current = onUpdated; });
   const [months, setMonths] = useState(3);
   const [note, setNote] = useState("");
   const [electricity, setElectricity] = useState("");
@@ -57,17 +61,36 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
   // Use the latest billed reading (including supplements), not the previous calendar month's bill.
   const lastBilled = data?.billing.bills.reduce<ContractLifecycle["billing"]["bills"][number] | undefined>(
     (latest, bill) => !latest || bill.periodIndex > latest.periodIndex ? bill : latest, undefined);
-  const refresh = useCallback(async () => {
-    try { setData(await api.get(contractId)); setError(""); if (onUpdated) await onUpdated(); }
-    catch (error) { setError(getApiErrorMessage(error, "Chưa tải được vòng đời hợp đồng.")); }
-  }, [contractId, onUpdated]);
-  useEffect(() => { void refresh(); }, [refresh]);
+  const refresh = useCallback((): Promise<void> => {
+    if (!alive.current) return Promise.resolve();
+    if (inflight.current) { dirty.current = true; return inflight.current; }
+    const run = (async () => {
+      try { do {
+        dirty.current = false;
+        try {
+          const next = await api.get(contractId);
+          if (!alive.current) return;
+          const nextVersion = next.closure?.proposalVersion ?? 0;
+          if (version.current !== null && version.current !== nextVersion) { setHandover(false); setConsent(null); }
+          version.current = nextVersion;
+          setData(next); setError(""); await parent.current?.();
+        } catch (error) { if (alive.current) setError(getApiErrorMessage(error, "Chưa tải được vòng đời hợp đồng.")); }
+      } while (dirty.current && alive.current);
+      } finally { inflight.current = null; }
+    })();
+    inflight.current = run; return run;
+  }, [contractId]);
+  useEffect(() => { alive.current = true; void refresh(); return () => { alive.current = false; }; }, [refresh]);
+  // Payment ids alone cannot identify a new obligation's root: invalidate this authorized collection, never look up a foreign payment.
+  useNotificationChangeSync(event => event.type === "payment-changed"
+    || event.type === "invoice-changed" && (!event.contractId || event.contractId === contractId)
+    || event.type === "agreement-changed" && (!event.agreementId || event.agreementId === contractId || !!data?.renewals.some(r => r.agreementContractId === event.agreementId)), refresh);
   async function perform(action: () => Promise<unknown>) {
     if (mutex.current) return;
     mutex.current = true; setBusy(true);
-    try { await action(); await refresh(); setConsent(null); toast.success("Đã cập nhật hồ sơ hợp đồng."); }
-    catch (error) { toast.error(getApiErrorMessage(error, "Thao tác chưa thành công.")); }
-    finally { mutex.current = false; setBusy(false); }
+    try { await action(); if (!alive.current) return; await refresh(); if (alive.current) { setConsent(null); toast.success("Đã cập nhật hồ sơ hợp đồng."); } }
+    catch (error) { if (alive.current) toast.error(getApiErrorMessage(error, "Thao tác chưa thành công.")); }
+    finally { mutex.current = false; if (alive.current) setBusy(false); }
   }
   function requestRenewal() {
     if (!Number.isInteger(months) || months < 1 || months > 36 || note.trim().length < 10) { toast.error("Chọn 1–36 tháng và nhập lý do ít nhất 10 ký tự."); return; }
@@ -200,7 +223,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
         </details>
         <h3 className="flex items-center gap-2 font-semibold"><ClipboardCheck className="h-4 w-4 text-primary" />{noDepositToRefund ? "Trả nhà & quyết toán" : "Bàn giao & tiền cọc"} · {noDepositToRefund && data.closure.status === "CLOSED" ? "Đã hoàn tất quyết toán" : closureLabels[data.closure.status]}</h3>
         {data.closure.status !== "CLOSED" ? <p className="text-sm">{noDepositToRefund ? "Không có tiền cọc cần hoàn. Hai bên vẫn xác nhận trả nhà, hoàn tất hóa đơn và thống nhất khoản còn phải trả nếu có." : <>Cọc đang giữ: <strong>{money(data.heldDeposit)}</strong>. Hoàn tất hóa đơn rồi thống nhất khấu trừ và số tiền hoàn.</>}</p>
-          : <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900"><p className="font-semibold">Đã kết thúc hợp đồng · {noDepositToRefund ? "Hoàn tất quyết toán" : "Hoàn tất xử lý tiền cọc"}</p><p className="mt-1 text-sm">{data.refundPayment ? `Đã hoàn ${money(data.refundPayment.totalAmount)} cho người thuê và xác nhận nhận tiền.` : data.balancePayment ? "Đã xác nhận thanh toán khoản còn thiếu." : noDepositToRefund ? "Hai bên đã xác nhận trả nhà và hoàn tất nghĩa vụ; không phát sinh chuyển khoản hoàn cọc." : "Hai bên đã thống nhất khấu trừ và hoàn tất nghĩa vụ."}</p></div>}
+          : <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900"><p className="font-semibold">Đã kết thúc hợp đồng · {noDepositToRefund ? "Hoàn tất quyết toán cọc" : "Hoàn tất xử lý tiền cọc"}</p><p className="mt-1 text-sm">{data.refundPayment ? `Đã hoàn ${money(data.refundPayment.totalAmount)} cho người thuê và xác nhận nhận tiền.` : data.balancePayment ? "Đã xác nhận thanh toán khoản quyết toán còn thiếu." : noDepositToRefund ? "Hai bên đã xác nhận trả nhà và hoàn tất quyết toán cọc; không phát sinh chuyển khoản hoàn cọc." : "Hai bên đã thống nhất khấu trừ và hoàn tất quyết toán cọc."}</p></div>}
         {data.closure.respondBy && <p className={data.closure.responseOverdueAt ? "rounded-lg bg-amber-50 p-3 text-xs text-amber-800" : "text-xs text-muted-foreground"}>
           {data.closure.status === "DISPUTED" ? "Chủ nhà cần phản hồi đối soát" : "Người thuê cần phản hồi đề xuất"} trước {dt(data.closure.respondBy)}.
           {data.closure.responseOverdueAt && " Đã quá hạn phản hồi. Hai bên cần liên hệ xử lý; không tự đồng ý, không tự tạo QR hoặc đóng hồ sơ."}
@@ -273,10 +296,10 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
             <p>Hoàn: {money(event.refundAmount)} · Trả thêm: {money(event.balanceAmount)}</p><EvidenceLinks ids={event.evidenceIds} />
           </article>)}
         </details>}
-        {data.refundPayment && <SettlementPaymentPanel payment={data.refundPayment} isLandlord={isLandlord} refresh={refresh} />}
-        {data.balancePayment && <SettlementPaymentPanel payment={data.balancePayment} isLandlord={isLandlord} refresh={refresh} />}
+        {data.refundPayment && <SettlementPaymentPanel key={data.refundPayment.id} payment={data.refundPayment} isLandlord={isLandlord} refresh={refresh} />}
+        {data.balancePayment && <SettlementPaymentPanel key={data.balancePayment.id} payment={data.balancePayment} isLandlord={isLandlord} refresh={refresh} />}
       </div>}
-      {data.rentalRequestId && <><RentalWorkflowPanel rentalRequestId={data.rentalRequestId} kind="move-in" onUpdated={refresh}/><RentalWorkflowPanel rentalRequestId={data.rentalRequestId} kind="early-exit" onUpdated={refresh}/><ComplaintPanel rentalRequestId={data.rentalRequestId} attention={data.closure?.status==="DISPUTED"} onUpdated={refresh}/></>}
+      {data.rentalRequestId && <>{!hideMoveIn&&<RentalWorkflowPanel rentalRequestId={data.rentalRequestId} kind="move-in" contractId={contractId} onUpdated={refresh}/>}<RentalWorkflowPanel rentalRequestId={data.rentalRequestId} kind="early-exit" onUpdated={refresh}/><ComplaintPanel rentalRequestId={data.rentalRequestId} attention={data.closure?.status==="DISPUTED"} onUpdated={refresh}/></>}
     </>}
   </section>;
 }

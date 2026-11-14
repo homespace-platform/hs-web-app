@@ -66,3 +66,16 @@ test("first rent is counted without deposit, cancelled bills are not outstanding
   const summary=api.depositSummary(undefined,{deposit:{status:"RETAINED_BY_LANDLORD",heldAmount:0,retainedAmount:10000000,retainedReason:"Quá hạn ký sau thông báo"}});
   assert.equal(summary.amount,10000000);assert.match(summary.label,/giữ cọc/);
 });
+
+test("untrusted route ids pass only as a single safe segment before they reach a path or comparison", () => {
+  assert.equal(api.safeResourceId("  3f2c-AB_9  "), "3f2c-AB_9");
+  for (const bad of [null, undefined, "", "   ", "a/b", "../x", "a b", "-leading", 'a"]', "a'b", "a".repeat(65), "%2e%2e"]) assert.equal(api.safeResourceId(bad), null, String(bad));
+  assert.equal(api.safeResourceId("a".repeat(64)), "a".repeat(64));
+  const uuid = "3f2c9a4e-1b7d-4c8a-9e21-5d6f0a7b8c90";
+  assert.equal(api.safeInvoiceSelectionId(uuid), uuid);
+  assert.equal(api.safeInvoiceSelectionId(` first-rent:${uuid} `), `first-rent:${uuid}`);
+  assert.equal(api.safeResourceId(`first-rent:${uuid}`), null, "contract path validation does not accept the synthetic id");
+  for (const bad of [null, "", "first-rent:", "first-rent:a/b", "first-rent:../x", "first-rent:first-rent:x", "first-rent:-x", "other:abc", "a:b", "first-rent:" + "a".repeat(65)]) assert.equal(api.safeInvoiceSelectionId(bad), null, String(bad));
+  assert.equal(api.paymentModulePath("root", "monthly", `first-rent:${uuid}`), `/dashboard/invoices/root?section=monthly&invoice=first-rent%3A${uuid}`);
+  assert.equal(api.paymentModulePath("root", "deposit", undefined), "/dashboard/invoices/root?section=deposit");
+});

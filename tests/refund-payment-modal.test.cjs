@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Node regression tests execute the real TypeScript with isolated dependencies. */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
@@ -5,11 +6,11 @@ const ts = require("typescript"), React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const read = file => fs.readFileSync(path.join(__dirname, "..", file), "utf8");
 function compile(file, dependencies = {}) {
-  const module = { exports: {} };
+  const moduleRef = { exports: {} };
   vm.runInNewContext(ts.transpileModule(read(file), {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
-  }).outputText, { module, exports: module.exports, require: name => dependencies[name] ?? require(name), console });
-  return module.exports;
+  }).outputText, { module: moduleRef, exports: moduleRef.exports, require: name => dependencies[name] ?? require(name), console });
+  return moduleRef.exports;
 }
 const presentation = compile("lib/payment-transfer-presentation.ts").paymentTransferPresentation;
 const line = (type, amount, displayName) => ({ id: type, type, amount, displayName });
@@ -32,9 +33,10 @@ function fixture(options = {}) {
     proofSource: "MOBILE_QR", mobileStatus: "UPLOADED", mobileSessionId: "proof-session", ...options.state };
   let index = 0; const calls = [], updates = [];
   const hooks = { ...React, useState: initial => { const name = names[index++]; return [Object.hasOwn(state, name) ? state[name] : initial, () => {}]; },
-    useRef: initial => ({ current: initial }), useEffect() {} };
+    useRef: initial => ({ current: initial === false ? true : initial }), useEffect() {}, useCallback: fn => fn };
   const Modal = compile("components/rental-request/RentalPaymentModal.tsx", {
     react: hooks,
+    "@/hooks/useAgreementChangeSync": { useNotificationChangeSync() {} },
     "@/features/auth/useAuth": { useAuth: () => ({ profile: options.actor === null ? null : { id: options.actor ?? "owner" } }) },
     "@/lib/payment-transfer-presentation": { paymentTransferPresentation: presentation },
     "@/services/payment-request.service": { __esModule: true, default: { reportTransfer: async (...args) => { calls.push(args); return { ...payment, status: "TRANSFER_REPORTED" }; } } },
@@ -44,8 +46,9 @@ function fixture(options = {}) {
     "@/components/complaint/ComplaintPanel": { __esModule: true, default: () => null },
     sonner: { toast: { success() {}, error() {} } }, qrcode: { __esModule: true, default: {} },
   }).default;
-  const tree = Modal({ request: options.request ?? { id: "rental" }, paymentId: payment.id, isOpen: true, onClose() {}, onPaymentSuccess: value => updates.push(value) });
-  assert.equal(index, names.length);
+  const outer = Modal({ request: options.request ?? { id: "rental" }, paymentId: payment.id, isOpen: true, onClose() {}, onPaymentSuccess: value => updates.push(value) });
+  const tree = outer ? outer.type(outer.props) : null;
+  assert.equal(index, tree ? names.length : 0);
   return { payment, tree, calls, updates, html: renderToStaticMarkup(tree) };
 }
 function find(node, predicate) {

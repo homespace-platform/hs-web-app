@@ -42,6 +42,17 @@ export default function PaymentDisputePanel({ payment, onUpdated }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payment.id]);
   useEffect(() => { if (payment.status === "DISPUTED") setExpanded(true); }, [payment.status]);
+  // A successful parent list update (realtime/recovery) hands this card a new payment object; refresh an
+  // open case silently so case-only changes (propose/evidence/decline/escalate keep DISPUTED) show at once.
+  // Id/status changes are already handled above; drafts (reason, file, selection) are never touched.
+  const seenPayment = useRef(payment);
+  useEffect(() => {
+    const previous = seenPayment.current;
+    if (previous === payment) return;
+    seenPayment.current = payment;
+    if (!expanded || previous.id !== payment.id || previous.status !== payment.status) return;
+    void refresh();
+  }, [payment, expanded, refresh]);
   useEffect(() => {
     const scope = generation;
     if (!expanded) return;

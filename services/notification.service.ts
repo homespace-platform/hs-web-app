@@ -213,9 +213,169 @@ const RENTAL_REQUEST_TYPE_TAGS: Record<string, string> = {
   RENTAL_RESUME_WITHDRAWN: "Rút yêu cầu tiếp tục",
 };
 
+const ACCOUNT_TYPE_TAGS: Record<string, string> = {
+  ACCOUNT_ROLE_CHANGED: "Đổi vai trò",
+  ACCOUNT_DISABLED: "Đã vô hiệu hóa",
+  ACCOUNT_ENABLED: "Đã kích hoạt lại",
+};
+
+const PAYMENT_TYPE_TAGS: Record<string, string> = {
+  MEMBERSHIP_ACTIVATED: "Kích hoạt gói",
+  MEMBERSHIP_PAYMENT_REVIEW: "Chờ đối soát",
+  PAYMENT_REQUEST_CREATED: "Yêu cầu chuyển khoản",
+  PAYMENT_OBLIGATION_OVERDUE: "Khoản chuyển khoản quá hạn",
+  PAYMENT_TRANSFER_REPORTED: "Đã báo chuyển khoản",
+  PAYMENT_RECEIPT_CONFIRMED: "Đã xác nhận nhận",
+  PAYMENT_RECEIPT_REJECTED: "Chưa xác nhận",
+  PAYMENT_DISPUTE_OPENED: "Mở đối soát",
+  PAYMENT_DISPUTE_EVIDENCE_ADDED: "Bổ sung chứng cứ",
+  PAYMENT_DISPUTE_PROPOSED: "Đề xuất đối soát",
+  PAYMENT_DISPUTE_PROPOSAL_DECLINED: "Từ chối đề xuất",
+  PAYMENT_DISPUTE_ESCALATED: "Chuyển cấp đối soát",
+  PAYMENT_DISPUTE_REVIEW_TRANSFER: "Xem lại chuyển khoản",
+  PAYMENT_DISPUTE_REOPENED: "Mở lại thanh toán",
+};
+
+// Invoice lifecycle notices (PAYMENT category). They open /dashboard/invoices/<contractId>?section=monthly&invoice=<id>
+// and only invalidate the invoice page; they never feed payment/membership recovery.
+const INVOICE_TYPE_TAGS: Record<string, string> = {
+  INVOICE_DRAFT_READY: "Bản nháp hóa đơn",
+  INVOICE_ISSUED: "Đã phát hành",
+  INVOICE_OVERDUE: "Quá hạn",
+  INVOICE_AMOUNT_UPDATED: "Đổi số tiền",
+  INVOICE_EXTENSION_REQUESTED: "Xin gia hạn",
+  INVOICE_EXTENSION_APPROVED: "Gia hạn ✓",
+  INVOICE_EXTENSION_REJECTED: "Gia hạn ×",
+  INVOICE_EXTENSION_EXPIRED: "Gia hạn hết hạn",
+  INVOICE_OVERDUE_ACTION_RECORDED: "Xử lý quá hạn",
+  INVOICE_OVERDUE_ACTION_ACKNOWLEDGED: "Đã phản hồi quá hạn",
+  INVOICE_DEFERRED: "Cộng dồn nợ",
+  INVOICE_ROLLED_OVER: "Đã chuyển nợ",
+  INVOICE_OVERDUE_ACTION_REQUIRED: "Cần xử lý quá hạn",
+};
+
+export function isInvoiceNotificationType(type: unknown): boolean {
+  return typeof type === "string" && Object.hasOwn(INVOICE_TYPE_TAGS, type);
+}
+
+// Move-in handover record notices (CONTRACT category). They open
+// /dashboard/invoices/<contractId>?section=deposit&workflow=move-in and only invalidate the handover panel.
+const MOVE_IN_HANDOVER_TYPE_TAGS: Record<string, string> = {
+  MOVE_IN_HANDOVER_PROPOSED: "Biên bản bàn giao",
+  MOVE_IN_HANDOVER_CONFIRMED: "Đã xác nhận bàn giao",
+  MOVE_IN_HANDOVER_COMPLETED: "Hoàn tất bàn giao",
+  MOVE_IN_HANDOVER_DISPUTED: "Bàn giao có tranh chấp",
+  MOVE_IN_HANDOVER_READY: "Có thể lập biên bản",
+};
+
+export function isMoveInHandoverNotificationType(type: unknown): boolean {
+  return typeof type === "string" && Object.hasOwn(MOVE_IN_HANDOVER_TYPE_TAGS, type);
+}
+
+// Agreement signing notices (CONTRACT category). data/metadata are exactly {agreementId, agreementKind}; the id is the signing
+// envelope (a child id is allowed). They open /dashboard/contracts/<agreementId> and only invalidate that exact document.
+const AGREEMENT_TYPE_TAGS: Record<string, string> = {
+  AGREEMENT_REVIEW_READY: "Văn bản để rà soát",
+  AGREEMENT_SIGNING_TURN: "Đến lượt ký",
+  AGREEMENT_FULLY_SIGNED: "Đủ chữ ký",
+  AGREEMENT_SIGNATURE_NEEDS_REVIEW: "Cần kiểm tra chữ ký",
+};
+
+export function isAgreementNotificationType(type: unknown): boolean {
+  return typeof type === "string" && Object.hasOwn(AGREEMENT_TYPE_TAGS, type);
+}
+
+const AMENDMENT_TYPE_TAGS: Record<string, string> = {
+  AMENDMENT_RESPONSE_NEEDED: "Cần phản hồi phụ lục",
+  AMENDMENT_DECIDED: "Đã phản hồi phụ lục",
+  AMENDMENT_WITHDRAWN: "Đã rút đề nghị",
+  AMENDMENT_EXPIRED: "Đề nghị hết hạn",
+  AMENDMENT_APPLIED: "Phụ lục áp dụng",
+};
+
+export function isAmendmentNotificationType(type: unknown): boolean {
+  return typeof type === "string" && Object.hasOwn(AMENDMENT_TYPE_TAGS, type);
+}
+
+const RENEWAL_TYPE_TAGS: Record<string, string> = {
+  RENEWAL_REQUESTED: "Yêu cầu gia hạn",
+  RENEWAL_APPROVED: "Gia hạn được duyệt",
+  RENEWAL_REJECTED: "Gia hạn bị từ chối",
+  RENEWAL_EXPIRED: "Gia hạn hết hạn",
+};
+
+export function isRenewalNotificationType(type: unknown): boolean {
+  return typeof type === "string" && Object.hasOwn(RENEWAL_TYPE_TAGS, type);
+}
+
+const TERMINATION_TYPE_TAGS: Record<string, string> = {
+  TERMINATION_RESPONSE_NEEDED: "Cần phản hồi chấm dứt", TERMINATION_AGREED: "Đã đồng ý chấm dứt",
+  TERMINATION_DECLINED: "Đã từ chối chấm dứt", TERMINATION_WITHDRAWN: "Đã rút đề nghị",
+  TERMINATION_NOTICE_ISSUED: "Quyết định chấm dứt", TERMINATION_REVIEW_REQUESTED: "Cần xem xét quyết định",
+  TERMINATION_REVIEW_APPROVED: "Đã đổi phương án", TERMINATION_NOTICE_CANCELLED: "Đã rút quyết định",
+  TERMINATION_ENDED: "Hợp đồng chấm dứt", LEASE_EXPIRED: "Hết thời hạn thuê",
+};
+
+export function isTerminationNotificationType(type: unknown): boolean {
+  return typeof type === "string" && Object.hasOwn(TERMINATION_TYPE_TAGS, type);
+}
+
+const RETURN_SETTLEMENT_TYPE_TAGS: Record<string, string> = {
+  LEASE_RETURN_CONFIRMED: "Xác nhận trả nhà", LEASE_RETURN_COMPLETED: "Đã ghi nhận trả nhà",
+  SETTLEMENT_RESPONSE_NEEDED: "Cần phản hồi quyết toán", SETTLEMENT_DISPUTED: "Cần đối soát quyết toán",
+  SETTLEMENT_PROPOSAL_INVALIDATED: "Cần lập lại quyết toán", SETTLEMENT_AGREED: "Đã đồng ý quyết toán",
+  SETTLEMENT_RESPONSE_OVERDUE: "Quá hạn phản hồi quyết toán", SETTLEMENT_PAYMENT_OVERDUE: "Cần kiểm tra khoản quyết toán",
+  LEASE_CLOSED: "Đã đóng hồ sơ quyết toán cọc",
+};
+
+export function isReturnSettlementNotificationType(type: unknown): boolean {
+  return typeof type === "string" && Object.hasOwn(RETURN_SETTLEMENT_TYPE_TAGS, type);
+}
+
+// Routed payment types open /dashboard/payments?paymentId=…; legacy PAYMENT_* types do not.
+const ROUTED_PAYMENT_TYPES: ReadonlySet<string> = new Set([
+  "PAYMENT_REQUEST_CREATED",
+  "PAYMENT_OBLIGATION_OVERDUE",
+  "PAYMENT_TRANSFER_REPORTED",
+  "PAYMENT_RECEIPT_CONFIRMED",
+  "PAYMENT_RECEIPT_REJECTED",
+  "PAYMENT_DISPUTE_OPENED",
+  "PAYMENT_DISPUTE_EVIDENCE_ADDED",
+  "PAYMENT_DISPUTE_PROPOSED",
+  "PAYMENT_DISPUTE_PROPOSAL_DECLINED",
+  "PAYMENT_DISPUTE_ESCALATED",
+  "PAYMENT_DISPUTE_REVIEW_TRANSFER",
+  "PAYMENT_DISPUTE_REOPENED",
+]);
+
+export function isRoutedPaymentType(type: unknown): boolean {
+  return typeof type === "string" && ROUTED_PAYMENT_TYPES.has(type);
+}
+
 type NotificationTagItem = Pick<NotificationItem, "category" | "type" | "metadata">;
 
 export function getNotificationTag(item: NotificationTagItem): string {
+  if (item.category === "PAYMENT") {
+    if (isInvoiceNotificationType(item.type)) return INVOICE_TYPE_TAGS[item.type];
+    return Object.hasOwn(PAYMENT_TYPE_TAGS, item.type)
+      ? PAYMENT_TYPE_TAGS[item.type]
+      : getCategoryMeta(item.category).tag;
+  }
+  if (item.category === "CONTRACT") {
+    if (isAgreementNotificationType(item.type)) return AGREEMENT_TYPE_TAGS[item.type];
+    if (isAmendmentNotificationType(item.type)) return AMENDMENT_TYPE_TAGS[item.type];
+    if (isRenewalNotificationType(item.type)) return RENEWAL_TYPE_TAGS[item.type];
+    if (isTerminationNotificationType(item.type)) return TERMINATION_TYPE_TAGS[item.type];
+    if (isReturnSettlementNotificationType(item.type)) return RETURN_SETTLEMENT_TYPE_TAGS[item.type];
+    return isMoveInHandoverNotificationType(item.type)
+      ? MOVE_IN_HANDOVER_TYPE_TAGS[item.type]
+      : getCategoryMeta(item.category).tag;
+  }
+  if (item.category === "ACCOUNT") {
+    return Object.hasOwn(ACCOUNT_TYPE_TAGS, item.type)
+      ? ACCOUNT_TYPE_TAGS[item.type]
+      : getCategoryMeta(item.category).tag;
+  }
   if (item.category === "RENTAL_REQUEST") {
     return Object.hasOwn(RENTAL_REQUEST_TYPE_TAGS, item.type)
       ? RENTAL_REQUEST_TYPE_TAGS[item.type]
@@ -259,6 +419,11 @@ export type NotificationSyncEvent =
   | { type: "appointment-changed"; bookingId?: string }
   | { type: "listing-changed"; listingId?: string }
   | { type: "rental-request-changed"; requestId?: string }
+  | { type: "membership-changed"; orderId?: string }
+  | { type: "payment-changed"; paymentId?: string }
+  | { type: "invoice-changed"; contractId?: string; invoiceId?: string }
+  | { type: "handover-changed"; contractId?: string }
+  | { type: "agreement-changed"; agreementId?: string }
   | { type: "refresh" }
   | { type: "unread-count"; count: number }
   | { type: "read"; id: string; item: NotificationItem }
@@ -290,6 +455,26 @@ export const notificationService = {
 
   notifyRentalRequestChanged(requestId?: string): void {
     emitSyncEvent({ type: "rental-request-changed", requestId });
+  },
+
+  notifyMembershipChanged(orderId?: string): void {
+    emitSyncEvent({ type: "membership-changed", orderId });
+  },
+
+  notifyPaymentChanged(paymentId?: string): void {
+    emitSyncEvent({ type: "payment-changed", paymentId });
+  },
+
+  notifyInvoiceChanged(contractId?: string, invoiceId?: string): void {
+    emitSyncEvent({ type: "invoice-changed", contractId, invoiceId });
+  },
+
+  notifyHandoverChanged(contractId?: string): void {
+    emitSyncEvent({ type: "handover-changed", contractId });
+  },
+
+  notifyAgreementChanged(agreementId?: string): void {
+    emitSyncEvent({ type: "agreement-changed", agreementId });
   },
 
   notifyRemoteChanged(): void {

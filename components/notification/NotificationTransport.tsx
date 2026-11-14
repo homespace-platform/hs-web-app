@@ -7,7 +7,7 @@ import { Bell, X } from "lucide-react";
 import { io } from "socket.io-client";
 import { useAuth } from "@/features/auth/useAuth";
 import keycloak from "@/lib/keycloak";
-import notificationService, { getCategoryMeta, getNotificationTag, getSafeActionPath } from "@/services/notification.service";
+import notificationService, { getCategoryMeta, getNotificationTag, getSafeActionPath, isAgreementNotificationType, isAmendmentNotificationType, isInvoiceNotificationType, isMoveInHandoverNotificationType, isRenewalNotificationType, isTerminationNotificationType, isReturnSettlementNotificationType, isRoutedPaymentType } from "@/services/notification.service";
 import { startPush } from "@/services/notification-push.service";
 import type { NotificationItem } from "@/types/notification.type";
 
@@ -30,7 +30,7 @@ export default function NotificationTransport() {
       if (event.type === "unread-count") {
         count = event.count;
         updateTitle();
-      } else if (event.type !== "appointment-changed" && event.type !== "listing-changed" && event.type !== "rental-request-changed") {
+      } else if (event.type !== "appointment-changed" && event.type !== "listing-changed" && event.type !== "rental-request-changed" && event.type !== "membership-changed" && event.type !== "payment-changed" && event.type !== "invoice-changed" && event.type !== "handover-changed" && event.type !== "agreement-changed") {
         void notificationService.getUnreadCount().catch(() => {});
       }
     });
@@ -59,6 +59,11 @@ export default function NotificationTransport() {
       notificationService.notifyAppointmentChanged();
       notificationService.notifyListingChanged();
       notificationService.notifyRentalRequestChanged();
+      notificationService.notifyMembershipChanged();
+      notificationService.notifyPaymentChanged();
+      notificationService.notifyInvoiceChanged();
+      notificationService.notifyHandoverChanged();
+      notificationService.notifyAgreementChanged();
     };
 
     const baseUrl = process.env.NEXT_PUBLIC_NOTIFICATION_SOCKET_URL;
@@ -97,6 +102,32 @@ export default function NotificationTransport() {
         if (item.category === "RENTAL_REQUEST") {
           const requestId = item.metadata?.requestId;
           notificationService.notifyRentalRequestChanged(typeof requestId === "string" ? requestId : undefined);
+        }
+        if (item.category === "PAYMENT" && (item.type === "MEMBERSHIP_ACTIVATED" || item.type === "MEMBERSHIP_PAYMENT_REVIEW")) {
+          const orderId = item.metadata?.orderId;
+          notificationService.notifyMembershipChanged(typeof orderId === "string" ? orderId : undefined);
+        }
+        if (item.category === "PAYMENT" && isRoutedPaymentType(item.type)) {
+          const paymentId = item.metadata?.paymentId;
+          notificationService.notifyPaymentChanged(typeof paymentId === "string" ? paymentId : undefined);
+        }
+        if (item.category === "PAYMENT" && isInvoiceNotificationType(item.type)) {
+          const { contractId, invoiceId } = item.metadata ?? {};
+          notificationService.notifyInvoiceChanged(typeof contractId === "string" ? contractId : undefined, typeof invoiceId === "string" ? invoiceId : undefined);
+        }
+        if (item.category === "CONTRACT" && isMoveInHandoverNotificationType(item.type)) {
+          const { contractId } = item.metadata ?? {};
+          notificationService.notifyHandoverChanged(typeof contractId === "string" ? contractId : undefined);
+          // Lease activation (READY goes to the landlord instead of FULLY_SIGNED): the root lease page they may have open changed too.
+          if (item.type === "MOVE_IN_HANDOVER_READY") notificationService.notifyAgreementChanged(typeof contractId === "string" ? contractId : undefined);
+        }
+        if (item.category === "CONTRACT" && isAgreementNotificationType(item.type)) {
+          const { agreementId } = item.metadata ?? {};
+          notificationService.notifyAgreementChanged(typeof agreementId === "string" ? agreementId : undefined);
+        }
+        if (item.category === "CONTRACT" && (isAmendmentNotificationType(item.type) || isRenewalNotificationType(item.type) || isTerminationNotificationType(item.type) || isReturnSettlementNotificationType(item.type))) {
+          const { contractId } = item.metadata ?? {};
+          notificationService.notifyAgreementChanged(typeof contractId === "string" ? contractId : undefined);
         }
         if (document.visibilityState !== "visible") return;
         if (item.category === "APPOINTMENT") {
@@ -180,7 +211,7 @@ export default function NotificationTransport() {
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
                 <span>HomeSpace</span><span aria-hidden="true">·</span><span>{getCategoryMeta(item.category).label}</span>
-                {(item.category === "LISTING" || item.category === "RENTAL_REQUEST") && getNotificationTag(item) !== getCategoryMeta(item.category).tag && (<><span aria-hidden="true">·</span><span>{getNotificationTag(item)}</span></>)}
+                {(item.category === "LISTING" || item.category === "RENTAL_REQUEST" || item.category === "ACCOUNT" || item.category === "PAYMENT" || item.category === "CONTRACT") && getNotificationTag(item) !== getCategoryMeta(item.category).tag && (<><span aria-hidden="true">·</span><span>{getNotificationTag(item)}</span></>)}
               </div>
               <p className="line-clamp-2 font-semibold text-slate-900 dark:text-white">{item.title}</p>
               <p className="mt-1 line-clamp-3 text-sm leading-5 text-slate-600 dark:text-slate-300">{item.body}</p>

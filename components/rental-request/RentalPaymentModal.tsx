@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import {
   CreditCard,
   Loader2,
@@ -39,6 +39,7 @@ import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
 import ComplaintPanel from "@/components/complaint/ComplaintPanel";
 import { useAuth } from "@/features/auth/useAuth";
 import { paymentTransferPresentation } from "@/lib/payment-transfer-presentation";
+import { useNotificationChangeSync } from "@/hooks/useAgreementChangeSync";
 
 interface RentalPaymentModalProps {
   request: Pick<RentalRequestResponse, "id"> & Partial<RentalRequestResponse>;
@@ -68,7 +69,13 @@ function formatCountdown(seconds: number): string {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-export default function RentalPaymentModal({
+export default function RentalPaymentModal(props: RentalPaymentModalProps) {
+  const { profile } = useAuth();
+  if (!props.isOpen || !profile?.id) return null;
+  return <ScopedPaymentModal key={`${profile.id}:${props.request.id}:${props.paymentId ?? "initial"}`} {...props} />;
+}
+
+function ScopedPaymentModal({
   request,
   paymentId,
   isOpen,
@@ -107,11 +114,31 @@ export default function RentalPaymentModal({
   const [mobileError, setMobileError] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const alive = useRef(false), inflight = useRef<Promise<void> | null>(null), dirty = useRef(false);
+  const refresh = useCallback((): Promise<void> => {
+    if (!alive.current) return Promise.resolve();
+    if (inflight.current) { dirty.current = true; return inflight.current; }
+    const run = (async () => {
+      try { do {
+        dirty.current = false;
+        try {
+          const next = paymentId ? await paymentRequestService.getPaymentRequest(paymentId) : await paymentRequestService.getInitialPaymentByRentalRequestId(request.id);
+          if (!alive.current) return;
+          if ((paymentId && next.id !== paymentId) || next.rentalRequestId !== request.id
+            || (profile?.id !== next.payerId && profile?.id !== next.payeeId)) throw new Error("Không tìm thấy khoản chuyển khoản hoặc bạn không có quyền xem.");
+          setPayment(next);
+        } catch (err) { if (alive.current) toast.error(getApiErrorMessage(err, "Không thể tải thông tin yêu cầu chuyển khoản.")); }
+      } while (dirty.current && alive.current);
+      } finally { inflight.current = null; if (alive.current) setLoading(false); }
+    })();
+    inflight.current = run; return run;
+  }, [paymentId, request.id, profile?.id]);
+  useNotificationChangeSync(event => event.type === "payment-changed" && (!event.paymentId || event.paymentId === (paymentId ?? payment?.id)), refresh);
 
   useEffect(() => {
     if (!isOpen) return;
 
-    let isMounted = true;
+    alive.current = true;
     setLoading(true);
     setQrLoading(true);
     setQrError(false);
@@ -131,28 +158,11 @@ export default function RentalPaymentModal({
     setMobileEvidence(null);
     setMobileError(null);
 
-    async function loadPayment() {
-      try {
-        const res = paymentId ? await paymentRequestService.getPaymentRequest(paymentId) : await paymentRequestService.getInitialPaymentByRentalRequestId(request.id);
-        if (isMounted) {
-          setPayment(res);
-        }
-      } catch (err) {
-        if (isMounted) {
-          toast.error(getApiErrorMessage(err, "Không thể tải thông tin yêu cầu chuyển khoản."));
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadPayment();
+    void refresh();
     return () => {
-      isMounted = false;
+      alive.current = false;
     };
-  }, [isOpen, request.id, paymentId]);
+  }, [isOpen, refresh]);
 
   // Countdown timer for mobile QR session
   useEffect(() => {
@@ -335,9 +345,11 @@ export default function RentalPaymentModal({
       setUploadStatus("UPLOADING");
       try {
         const storageId = await storageService.uploadPaymentProof(file, payment.id);
+        if (!alive.current) return;
         setUploadedStorageId(storageId);
         setUploadStatus("SUCCESS");
       } catch (err) {
+        if (!alive.current) return;
         setUploadStatus("ERROR");
         const msg = getApiErrorMessage(err, "Tải chứng từ thất bại. Vui lòng thử lại.");
         setUploadError(msg);
@@ -354,11 +366,13 @@ export default function RentalPaymentModal({
     setMobileUploadPageUrl(null);
     try {
       const res = await paymentRequestService.createProofUploadSession(payment.id);
+      if (!alive.current) return;
       const qrDataUrl = await QRCode.toDataURL(res.uploadPageUrl, {
         width: 240,
         margin: 2,
         color: { dark: "#0f172a", light: "#ffffff" },
       });
+      if (!alive.current) return;
       setMobileSessionId(res.sessionId);
       setMobileQrDataUrl(qrDataUrl);
       setMobileUploadPageUrl(res.uploadPageUrl);
@@ -370,6 +384,7 @@ export default function RentalPaymentModal({
       setMobileCountdown(remainingSecs);
       setMobileStatus("AWAITING_UPLOAD");
     } catch (err: unknown) {
+      if (!alive.current) return;
       setMobileStatus("ERROR");
       let msg = getApiErrorMessage(err, "Không thể tạo phiên tải chứng từ từ điện thoại.");
       const errorCode = (err as { response?: { data?: { code?: number } } })?.response?.data?.code;
@@ -406,9 +421,11 @@ export default function RentalPaymentModal({
         setSubmitting(true);
         try {
           finalStorageId = await storageService.uploadPaymentProof(selectedFile, payment.id);
+          if (!alive.current) return;
           setUploadedStorageId(finalStorageId);
           setUploadStatus("SUCCESS");
         } catch {
+          if (!alive.current) return;
           setSubmitting(false);
           setUploadStatus("ERROR");
           toast.error("Tải chứng từ thất bại. Vui lòng thử lại.");
@@ -424,15 +441,16 @@ export default function RentalPaymentModal({
         };
 
         const updated = await paymentRequestService.reportTransfer(payment.id, payload);
+        if (!alive.current) return;
         setPayment(updated);
         setShowReportForm(false);
         handleRemoveFile();
         toast.success("Đã gửi chứng từ cho bên nhận xác nhận.");
         onPaymentSuccess?.(updated);
       } catch (err) {
-        toast.error(getApiErrorMessage(err, "Không thể gửi báo cáo chuyển khoản. Vui lòng thử lại."));
+        if (alive.current) toast.error(getApiErrorMessage(err, "Không thể gửi báo cáo chuyển khoản. Vui lòng thử lại."));
       } finally {
-        setSubmitting(false);
+        if (alive.current) setSubmitting(false);
       }
     } else {
       // MOBILE_QR
@@ -449,6 +467,7 @@ export default function RentalPaymentModal({
         };
 
         const updated = await paymentRequestService.reportTransfer(payment.id, payload);
+        if (!alive.current) return;
         setPayment(updated);
         setShowReportForm(false);
         setMobileStatus("IDLE");
@@ -458,9 +477,9 @@ export default function RentalPaymentModal({
         toast.success("Đã gửi chứng từ cho bên nhận xác nhận.");
         onPaymentSuccess?.(updated);
       } catch (err) {
-        toast.error(getApiErrorMessage(err, "Không thể gửi báo cáo chuyển khoản. Vui lòng thử lại."));
+        if (alive.current) toast.error(getApiErrorMessage(err, "Không thể gửi báo cáo chuyển khoản. Vui lòng thử lại."));
       } finally {
-        setSubmitting(false);
+        if (alive.current) setSubmitting(false);
       }
     }
   }

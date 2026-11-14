@@ -6,6 +6,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { Loader2, Plus, ReceiptText, RefreshCw, Trash2 } from "lucide-react";
 import { monthlyInvoiceService } from "@/services/monthly-invoice.service";
+import notificationService from "@/services/notification.service";
 import paymentRequestService from "@/services/payment-request.service";
 import storageService from "@/services/storage.service";
 import type { MonthlyInvoice } from "@/types/monthly-invoice.type";
@@ -36,18 +37,31 @@ type Props = {
   initialWater?: string | number;
   showInitialPayment?: boolean;
   requestedInvoiceId?: string | null;
+  /** Raw ?invoice= the page rejected as malformed. Identity/presence only: never sent to an API or used in a selector. */
+  invalidInvoiceRequest?: string | null;
   onUpdated?: () => Promise<void>;
 };
 
 const money = (n: number) => new Intl.NumberFormat("vi-VN", {
   style: "currency", currency: "VND", maximumFractionDigits: 0,
 }).format(n);
+// Untouched fields follow the server; a field the user edited keeps its local value across silent refreshes.
+function seedDrafts<T>(previous: Record<string, T>, bills: MonthlyInvoice[], dirty: Set<string>, value: (bill: MonthlyInvoice) => T | undefined) {
+  const next: Record<string, T> = {};
+  for (const bill of bills) {
+    if (bill.status !== "DRAFT") continue;
+    const seeded = dirty.has(bill.id) && bill.id in previous ? previous[bill.id] : value(bill);
+    if (seeded !== undefined) next[bill.id] = seeded;
+  }
+  return next;
+}
+const NOT_FOUND = "Không tìm thấy hóa đơn được yêu cầu hoặc bạn không có quyền xem hóa đơn này.";
 const date = (s?: string) => s ? new Date(s).toLocaleDateString("vi-VN") : "—";
 const dateTime = (s?: string) => s ? new Date(s).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 
 export default function MonthlyInvoicesSection({ contractId, rentalRequestId, contractActive, isLandlord, isTenant,
   electricityRequired, waterRequired, unsupportedWaterRate, initialElectricity, initialWater,
-  requestedInvoiceId, onUpdated }: Props) {
+  requestedInvoiceId, invalidInvoiceRequest, onUpdated }: Props) {
   const [invoices, setInvoices] = useState<MonthlyInvoice[]>([]);
   const [payments, setPayments] = useState<PaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,32 +73,90 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
   const [rejection, setRejection] = useState<Record<string, string>>({});
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState("");
-  const requestGeneration = useRef(0);
+  const [refreshError, setRefreshError] = useState(false);
+  const requestKey = `${requestedInvoiceId ?? ""}\u0000${invalidInvoiceRequest ?? ""}`;
+  const [seenRequest, setSeenRequest] = useState(requestKey);
+  // A new external ?invoice= (valid or not) replaces an earlier local choice; an unchanged query keeps the user's selection.
+  if (seenRequest !== requestKey) { setSeenRequest(requestKey); setSelectedInvoiceId(null); }
+  const aliveRef = useRef(false);
+  const inflightRef = useRef<Promise<void> | null>(null);
+  const dirtyRef = useRef(false);
+  const hiddenDirtyRef = useRef(false);
+  const hasDataRef = useRef(false);
+  const dirtyDraft = useRef({ electricity: new Set<string>(), water: new Set<string>(), extras: new Set<string>() });
   const actionMutex = useRef(false);
 
-  const refresh = useCallback(async () => {
-    const generation = ++requestGeneration.current;
-    try {
-      // Billing sync may increase a late fee and regenerate VietQR; fetch payments afterwards.
-      const bills = await monthlyInvoiceService.list(contractId);
-      const paymentList = await paymentRequestService.getContractPayments(contractId);
-      if (generation !== requestGeneration.current) return;
-      setLoadError("");
-      setInvoices(bills);
-      setPayments(paymentList);
-      setElectricity(Object.fromEntries(bills.filter((bill) => bill.status === "DRAFT" && bill.electricityEnd != null)
-        .map((bill) => [bill.id, String(bill.electricityEnd)])));
-      setWater(Object.fromEntries(bills.filter((bill) => bill.status === "DRAFT" && bill.waterEnd != null)
-        .map((bill) => [bill.id, String(bill.waterEnd)])));
-      setExtras(Object.fromEntries(bills.filter((bill) => bill.status === "DRAFT")
-        .map((bill) => [bill.id, (bill.draftExtraCharges || [])
-          .map((row) => ({ description: row.description, amount: String(row.amount) }))])));
-    } catch (err) {
-      if (generation === requestGeneration.current) setLoadError(getApiErrorMessage(err, "Không thể tải hóa đơn và trạng thái thanh toán."));
-    } finally { if (generation === requestGeneration.current) setLoading(false); }
+  // One invoices+payments read at a time (the list GET itself runs the locked billing sync). A request made
+  // meanwhile marks it dirty and gets exactly one fresh follow-up; the returned promise covers that follow-up.
+  const refresh = useCallback((): Promise<void> => {
+    if (!aliveRef.current) return Promise.resolve(); // stale callback after unmount
+    if (inflightRef.current) { dirtyRef.current = true; return inflightRef.current; }
+    let done = false; // a body that finishes synchronously must not leave a settled promise in inflightRef
+    const run = (async () => {
+      try {
+        for (;;) {
+          dirtyRef.current = false;
+          try {
+            // Billing sync may increase a late fee and regenerate VietQR; fetch payments afterwards.
+            const bills = await monthlyInvoiceService.list(contractId);
+            if (!aliveRef.current) return; // unmounted (account/path/section switch) during the list: no second request
+            const paymentList = await paymentRequestService.getContractPayments(contractId);
+            if (!aliveRef.current) return;
+            hasDataRef.current = true;
+            const dirty = dirtyDraft.current;
+            for (const ids of Object.values(dirty)) for (const id of [...ids]) {
+              if (!bills.some((bill) => bill.id === id && bill.status === "DRAFT")) ids.delete(id);
+            }
+            setLoadError(""); setRefreshError(false);
+            setInvoices(bills);
+            setPayments(paymentList);
+            setElectricity((previous) => seedDrafts(previous, bills, dirty.electricity, (bill) => bill.electricityEnd == null ? undefined : String(bill.electricityEnd)));
+            setWater((previous) => seedDrafts(previous, bills, dirty.water, (bill) => bill.waterEnd == null ? undefined : String(bill.waterEnd)));
+            setExtras((previous) => seedDrafts(previous, bills, dirty.extras, (bill) => (bill.draftExtraCharges || [])
+              .map((row) => ({ description: row.description, amount: String(row.amount) }))));
+          } catch (err) {
+            if (!aliveRef.current) return;
+            // Keep the data already shown; only an empty page gets the blocking error.
+            if (hasDataRef.current) setRefreshError(true);
+            else setLoadError(getApiErrorMessage(err, "Không thể tải hóa đơn và trạng thái thanh toán."));
+          }
+          // A notice that arrived during this GET (even a failed one) still gets one fresh read;
+          // each pass needs a new notice, so failures cannot loop.
+          if (!dirtyRef.current) return;
+          if (document.visibilityState !== "visible") { hiddenDirtyRef.current = true; return; }
+        }
+      } finally {
+        done = true; inflightRef.current = null;
+        if (aliveRef.current) setLoading(false);
+      }
+    })();
+    if (!done) inflightRef.current = run;
+    return run;
   }, [contractId]);
 
-  useEffect(() => { const pending = requestGeneration; void refresh(); return () => { pending.current++; }; }, [refresh]);
+  useEffect(() => { aliveRef.current = true; void refresh(); return () => { aliveRef.current = false; }; }, [refresh]);
+  // Invoice notices and reconnect/focus/push recovery: 250 ms coalesce; a hidden tab only marks dirty.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      if (document.visibilityState !== "visible") { hiddenDirtyRef.current = true; return; }
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (document.visibilityState !== "visible") { hiddenDirtyRef.current = true; return; }
+        void refresh();
+      }, 250);
+    };
+    const unsubscribe = notificationService.subscribe((event) => {
+      // No contractId is a generic recovery signal for the contract on screen.
+      if ((event.type === "invoice-changed" && (!event.contractId || event.contractId === contractId))
+        || (event.type === "agreement-changed" && (!event.agreementId || event.agreementId === contractId))) schedule();
+    });
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && hiddenDirtyRef.current) { hiddenDirtyRef.current = false; schedule(); }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearTimeout(timer); unsubscribe(); document.removeEventListener("visibilitychange", onVisible); };
+  }, [contractId, refresh]);
   useEffect(() => {
     if (window.location.hash === "#monthly-invoices") {
       document.getElementById("monthly-invoices")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -95,9 +167,14 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
     if (actionMutex.current) return;
     actionMutex.current = true;
     setBusy(id);
-    try { await action(); toast.success(success); await refresh(); if (onUpdated) await onUpdated(); }
+    try { await action(); for (const ids of Object.values(dirtyDraft.current)) ids.delete(id); toast.success(success); await refresh(); if (onUpdated) await onUpdated(); }
     catch (err) { toast.error(getApiErrorMessage(err, "Thao tác chưa thành công.")); await refresh(); }
     finally { actionMutex.current = false; setBusy(null); }
+  }
+
+  function editExtras(id: string, rows: Extra[]) {
+    dirtyDraft.current.extras.add(id);
+    setExtras((s) => ({ ...s, [id]: rows }));
   }
 
   function previousEnd(invoice: MonthlyInvoice, kind: "electricity" | "water") {
@@ -151,6 +228,7 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
     if (file.size > 15 * 1024 * 1024) { toast.error("Chứng từ tối đa 15 MB."); return; }
     try {
       const current = await paymentRequestService.getPaymentRequest(payment.id);
+      if (!aliveRef.current) return; // account/path changed while checking: do not upload or report under the new session
       if (current.totalAmount !== payment.totalAmount) {
         toast.error("Số tiền hóa đơn đã thay đổi. Vui lòng kiểm tra lại QR và số tiền trước khi báo chuyển khoản.");
         await refresh();
@@ -181,7 +259,12 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
 
   const outstanding = invoices.filter((i) => i.status === "UNPAID" || i.status === "OVERDUE")
     .reduce((sum, i) => sum + i.totalAmount, 0);
-  const selected = chooseInvoice(invoices, payments, isLandlord ? "landlord" : "tenant", selectedInvoiceId ?? requestedInvoiceId);
+  // A tenant never sees drafts; an unknown/unauthorized requested id gets a neutral state, never another invoice.
+  const shown = isLandlord ? invoices : invoices.filter((bill) => bill.status !== "DRAFT");
+  const known = (id?: string | null) => !!id && shown.some((bill) => bill.id === id);
+  const manual = known(selectedInvoiceId) ? selectedInvoiceId : null;
+  const requestMissing = !manual && (!!invalidInvoiceRequest || (!!requestedInvoiceId && !known(requestedInvoiceId)));
+  const selected = requestMissing ? undefined : chooseInvoice(shown, payments, isLandlord ? "landlord" : "tenant", manual ?? requestedInvoiceId);
 
   return <section id="monthly-invoices" className="space-y-4 scroll-mt-24">
     <div className="flex items-center justify-between gap-3">
@@ -195,18 +278,19 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
     {outstanding > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
       Tổng chưa xác nhận thanh toán: <strong>{money(outstanding)}</strong>. Khoản đã chuyển nợ chỉ tính trong hóa đơn mới.
     </div>}
+    {refreshError && !loadError && <div role="status" className="flex items-center justify-between gap-2 rounded-xl border border-border bg-muted/50 p-3 text-xs text-muted-foreground"><span>Chưa cập nhật được dữ liệu mới nhất.</span><button type="button" onClick={() => void refresh()} className="font-semibold text-primary hover:underline">Tải lại</button></div>}
     {loadError ? <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{loadError} <button type="button" onClick={() => void refresh()} className="font-semibold underline">Thử lại</button></div>
       : loading ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Đang tải hóa đơn…</div>
-      : invoices.length === 0 ? <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
+      : shown.length === 0 ? <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
         {isTenant ? "Chưa có hóa đơn được phát hành. Sau khi chủ nhà chốt chỉ số và phát hành, bạn sẽ thấy số tiền và QR thanh toán tại đây."
           : "Chưa đến ngày cuối của kỳ thuê đầu tiên. Hóa đơn nháp sẽ xuất hiện để chủ nhà chốt chỉ số."}
       </div> : <div className="grid items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
         <label className="text-sm font-semibold lg:hidden">Chọn kỳ hóa đơn<select value={selected || ""} disabled={busy !== null} onChange={event => {
           setSelectedInvoiceId(event.target.value);
           window.history.replaceState(null, "", paymentModulePath(contractId, "monthly", event.target.value));
-        }} className="mt-2 block h-11 w-full rounded-xl border bg-card px-3">{[...invoices].sort((a, b) => b.periodIndex - a.periodIndex).map(bill => <option key={bill.id} value={bill.id}>{invoicePeriodLabel(bill)} · {money(bill.totalAmount)}</option>)}</select></label>
+        }} className="mt-2 block h-11 w-full rounded-xl border bg-card px-3">{[...shown].sort((a, b) => b.periodIndex - a.periodIndex).map(bill => <option key={bill.id} value={bill.id}>{invoicePeriodLabel(bill)} · {money(bill.totalAmount)}</option>)}</select></label>
         <nav aria-label="Chọn kỳ hóa đơn" className="hidden space-y-2 rounded-2xl border bg-card p-3 lg:sticky lg:top-24 lg:block">
-          {[...invoices].sort((a, b) => b.periodIndex - a.periodIndex).map(bill => {
+          {[...shown].sort((a, b) => b.periodIndex - a.periodIndex).map(bill => {
             const status = invoiceStatusPresentation(bill, findInvoicePayment(bill, payments)?.status);
             return <button key={bill.id} type="button" disabled={busy !== null} aria-pressed={selected === bill.id} onClick={() => {
               setSelectedInvoiceId(bill.id);
@@ -216,7 +300,7 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
             </button>;
           })}
         </nav>
-        <div className="min-w-0">{invoices.filter(invoice => invoice.id === selected).map((invoice) => {
+        <div className="min-w-0">{requestMissing ? <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{NOT_FOUND}</div> : shown.filter(invoice => invoice.id === selected).map((invoice) => {
         const payment = payments.find((p) => p.invoiceId === invoice.id || p.id === invoice.paymentRequestId);
         const presentation = invoiceStatusPresentation(invoice, payment?.status);
         const rows = extras[invoice.id] || [];
@@ -272,23 +356,23 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
             <div className="grid gap-3 sm:grid-cols-2">
               {electricityRequired && <MeterReadingInput name="điện" unit="kWh"
                 start={previousEnd(invoice, "electricity")} end={electricity[invoice.id] ?? ""}
-                onChange={(value) => setElectricity((s) => ({ ...s, [invoice.id]: value }))} />}
+                onChange={(value) => { dirtyDraft.current.electricity.add(invoice.id); setElectricity((s) => ({ ...s, [invoice.id]: value })); }} />}
               {waterRequired && <MeterReadingInput name="nước" unit="m³"
                 start={previousEnd(invoice, "water")} end={water[invoice.id] ?? ""}
-                onChange={(value) => setWater((s) => ({ ...s, [invoice.id]: value }))} />}
+                onChange={(value) => { dirtyDraft.current.water.add(invoice.id); setWater((s) => ({ ...s, [invoice.id]: value })); }} />}
             </div>
             {rows.map((row, index) => <div key={index} className="flex flex-wrap gap-2">
               <input aria-label="Tên khoản phát sinh" placeholder="Tên khoản phát sinh" value={row.description}
-                onChange={(e) => setExtras((s) => ({ ...s, [invoice.id]: rows.map((x, n) => n === index ? { ...x, description: e.target.value } : x) }))}
+                onChange={(e) => editExtras(invoice.id, rows.map((x, n) => n === index ? { ...x, description: e.target.value } : x))}
                 className="min-w-40 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" />
               <VndMoneyInput ariaLabel="Số tiền phát sinh" min={1} max={Number.MAX_SAFE_INTEGER} placeholder="Số tiền (đ)" value={row.amount}
-                onValueChange={amount => setExtras((s) => ({ ...s, [invoice.id]: rows.map((x, n) => n === index ? { ...x, amount } : x) }))}
+                onValueChange={amount => editExtras(invoice.id, rows.map((x, n) => n === index ? { ...x, amount } : x))}
                 className="w-44 max-w-full" />
-              <button type="button" aria-label="Xóa khoản phát sinh" onClick={() => setExtras((s) => ({ ...s, [invoice.id]: rows.filter((_, n) => n !== index) }))}
+              <button type="button" aria-label="Xóa khoản phát sinh" onClick={() => editExtras(invoice.id, rows.filter((_, n) => n !== index))}
                 className="rounded-lg border border-border px-3"><Trash2 className="h-4 w-4" /></button>
             </div>)}
             <div className="flex flex-wrap justify-between gap-2">
-              <button type="button" onClick={() => setExtras((s) => ({ ...s, [invoice.id]: [...rows, { description: "", amount: "" }] }))}
+              <button type="button" onClick={() => editExtras(invoice.id, [...rows, { description: "", amount: "" }])}
                 className="inline-flex items-center gap-1 text-xs font-semibold text-primary"><Plus className="h-4 w-4" />Thêm phí phát sinh</button>
               <div className="flex flex-wrap gap-2">
                 <button type="button" disabled={busy === invoice.id || unsupportedWaterRate || !canIssue} onClick={() => void issue(invoice)}

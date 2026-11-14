@@ -9,6 +9,7 @@ import ContractPdfViewerModal from "@/components/contract/detail/ContractPdfView
 import { primaryDocument, requiresVerifiedContent } from "@/lib/contract-document-history";
 import SmartCaSignaturePanel from "@/components/contract/detail/SmartCaSignaturePanel";
 import ContractBlockchainProof from "@/components/contract/detail/ContractBlockchainProof";
+import { useAgreementChangeSync } from "@/hooks/useAgreementChangeSync";
 import { loadDepositAgreement } from "@/lib/deposit-agreement-loader";
 import { getApiErrorMessage } from "@/utils/apiError";
 
@@ -70,6 +71,9 @@ export default function DepositAgreementPanel({ rentalRequestId, isLandlord, onU
     const timer = setInterval(() => { if (document.visibilityState === "visible") void load(); }, 15000);
     return () => { ++counter.value; clearInterval(timer); };
   }, [load]);
+
+  // Counterparty signature notices for this deposit document (or generic recovery) refresh it without waiting for the 15 s poll; the signer panel stays mounted.
+  useAgreementChangeSync(id => !id || id === view?.agreement?.id, load);
 
   async function prepare(reopen = false) {
     if (busy) return;

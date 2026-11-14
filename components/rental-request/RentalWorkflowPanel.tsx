@@ -6,6 +6,7 @@ import {rentalWorkflowService as service} from "@/services/rental-workflow.servi
 import storage from "@/services/storage.service";
 import payments from "@/services/payment-request.service";
 import {getApiErrorMessage} from "@/utils/apiError";
+import notificationService from "@/services/notification.service";
 import type {PaymentRequest} from "@/types/payment-request.type";
 import {workflowTitles,workflowStatuses,workflowActions,workflowObligations,type RentalWorkflow,type WorkflowKind,type WorkflowProposal,type HandoverItem,type RentRefund} from "@/types/rental-workflow.type";
 import RentalPaymentModal from "./RentalPaymentModal";
@@ -16,7 +17,9 @@ const button="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity
 const input="mt-1 block w-full rounded-lg border bg-background p-2 text-sm";
 const date=(s?:string)=>s?new Date(s).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"—";
 const money=(n?:number|null)=>n==null?"Chưa ghi nhận":n.toLocaleString("vi-VN")+" đ";
-type Props={rentalRequestId:string;kind:WorkflowKind;onUpdated?:()=>Promise<unknown>|void};
+// contractId (root lease) scopes handover notices to this panel; focusRequest opens, highlights and scrolls to it once.
+type Props={rentalRequestId:string;kind:WorkflowKind;contractId?:string;focusRequest?:boolean;agreementId?:string;onUpdated?:()=>Promise<unknown>|void};
+const keyOf=(w:RentalWorkflow)=>`${w.revision}:${w.status}`;
 export default function RentalWorkflowPanel(props:Props){
   const {profile}=useAuth();
   if(!profile?.id||!props.rentalRequestId)return null;
@@ -33,25 +36,78 @@ export function WorkflowSummary({proposal:p}:{proposal:WorkflowProposal}){
 function Evidence({ids}:{ids?:string[]}){
   return <div className="flex flex-wrap gap-3">{ids?.map((id,i)=><button className="text-xs text-primary underline" type="button" key={id} onClick={async()=>{const tab=window.open("about:blank","_blank");if(tab)tab.opener=null;try{const url=await storage.getViewUrl(id);if(tab)tab.location.href=url;}catch(e){tab?.close();toast.error(getApiErrorMessage(e,"Không mở được bằng chứng."));}}}>Xem bằng chứng {i+1} ↗</button>)}</div>;
 }
-function ScopedWorkflowPanel({rentalRequestId,kind,onUpdated}:Props){
-  const [expanded,setExpanded]=useState(false),[data,setData]=useState<RentalWorkflow|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false);
+function ScopedWorkflowPanel({rentalRequestId,kind,contractId,focusRequest,agreementId,onUpdated}:Props){
+  const [expanded,setExpanded]=useState(!!focusRequest),[data,setData]=useState<RentalWorkflow|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false);
   const [creating,setCreating]=useState(false),[reason,setReason]=useState(""),[ack,setAck]=useState(false),[contacted,setContacted]=useState(false),[files,setFiles]=useState<File[]>([]);
   const [actual,setActual]=useState(""),[keys,setKeys]=useState("0"),[condition,setCondition]=useState(""),[electricity,setElectricity]=useState(""),[water,setWater]=useState("");
   const [inventory,setInventory]=useState<HandoverItem[]>([]),[end,setEnd]=useState(""),[terms,setTerms]=useState(""),[refunds,setRefunds]=useState<RentRefund[]>([]),[sources,setSources]=useState<PaymentRequest[]>([]),[paymentId,setPaymentId]=useState<string>();
   const [policy,setPolicy]=useState("FULL_STARTED_PERIOD"),[calculation,setCalculation]=useState<FinalRentCalculation|null>(null);
-  const mounted=useRef(true),generation=useRef(0),mutex=useRef(false),uploaded=useRef(new Map<File,string>()),quoteSequence=useRef(0);
-  const refresh=useCallback(async()=>{const current=++generation.current;try{const next=await service.get(rentalRequestId,kind);if(mounted.current&&current===generation.current){setData(next);setError("");setAck(false);setContacted(false);}}catch(e){if(mounted.current&&current===generation.current)setError(getApiErrorMessage(e,"Chưa tải được hồ sơ."));}},[rentalRequestId,kind]);
-  useEffect(()=>{const active=mounted,requests=generation;active.current=true;return()=>{active.current=false;requests.current++;};},[]);
+  const [reviewedKey,setReviewedKey]=useState<string|null>(null);
+  const mounted=useRef(true),mutex=useRef(false),uploaded=useRef(new Map<File,string>()),quoteSequence=useRef(0);
+  const inflight=useRef<Promise<void>|null>(null),dirty=useRef(false),hiddenDirty=useRef(false),keyRef=useRef<string|null>(null),focused=useRef(false);
+  const needsReview=!busy&&!!data&&reviewedKey!==null&&reviewedKey!==keyOf(data);
+  // One GET at a time; callers arriving meanwhile share it and get one fresh follow-up (even after a failed GET),
+  // so notices, manual reloads and own actions cannot storm the API or let an older read overwrite a newer one.
+  const refresh=useCallback(():Promise<void>=>{
+    if(!mounted.current)return Promise.resolve();
+    if(inflight.current){dirty.current=true;return inflight.current;}
+    let done=false;
+    const run=(async()=>{
+      try{for(;;){
+        dirty.current=false;
+        try{
+          const next=await service.get(rentalRequestId,kind);
+          if(!mounted.current)return;
+          const key=keyOf(next),changed=keyRef.current!==null&&keyRef.current!==key;
+          keyRef.current=key;setData(next);setError("");setReviewedKey(prev=>prev??key);
+          // Drafts survive a refresh; the acknowledgement only belongs to the revision that was reviewed.
+          if(changed){setAck(false);setContacted(false);}
+        }catch(e){if(!mounted.current)return;setError(getApiErrorMessage(e,"Chưa tải được hồ sơ."));}
+        if(!dirty.current)return;
+        if(document.visibilityState!=="visible"){hiddenDirty.current=true;return;}
+      }}finally{done=true;inflight.current=null;}
+    })();
+    if(!done)inflight.current=run;
+    return run;
+  },[rentalRequestId,kind]);
+  // Only the revision/status the own action actually returned counts as reviewed; a newer counterparty transition fetched meanwhile still needs review.
+  const acceptResult=(result?:RentalWorkflow)=>{if(mounted.current&&typeof result?.revision==="number"&&typeof result.status==="string")setReviewedKey(keyOf(result));};
+  useEffect(()=>{const active=mounted;active.current=true;return()=>{active.current=false;};},[]);
   useEffect(()=>{if(expanded)void refresh();},[expanded,refresh]);
+  // Matching workflow notices and reconnect/focus/push recovery: 250 ms coalesce; a hidden tab only marks dirty.
+  const earlyExitContractId=data?.contractId??contractId;
+  useEffect(()=>{
+    if(!["move-in","early-exit"].includes(kind)||!expanded)return;
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    const schedule=()=>{
+      if(document.visibilityState!=="visible"){hiddenDirty.current=true;return;}
+      clearTimeout(timer);
+      timer=setTimeout(()=>{if(document.visibilityState!=="visible"){hiddenDirty.current=true;return;}void refresh();},250);
+    };
+    const unsubscribe=notificationService.subscribe(event=>{
+      if(kind==="move-in"&&event.type==="handover-changed"&&(!event.contractId||event.contractId===contractId))schedule();
+      if(kind==="early-exit"&&event.type==="agreement-changed"&&(!event.agreementId||event.agreementId===earlyExitContractId))schedule();
+      if(kind==="early-exit"&&event.type==="payment-changed")schedule();
+    });
+    const onVisible=()=>{if(document.visibilityState==="visible"&&hiddenDirty.current){hiddenDirty.current=false;schedule();}};
+    document.addEventListener("visibilitychange",onVisible);
+    return()=>{clearTimeout(timer);unsubscribe();document.removeEventListener("visibilitychange",onVisible);};
+  },[kind,expanded,contractId,earlyExitContractId,refresh]);
+  useEffect(()=>{
+    if(!focusRequest||focused.current)return;
+    focused.current=true;
+    const target=document.getElementById(`workflow-${kind}`);
+    target?.scrollIntoView({behavior:"smooth",block:"start"});target?.focus({preventScroll:true});
+  },[focusRequest,kind]);
   useEffect(()=>{if(!creating||kind!=="early-exit"||!data?.contractId)return;let active=true;void payments.getContractPayments(data.contractId).then(list=>{if(active)setSources(list.filter(p=>p.status==="CONFIRMED"&&["INITIAL","MONTHLY_RENT"].includes(p.type)));}).catch(()=>{if(active)setSources([]);});return()=>{active=false;};},[creating,kind,data?.contractId]);
   const valid=reason.trim().length>=10&&reason.trim().length<=1000;
   function start(){if(!data)return;quoteSequence.current++;const p=data.proposal;setReason("");setAck(false);setContacted(false);setFiles([]);setInventory(p.inventory??[]);setCondition(p.condition??"");setKeys(String(p.keys??0));setEnd(p.endExclusive??"");setTerms(p.handoverTerms??"");setRefunds(p.rentRefunds??[]);setPolicy(p.finalRentPolicy??"FULL_STARTED_PERIOD");setCalculation(data.rentCalculation??null);setElectricity(p.electricity==null?"":String(p.electricity));setWater(p.water==null?"":String(p.water));setCreating(true);}
   async function perform(action:string){
-    if(mutex.current||!data||!valid)return;
+    if(mutex.current||!data||!valid||needsReview)return;
     if(["REQUEST_RESUME","RESUME","ACCEPT","CONFIRM","CONFIRM_RETURN","FULL_REFUND_EXIT","PROPOSE"].includes(action)&&!ack)return;
     if(action==="FULL_REFUND_EXIT"&&!contacted)return;
     if(action!=="PROPOSE"&&files.length){toast.error("Bằng chứng cần được gắn vào đề xuất mới trước khi thao tác.");return;}
-    const reviewed=data;mutex.current=true;setBusy(true);
+    const reviewed=data;let result:RentalWorkflow|undefined;mutex.current=true;setBusy(true);
     try{
       if(action==="PROPOSE"){
         const evidenceIds:string[]=[];
@@ -61,24 +117,29 @@ function ScopedWorkflowPanel({rentalRequestId,kind,onUpdated}:Props){
           const handedOverAt=new Date(actual);if(!Number.isFinite(handedOverAt.getTime())||!condition.trim())throw new Error("Cần ngày nhận nhà thực tế và hiện trạng.");
           payload={...payload,handedOverAt:handedOverAt.toISOString(),keys:Number(keys),condition:condition.trim(),electricity:electricity===""?null:Number(electricity),water:water===""?null:Number(water),inventory};
         }else if(kind==="early-exit")payload={...payload,endExclusive:end,handoverTerms:terms.trim(),finalRentPolicy:policy,rentRefunds:refunds};
-        await service.propose(rentalRequestId,kind,payload);
-      }else await service.act(rentalRequestId,kind,action,{expectedRevision:reviewed.revision,reason:reason.trim(),acknowledged:ack,tenantContacted:contacted});
-      if(!mounted.current)return;setReason("");setFiles([]);setCreating(false);setAck(false);await refresh();if(mounted.current)await onUpdated?.();toast.success("Đã ghi nhận thao tác và lịch sử.");
+        result=await service.propose(rentalRequestId,kind,payload);
+      }else result=await service.act(rentalRequestId,kind,action,{expectedRevision:reviewed.revision,reason:reason.trim(),acknowledged:ack,tenantContacted:contacted});
+      if(!mounted.current)return;setReason("");setFiles([]);setCreating(false);setAck(false);await refresh();acceptResult(result);if(mounted.current)await onUpdated?.();toast.success("Đã ghi nhận thao tác và lịch sử.");
     }catch(e){if(mounted.current){toast.error(getApiErrorMessage(e,"Chưa thể thực hiện. Kiểm tra dữ liệu mới trước khi gửi lại."));await refresh();}}
     finally{mutex.current=false;if(mounted.current)setBusy(false);}
   }
-  return <section className="space-y-3 rounded-xl border bg-card p-4 text-sm" aria-label={workflowTitles[kind]}>
+  return <section id={`workflow-${kind}`} tabIndex={-1} className={`scroll-mt-24 space-y-3 rounded-xl border bg-card p-4 text-sm${focusRequest?" ring-2 ring-primary":""}`} aria-label={workflowTitles[kind]}>
     <button className="font-semibold" type="button" aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>{workflowTitles[kind]}</button>
     {expanded&&<>
       {kind==="cancellation"&&<p className="text-xs text-muted-foreground">Dùng khi đã nhận tiền nhưng chưa hoàn tất HĐ thuê. Đề nghị này hoàn toàn bộ khoản thực nhận; không tự mất cọc. Nếu không phản hồi, chủ nhà chỉ kết thúc sau hạn, đã liên hệ khách và phòng chưa bàn giao. Chữ ký/chứng từ chưa rõ phải đối soát trước.</p>}
       {error&&<p role="alert" className="text-rose-700">{error}</p>}
       {!data&&!error&&<p>Đang tải…</p>}
       {data&&<>
+        {needsReview&&<div role="status" className="space-y-2 rounded-lg border border-sky-300 bg-sky-50 p-3 text-xs text-sky-950"><p>Nội dung hồ sơ đã được cập nhật. Phần bạn đang nhập vẫn được giữ lại; hãy đọc nội dung mới và xác nhận đã xem trước khi thao tác.</p><button type="button" className={button} onClick={()=>setReviewedKey(keyOf(data))}>Tôi đã xem nội dung mới</button></div>}
         <p className="font-medium">{workflowStatuses[data.status]??data.status}</p><p className="text-xs">{workflowObligations[data.depositObligation]??"Nghĩa vụ đang được theo dõi"}</p>
         {data.blockedReason&&<p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">{data.blockedReason}</p>}
         {data.respondBy&&<p>Hạn phản hồi: {date(data.respondBy)}. Quá hạn không tự xác nhận đồng ý hoặc nhận tiền.</p>}
-        {!creating&&<><WorkflowSummary proposal={data.proposal}/><Evidence ids={data.proposal.evidenceIds}/><p className="text-xs">Chủ nhà xác nhận: {date(data.ownerConfirmedAt)} · Người thuê xác nhận: {date(data.tenantConfirmedAt)}</p></>}
-        {!creating&&data.rentCalculation&&<RentCalculation value={data.rentCalculation}/>}
+        {/* While composing, the newest persisted record is shown read-only only when it changed and needs review; the draft below stays separate. */}
+        {(!creating||needsReview)&&<div className={creating?"space-y-2 rounded-lg border border-dashed p-3":"space-y-3"} aria-label={creating?"Nội dung mới nhất đã lưu (chỉ đọc)":undefined}>
+          {creating&&<p className="text-xs font-semibold">Nội dung mới nhất đã lưu (chỉ đọc) — bản nháp bạn đang nhập nằm riêng bên dưới.</p>}
+          <WorkflowSummary proposal={data.proposal}/><Evidence ids={data.proposal.evidenceIds}/><p className="text-xs">Chủ nhà xác nhận: {date(data.ownerConfirmedAt)} · Người thuê xác nhận: {date(data.tenantConfirmedAt)}</p>
+          {data.rentCalculation&&<RentCalculation value={data.rentCalculation}/>}
+        </div>}
         <div className="flex flex-wrap gap-2">{data.allowedActions.includes("PROPOSE")&&<button className={button} type="button" disabled={busy} onClick={start}>{workflowActions.PROPOSE}</button>}<button className={button} disabled={busy} type="button" onClick={()=>void refresh()}>Tải lại nội dung</button>{creating&&<button className={button} disabled={busy} type="button" onClick={()=>{setCreating(false);setFiles([]);setAck(false);}}>Quay lại hồ sơ</button>}</div>
         {creating&&<div className="space-y-3 rounded-lg border p-3">
           {kind==="move-in"&&<>
@@ -103,12 +164,12 @@ function ScopedWorkflowPanel({rentalRequestId,kind,onUpdated}:Props){
         </div>}
         {(creating||data.allowedActions.some(a=>a!=="PROPOSE"))&&<>
           <label className="block">{creating?"Lý do lập / chỉnh đề xuất":"Nội dung phản hồi"}<textarea aria-label="Nội dung thao tác" minLength={10} maxLength={1000} disabled={busy} className={input} value={reason} onChange={e=>setReason(e.target.value)}/></label>
-          <label className="flex gap-2"><input type="checkbox" checked={ack} disabled={busy} onChange={e=>setAck(e.target.checked)}/><span>{(data.status==="RESUME_PROPOSED"||data.allowedActions.includes("REQUEST_RESUME"))?"Tôi đồng ý tiếp tục thuê và ký theo hồ sơ hiện tại; không tự thay đổi điều khoản, chữ ký hoặc xác nhận tiền.":kind==="cancellation"?"Tôi đã đối chiếu đề nghị hoàn toàn bộ tiền; phòng chưa bàn giao hoặc đã được nhận lại đầy đủ, không còn người thuê/tài sản của khách trong phòng.":"Tôi đã đối chiếu nội dung đang xem. Khi xác nhận bàn giao, tôi xác nhận nhà, chìa khóa và tài sản đã được giao/nhận thực tế."} Việc này không thay bước xác nhận nhận tiền.</span></label>
+          <label className="flex gap-2"><input type="checkbox" checked={ack} disabled={busy||needsReview} onChange={e=>setAck(e.target.checked)}/><span>{(data.status==="RESUME_PROPOSED"||data.allowedActions.includes("REQUEST_RESUME"))?"Tôi đồng ý tiếp tục thuê và ký theo hồ sơ hiện tại; không tự thay đổi điều khoản, chữ ký hoặc xác nhận tiền.":kind==="cancellation"?"Tôi đã đối chiếu đề nghị hoàn toàn bộ tiền; phòng chưa bàn giao hoặc đã được nhận lại đầy đủ, không còn người thuê/tài sản của khách trong phòng.":"Tôi đã đối chiếu nội dung đang xem. Khi xác nhận bàn giao, tôi xác nhận nhà, chìa khóa và tài sản đã được giao/nhận thực tế."} Việc này không thay bước xác nhận nhận tiền.</span></label>
           {data.allowedActions.includes("FULL_REFUND_EXIT")&&!creating&&<label className="flex gap-2"><input type="checkbox" checked={contacted} disabled={busy} onChange={e=>setContacted(e.target.checked)}/><span>Tôi đã liên hệ người thuê về đề nghị này; phòng chưa bàn giao và tôi đồng ý hoàn toàn bộ khoản thực nhận.</span></label>}
-          <div className="flex flex-wrap gap-2">{(creating?["PROPOSE"]:data.allowedActions.filter(a=>a!=="PROPOSE")).map(action=><button key={action} type="button" className={button} disabled={busy||!valid||["REQUEST_RESUME","RESUME","PROPOSE","ACCEPT","CONFIRM","CONFIRM_RETURN","FULL_REFUND_EXIT"].includes(action)&&!ack||action==="FULL_REFUND_EXIT"&&!contacted} onClick={()=>void perform(action)}>{creating?"Gửi đề xuất để hai bên kiểm tra":workflowActions[action]??action}</button>)}</div>
+          <div className="flex flex-wrap gap-2">{(creating?["PROPOSE"]:data.allowedActions.filter(a=>a!=="PROPOSE")).map(action=><button key={action} type="button" className={button} disabled={busy||needsReview||!valid||["REQUEST_RESUME","RESUME","PROPOSE","ACCEPT","CONFIRM","CONFIRM_RETURN","FULL_REFUND_EXIT"].includes(action)&&!ack||action==="FULL_REFUND_EXIT"&&!contacted} onClick={()=>void perform(action)}>{creating?"Gửi đề xuất để hai bên kiểm tra":workflowActions[action]??action}</button>)}</div>
         </>}
         {data.complaintId&&<p className="text-xs">Đã liên kết khiếu nại. Tiếp tục phản hồi và chuyển HomeSpace tại mục Khiếu nại & hỗ trợ.</p>}
-        {kind!=="cancellation"&&data.revision>0&&!creating&&<WorkflowDocumentsPanel rentalRequestId={rentalRequestId} kind={kind} data={data} onUpdated={async()=>{await refresh();await onUpdated?.();}}/>}
+        {kind!=="cancellation"&&data.revision>0&&!creating&&<WorkflowDocumentsPanel rentalRequestId={rentalRequestId} kind={kind} data={data} agreementId={agreementId} onUpdated={async()=>{await refresh();await onUpdated?.();}}/>}
         {!!data.refundPayments.length&&<div className="space-y-2">{data.refundPayments.map((p,i)=><div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2" key={p.id}><span>Khoản hoàn {i+1}: {money(p.totalAmount)} · {p.status==="CONFIRMED"?"Đã xác nhận thực nhận":"Chưa hoàn tất xác nhận"}</span><button className={button} type="button" onClick={()=>setPaymentId(p.id)}>Mở thanh toán / đối soát</button></div>)}</div>}
         {!!data.history.length&&<details><summary className="cursor-pointer text-xs font-semibold">Lịch sử và các bản đã đối chiếu ({data.history.length})</summary>{[...data.history].reverse().map(e=><article className="mt-3 space-y-2 border-t pt-3" key={e.revision}><p className="text-xs">{workflowActions[e.action]??e.action} · {e.role==="LANDLORD"?"Chủ nhà":"Người thuê"} · {date(e.at)}</p><p>{e.reason}</p><WorkflowSummary proposal={e.proposal}/><Evidence ids={e.evidenceIds}/></article>)}</details>}
       </>}

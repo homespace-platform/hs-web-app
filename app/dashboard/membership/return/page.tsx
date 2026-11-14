@@ -18,6 +18,8 @@ import {
   Info,
 } from "lucide-react";
 import membershipService from "@/services/membership.service";
+import notificationService from "@/services/notification.service";
+import { useAuth } from "@/features/auth/useAuth";
 import {
   type CancelOrderOutcome,
   canCancelMembershipOrder,
@@ -42,6 +44,9 @@ import type {
   MembershipView,
 } from "@/types/membership.type";
 
+// Thrown by a notice-driven read that must not start a GET while the tab is hidden.
+const HIDDEN_REFRESH = new Error("Membership refresh deferred while hidden");
+
 const MAX_POLL_ATTEMPTS = 15;
 const POLL_INTERVAL_MS = 2500;
 
@@ -63,6 +68,7 @@ function formatDateTimeVi(iso?: string | null): string {
 
 function MembershipReturnContent() {
   const searchParams = useSearchParams();
+  const { initialized, authenticated, userId, login } = useAuth();
 
   // Extract order identifier ONLY for looking up trusted backend status.
   // Never derive payment success from callback query parameters.
@@ -72,8 +78,46 @@ function MembershipReturnContent() {
     searchParams.get("invoice_number")?.trim() ||
     "";
 
+  if (!initialized) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!authenticated || !userId) {
+    return (
+      <div className="mx-auto max-w-xl py-12">
+        <div className="rounded-3xl border border-border bg-card p-8 text-center space-y-4 shadow-sm">
+          <h1 className="text-lg sm:text-xl font-extrabold text-foreground">
+            Đăng nhập để xem kết quả thanh toán
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+            Kết quả đơn hàng hội viên chỉ hiển thị cho tài khoản đã đặt đơn.
+          </p>
+          <button
+            type="button"
+            onClick={() => login(`${window.location.pathname}${window.location.search}${window.location.hash}`)}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 transition-all cursor-pointer"
+          >
+            Đăng nhập
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Keyed by account + order: switching either remounts, so no state, ref, timer or in-flight
+  // promise of the previous account/order can paint or apply (refs reset with the instance).
+  return <MembershipReturnBody key={`${userId}:${queryOrderId}`} queryOrderId={queryOrderId} />;
+}
+
+function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
   const [resolvedOrderId, setResolvedOrderId] = useState<string>(queryOrderId);
-  const [order, setOrder] = useState<MembershipOrderView | null>(null);
+  const [rawOrder, setOrder] = useState<MembershipOrderView | null>(null);
+  // Never render a response that belongs to another order id (query changed while mounted).
+  const order = rawOrder && rawOrder.id === (queryOrderId || resolvedOrderId) ? rawOrder : null;
   const [membership, setMembership] = useState<MembershipView | null>(null);
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
@@ -91,6 +135,13 @@ function MembershipReturnContent() {
   const cancellingRef = useRef(false);
   const recheckingRef = useRef(false);
   const confirmCancelButtonRef = useRef<HTMLButtonElement | null>(null);
+  const activeOrderIdRef = useRef("");
+  const latestStatusRef = useRef<string | null>(null);
+  // Responses apply in request order, so a slow older GET cannot overwrite a newer result.
+  const fetchSeqRef = useRef(0);
+  const appliedSeqRef = useRef(0);
+  // At most one order GET in flight; poll, manual recheck and notices share it.
+  const inflightRef = useRef<{ id: string; promise: Promise<MembershipOrderView> } | null>(null);
 
   const stopPolling = useCallback(() => {
     stopPollingRef.current = true;
@@ -110,13 +161,36 @@ function MembershipReturnContent() {
       if (savedId) {
         setResolvedOrderId(savedId);
       } else {
+        setResolvedOrderId("");
         setLoading(false);
       }
     }
   }, [queryOrderId]);
 
-  const fetchTrustedOrder = useCallback(async (targetId: string, requestGen?: number) => {
-    const orderData = await membershipService.getOrder(targetId);
+  const fetchTrustedOrder = useCallback(async (targetId: string, requestGen?: number, silent = false) => {
+    // A notice-driven read must start after the notice, so wait out any older GET first.
+    if (silent && inflightRef.current?.id === targetId) {
+      await inflightRef.current.promise.catch(() => undefined);
+      if (activeOrderIdRef.current !== targetId || cancellingRef.current) {
+        throw new Error("Stale membership order refresh");
+      }
+      // Visibility may have changed while waiting; the pipe keeps the notice dirty for recovery.
+      if (document.visibilityState !== "visible") throw HIDDEN_REFRESH;
+    }
+    // Sequence is taken when joining, so it follows GET start order (one flight at a time).
+    const seq = ++fetchSeqRef.current;
+    let flight = inflightRef.current;
+    if (!flight || flight.id !== targetId) {
+      const promise: Promise<MembershipOrderView> = membershipService.getOrder(targetId).finally(() => {
+        if (inflightRef.current?.promise === promise) inflightRef.current = null;
+      });
+      flight = inflightRef.current = { id: targetId, promise };
+    }
+    const orderData = await flight.promise;
+
+    if (activeOrderIdRef.current !== targetId || seq < appliedSeqRef.current) {
+      return orderData;
+    }
 
     if (
       typeof requestGen === "number" &&
@@ -127,6 +201,9 @@ function MembershipReturnContent() {
       return orderData;
     }
 
+    appliedSeqRef.current = seq;
+    const wasPaid = isOrderPaidStatus(latestStatusRef.current);
+    latestStatusRef.current = orderData.status;
     setOrder(orderData);
     setErrorMessage(null);
 
@@ -136,11 +213,14 @@ function MembershipReturnContent() {
 
     if (isOrderPaidStatus(orderData.status)) {
       clearPendingMembershipOrderId();
-      try {
-        const updatedMe = await membershipService.getMyMembership();
-        setMembership(updatedMe);
-      } catch {
-        // Ignore secondary membership refresh failure
+      // A silent re-read of an already-paid order does not need another membership fetch.
+      if (!(silent && wasPaid)) {
+        try {
+          const updatedMe = await membershipService.getMyMembership();
+          if (activeOrderIdRef.current === targetId) setMembership(updatedMe);
+        } catch {
+          // Ignore secondary membership refresh failure
+        }
       }
     } else if (!isOrderPendingStatus(orderData.status)) {
       clearPendingMembershipOrderId();
@@ -150,12 +230,17 @@ function MembershipReturnContent() {
   }, []);
 
   useEffect(() => {
+    activeOrderIdRef.current = resolvedOrderId;
+    latestStatusRef.current = null;
     if (!resolvedOrderId) return;
 
     let cancelled = false;
     let attempts = 0;
     stopPollingRef.current = false;
     cancellingRef.current = false;
+    setOrder(null);
+    setMembership(null);
+    setErrorMessage(null);
     setShowCancelConfirm(false);
     setCancelError(null);
     setCancelOutcomeNotice(null);
@@ -213,12 +298,89 @@ function MembershipReturnContent() {
 
     return () => {
       cancelled = true;
+      activeOrderIdRef.current = "";
       if (pollTimerRef.current) {
         clearTimeout(pollTimerRef.current);
         pollTimerRef.current = null;
       }
     };
   }, [resolvedOrderId, fetchTrustedOrder]);
+
+  // Silent refresh for this order on a membership notice or reconnect/focus/push recovery
+  // (a late IPN can land after the poll budget). 250 ms coalesce, one in flight, at most one
+  // follow-up; a hidden tab only marks dirty until visible. Failures stay silent.
+  useEffect(() => {
+    if (!resolvedOrderId) return;
+    const targetId = resolvedOrderId;
+    let disposed = false;
+    let running = false;
+    let queued = false;
+    let dirty = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const run = async () => {
+      if (running) {
+        queued = true;
+        return;
+      }
+      running = true;
+      try {
+        do {
+          queued = false;
+          if (document.visibilityState !== "visible") {
+            dirty = true;
+            break;
+          }
+          // REVIEW is final; the cancel response is authoritative while a cancel is in flight.
+          if (cancellingRef.current || isOrderReviewStatus(latestStatusRef.current)) break;
+          try {
+            const latest = await fetchTrustedOrder(targetId, undefined, true);
+            if (!disposed && activeOrderIdRef.current === targetId && !isOrderPendingStatus(latest.status)) {
+              stopPolling();
+            }
+          } catch (error) {
+            // Silent: the page keeps its current order card.
+            if (error === HIDDEN_REFRESH) {
+              dirty = true;
+              break;
+            }
+          }
+        } while (queued && !disposed);
+      } finally {
+        running = false;
+      }
+    };
+    const schedule = () => {
+      if (document.visibilityState !== "visible") {
+        dirty = true;
+        return;
+      }
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!disposed) void run();
+      }, 250);
+    };
+
+    const unsubscribe = notificationService.subscribe((event) => {
+      if (event.type !== "membership-changed") return;
+      if (event.orderId && event.orderId !== targetId) return;
+      schedule();
+    });
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && dirty) {
+        dirty = false;
+        schedule();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [resolvedOrderId, fetchTrustedOrder, stopPolling]);
 
   useEffect(() => {
     if (!showCancelConfirm) return;
@@ -276,8 +438,13 @@ function MembershipReturnContent() {
 
     try {
       const updatedOrder = await membershipService.cancelOrder(targetOrderId);
+      if (activeOrderIdRef.current !== targetOrderId) return;
       const outcome = resolveCancelOrderOutcome(updatedOrder);
 
+      // The cancel response is the newest truth: drop any older in-flight GET.
+      appliedSeqRef.current = ++fetchSeqRef.current;
+      inflightRef.current = null; // a pre-cancel GET must not be joined after this point
+      latestStatusRef.current = updatedOrder.status;
       setOrder(updatedOrder);
       setErrorMessage(null);
       setShowCancelConfirm(false);

@@ -69,6 +69,7 @@ vm.runInThisContext(`(function(require,module,exports){${panelOutput}\n})`)(name
   if(name==="@/components/contract/detail/SmartCaSignaturePanel")return {default:()=>null};
   if(name==="@/components/contract/detail/ContractBlockchainProof")return {default:({document})=>React.createElement("span",{"data-blockchain-document":document.id})};
   if(name==="@/components/contract/detail/ContractPdfViewerModal")return {default:()=>null};
+  if(name==="@/hooks/useAgreementChangeSync")return {useAgreementChangeSync(){}};
   if(name==="@/lib/contract-document-history")return {primaryDocument:(rows)=>rows.find(d=>d.status==="READY"&&d.documentType==="PDF")};
   return require(name);
 },panelModule,panelModule.exports);

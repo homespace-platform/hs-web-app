@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   CreditCard,
   CheckCircle2,
@@ -14,11 +15,15 @@ import {
   Landmark,
 } from "lucide-react";
 import paymentRequestService from "@/services/payment-request.service";
+import notificationService from "@/services/notification.service";
+import { useAuth } from "@/features/auth/useAuth";
+import { contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
 import type { PaymentRequest, PaymentStatus } from "@/types/payment-request.type";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import Link from "next/link";
 import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
+import SettlementPaymentPanel from "@/components/contract/detail/SettlementPaymentPanel";
 
 function formatVND(amount: number): string {
   return new Intl.NumberFormat("vi-VN", {
@@ -73,25 +78,204 @@ const STATUS_BADGES: Record<
   },
 };
 
-export default function PaymentsPage() {
-  const [payments, setPayments] = useState<PaymentRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+const TYPE_LABELS: Record<PaymentRequest["type"], string> = {
+  RESERVATION_DEPOSIT: "Tiền cọc giữ chỗ",
+  INITIAL: "Tiền thuê tháng đầu / cọc",
+  MONTHLY_RENT: "Hóa đơn tháng",
+  UTILITY: "Chi phí dịch vụ",
+  OTHER_CHARGE: "Khoản phí khác",
+  INITIAL_PAYMENT_REFUND: "Hoàn tiền",
+  DEPOSIT_REFUND: "Hoàn tiền cọc",
+  DEPOSIT_ADJUSTMENT: "Điều chỉnh tiền cọc",
+};
 
-  async function loadPayments() {
-    setLoading(true);
-    try {
-      const data = await paymentRequestService.getMyPaymentRequests();
-      setPayments(data);
-    } catch {
-      toast.error("Không thể tải danh sách yêu cầu chuyển khoản.");
-    } finally {
-      setLoading(false);
-    }
+function paymentTypeLabel(p: PaymentRequest): string {
+  if (p.type === "DEPOSIT_ADJUSTMENT") {
+    return p.direction === "LANDLORD_TO_TENANT" ? "Hoàn chênh lệch cọc" : "Nộp bổ sung cọc";
+  }
+  return TYPE_LABELS[p.type] ?? "Khoản chuyển khoản khác";
+}
+
+const RENTAL_REQUEST_TYPES: ReadonlySet<PaymentRequest["type"]> = new Set([
+  "INITIAL",
+  "RESERVATION_DEPOSIT",
+  "INITIAL_PAYMENT_REFUND",
+]);
+
+/**
+ * Link to the existing authorized action flow. The landlord is the persisted payee of a
+ * tenant→landlord payment and the persisted payer of a refund; never the selected dashboard role
+ * or the query. No link unless the verified actor is a stored party.
+ */
+function paymentLink(p: PaymentRequest, actorId: string): { href: string; label: string } | null {
+  const refund = p.direction === "LANDLORD_TO_TENANT";
+  const landlordId = refund ? p.payerId : p.payeeId;
+  const tenantId = refund ? p.payeeId : p.payerId;
+  const owner = actorId === landlordId;
+  if (!owner && actorId !== tenantId) return null;
+  if (RENTAL_REQUEST_TYPES.has(p.type) && p.rentalRequestId) {
+    return {
+      href: `/dashboard/rental-requests${owner ? "" : "/my-requests"}?requestId=${encodeURIComponent(p.rentalRequestId)}`,
+      label: "Xem yêu cầu thuê",
+    };
+  }
+  if (!p.contractId) return null;
+  if (["DEPOSIT_ADJUSTMENT", "DEPOSIT_REFUND"].includes(p.type) || p.type === "OTHER_CHARGE" && !p.invoiceId) {
+    return { href: `${invoiceDetailPath(p.contractId)}?section=deposit`, label: "Xem quyết toán / cọc" };
+  }
+  if (p.type === "MONTHLY_RENT" || p.invoiceId) {
+    return { href: invoiceDetailPath(p.contractId), label: "Xem hóa đơn" };
+  }
+  return { href: contractDetailPath(owner ? "landlord" : "tenant", p.contractId), label: "Xem hợp đồng" };
+}
+
+// Same shape the notification consumer accepts; only compared with ids of the caller's own list, never sent to an endpoint.
+const PAYMENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+const NOT_FOUND_MESSAGE = "Không tìm thấy yêu cầu chuyển khoản hoặc bạn không có quyền xem yêu cầu này.";
+
+function PaymentsGate() {
+  const searchParams = useSearchParams();
+  const { initialized, authenticated, userId, login } = useAuth();
+  const rawPaymentId = searchParams.get("paymentId")?.trim() ?? "";
+  const targetId = PAYMENT_ID_PATTERN.test(rawPaymentId) ? rawPaymentId : "";
+
+  if (!initialized) {
+    return (
+      <div className="flex min-h-56 items-center justify-center text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
   }
 
+  if (!authenticated || !userId) {
+    return (
+      <div className="mx-auto max-w-xl py-12">
+        <div className="rounded-3xl border border-border bg-card p-8 text-center space-y-4 shadow-sm">
+          <h1 className="text-lg sm:text-xl font-extrabold text-foreground">Đăng nhập để xem yêu cầu chuyển khoản</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+            Yêu cầu chuyển khoản chỉ hiển thị cho các bên liên quan.
+          </p>
+          <button
+            type="button"
+            onClick={() => login(`${window.location.pathname}${window.location.search}${window.location.hash}`)}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 transition-all cursor-pointer"
+          >
+            Đăng nhập
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Keyed by the verified account only: a switch resets data; a query change just re-selects.
+  return <PaymentsBody key={userId} actorId={userId} targetId={targetId} invalidTarget={Boolean(rawPaymentId) && !targetId} />;
+}
+
+function PaymentsBody({ actorId, targetId, invalidTarget }: { actorId: string; targetId: string; invalidTarget: boolean }) {
+  const [payments, setPayments] = useState<PaymentRequest[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [refreshError, setRefreshError] = useState(false);
+  const [openRefund, setOpenRefund] = useState<{ id: string; selection: string } | null>(null);
+  const aliveRef = useRef(false);
+  const inflightRef = useRef<Promise<void> | null>(null);
+  const dirtyRef = useRef(false);
+  const hiddenDirtyRef = useRef(false);
+  const hasDataRef = useRef(false);
+  const scrolledForRef = useRef("");
+
+  // One authorized /mine GET at a time. A request made while one is in flight marks it dirty and
+  // gets exactly one follow-up (not a parallel call); the returned promise covers the follow-up.
+  const requestList = useCallback((): Promise<void> => {
+    if (inflightRef.current) {
+      dirtyRef.current = true;
+      return inflightRef.current;
+    }
+    const run = (async () => {
+      try {
+        for (;;) {
+          dirtyRef.current = false;
+          try {
+            const data = await paymentRequestService.getMyPaymentRequests();
+            if (!aliveRef.current) return;
+            hasDataRef.current = true;
+            setPayments(data.filter(p => actorId === p.payerId || actorId === p.payeeId));
+            setLoadError(false);
+            setRefreshError(false);
+          } catch {
+            if (!aliveRef.current) return;
+            // Keep the rows already shown; only an empty page gets the blocking error.
+            if (hasDataRef.current) setRefreshError(true);
+            else setLoadError(true);
+          }
+          // A notice that arrived during this GET (even a failed one) still gets one fresh read;
+          // each pass needs a new notice, so failures cannot loop.
+          if (!dirtyRef.current) return;
+          if (document.visibilityState !== "visible") {
+            hiddenDirtyRef.current = true;
+            return;
+          }
+        }
+      } finally {
+        inflightRef.current = null;
+      }
+    })();
+    inflightRef.current = run;
+    return run;
+  }, [actorId]);
+
   useEffect(() => {
-    loadPayments();
-  }, []);
+    aliveRef.current = true;
+    void requestList();
+    return () => {
+      aliveRef.current = false;
+    };
+  }, [requestList]);
+
+  // Payment notices and reconnect/focus/push recovery: 250 ms coalesce, a hidden tab only marks dirty.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      if (document.visibilityState !== "visible") {
+        hiddenDirtyRef.current = true;
+        return;
+      }
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        // The tab may have been hidden during the coalesce window.
+        if (document.visibilityState !== "visible") {
+          hiddenDirtyRef.current = true;
+          return;
+        }
+        void requestList();
+      }, 250);
+    };
+    const unsubscribe = notificationService.subscribe((event) => {
+      if (event.type === "payment-changed") schedule();
+    });
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && hiddenDirtyRef.current) {
+        hiddenDirtyRef.current = false;
+        schedule();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [requestList]);
+
+  const targetFound = Boolean(targetId && payments?.some((p) => p.id === targetId));
+  useEffect(() => {
+    if (!targetFound || scrolledForRef.current === targetId) return;
+    const card = Array.from(document.querySelectorAll<HTMLElement>("[data-payment-id]"))
+      .find((element) => element.dataset.paymentId === targetId);
+    if (!card) return;
+    scrolledForRef.current = targetId;
+    card.scrollIntoView({ block: "center" });
+    card.focus({ preventScroll: true });
+  }, [targetFound, targetId]);
 
   function copyText(text: string, label: string) {
     navigator.clipboard.writeText(text);
@@ -134,7 +318,33 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      {loading ? (
+      {(invalidTarget || (targetId && payments && !targetFound)) && (
+        <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+          {NOT_FOUND_MESSAGE}
+        </div>
+      )}
+
+      {refreshError && payments && (
+        <div role="status" className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-muted/50 p-3 text-xs text-muted-foreground">
+          <span>Chưa cập nhật được dữ liệu mới nhất.</span>
+          <button type="button" onClick={() => void requestList()} className="font-semibold text-primary hover:underline">
+            Tải lại
+          </button>
+        </div>
+      )}
+
+      {payments === null && loadError ? (
+        <div role="alert" className="flex min-h-56 flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+          <span>Không thể tải danh sách yêu cầu chuyển khoản.</span>
+          <button
+            type="button"
+            onClick={() => { setLoadError(false); void requestList(); }}
+            className="rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted"
+          >
+            Thử lại
+          </button>
+        </div>
+      ) : payments === null ? (
         <div className="flex min-h-56 items-center justify-center text-sm text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
           Đang tải dữ liệu...
@@ -156,7 +366,12 @@ export default function PaymentsPage() {
             return (
               <div
                 key={p.id}
-                className="rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-2xs hover:shadow-xs transition-all space-y-3"
+                data-payment-id={p.id}
+                tabIndex={-1}
+                aria-current={p.id === targetId ? "true" : undefined}
+                className={`rounded-2xl border bg-card p-4 sm:p-5 shadow-2xs hover:shadow-xs transition-all space-y-3 outline-none ${
+                  p.id === targetId ? "border-primary ring-2 ring-primary/40" : "border-border"
+                }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-3">
                   <div className="flex items-center gap-2">
@@ -164,7 +379,7 @@ export default function PaymentsPage() {
                       Ref: {p.transferReference}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {p.type === "INITIAL" ? "Giữ chỗ ban đầu" : p.type === "MONTHLY_RENT" ? "Hóa đơn tháng" : "Khoản chuyển khoản khác"}
+                      {paymentTypeLabel(p)}
                     </span>
                   </div>
                   <span
@@ -211,7 +426,12 @@ export default function PaymentsPage() {
                   </div>
                 </div>
 
-                <PaymentDisputePanel payment={p} onUpdated={loadPayments} />
+                {!(openRefund?.id === p.id && openRefund.selection === targetId) && <PaymentDisputePanel payment={p} onUpdated={requestList} />}
+                {p.type === "INITIAL_PAYMENT_REFUND" && (actorId === p.payerId || actorId === p.payeeId) && <>
+                  <button type="button" className="text-xs font-semibold text-primary underline" onClick={() => setOpenRefund({ id: p.id, selection: targetId })}>Mở thao tác hoàn tiền</button>
+                  {openRefund?.id === p.id && openRefund.selection === targetId && <SettlementPaymentPanel key={`${actorId}:${p.id}`} payment={p}
+                    isLandlord={actorId === (p.direction === "LANDLORD_TO_TENANT" ? p.payerId : p.payeeId)} refresh={requestList} />}
+                </>}
                 <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-xs">
                     <button
@@ -223,20 +443,15 @@ export default function PaymentsPage() {
                       Sao chép nội dung CK
                     </button>
                   </div>
-                  {p.contractId ? (
-                    <Link href={`/dashboard/invoices/${p.contractId}`}
-                      className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
-                      <span>Xem hóa đơn</span><ExternalLink className="w-3 h-3" />
-                    </Link>
-                  ) : p.rentalRequestId && (
-                    <Link
-                      href={`/dashboard/rental-requests/my-requests`}
-                      className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
-                    >
-                      <span>Xem yêu cầu thuê</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </Link>
-                  )}
+                  {(() => {
+                    const link = paymentLink(p, actorId);
+                    return link && (
+                      <Link href={link.href}
+                        className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
+                        <span>{link.label}</span><ExternalLink className="w-3 h-3" />
+                      </Link>
+                    );
+                  })()}
                 </div>
               </div>
             );
@@ -244,5 +459,19 @@ export default function PaymentsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PaymentsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-56 items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <PaymentsGate />
+    </Suspense>
   );
 }

@@ -13,9 +13,27 @@ export const paymentSections: { id: PaymentSection; title: string; description: 
   { id: "deposit", title: "Cọc & hoàn cọc", description: "Bổ sung/hoàn chênh lệch, bàn giao và quyết toán" },
 ];
 export function paymentSection(value: string | null): PaymentSection { return value === "deposit" ? value : "monthly"; }
-export function paymentModulePath(id: string, section: PaymentSection, invoiceId?: string) {
+// Untrusted path/query ids are only compared with the caller's own authorized list or sent as one path segment.
+const RESOURCE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+export function safeResourceId(value: string | null | undefined): string | null {
+  const id = value?.trim();
+  return id && RESOURCE_ID_PATTERN.test(id) ? id : null;
+}
+// ?invoice= is only compared with the authorized list: a persisted id, or the exact synthetic month-1 id
+// "first-rent:<payment id>" that Core lists for INITIAL_RENT. Never a path/ID-lookup validator; contract paths stay on safeResourceId.
+const FIRST_RENT_PREFIX = "first-rent:";
+export function safeInvoiceSelectionId(value: string | null | undefined): string | null {
+  const id = value?.trim();
+  if (!id) return null;
+  if (id.startsWith(FIRST_RENT_PREFIX)) return safeResourceId(id.slice(FIRST_RENT_PREFIX.length)) ? id : null;
+  return safeResourceId(id);
+}
+// workflow/agreement carry the move-in document landing across the child -> root hop; both are only hints validated at the target.
+export function paymentModulePath(id: string, section: PaymentSection, invoiceId?: string, landing?: { moveIn?: boolean; agreementId?: string | null }) {
   const query = new URLSearchParams({ section });
   if (invoiceId) query.set("invoice", invoiceId);
+  if (landing?.moveIn) query.set("workflow", "move-in");
+  if (landing?.moveIn && landing.agreementId) query.set("agreement", landing.agreementId);
   return `${invoiceDetailPath(id)}?${query}`;
 }
 export const contractStateLabels: Record<ContractStatus, string> = {

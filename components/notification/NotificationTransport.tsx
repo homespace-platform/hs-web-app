@@ -7,7 +7,7 @@ import { Bell, X } from "lucide-react";
 import { io } from "socket.io-client";
 import { useAuth } from "@/features/auth/useAuth";
 import keycloak from "@/lib/keycloak";
-import notificationService, { getCategoryMeta, getNotificationTag, getSafeActionPath, isAgreementNotificationType, isAmendmentNotificationType, isInvoiceNotificationType, isMoveInHandoverNotificationType, isRenewalNotificationType, isTerminationNotificationType, isReturnSettlementNotificationType, isRoutedPaymentType } from "@/services/notification.service";
+import notificationService, { getCategoryMeta, getNotificationTag, getSafeActionPath, isAgreementNotificationType, isAmendmentNotificationType, isInvoiceNotificationType, isRenewalNotificationType, isTerminationNotificationType, isReturnSettlementNotificationType, isRoutedPaymentType } from "@/services/notification.service";
 import { startPush } from "@/services/notification-push.service";
 import type { NotificationItem } from "@/types/notification.type";
 
@@ -30,7 +30,7 @@ export default function NotificationTransport() {
       if (event.type === "unread-count") {
         count = event.count;
         updateTitle();
-      } else if (event.type !== "appointment-changed" && event.type !== "listing-changed" && event.type !== "rental-request-changed" && event.type !== "membership-changed" && event.type !== "payment-changed" && event.type !== "invoice-changed" && event.type !== "handover-changed" && event.type !== "agreement-changed") {
+      } else if (event.type !== "appointment-changed" && event.type !== "listing-changed" && event.type !== "rental-request-changed" && event.type !== "membership-changed" && event.type !== "payment-changed" && event.type !== "invoice-changed" && event.type !== "agreement-changed") {
         void notificationService.getUnreadCount().catch(() => {});
       }
     });
@@ -62,7 +62,6 @@ export default function NotificationTransport() {
       notificationService.notifyMembershipChanged();
       notificationService.notifyPaymentChanged();
       notificationService.notifyInvoiceChanged();
-      notificationService.notifyHandoverChanged();
       notificationService.notifyAgreementChanged();
     };
 
@@ -114,12 +113,6 @@ export default function NotificationTransport() {
         if (item.category === "PAYMENT" && isInvoiceNotificationType(item.type)) {
           const { contractId, invoiceId } = item.metadata ?? {};
           notificationService.notifyInvoiceChanged(typeof contractId === "string" ? contractId : undefined, typeof invoiceId === "string" ? invoiceId : undefined);
-        }
-        if (item.category === "CONTRACT" && isMoveInHandoverNotificationType(item.type)) {
-          const { contractId } = item.metadata ?? {};
-          notificationService.notifyHandoverChanged(typeof contractId === "string" ? contractId : undefined);
-          // Lease activation (READY goes to the landlord instead of FULLY_SIGNED): the root lease page they may have open changed too.
-          if (item.type === "MOVE_IN_HANDOVER_READY") notificationService.notifyAgreementChanged(typeof contractId === "string" ? contractId : undefined);
         }
         if (item.category === "CONTRACT" && isAgreementNotificationType(item.type)) {
           const { agreementId } = item.metadata ?? {};

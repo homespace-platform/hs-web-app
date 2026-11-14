@@ -28,12 +28,9 @@ export function safeInvoiceSelectionId(value: string | null | undefined): string
   if (id.startsWith(FIRST_RENT_PREFIX)) return safeResourceId(id.slice(FIRST_RENT_PREFIX.length)) ? id : null;
   return safeResourceId(id);
 }
-// workflow/agreement carry the move-in document landing across the child -> root hop; both are only hints validated at the target.
-export function paymentModulePath(id: string, section: PaymentSection, invoiceId?: string, landing?: { moveIn?: boolean; agreementId?: string | null }) {
+export function paymentModulePath(id: string, section: PaymentSection, invoiceId?: string) {
   const query = new URLSearchParams({ section });
   if (invoiceId) query.set("invoice", invoiceId);
-  if (landing?.moveIn) query.set("workflow", "move-in");
-  if (landing?.moveIn && landing.agreementId) query.set("agreement", landing.agreementId);
   return `${invoiceDetailPath(id)}?${query}`;
 }
 export const contractStateLabels: Record<ContractStatus, string> = {

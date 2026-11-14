@@ -30,8 +30,8 @@ function EvidenceLinks({ ids }: { ids?: string[] }) {
     catch (error) { tab?.close(); toast.error(getApiErrorMessage(error, "Không mở được minh chứng.")); }
   }}>Xem minh chứng {i + 1} ↗</button>)}</div>;
 }
-export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdated, mode = "all", hideMoveIn = false }: {
-  contractId: string; isLandlord: boolean; onUpdated?: () => Promise<void>; mode?: "all" | "renewal" | "settlement"; hideMoveIn?: boolean;
+export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdated, mode = "all" }: {
+  contractId: string; isLandlord: boolean; onUpdated?: () => Promise<void>; mode?: "all" | "renewal" | "settlement";
 }) {
   const [data, setData] = useState<ContractLifecycle | null>(null);
   const [error, setError] = useState("");
@@ -299,7 +299,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
         {data.refundPayment && <SettlementPaymentPanel key={data.refundPayment.id} payment={data.refundPayment} isLandlord={isLandlord} refresh={refresh} />}
         {data.balancePayment && <SettlementPaymentPanel key={data.balancePayment.id} payment={data.balancePayment} isLandlord={isLandlord} refresh={refresh} />}
       </div>}
-      {data.rentalRequestId && <>{!hideMoveIn&&<RentalWorkflowPanel rentalRequestId={data.rentalRequestId} kind="move-in" contractId={contractId} onUpdated={refresh}/>}<RentalWorkflowPanel rentalRequestId={data.rentalRequestId} kind="early-exit" onUpdated={refresh}/><ComplaintPanel rentalRequestId={data.rentalRequestId} attention={data.closure?.status==="DISPUTED"} onUpdated={refresh}/></>}
+      {data.rentalRequestId && <><RentalWorkflowPanel rentalRequestId={data.rentalRequestId} kind="early-exit" onUpdated={refresh}/><ComplaintPanel rentalRequestId={data.rentalRequestId} attention={data.closure?.status==="DISPUTED"} onUpdated={refresh}/></>}
     </>}
   </section>;
 }

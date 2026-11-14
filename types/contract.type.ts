@@ -153,7 +153,7 @@ export interface ContractResponse {
   templateVersionId: string;
   currentRevisionId?: string | null;
   parentContractId?: string | null;
-  // Core sets WORKFLOW (move-in / early-exit signing documents); RENEWAL is kept for compatibility, Core leaves renewals null.
+  // Core sets WORKFLOW (early-exit signing documents); RENEWAL is kept for compatibility, Core leaves renewals null.
   agreementKind?: "AMENDMENT" | "RENEWAL" | "DEPOSIT" | "WORKFLOW" | null;
   depositAgreementContractId?: string | null;
   effectiveLeaseMonths?: number | null;

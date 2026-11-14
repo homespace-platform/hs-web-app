@@ -2,9 +2,9 @@
 
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
-import { paymentModulePath, safeResourceId } from "@/lib/payment-module";
+import { safeResourceId } from "@/lib/payment-module";
 import { contractService } from "@/services/contract.service";
 import { rentalWorkflowService } from "@/services/rental-workflow.service";
 import RentalWorkflowPanel from "@/components/rental-request/RentalWorkflowPanel";
@@ -17,8 +17,8 @@ function Message({ children }: { children: ReactNode }) {
 }
 
 // Notification landing: the viewer's side comes from the verified account vs the persisted parties of the authorized
-// contract, never from the stored dashboard role. ?workflow= is only a hint (allowlisted by the caller) and is never trusted.
-function Landing({ userId, contractId, moveIn }: { userId: string; contractId: string; moveIn: boolean }) {
+// contract, never from the stored dashboard role.
+function Landing({ userId, contractId }: { userId: string; contractId: string }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("loading");
   const [attempt, setAttempt] = useState(0);
@@ -33,9 +33,8 @@ function Landing({ userId, contractId, moveIn }: { userId: string; contractId: s
         // Workflow signing documents live on the root's panel; the exact document is validated there against the viewer's own list.
         const rootId = safeResourceId(contract.parentContractId);
         if (!rootId) setPhase("missing");
-        else if (moveIn) router.replace(paymentModulePath(rootId, "deposit", undefined, { moveIn: true, agreementId: contractId }));
         else {
-          // EARLY_EXIT notices have no query hint: resolve the exact child from the authorized persisted workflow list.
+          // Only early-exit documents are listed; any other (historical) workflow child stays on the neutral root-link message.
           const rentalRequestId = safeResourceId(contract.rentalRequestId);
           if (rentalRequestId) {
             const documents = await rentalWorkflowService.documents(rentalRequestId, "early-exit");
@@ -57,7 +56,7 @@ function Landing({ userId, contractId, moveIn }: { userId: string; contractId: s
       setPhase(status === 400 || status === 403 || status === 404 ? "missing" : "retry");
     });
     return () => { live = false; };
-  }, [userId, contractId, moveIn, attempt, router]);
+  }, [userId, contractId, attempt, router]);
 
   if (phase === "loading") return <Message>Đang mở văn bản…</Message>;
   if (phase === "retry") return <div role="alert" className="mx-auto max-w-xl rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
@@ -73,7 +72,6 @@ function Landing({ userId, contractId, moveIn }: { userId: string; contractId: s
 
 function ContractLanding() {
   const { id } = useParams<{ id: string }>();
-  const params = useSearchParams();
   const { initialized, authenticated, userId, login } = useAuth();
   if (!initialized) return <Message>Đang xác thực tài khoản…</Message>;
   if (!authenticated || !userId) return <div className="mx-auto max-w-xl py-12"><div className="space-y-4 rounded-3xl border bg-card p-8 text-center shadow-sm">
@@ -83,7 +81,7 @@ function ContractLanding() {
   </div></div>;
   const contractId = safeResourceId(typeof id === "string" ? id : null);
   if (!contractId) return <Message>Không tìm thấy văn bản hoặc bạn không có quyền xem. <Link href="/dashboard/contracts" className="text-primary underline">Về danh sách hợp đồng</Link></Message>;
-  return <Landing key={`${userId}:${contractId}`} userId={userId} contractId={contractId} moveIn={params.get("workflow") === "move-in"} />;
+  return <Landing key={`${userId}:${contractId}`} userId={userId} contractId={contractId} />;
 }
 
 export default function LegacyContractDetailPage() {

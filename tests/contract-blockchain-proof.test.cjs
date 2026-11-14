@@ -81,7 +81,7 @@ test("explorer URLs only allow a Sepolia transaction hash and scope includes onl
   assert.equal(helper.supportsLeaseProof({}), true);
   assert.equal(helper.supportsLeaseProof({ agreementKind: "LEASE" }), true);
   assert.equal(helper.supportsLeaseProof({ agreementKind: "AMENDMENT", parentContractId: "root" }), true);
-  for (const kind of ["DEPOSIT", "RENEWAL", "AMENDMENT", "MOVE_IN"]) assert.equal(helper.supportsLeaseProof({ agreementKind: kind }), false);
+  for (const kind of ["DEPOSIT", "RENEWAL", "AMENDMENT", "WORKFLOW"]) assert.equal(helper.supportsLeaseProof({ agreementKind: kind }), false);
   assert.equal(helper.supportsLeaseProof({ parentContractId: "root" }), false);
 });
 
@@ -169,7 +169,7 @@ test("stored PDF is checked automatically, without re-reading bytes on each pend
     reads++; return { documentId: id, status: confirmed ? "MATCH" : "PENDING", checkedAt: "2026-11-09T00:00:00Z" };
   } });
   f.render(); await flush(); f.render(); await flush(); f.render();
-  assert.equal(reads, 1); assert.match(f.text(), /khớp bản lúc ký/);
+  assert.equal(reads, 1); assert.match(f.text(), /PDF khớp bản đã ký\. Đang chờ xác nhận cuối cùng/);
   f.tick(); await flush(); f.render(); await flush(); f.render(); assert.equal(reads, 1);
   confirmed = true;
   f.tick(); await flush(); f.render(); await flush(); f.render();

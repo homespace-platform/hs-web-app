@@ -5,7 +5,6 @@ import { useParams, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, ReceiptText, RotateCcw } from "lucide-react";
 import MonthlyInvoicesSection from "@/components/contract/detail/MonthlyInvoicesSection";
 import RentalOnboardingPanel from "@/components/rental-request/RentalOnboardingPanel";
-import RentalWorkflowPanel from "@/components/rental-request/RentalWorkflowPanel";
 import ContractLifecyclePanel from "@/components/contract/detail/ContractLifecyclePanel";
 import { DepositAdjustmentPayments } from "@/components/contract/detail/SettlementPaymentPanel";
 import { useAuth } from "@/features/auth/useAuth";
@@ -36,17 +35,12 @@ function ContractInvoicesPage() {
   // An explicit but malformed ?invoice= stays a distinct request (neutral not-found), never "no request".
   const rawInvoice = params.get("invoice")?.trim() || null;
   const requestedInvoiceId = safeInvoiceSelectionId(rawInvoice);
-  // ?agreement= (a move-in signing document) is only compared with the viewer's own authorized document list; a malformed value
-  // stays an explicit request that matches nothing ("?"), so it can never fall back to a different document.
-  const moveIn = params.get("workflow") === "move-in";
-  const rawAgreement = params.get("agreement")?.trim() || null;
-  const agreementId = moveIn && rawAgreement ? safeResourceId(rawAgreement) ?? "?" : null;
   return <InvoicesBody key={`${userId}:${contractId}`} actorId={userId} contractId={contractId}
-    section={paymentSection(params.get("section"))} moveIn={moveIn} agreementId={agreementId} requestedInvoiceId={requestedInvoiceId} invalidInvoiceRequest={requestedInvoiceId ? null : rawInvoice} />;
+    section={paymentSection(params.get("section"))} requestedInvoiceId={requestedInvoiceId} invalidInvoiceRequest={requestedInvoiceId ? null : rawInvoice} />;
 }
 
-function InvoicesBody({ actorId, contractId, section, moveIn = false, agreementId = null, requestedInvoiceId, invalidInvoiceRequest = null }: {
-  actorId: string; contractId: string; section: PaymentSection; moveIn?: boolean; agreementId?: string | null; requestedInvoiceId: string | null; invalidInvoiceRequest?: string | null;
+function InvoicesBody({ actorId, contractId, section, requestedInvoiceId, invalidInvoiceRequest = null }: {
+  actorId: string; contractId: string; section: PaymentSection; requestedInvoiceId: string | null; invalidInvoiceRequest?: string | null;
 }) {
   const [data, setData] = useState<{ contract: ContractResponse; revision: ContractRevisionResponse } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +87,7 @@ function InvoicesBody({ actorId, contractId, section, moveIn = false, agreementI
   const isLandlord = actorId === contract.landlordId;
   const isTenant = actorId === contract.tenantId;
   if (contract.id !== contractId || (!isLandlord && !isTenant)) return <NotFound />;
-  if (contract.parentContractId) return <div className="rounded-xl border p-5">Các khoản thanh toán được quản lý trên hợp đồng gốc. <Link href={paymentModulePath(contract.parentContractId, section, requestedInvoiceId ?? invalidInvoiceRequest ?? undefined, { moveIn, agreementId: agreementId ?? (contract.agreementKind === "WORKFLOW" ? contract.id : null) })} className="font-semibold text-primary underline">Mở hồ sơ thanh toán hợp đồng gốc</Link></div>;
+  if (contract.parentContractId) return <div className="rounded-xl border p-5">Các khoản thanh toán được quản lý trên hợp đồng gốc. <Link href={paymentModulePath(contract.parentContractId, section, requestedInvoiceId ?? invalidInvoiceRequest ?? undefined)} className="font-semibold text-primary underline">Mở hồ sơ thanh toán hợp đồng gốc</Link></div>;
   const side = isLandlord ? "landlord" : "tenant";
   const charges = revision.charges || [];
   return <div className="mx-auto max-w-6xl space-y-5 pb-12">
@@ -118,15 +112,11 @@ function InvoicesBody({ actorId, contractId, section, moveIn = false, agreementI
       unsupportedWaterRate={charges.some(charge => charge.billingMethod === "STATE_WATER_RATE" && charge.includedInRent !== true)}
       initialElectricity={revision.meters?.electricityInitial == null ? undefined : String(revision.meters.electricityInitial)}
       initialWater={revision.meters?.waterInitial == null ? undefined : String(revision.meters.waterInitial)} />}
-    {/* Handover notice landing: only the allowlisted ?workflow=move-in, the rental request always comes from the authorized contract. */}
-    {section === "deposit" && moveIn && (contract.rentalRequestId
-      ? <RentalWorkflowPanel rentalRequestId={contract.rentalRequestId} kind="move-in" contractId={contract.id} focusRequest agreementId={agreementId ?? undefined} onUpdated={refresh} />
-      : <div role="status" className="rounded-xl border p-5 text-sm">Chưa có biên bản nhận nhà cho hồ sơ này.</div>)}
     {section === "deposit" && <DepositAdjustmentPayments key={contract.id} contractId={contract.id} isLandlord={isLandlord}/>}
     {section === "deposit" && <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} showComplaints={!(["ACTIVE","EXPIRED","CLOSED"].includes(contract.status))} onUpdated={async()=>{await refresh();}} />}
     {section === "deposit" && (contract.status === "TERMINATED"
       ? <div className="rounded-xl border bg-card p-5 text-sm">Hợp đồng đã chấm dứt theo phương án xử lý riêng. Kiểm tra điều khoản và kết quả xử lý tiền cọc trong <Link href={contractDetailPath(side, contract.id)} className="text-primary underline">hồ sơ hợp đồng</Link>.</div>
-      : ["ACTIVE","EXPIRED","CLOSED"].includes(contract.status) ? <ContractLifecyclePanel key={contract.id} contractId={contract.id} isLandlord={isLandlord} mode="settlement" hideMoveIn={moveIn} onUpdated={refresh} /> : null)}
+      : ["ACTIVE","EXPIRED","CLOSED"].includes(contract.status) ? <ContractLifecyclePanel key={contract.id} contractId={contract.id} isLandlord={isLandlord} mode="settlement" onUpdated={refresh} /> : null)}
   </div>;
 }
 export default function Page() { return <Suspense fallback={<Loading />}><ContractInvoicesPage /></Suspense>; }

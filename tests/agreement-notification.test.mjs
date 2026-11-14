@@ -14,7 +14,6 @@ test('agreement tags and scoped signals do not leak into other notification fami
   const api = service();
   for (const type of TYPES) {
     assert.equal(api.isAgreementNotificationType(type), true);
-    assert.equal(api.isMoveInHandoverNotificationType(type), false);
     assert.notEqual(api.getNotificationTag({ category: 'CONTRACT', type }), 'Hợp đồng');
     assert.equal(api.getNotificationTag({ category: 'PAYMENT', type }), 'Thanh toán');
   }
@@ -73,7 +72,7 @@ test('termination decisions have distinct tags and use the authorized root route
 });
 
 const Workflow = () => null;
-function landing({ user = 'owner', contractId = 'child-1', moveIn = false, documents = [] } = {}) {
+function landing({ user = 'owner', contractId = 'child-1', documents = [] } = {}) {
   const runtime = hookRuntime(), requests = [], routes = [], documentCalls = [];
   const getContract = id => { const call = deferred(); requests.push({ id, ...call }); return call.promise; };
   const router = { replace: route => routes.push(route) };
@@ -81,14 +80,13 @@ function landing({ user = 'owner', contractId = 'child-1', moveIn = false, docum
     react: runtime.hooks, 'next/link': Link,
     'next/navigation': { useRouter: () => router, useParams: () => ({ id: contractId }), useSearchParams: () => new URLSearchParams() },
     '@/lib/contract-routes': { contractDetailPath: (side, id) => `/dashboard/${side}/contracts/${id}`, invoiceDetailPath: id => `/dashboard/invoices/${id}` },
-    '@/lib/payment-module': { safeResourceId: value => typeof value === 'string' && /^[\w-]+$/.test(value) ? value : null,
-      paymentModulePath: (id, _section, _invoice, options) => `/dashboard/invoices/${id}?section=deposit&workflow=move-in&agreement=${options.agreementId}` },
+    '@/lib/payment-module': { safeResourceId: value => typeof value === 'string' && /^[\w-]+$/.test(value) ? value : null },
     '@/services/contract.service': { contractService: { getContract } },
     '@/services/rental-workflow.service': { rentalWorkflowService: { async documents(...args) { documentCalls.push(args); return documents; } } },
     '@/components/rental-request/RentalWorkflowPanel': Workflow,
     '@/features/auth/useAuth': { useAuth: () => ({ initialized: true, authenticated: true, userId: user }) },
   }, { window: { location: { hash: '' } } }, '\nexports.TestLanding=Landing;').TestLanding;
-  runtime.mount(Component, { userId: user, contractId, moveIn });
+  runtime.mount(Component, { userId: user, contractId });
   return { runtime, requests, routes, documentCalls, answer: async value => { requests.at(-1).resolve(value); await runtime.settle(); } };
 }
 
@@ -104,11 +102,12 @@ test('authorized persisted party opens the exact child; a stranger never redirec
   assert.match(html(stranger.runtime), /không có quyền/);
 });
 
-test('move-in child route retains exact id after persisted party check', async () => {
-  const view = landing({ moveIn: true });
-  await view.answer(child({ agreementKind: 'WORKFLOW' }));
-  assert.deepEqual(view.routes, ['/dashboard/invoices/root-1?section=deposit&workflow=move-in&agreement=child-1']);
-  const bad = landing({ moveIn: true });
+test('historical workflow child outside the early-exit list never redirects or opens a workflow', async () => {
+  const view = landing({ documents: [] });
+  await view.answer(child({ agreementKind: 'WORKFLOW', rentalRequestId: 'rental-1' }));
+  assert.deepEqual(view.routes, []);
+  assert.match(html(view.runtime), /hồ sơ của hợp đồng gốc/);
+  const bad = landing();
   await bad.answer(child({ agreementKind: 'WORKFLOW', parentContractId: '../other' }));
   assert.deepEqual(bad.routes, []);
   assert.match(html(bad.runtime), /không có quyền/);

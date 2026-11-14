@@ -82,6 +82,10 @@ test("rendered read failure offers a read retry, never a create-agreement action
   assert.match(html,/Lỗi tải không có nghĩa hợp đồng chưa được tạo/);assert.match(html,/Thử tải lại hồ sơ cọc/);
   assert.doesNotMatch(html,/Chưa có hồ sơ hợp đồng cọc|Kiểm tra \/ tạo lại tài liệu cọc/);
 });
+test("lease-signed obligation shows its precise label without a handover claim",()=>{
+  const html=renderPanel({rentalId:"rental",data:{...ready,obligation:"TRANSFERRED_TO_LEASE"}});
+  assert.match(html,/Nghĩa vụ giữ chỗ đã chuyển sang HĐ thuê/);assert.doesNotMatch(html,/Đang được theo dõi|xác nhận nhận nhà|biên bản/i);
+});
 test("rendered PDF stays visible with a signing-service error and without waiting for move-in",()=>{
   const html=renderPanel({rentalId:"rental",data:{...ready,agreement:{...ready.agreement,contractNumber:"DC-TEST"}}},"","Signature unavailable");
   assert.match(html,/DC-TEST/);assert.match(html,/Xem PDF hợp đồng cọc/);assert.match(html,/PDF đã có vẫn xem được/);

@@ -449,7 +449,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} showDepositAgreement={false} onUpdated={refreshSignedState}/>
   </div>;
   if (contract.agreementKind === "WORKFLOW") return <div className="mx-auto max-w-4xl space-y-3 rounded-2xl border bg-card p-5 pb-8 text-sm">
-    <p className="font-semibold">Văn bản ký riêng của hồ sơ nhận nhà / trả nhà</p>
+    <p className="font-semibold">Văn bản ký riêng của hồ sơ trả nhà / chấm dứt sớm</p>
     <p className="text-muted-foreground">Văn bản này được xem và ký cùng hồ sơ của hợp đồng gốc, nơi có đủ nội dung và kiểm tra phiên bản đang áp dụng.</p>
     {contract.parentContractId && <Link href={contractDetailPath(perspective, contract.parentContractId)} className="font-semibold text-primary underline">Mở hợp đồng gốc →</Link>}
   </div>;
@@ -625,7 +625,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4"><div><p className="font-semibold">Hóa đơn & thanh toán</p><p className="mt-1 text-sm text-muted-foreground">Thanh toán ban đầu, hóa đơn theo kỳ và bàn giao / hoàn cọc được quản lý trong một hồ sơ riêng.</p></div><Link href={invoiceDetailPath(contract.id)} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Mở hồ sơ thanh toán →</Link></div>
       </>}
       {/* 4. MAIN CONTRACT SECTIONS */}
-      {!contract.parentContractId && ["EXPIRED","CLOSED","TERMINATED"].includes(contract.status) && <><RentalWorkflowPanel rentalRequestId={contract.rentalRequestId} kind="move-in" contractId={contract.id} onUpdated={refreshSignedState}/><RentalWorkflowPanel rentalRequestId={contract.rentalRequestId} kind="early-exit" onUpdated={refreshSignedState}/><ComplaintPanel rentalRequestId={contract.rentalRequestId} onUpdated={refreshSignedState}/></>}
+      {!contract.parentContractId && ["EXPIRED","CLOSED","TERMINATED"].includes(contract.status) && <><RentalWorkflowPanel rentalRequestId={contract.rentalRequestId} kind="early-exit" onUpdated={refreshSignedState}/><ComplaintPanel rentalRequestId={contract.rentalRequestId} onUpdated={refreshSignedState}/></>}
       <div className="space-y-6">
         <>
         {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status) && <ContractTermsNotice />}

@@ -8,7 +8,7 @@ import payments from "@/services/payment-request.service";
 import {getApiErrorMessage} from "@/utils/apiError";
 import notificationService from "@/services/notification.service";
 import type {PaymentRequest} from "@/types/payment-request.type";
-import {workflowTitles,workflowStatuses,workflowActions,workflowObligations,type RentalWorkflow,type WorkflowKind,type WorkflowProposal,type HandoverItem,type RentRefund} from "@/types/rental-workflow.type";
+import {workflowTitles,workflowStatuses,workflowActions,workflowObligations,type RentalWorkflow,type WorkflowKind,type WorkflowProposal,type RentRefund} from "@/types/rental-workflow.type";
 import RentalPaymentModal from "./RentalPaymentModal";
 import WorkflowDocumentsPanel from "./WorkflowDocumentsPanel";
 import type {FinalRentCalculation} from "@/types/rental-workflow.type";
@@ -17,7 +17,7 @@ const button="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity
 const input="mt-1 block w-full rounded-lg border bg-background p-2 text-sm";
 const date=(s?:string)=>s?new Date(s).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"—";
 const money=(n?:number|null)=>n==null?"Chưa ghi nhận":n.toLocaleString("vi-VN")+" đ";
-// contractId (root lease) scopes handover notices to this panel; focusRequest opens, highlights and scrolls to it once.
+// contractId (root lease) scopes notices to this panel; focusRequest opens, highlights and scrolls to it once.
 type Props={rentalRequestId:string;kind:WorkflowKind;contractId?:string;focusRequest?:boolean;agreementId?:string;onUpdated?:()=>Promise<unknown>|void};
 const keyOf=(w:RentalWorkflow)=>`${w.revision}:${w.status}`;
 export default function RentalWorkflowPanel(props:Props){
@@ -28,8 +28,6 @@ export default function RentalWorkflowPanel(props:Props){
 export function WorkflowSummary({proposal:p}:{proposal:WorkflowProposal}){
   return <div className="space-y-2 text-sm">
     {p.reason&&<p className="whitespace-pre-wrap">{p.reason}</p>}
-    {p.handedOverAt&&<><p>Ngày thực tế: {date(p.handedOverAt)} · Chìa khóa: {p.keys}</p><p className="whitespace-pre-wrap">Hiện trạng: {p.condition}</p><p>Công tơ thực tế: điện {p.electricity??"chưa ghi nhận"} kWh · nước {p.water??"chưa ghi nhận"} m³</p><p className="text-xs text-muted-foreground">Chỉ số này là bằng chứng thực tế; không ghi đè chỉ số trong HĐ đã ký hoặc hóa đơn.</p></>}
-    {!!p.inventory?.length&&<div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr><th>Tài sản</th><th>Số lượng</th><th>Hiện trạng</th></tr></thead><tbody>{p.inventory.map((row,i)=><tr key={i}><td className="border-t py-2">{row.name}</td><td className="border-t">{row.quantity}</td><td className="border-t">{row.condition}</td></tr>)}</tbody></table></div>}
     {p.endExclusive&&<><p>Ngày kết thúc (không tính ngày này): <strong>{p.endExclusive}</strong></p><p>Bàn giao: {p.handoverTerms}</p><p>{p.finalRentPolicy==="DAILY_PRORATED"?"Tiền thuê kỳ cuối tính theo ngày thực tế của kỳ; các phí khác theo HĐ/hóa đơn.":"Tiền thuê và phí cố định tính trọn kỳ đã bắt đầu."} Cọc quyết toán riêng sau hóa đơn cuối.</p>{p.rentRefunds?.length?<table className="w-full text-left text-xs"><thead><tr><th>Khoản hoàn đã thống nhất</th><th>Số tiền</th></tr></thead><tbody>{p.rentRefunds.map((r,i)=><tr key={r.paymentId}><td>Khoản {i+1}</td><td>{money(r.amount)}</td></tr>)}</tbody></table>:<p>Không có khoản hoàn tiền thuê bổ sung trong đề nghị này.</p>}</>}
   </div>;
 }
@@ -39,8 +37,7 @@ function Evidence({ids}:{ids?:string[]}){
 function ScopedWorkflowPanel({rentalRequestId,kind,contractId,focusRequest,agreementId,onUpdated}:Props){
   const [expanded,setExpanded]=useState(!!focusRequest),[data,setData]=useState<RentalWorkflow|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false);
   const [creating,setCreating]=useState(false),[reason,setReason]=useState(""),[ack,setAck]=useState(false),[contacted,setContacted]=useState(false),[files,setFiles]=useState<File[]>([]);
-  const [actual,setActual]=useState(""),[keys,setKeys]=useState("0"),[condition,setCondition]=useState(""),[electricity,setElectricity]=useState(""),[water,setWater]=useState("");
-  const [inventory,setInventory]=useState<HandoverItem[]>([]),[end,setEnd]=useState(""),[terms,setTerms]=useState(""),[refunds,setRefunds]=useState<RentRefund[]>([]),[sources,setSources]=useState<PaymentRequest[]>([]),[paymentId,setPaymentId]=useState<string>();
+  const [end,setEnd]=useState(""),[terms,setTerms]=useState(""),[refunds,setRefunds]=useState<RentRefund[]>([]),[sources,setSources]=useState<PaymentRequest[]>([]),[paymentId,setPaymentId]=useState<string>();
   const [policy,setPolicy]=useState("FULL_STARTED_PERIOD"),[calculation,setCalculation]=useState<FinalRentCalculation|null>(null);
   const [reviewedKey,setReviewedKey]=useState<string|null>(null);
   const mounted=useRef(true),mutex=useRef(false),uploaded=useRef(new Map<File,string>()),quoteSequence=useRef(0);
@@ -77,7 +74,7 @@ function ScopedWorkflowPanel({rentalRequestId,kind,contractId,focusRequest,agree
   // Matching workflow notices and reconnect/focus/push recovery: 250 ms coalesce; a hidden tab only marks dirty.
   const earlyExitContractId=data?.contractId??contractId;
   useEffect(()=>{
-    if(!["move-in","early-exit"].includes(kind)||!expanded)return;
+    if(kind!=="early-exit"||!expanded)return;
     let timer:ReturnType<typeof setTimeout>|undefined;
     const schedule=()=>{
       if(document.visibilityState!=="visible"){hiddenDirty.current=true;return;}
@@ -85,14 +82,13 @@ function ScopedWorkflowPanel({rentalRequestId,kind,contractId,focusRequest,agree
       timer=setTimeout(()=>{if(document.visibilityState!=="visible"){hiddenDirty.current=true;return;}void refresh();},250);
     };
     const unsubscribe=notificationService.subscribe(event=>{
-      if(kind==="move-in"&&event.type==="handover-changed"&&(!event.contractId||event.contractId===contractId))schedule();
       if(kind==="early-exit"&&event.type==="agreement-changed"&&(!event.agreementId||event.agreementId===earlyExitContractId))schedule();
       if(kind==="early-exit"&&event.type==="payment-changed")schedule();
     });
     const onVisible=()=>{if(document.visibilityState==="visible"&&hiddenDirty.current){hiddenDirty.current=false;schedule();}};
     document.addEventListener("visibilitychange",onVisible);
     return()=>{clearTimeout(timer);unsubscribe();document.removeEventListener("visibilitychange",onVisible);};
-  },[kind,expanded,contractId,earlyExitContractId,refresh]);
+  },[kind,expanded,earlyExitContractId,refresh]);
   useEffect(()=>{
     if(!focusRequest||focused.current)return;
     focused.current=true;
@@ -101,10 +97,10 @@ function ScopedWorkflowPanel({rentalRequestId,kind,contractId,focusRequest,agree
   },[focusRequest,kind]);
   useEffect(()=>{if(!creating||kind!=="early-exit"||!data?.contractId)return;let active=true;void payments.getContractPayments(data.contractId).then(list=>{if(active)setSources(list.filter(p=>p.status==="CONFIRMED"&&["INITIAL","MONTHLY_RENT"].includes(p.type)));}).catch(()=>{if(active)setSources([]);});return()=>{active=false;};},[creating,kind,data?.contractId]);
   const valid=reason.trim().length>=10&&reason.trim().length<=1000;
-  function start(){if(!data)return;quoteSequence.current++;const p=data.proposal;setReason("");setAck(false);setContacted(false);setFiles([]);setInventory(p.inventory??[]);setCondition(p.condition??"");setKeys(String(p.keys??0));setEnd(p.endExclusive??"");setTerms(p.handoverTerms??"");setRefunds(p.rentRefunds??[]);setPolicy(p.finalRentPolicy??"FULL_STARTED_PERIOD");setCalculation(data.rentCalculation??null);setElectricity(p.electricity==null?"":String(p.electricity));setWater(p.water==null?"":String(p.water));setCreating(true);}
+  function start(){if(!data)return;quoteSequence.current++;const p=data.proposal;setReason("");setAck(false);setContacted(false);setFiles([]);setEnd(p.endExclusive??"");setTerms(p.handoverTerms??"");setRefunds(p.rentRefunds??[]);setPolicy(p.finalRentPolicy??"FULL_STARTED_PERIOD");setCalculation(data.rentCalculation??null);setCreating(true);}
   async function perform(action:string){
     if(mutex.current||!data||!valid||needsReview)return;
-    if(["REQUEST_RESUME","RESUME","ACCEPT","CONFIRM","CONFIRM_RETURN","FULL_REFUND_EXIT","PROPOSE"].includes(action)&&!ack)return;
+    if(["REQUEST_RESUME","RESUME","ACCEPT","CONFIRM_RETURN","FULL_REFUND_EXIT","PROPOSE"].includes(action)&&!ack)return;
     if(action==="FULL_REFUND_EXIT"&&!contacted)return;
     if(action!=="PROPOSE"&&files.length){toast.error("Bằng chứng cần được gắn vào đề xuất mới trước khi thao tác.");return;}
     const reviewed=data;let result:RentalWorkflow|undefined;mutex.current=true;setBusy(true);
@@ -113,10 +109,7 @@ function ScopedWorkflowPanel({rentalRequestId,kind,contractId,focusRequest,agree
         const evidenceIds:string[]=[];
         for(const file of files){let id=uploaded.current.get(file);if(!id){id=await storage.uploadComplaintEvidence(file,rentalRequestId);uploaded.current.set(file,id);}if(!mounted.current)return;evidenceIds.push(id);}
         let payload:object={expectedRevision:reviewed.revision,reason:reason.trim(),evidenceIds};
-        if(kind==="move-in"){
-          const handedOverAt=new Date(actual);if(!Number.isFinite(handedOverAt.getTime())||!condition.trim())throw new Error("Cần ngày nhận nhà thực tế và hiện trạng.");
-          payload={...payload,handedOverAt:handedOverAt.toISOString(),keys:Number(keys),condition:condition.trim(),electricity:electricity===""?null:Number(electricity),water:water===""?null:Number(water),inventory};
-        }else if(kind==="early-exit")payload={...payload,endExclusive:end,handoverTerms:terms.trim(),finalRentPolicy:policy,rentRefunds:refunds};
+        if(kind==="early-exit")payload={...payload,endExclusive:end,handoverTerms:terms.trim(),finalRentPolicy:policy,rentRefunds:refunds};
         result=await service.propose(rentalRequestId,kind,payload);
       }else result=await service.act(rentalRequestId,kind,action,{expectedRevision:reviewed.revision,reason:reason.trim(),acknowledged:ack,tenantContacted:contacted});
       if(!mounted.current)return;setReason("");setFiles([]);setCreating(false);setAck(false);await refresh();acceptResult(result);if(mounted.current)await onUpdated?.();toast.success("Đã ghi nhận thao tác và lịch sử.");
@@ -142,14 +135,6 @@ function ScopedWorkflowPanel({rentalRequestId,kind,contractId,focusRequest,agree
         </div>}
         <div className="flex flex-wrap gap-2">{data.allowedActions.includes("PROPOSE")&&<button className={button} type="button" disabled={busy} onClick={start}>{workflowActions.PROPOSE}</button>}<button className={button} disabled={busy} type="button" onClick={()=>void refresh()}>Tải lại nội dung</button>{creating&&<button className={button} disabled={busy} type="button" onClick={()=>{setCreating(false);setFiles([]);setAck(false);}}>Quay lại hồ sơ</button>}</div>
         {creating&&<div className="space-y-3 rounded-lg border p-3">
-          {kind==="move-in"&&<>
-            <label className="block">Ngày giờ nhận nhà thực tế<input aria-label="Ngày giờ nhận nhà thực tế" required type="datetime-local" className={input} disabled={busy} value={actual} onChange={e=>setActual(e.target.value)}/></label>
-            <label className="block">Số chìa khóa<input type="number" min={0} max={1000} className={input} disabled={busy} value={keys} onChange={e=>setKeys(e.target.value)}/></label>
-            <label className="block">Hiện trạng phòng<textarea minLength={10} maxLength={1000} className={input} disabled={busy} value={condition} onChange={e=>setCondition(e.target.value)}/></label>
-            <div className="grid gap-3 sm:grid-cols-2"><label>Điện thực tế (kWh)<input type="number" min={0} step="0.001" className={input} disabled={busy} value={electricity} onChange={e=>setElectricity(e.target.value)}/></label><label>Nước thực tế (m³)<input type="number" min={0} step="0.001" className={input} disabled={busy} value={water} onChange={e=>setWater(e.target.value)}/></label></div>
-            {inventory.map((item,i)=><div key={i} className="grid gap-2 sm:grid-cols-4"><input aria-label={`Tên tài sản ${i+1}`} placeholder="Tên tài sản" maxLength={150} className={input} disabled={busy} value={item.name} onChange={e=>setInventory(list=>list.map((r,n)=>n===i?{...r,name:e.target.value}:r))}/><input aria-label={`Số lượng ${i+1}`} type="number" min={0} max={10000} className={input} disabled={busy} value={item.quantity} onChange={e=>setInventory(list=>list.map((r,n)=>n===i?{...r,quantity:Number(e.target.value)}:r))}/><input aria-label={`Hiện trạng tài sản ${i+1}`} placeholder="Hiện trạng" maxLength={500} className={input} disabled={busy} value={item.condition} onChange={e=>setInventory(list=>list.map((r,n)=>n===i?{...r,condition:e.target.value}:r))}/><button type="button" className={button} disabled={busy} onClick={()=>setInventory(list=>list.filter((_,n)=>n!==i))}>Bỏ tài sản</button></div>)}
-            <button className={button} type="button" disabled={busy||inventory.length>=100} onClick={()=>setInventory(list=>[...list,{name:"",quantity:1,condition:""}])}>Thêm tài sản bàn giao</button>
-          </>}
           {kind==="early-exit"&&<>
             <label className="block">Ngày kết thúc (không tính ngày này)<input type="date" className={input} disabled={busy} value={end} onChange={e=>{quoteSequence.current++;setEnd(e.target.value);setCalculation(null);setAck(false);}}/></label>
             <label className="block">Cách trả nhà, chìa khóa và tài sản<textarea minLength={10} maxLength={1000} className={input} disabled={busy} value={terms} onChange={e=>setTerms(e.target.value)}/></label>
@@ -164,9 +149,9 @@ function ScopedWorkflowPanel({rentalRequestId,kind,contractId,focusRequest,agree
         </div>}
         {(creating||data.allowedActions.some(a=>a!=="PROPOSE"))&&<>
           <label className="block">{creating?"Lý do lập / chỉnh đề xuất":"Nội dung phản hồi"}<textarea aria-label="Nội dung thao tác" minLength={10} maxLength={1000} disabled={busy} className={input} value={reason} onChange={e=>setReason(e.target.value)}/></label>
-          <label className="flex gap-2"><input type="checkbox" checked={ack} disabled={busy||needsReview} onChange={e=>setAck(e.target.checked)}/><span>{(data.status==="RESUME_PROPOSED"||data.allowedActions.includes("REQUEST_RESUME"))?"Tôi đồng ý tiếp tục thuê và ký theo hồ sơ hiện tại; không tự thay đổi điều khoản, chữ ký hoặc xác nhận tiền.":kind==="cancellation"?"Tôi đã đối chiếu đề nghị hoàn toàn bộ tiền; phòng chưa bàn giao hoặc đã được nhận lại đầy đủ, không còn người thuê/tài sản của khách trong phòng.":"Tôi đã đối chiếu nội dung đang xem. Khi xác nhận bàn giao, tôi xác nhận nhà, chìa khóa và tài sản đã được giao/nhận thực tế."} Việc này không thay bước xác nhận nhận tiền.</span></label>
+          <label className="flex gap-2"><input type="checkbox" checked={ack} disabled={busy||needsReview} onChange={e=>setAck(e.target.checked)}/><span>{(data.status==="RESUME_PROPOSED"||data.allowedActions.includes("REQUEST_RESUME"))?"Tôi đồng ý tiếp tục thuê và ký theo hồ sơ hiện tại; không tự thay đổi điều khoản, chữ ký hoặc xác nhận tiền.":kind==="cancellation"?"Tôi đã đối chiếu đề nghị hoàn toàn bộ tiền; phòng chưa bàn giao hoặc đã được nhận lại đầy đủ, không còn người thuê/tài sản của khách trong phòng.":"Tôi đã đối chiếu nội dung đang xem. Khi xác nhận trả nhà, tôi xác nhận nhà, chìa khóa và tài sản đã được trả/nhận lại thực tế."} Việc này không thay bước xác nhận nhận tiền.</span></label>
           {data.allowedActions.includes("FULL_REFUND_EXIT")&&!creating&&<label className="flex gap-2"><input type="checkbox" checked={contacted} disabled={busy} onChange={e=>setContacted(e.target.checked)}/><span>Tôi đã liên hệ người thuê về đề nghị này; phòng chưa bàn giao và tôi đồng ý hoàn toàn bộ khoản thực nhận.</span></label>}
-          <div className="flex flex-wrap gap-2">{(creating?["PROPOSE"]:data.allowedActions.filter(a=>a!=="PROPOSE")).map(action=><button key={action} type="button" className={button} disabled={busy||needsReview||!valid||["REQUEST_RESUME","RESUME","PROPOSE","ACCEPT","CONFIRM","CONFIRM_RETURN","FULL_REFUND_EXIT"].includes(action)&&!ack||action==="FULL_REFUND_EXIT"&&!contacted} onClick={()=>void perform(action)}>{creating?"Gửi đề xuất để hai bên kiểm tra":workflowActions[action]??action}</button>)}</div>
+          <div className="flex flex-wrap gap-2">{(creating?["PROPOSE"]:data.allowedActions.filter(a=>a!=="PROPOSE")).map(action=><button key={action} type="button" className={button} disabled={busy||needsReview||!valid||["REQUEST_RESUME","RESUME","PROPOSE","ACCEPT","CONFIRM_RETURN","FULL_REFUND_EXIT"].includes(action)&&!ack||action==="FULL_REFUND_EXIT"&&!contacted} onClick={()=>void perform(action)}>{creating?"Gửi đề xuất để hai bên kiểm tra":workflowActions[action]??action}</button>)}</div>
         </>}
         {data.complaintId&&<p className="text-xs">Đã liên kết khiếu nại. Tiếp tục phản hồi và chuyển HomeSpace tại mục Khiếu nại & hỗ trợ.</p>}
         {kind!=="cancellation"&&data.revision>0&&!creating&&<WorkflowDocumentsPanel rentalRequestId={rentalRequestId} kind={kind} data={data} agreementId={agreementId} onUpdated={async()=>{await refresh();await onUpdated?.();}}/>}

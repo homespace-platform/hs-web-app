@@ -20,7 +20,7 @@ const labels = {
 const integrityLabels: Record<DocumentIntegrityResponse["status"], string> = {
   MATCH: "PDF đang lưu khớp bản đã ghi nhận trên blockchain.",
   MISMATCH: "PDF đang lưu không khớp bản đã ký. Tệp này bị chặn xem/tải để đối soát.",
-  PENDING: "PDF đang lưu khớp bản lúc ký; chưa xác nhận đầy đủ trên blockchain.",
+  PENDING: "PDF khớp bản đã ký. Đang chờ xác nhận cuối cùng từ blockchain.",
   NOT_AVAILABLE: "Chưa có dữ liệu đối chiếu cho PDF cũ. Tài liệu chưa được xác thực blockchain.",
   UNAVAILABLE: "Tạm thời chưa xác thực được PDF. Lỗi kết nối không có nghĩa file bị sửa.",
   MISSING: "Không tìm thấy PDF đang lưu. Hệ thống cần kiểm tra hoặc khôi phục tài liệu.",

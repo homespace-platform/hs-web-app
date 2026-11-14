@@ -76,7 +76,7 @@ export const NOTIFICATION_CATEGORY_META: Record<
     tag: "Hợp đồng",
     settingsTitle: "Hợp đồng thuê & Đặt cọc",
     settingsDescription:
-      "Tiến độ tạo hợp đồng, ký số, phụ lục và biên bản bàn giao",
+      "Tiến độ tạo hợp đồng, ký số và phụ lục",
   },
   PAYMENT: {
     category: "PAYMENT",
@@ -258,20 +258,6 @@ export function isInvoiceNotificationType(type: unknown): boolean {
   return typeof type === "string" && Object.hasOwn(INVOICE_TYPE_TAGS, type);
 }
 
-// Move-in handover record notices (CONTRACT category). They open
-// /dashboard/invoices/<contractId>?section=deposit&workflow=move-in and only invalidate the handover panel.
-const MOVE_IN_HANDOVER_TYPE_TAGS: Record<string, string> = {
-  MOVE_IN_HANDOVER_PROPOSED: "Biên bản bàn giao",
-  MOVE_IN_HANDOVER_CONFIRMED: "Đã xác nhận bàn giao",
-  MOVE_IN_HANDOVER_COMPLETED: "Hoàn tất bàn giao",
-  MOVE_IN_HANDOVER_DISPUTED: "Bàn giao có tranh chấp",
-  MOVE_IN_HANDOVER_READY: "Có thể lập biên bản",
-};
-
-export function isMoveInHandoverNotificationType(type: unknown): boolean {
-  return typeof type === "string" && Object.hasOwn(MOVE_IN_HANDOVER_TYPE_TAGS, type);
-}
-
 // Agreement signing notices (CONTRACT category). data/metadata are exactly {agreementId, agreementKind}; the id is the signing
 // envelope (a child id is allowed). They open /dashboard/contracts/<agreementId> and only invalidate that exact document.
 const AGREEMENT_TYPE_TAGS: Record<string, string> = {
@@ -367,9 +353,7 @@ export function getNotificationTag(item: NotificationTagItem): string {
     if (isRenewalNotificationType(item.type)) return RENEWAL_TYPE_TAGS[item.type];
     if (isTerminationNotificationType(item.type)) return TERMINATION_TYPE_TAGS[item.type];
     if (isReturnSettlementNotificationType(item.type)) return RETURN_SETTLEMENT_TYPE_TAGS[item.type];
-    return isMoveInHandoverNotificationType(item.type)
-      ? MOVE_IN_HANDOVER_TYPE_TAGS[item.type]
-      : getCategoryMeta(item.category).tag;
+    return getCategoryMeta(item.category).tag;
   }
   if (item.category === "ACCOUNT") {
     return Object.hasOwn(ACCOUNT_TYPE_TAGS, item.type)
@@ -422,7 +406,6 @@ export type NotificationSyncEvent =
   | { type: "membership-changed"; orderId?: string }
   | { type: "payment-changed"; paymentId?: string }
   | { type: "invoice-changed"; contractId?: string; invoiceId?: string }
-  | { type: "handover-changed"; contractId?: string }
   | { type: "agreement-changed"; agreementId?: string }
   | { type: "refresh" }
   | { type: "unread-count"; count: number }
@@ -467,10 +450,6 @@ export const notificationService = {
 
   notifyInvoiceChanged(contractId?: string, invoiceId?: string): void {
     emitSyncEvent({ type: "invoice-changed", contractId, invoiceId });
-  },
-
-  notifyHandoverChanged(contractId?: string): void {
-    emitSyncEvent({ type: "handover-changed", contractId });
   },
 
   notifyAgreementChanged(agreementId?: string): void {

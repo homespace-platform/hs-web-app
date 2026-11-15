@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, X } from "lucide-react";
+import { Bell, MessageCircle, X } from "lucide-react";
 import { io } from "socket.io-client";
 import { useAuth } from "@/features/auth/useAuth";
 import keycloak from "@/lib/keycloak";
@@ -11,7 +11,7 @@ import notificationService, { getCategoryMeta, getNotificationTag, getSafeAction
 import { startPush } from "@/services/notification-push.service";
 import type { NotificationItem } from "@/types/notification.type";
 
-type Popup = Pick<NotificationItem, "id" | "category" | "type" | "metadata" | "title" | "body" | "priority" | "actionPath"> & { recipientId: string };
+type Popup = Pick<NotificationItem, "id" | "category" | "type" | "metadata" | "title" | "body" | "priority" | "actionPath"> & { recipientId: string; chatAlert?: boolean };
 
 export default function NotificationTransport() {
   const { authenticated, initialized, userId } = useAuth();
@@ -49,6 +49,7 @@ export default function NotificationTransport() {
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
     let stopPush: (() => void) | undefined;
     const popupTimers = new Set<ReturnType<typeof setTimeout>>();
+    const seenChatAlerts = new Set<string>();
     const scheduleRefresh = () => {
       clearTimeout(refreshTimer);
       refreshTimer = setTimeout(() => notificationService.notifyRemoteChanged(), 150);
@@ -139,6 +140,30 @@ export default function NotificationTransport() {
         }, 8_000);
         popupTimers.add(timer);
       });
+      socket.on("chat:alert", (value: unknown) => {
+        if (disposed || !value || typeof value !== "object") return;
+        const { eventId, conversationId, messageId } = value as Record<string, unknown>;
+        if (typeof eventId !== "string" || !eventId || typeof conversationId !== "string" || !conversationId
+          || typeof messageId !== "string" || !messageId || seenChatAlerts.has(eventId)) return;
+        if (document.visibilityState !== "visible") return;
+        const actionPath = `/chat?channel=direct&conversationId=${encodeURIComponent(conversationId)}`;
+        if (!getSafeActionPath(actionPath)) return;
+        seenChatAlerts.add(eventId);
+        // shortcut: retain 500 alert IDs; use server cursors if reconnect starts replaying older alerts.
+        if (seenChatAlerts.size > 500) seenChatAlerts.delete(seenChatAlerts.values().next().value!);
+        const popup: Popup = {
+          id: `chat:${eventId}`, recipientId: userId, chatAlert: true,
+          category: "CHAT", type: "CHAT_ALERT", metadata: null, priority: "NORMAL",
+          title: "Bạn có tin nhắn mới", body: "Mở trò chuyện để xem tin nhắn.",
+          actionPath,
+        };
+        setPopups((current) => [...current, popup].slice(-3));
+        const timer = setTimeout(() => {
+          setPopups((current) => current.filter(({ id }) => id !== popup.id));
+          popupTimers.delete(timer);
+        }, 8_000);
+        popupTimers.add(timer);
+      });
       socket.on("disconnect", (reason) => {
         if (reason === "io server disconnect" && !disposed) {
           reconnectTimer = setTimeout(() => socket.connect(), 1000);
@@ -180,6 +205,7 @@ export default function NotificationTransport() {
       clearTimeout(refreshTimer);
       clearTimeout(reconnectTimer);
       for (const timer of popupTimers) clearTimeout(timer);
+      setPopups([]);
       clearInterval(tokenTimer);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", recoverChanges);
@@ -199,7 +225,7 @@ export default function NotificationTransport() {
           <div className={`h-1 ${item.priority === "URGENT" ? "bg-rose-500" : "bg-blue-600"}`} />
           <div className="flex gap-3 p-4">
             <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${item.priority === "URGENT" ? "bg-rose-50 text-rose-600 dark:bg-rose-950" : "bg-blue-50 text-blue-600 dark:bg-blue-950"}`}>
-              <Bell className="h-5 w-5" aria-hidden="true" />
+              {item.chatAlert ? <MessageCircle className="h-5 w-5" aria-hidden="true" /> : <Bell className="h-5 w-5" aria-hidden="true" />}
             </div>
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
@@ -209,7 +235,7 @@ export default function NotificationTransport() {
               <p className="line-clamp-2 font-semibold text-slate-900 dark:text-white">{item.title}</p>
               <p className="mt-1 line-clamp-3 text-sm leading-5 text-slate-600 dark:text-slate-300">{item.body}</p>
               <Link href={getSafeActionPath(item.actionPath) ?? "/notifications"} onClick={() => setPopups((current) => current.filter(({ id }) => id !== item.id))} className="mt-3 inline-block text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400">
-                Xem thông báo →
+                {item.chatAlert ? "Mở trò chuyện →" : "Xem thông báo →"}
               </Link>
             </div>
             <button type="button" onClick={() => setPopups((current) => current.filter(({ id }) => id !== item.id))} aria-label="Đóng thông báo" className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">

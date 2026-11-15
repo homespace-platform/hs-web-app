@@ -7,12 +7,13 @@ function transport() {
   const runtime = hookRuntime(), timers = clock(), notifications = service(), handlers = new Map();
   const document = events({ title: 'HomeSpace', visibilityState: 'visible' });
   const window = events({ dispatchEvent() {} });
+  let userId = 'alice';
   const socket = { connected: true, on(name, callback) { handlers.set(name, callback); },
     connect() { return socket; }, disconnect() { return socket; } };
   const Component = load('components/notification/NotificationTransport.tsx', {
     react: runtime.hooks, 'next/link': Link, 'next/navigation': { usePathname: () => '/settings/notifications' },
     'lucide-react': icons, 'socket.io-client': { io: () => socket },
-    '@/features/auth/useAuth': { useAuth: () => ({ initialized: true, authenticated: true, userId: 'alice' }) },
+    '@/features/auth/useAuth': { useAuth: () => ({ initialized: true, authenticated: true, userId }) },
     '@/lib/keycloak': { token: 'test-token', updateToken: async () => {} },
     '@/services/notification.service': notifications,
     '@/services/notification-push.service': { startPush: async () => () => {} },
@@ -21,10 +22,54 @@ function transport() {
   runtime.mount(Component);
   const signals = [];
   const stop = notifications.notificationService.subscribe(event => signals.push(event));
-  return { runtime, timers, notifications, signals,
+  return { runtime, timers, notifications, signals, document,
     fire: value => handlers.get('notification:new')(value),
+    alert: value => handlers.get('chat:alert')(value),
+    chatHandler: () => handlers.get('chat:alert'),
+    switchUser(value) { userId = value; runtime.update(); },
     cleanup() { runtime.unmount(); stop(); } };
 }
+
+test('backend chat alerts show a generic direct-chat popup once, with no feed refresh', async () => {
+  const f = transport();
+  try {
+    await f.runtime.settle();
+    const before = f.notifications.calls.length;
+    const alert = { eventId: 'event-1', conversationId: 'room/one', messageId: 'message-1' };
+    f.alert(alert); f.alert(alert);
+    await f.runtime.settle();
+    const markup = html(f.runtime);
+    assert.equal((markup.match(/Bạn có tin nhắn mới/g) ?? []).length, 1);
+    assert.match(markup, /\/chat\?channel=direct&amp;conversationId=room%2Fone/);
+    assert.match(markup, /Mở trò chuyện/);
+    assert.doesNotMatch(markup, /message-1|event-1|Xem thông báo/);
+    await f.timers.advance(150);
+    assert.equal(f.notifications.calls.length, before);
+    await f.timers.advance(8_000); await f.runtime.settle();
+    assert.equal(f.runtime.tree, null);
+  } finally { f.cleanup(); }
+});
+
+test('chat alerts reject malformed events and clear old account popups and listeners', async () => {
+  const f = transport();
+  try {
+    const alert = { eventId: 'event-1', conversationId: 'room-1', messageId: 'message-1' };
+    for (const value of [null, {}, { ...alert, messageId: '' }, { ...alert, conversationId: 42 },
+      { ...alert, conversationId: 'a'.repeat(500) }]) f.alert(value);
+    await f.runtime.settle();
+    assert.equal(f.runtime.tree, null);
+    f.alert(alert); await f.runtime.settle();
+    assert.match(html(f.runtime), /Bạn có tin nhắn mới/);
+    const oldHandler = f.chatHandler();
+    f.switchUser('bob'); await f.runtime.settle();
+    assert.equal(f.runtime.tree, null);
+    oldHandler({ ...alert, eventId: 'event-2' }); await f.runtime.settle();
+    assert.equal(f.runtime.tree, null);
+    f.document.visibilityState = 'hidden';
+    f.alert({ ...alert, eventId: 'event-3' }); await f.runtime.settle();
+    assert.equal(f.runtime.tree, null);
+  } finally { f.cleanup(); }
+});
 
 const categories = ['SYSTEM', 'NEWS', 'ACCOUNT', 'LISTING', 'APPOINTMENT', 'RENTAL_REQUEST', 'CONTRACT', 'PAYMENT', 'CHAT'];
 const notice = (category, extra = {}) => ({ id: `notice-${category}`, category, type: `${category}_NOTICE`,

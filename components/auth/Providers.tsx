@@ -31,7 +31,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           </ChatDemoProvider>
         </AuthInitializer>
       </StoreProvider>
-      <Toaster position="top-right" richColors closeButton />
+      <Toaster position="top-right" closeButton />
     </ThemeProvider>
   );
 }

@@ -9,14 +9,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { MessageCircle, Phone, PhoneOff, Video } from "lucide-react";
-import Link from "next/link";
+import { Phone, PhoneOff, Video } from "lucide-react";
 import { toast } from "sonner";
 import { io, type Socket } from "socket.io-client";
 import { useAuth } from "@/features/auth/useAuth";
 import keycloak from "@/lib/keycloak";
 import chatService from "@/services/chat.service";
-import notificationService from "@/services/notification.service";
 import type { ChatParticipantProfile } from "@/services/chat.service";
 import type { ChatConversation, RelatedListing } from "@/types/chat.type";
 import { mapApiConversation, mapApiMessage } from "@/lib/chat-api-mapper";
@@ -180,8 +178,6 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   const socketRef = useRef<Socket | null>(null);
   const conversationsRef = useRef(conversations);
   const seenMessageIds = useRef(new Set<string>());
-  const chatToastIds = useRef(new Set<string>());
-  const pendingPopups = useRef(new Map<string, string>());
   const conversationVersions = useRef(new Map<string, number>());
   const readVersions = useRef(new Map<string, number>());
   const mergeSummaries = useCallback((items: ChatApiConversation[], baseline: Map<string, number>) => {
@@ -211,9 +207,8 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       conversationVersions.current.set(id, (conversationVersions.current.get(id) ?? 0) + 1);
       readVersions.current.set(id, conversationVersions.current.get(id)!);
       setConversations((current) => current.map((item) => item.id === id ? { ...item, unreadCount: 0 } : item));
-      toast.dismiss(`chat-${currentUserId}-${id}`);
     } catch { /* Keep unread when marking read fails. */ }
-  }, [currentUserId, isReadingConversation]);
+  }, [isReadingConversation]);
   const refreshActiveProfile = useCallback(() => {
     if (document.visibilityState !== "visible") return;
     const partnerId = conversationsRef.current.find((item) => item.id === activeConversationId.current)?.userId;
@@ -257,12 +252,6 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (incoming && reading) await markVisibleRead(message.conversationId);
-      const popupCandidate = incoming && !reading && document.visibilityState === "visible";
-      if (popupCandidate) pendingPopups.current.set(message.conversationId, message.id);
-      const allowed = popupCandidate
-        ? notificationService.getPreferences().then((items) => items.find((item) => item.category === "CHAT")?.push !== false).catch(() => false)
-        : Promise.resolve(false);
-      let name = previous?.userName || "Người dùng HomeSpace";
       if (!previous) {
         const baseline = conversationVersions.current.get(message.conversationId) ?? 0;
         const latest = await chatService.listConversations().catch(() => []);
@@ -270,27 +259,11 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
         const summary = latest.find((item) => item.id === message.conversationId);
         if (summary) {
           const mapped = mapApiConversation(summary, currentUserId);
-          name = mapped.userName;
           setConversations((current) => current.map((item) => item.id === mapped.id
             ? { ...mapped, messages: item.messages, unreadCount: mergeUnreadCount(item, summary,
               (readVersions.current.get(mapped.id) ?? 0) > baseline), isHidden: item.isHidden, isPinned: item.isPinned } : item));
         }
       }
-      if (!await allowed || socketRef.current !== socket || isReadingConversation(message.conversationId)
-        || document.visibilityState !== "visible" || pendingPopups.current.get(message.conversationId) !== message.id) return;
-      const id = `chat-${currentUserId}-${message.conversationId}`;
-      chatToastIds.current.add(id);
-      toast(`Tin nhắn từ ${name}`, {
-        id, position: "bottom-left", duration: 6000, closeButton: true,
-        icon: <MessageCircle className="h-5 w-5" />,
-        description: (message.attachments?.length
-          ? message.attachments.every((item) => item.contentType.startsWith("image/")) ? "Đã gửi ảnh" : "Đã gửi tệp đính kèm"
-          : message.content).slice(0, 160),
-        action: <Link href={`/chat?channel=direct&conversationId=${encodeURIComponent(message.conversationId)}`}
-          prefetch={false} onClick={() => toast.dismiss(id)} className="shrink-0 text-sm font-semibold text-primary hover:underline">
-          Mở trò chuyện →
-        </Link>,
-      });
     },
     [currentUserId, isReadingConversation, markVisibleRead],
   );
@@ -357,8 +330,6 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
 
     let cancelled = false;
     let socket: Socket | undefined;
-    const toastIds = chatToastIds.current;
-    const popups = pendingPopups.current;
     seenMessageIds.current.clear();
     void keycloak
       .updateToken(30)
@@ -423,9 +394,6 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       socket?.disconnect();
       if (socketRef.current === socket) socketRef.current = null;
-      toastIds.forEach((id) => toast.dismiss(id));
-      toastIds.clear();
-      popups.clear();
     };
   }, [authenticated, currentUserId, receiveMessage, removeMessage, updateMessage, mergeSummaries]);
 

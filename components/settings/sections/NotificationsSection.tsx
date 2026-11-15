@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import {
   Newspaper,
   Bell,
-  Check,
   ShieldCheck,
   Building,
   Calendar,
@@ -37,10 +36,8 @@ export default function NotificationsSection() {
   const [loading, setLoading] = useState(true);
   const [savingCategory, setSavingCategory] = useState<NotificationCategory | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isSaved, setIsSaved] = useState(false);
   const [pushStatus, setPushStatus] = useState<PushStatus>("disabled");
   const [changingPush, setChangingPush] = useState(false);
-  const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadPreferences = useCallback(async () => {
     if (!initialized || !authenticated) {
@@ -73,14 +70,6 @@ export default function NotificationsSection() {
     }
     void loadPreferences();
   }, [initialized, authenticated, userId, loadPreferences]);
-
-  useEffect(() => {
-    return () => {
-      if (savedTimeoutRef.current) {
-        clearTimeout(savedTimeoutRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     const sync = () => setPushStatus(
@@ -120,19 +109,11 @@ export default function NotificationsSection() {
 
     setItems(nextItems);
     setSavingCategory(category);
-    setIsSaved(false);
 
     try {
       const persisted = await notificationService.patchPreference(category, channel, value);
       setItems(persisted);
-      setIsSaved(true);
       toast.success("Đã lưu cài đặt thông báo.");
-      if (savedTimeoutRef.current) {
-        clearTimeout(savedTimeoutRef.current);
-      }
-      savedTimeoutRef.current = setTimeout(() => {
-        setIsSaved(false);
-      }, 2000);
     } catch (err) {
       setItems(previousItems);
       toast.error(getApiErrorMessage(err, "Không thể lưu cài đặt thông báo."));
@@ -219,14 +200,6 @@ export default function NotificationsSection() {
 
   return (
     <div className="space-y-6 max-w-2xl animate-in fade-in-50 duration-200 select-none">
-      {/* Save Toast Feedback */}
-      {isSaved && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-2xl bg-foreground text-background text-xs font-semibold flex items-center gap-2 shadow-2xl animate-in fade-in-50 slide-in-from-bottom-2">
-          <Check className="w-4 h-4 text-emerald-400" />
-          <span>Đã lưu cài đặt thông báo</span>
-        </div>
-      )}
-
       <div className="space-y-1">
         <h3 className="text-base font-bold text-foreground">
           Tùy chọn kênh nhận thông báo

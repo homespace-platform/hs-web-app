@@ -37,7 +37,6 @@ async function setup(t, options = {}) {
   const dismissed = [];
   const reads = [];
   let listCalls = 0;
-  let preferenceCalls = 0;
   const toast = (title, props) => toasts.push({ title, ...props });
   toast.dismiss = (id) => dismissed.push(id);
   toast.error = () => {};
@@ -67,46 +66,35 @@ async function setup(t, options = {}) {
       clearProfileCache() {},
       listConversations: async () => { listCalls++; return options.summaries ?? []; },
     },
-    "@/services/notification.service": { getPreferences: async () => {
-      preferenceCalls++;
-      if (options.preferenceFails) throw new Error("offline");
-      if (options.preferences) return options.preferences;
-      return [{ category: "CHAT", push: options.popupEnabled !== false }];
-    } },
   });
   const context = ChatDemoProvider({ children: null }).props.value;
   const cleanup = effects[2]();
   await flush();
   t.after(cleanup);
   return { context, toasts, dismissed, reads, effects, visibleEvents, managerEvents, cleanup,
-    state: () => state, listCalls: () => listCalls, preferenceCalls: () => preferenceCalls,
+    state: () => state, listCalls: () => listCalls,
     receive: async (value = message) => { events["chat:message"](value); await flush(); await flush(); },
   };
 }
 
-test("incoming message updates unread immediately and shows bottom-left chat toast with the direct conversation link", async (t) => {
+test("incoming message updates unread immediately without deciding on a popup", async (t) => {
   const chat = await setup(t);
   await chat.receive();
   assert.equal(chat.state()[0].unreadCount, 1);
   assert.equal(chat.state()[0].lastMessage, message.content);
   assert.equal(chat.listCalls(), 0); // No feed refresh per message for known conversations.
-  assert.equal(chat.toasts.length, 1);
-  assert.equal(chat.toasts[0].position, "bottom-left");
-  assert.equal(chat.toasts[0].title, "Tin nhắn từ Nguyen Minh");
-  assert.equal(chat.toasts[0].description, message.content);
-  assert.equal(chat.toasts[0].action.props.href, "/chat?channel=direct&conversationId=conversation");
+  assert.equal(chat.toasts.length, 0);
   assert.deepEqual(chat.reads, []);
 });
 
-test("own messages and duplicate socket deliveries never produce another popup or unread increment", async (t) => {
+test("own messages and duplicate socket deliveries never increment unread twice", async (t) => {
   const chat = await setup(t);
   await chat.receive();
   await chat.receive();
   await chat.receive({ ...message, id: "my-message", senderId: "me" });
   assert.equal(chat.state()[0].unreadCount, 1);
   assert.equal(chat.state()[0].messages.length, 2);
-  assert.equal(chat.toasts.length, 1);
-  assert.equal(chat.preferenceCalls(), 1);
+  assert.equal(chat.toasts.length, 0);
 });
 
 test("viewing the selected conversation marks incoming messages read and suppresses popup", async (t) => {
@@ -117,7 +105,6 @@ test("viewing the selected conversation marks incoming messages read and suppres
   assert.deepEqual(chat.reads, ["conversation"]);
   assert.equal(chat.state()[0].unreadCount, 0);
   assert.equal(chat.toasts.length, 0);
-  assert.equal(chat.preferenceCalls(), 0);
 });
 
 test("an unfocused/hidden chat is unread until focus returns, then clears the badge", async (t) => {
@@ -152,43 +139,15 @@ test("new conversations are counted immediately even when summary lookup fails",
   await chat.receive();
   assert.equal(chat.state()[0].unreadCount, 1);
   assert.equal(chat.listCalls(), 1);
-  assert.equal(chat.toasts.length, 1);
-});
-
-test("CHAT popup preference off suppresses toast while retaining unread messages", async (t) => {
-  const chat = await setup(t, { popupEnabled: false });
-  await chat.receive();
-  assert.equal(chat.state()[0].unreadCount, 1);
   assert.equal(chat.toasts.length, 0);
 });
 
-test("preference service failure does not break messages or bypass opt-out", async (t) => {
-  const chat = await setup(t, { preferenceFails: true });
-  await chat.receive();
-  assert.equal(chat.state()[0].messages.length, 1);
-  assert.equal(chat.state()[0].unreadCount, 1);
-  assert.equal(chat.toasts.length, 0);
-});
-
-test("late popup requests do not reveal messages after logout/socket disposal", async (t) => {
-  let resolve;
-  const preferences = new Promise((done) => { resolve = done; });
-  const chat = await setup(t, { preferences });
-  await chat.receive();
-  chat.cleanup();
-  resolve([{ category: "CHAT", push: true }]);
-  await flush();
-  assert.equal(chat.toasts.length, 0);
-});
-
-test("images and files have readable popup summaries and one toast ID per conversation", async (t) => {
+test("image and file messages update unread without exposing attachment details in a toast", async (t) => {
   const chat = await setup(t);
   const attachment = { storageId: "chat_file", contentType: "image/jpeg", fileName: "photo.jpg", sizeBytes: 10 };
   await chat.receive({ ...message, attachments: [attachment] });
   await chat.receive({ ...message, id: "file-message", attachments: [{ ...attachment, contentType: "application/pdf" }] });
-  assert.equal(chat.toasts[0].description, "Đã gửi ảnh");
-  assert.equal(chat.toasts[1].description, "Đã gửi tệp đính kèm");
-  assert.equal(chat.toasts[0].id, chat.toasts[1].id);
+  assert.equal(chat.toasts.length, 0);
   assert.equal(chat.state()[0].unreadCount, 2);
 });
 

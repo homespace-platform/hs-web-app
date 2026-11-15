@@ -9,17 +9,20 @@ import {
   useRef,
   useState,
 } from "react";
-import { Phone, PhoneOff, Video } from "lucide-react";
+import { MessageCircle, Phone, PhoneOff, Video } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { io, type Socket } from "socket.io-client";
 import { useAuth } from "@/features/auth/useAuth";
 import keycloak from "@/lib/keycloak";
 import chatService from "@/services/chat.service";
+import notificationService from "@/services/notification.service";
 import type { ChatParticipantProfile } from "@/services/chat.service";
 import type { ChatConversation, RelatedListing } from "@/types/chat.type";
 import { mapApiConversation, mapApiMessage } from "@/lib/chat-api-mapper";
 import type {
   ChatApiAttachment,
+  ChatApiConversation,
   ChatApiMessage,
   ChatCallEndSignal,
   ChatCallMode,
@@ -39,6 +42,13 @@ type OpenConversationInput = {
   listing?: RelatedListing;
   contact?: ChatContact;
 };
+
+function mergeUnreadCount(local: ChatConversation, snapshot: ChatApiConversation, readSinceRequest: boolean) {
+  if (readSinceRequest) return local.unreadCount;
+  const afterSnapshot = local.messages.filter((item) => item.sender === "them" && item.createdAt
+    && (!snapshot.lastMessageAt || Date.parse(item.createdAt) > Date.parse(snapshot.lastMessageAt))).length;
+  return Math.max(local.unreadCount, snapshot.unreadCount + afterSnapshot);
+}
 
 function openCallTab(call: ChatCallSignal, participantName: string) {
   const params = new URLSearchParams({
@@ -169,6 +179,41 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   const activeConversationId = useRef<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const conversationsRef = useRef(conversations);
+  const seenMessageIds = useRef(new Set<string>());
+  const chatToastIds = useRef(new Set<string>());
+  const pendingPopups = useRef(new Map<string, string>());
+  const conversationVersions = useRef(new Map<string, number>());
+  const readVersions = useRef(new Map<string, number>());
+  const mergeSummaries = useCallback((items: ChatApiConversation[], baseline: Map<string, number>) => {
+    if (!currentUserId) return;
+    setConversations((current) => {
+      const changed = (id: string) => conversationVersions.current.get(id) !== baseline.get(id);
+      return [
+        ...current.filter((item) => changed(item.id) && !items.some((api) => api.id === item.id)),
+        ...items.map((item) => {
+          const existing = current.find((conversation) => conversation.id === item.id);
+          if (existing && changed(item.id)) return { ...existing, unreadCount: mergeUnreadCount(existing, item,
+            (readVersions.current.get(item.id) ?? 0) > (baseline.get(item.id) ?? 0)) };
+          return { ...mapApiConversation(item, currentUserId), messages: existing?.messages ?? [],
+            isHidden: existing?.isHidden ?? false, isPinned: existing?.isPinned ?? false };
+        }),
+      ];
+    });
+  }, [currentUserId]);
+  const isReadingConversation = useCallback((id: string) =>
+    activeConversationId.current === id && document.visibilityState === "visible" && document.hasFocus(), []);
+  const markVisibleRead = useCallback(async (id: string) => {
+    if (!isReadingConversation(id)) return;
+    const socket = socketRef.current;
+    try {
+      await chatService.markRead(id);
+      if (socketRef.current !== socket || !isReadingConversation(id)) return;
+      conversationVersions.current.set(id, (conversationVersions.current.get(id) ?? 0) + 1);
+      readVersions.current.set(id, conversationVersions.current.get(id)!);
+      setConversations((current) => current.map((item) => item.id === id ? { ...item, unreadCount: 0 } : item));
+      toast.dismiss(`chat-${currentUserId}-${id}`);
+    } catch { /* Keep unread when marking read fails. */ }
+  }, [currentUserId, isReadingConversation]);
   const refreshActiveProfile = useCallback(() => {
     if (document.visibilityState !== "visible") return;
     const partnerId = conversationsRef.current.find((item) => item.id === activeConversationId.current)?.userId;
@@ -188,47 +233,66 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
 
   const receiveMessage = useCallback(
     async (message: ChatApiMessage) => {
-      if (!currentUserId) return;
-      if (
-        message.senderId !== currentUserId &&
-        activeConversationId.current === message.conversationId
-      ) {
-        await chatService.markRead(message.conversationId).catch(() => undefined);
-      }
-      // ponytail: refresh summaries per message; include the conversation in the event if this GET becomes hot.
-      const latest = await chatService.listConversations().catch(() => null);
+      const socket = socketRef.current;
+      if (!currentUserId || !socket || seenMessageIds.current.has(message.id)) return;
+      const previous = conversationsRef.current.find((item) => item.id === message.conversationId);
+      if (previous?.messages.some((item) => item.id === message.id)) return;
+      seenMessageIds.current.add(message.id);
+      conversationVersions.current.set(message.conversationId, (conversationVersions.current.get(message.conversationId) ?? 0) + 1);
+      // shortcut: retain 500 recent IDs; use server cursors if reconnect starts replaying older messages.
+      if (seenMessageIds.current.size > 500) seenMessageIds.current.delete(seenMessageIds.current.values().next().value!);
+      const incoming = message.senderId !== currentUserId;
+      const reading = isReadingConversation(message.conversationId);
       const mappedMessage = mapApiMessage(message, currentUserId);
-
       setConversations((current) => {
-        const source = latest
-          ? latest.map((item) => {
-              const mapped = mapApiConversation(item, currentUserId);
-              const existing = current.find(
-                (conversation) => conversation.id === item.id,
-              );
-              return existing
-                ? {
-                    ...mapped,
-                    isHidden: existing.isHidden,
-                    isPinned: existing.isPinned,
-                    messages: existing.messages,
-                  }
-                : mapped;
-            })
-          : current;
+        const existing = current.find((item) => item.id === message.conversationId)
+          ?? mapApiConversation({ id: message.conversationId, participantId: message.senderId,
+            participantName: "Người dùng HomeSpace", unreadCount: 0 }, currentUserId);
+        if (existing.messages.some((item) => item.id === message.id)) return current;
+        return [{ ...existing, lastMessage: message.content, lastMessageTime: mappedMessage.timestamp,
+          lastMessageSender: incoming ? "them" : "me",
+          unreadCount: existing.unreadCount + (incoming ? 1 : 0),
+          messages: [...existing.messages, mappedMessage],
+        }, ...current.filter((item) => item.id !== message.conversationId)];
+      });
 
-        return source.map((conversation) =>
-          conversation.id === message.conversationId &&
-          !conversation.messages.some((item) => item.id === message.id)
-            ? {
-                ...conversation,
-                messages: [...conversation.messages, mappedMessage],
-              }
-            : conversation,
-        );
+      if (incoming && reading) await markVisibleRead(message.conversationId);
+      const popupCandidate = incoming && !reading && document.visibilityState === "visible";
+      if (popupCandidate) pendingPopups.current.set(message.conversationId, message.id);
+      const allowed = popupCandidate
+        ? notificationService.getPreferences().then((items) => items.find((item) => item.category === "CHAT")?.push !== false).catch(() => false)
+        : Promise.resolve(false);
+      let name = previous?.userName || "Người dùng HomeSpace";
+      if (!previous) {
+        const baseline = conversationVersions.current.get(message.conversationId) ?? 0;
+        const latest = await chatService.listConversations().catch(() => []);
+        if (socketRef.current !== socket) return;
+        const summary = latest.find((item) => item.id === message.conversationId);
+        if (summary) {
+          const mapped = mapApiConversation(summary, currentUserId);
+          name = mapped.userName;
+          setConversations((current) => current.map((item) => item.id === mapped.id
+            ? { ...mapped, messages: item.messages, unreadCount: mergeUnreadCount(item, summary,
+              (readVersions.current.get(mapped.id) ?? 0) > baseline), isHidden: item.isHidden, isPinned: item.isPinned } : item));
+        }
+      }
+      if (!await allowed || socketRef.current !== socket || isReadingConversation(message.conversationId)
+        || document.visibilityState !== "visible" || pendingPopups.current.get(message.conversationId) !== message.id) return;
+      const id = `chat-${currentUserId}-${message.conversationId}`;
+      chatToastIds.current.add(id);
+      toast(`Tin nhắn từ ${name}`, {
+        id, position: "bottom-left", duration: 6000, closeButton: true,
+        icon: <MessageCircle className="h-5 w-5" />,
+        description: (message.attachments?.length
+          ? message.attachments.every((item) => item.contentType.startsWith("image/")) ? "Đã gửi ảnh" : "Đã gửi tệp đính kèm"
+          : message.content).slice(0, 160),
+        action: <Link href={`/chat?channel=direct&conversationId=${encodeURIComponent(message.conversationId)}`}
+          prefetch={false} onClick={() => toast.dismiss(id)} className="shrink-0 text-sm font-semibold text-primary hover:underline">
+          Mở trò chuyện →
+        </Link>,
       });
     },
-    [currentUserId],
+    [currentUserId, isReadingConversation, markVisibleRead],
   );
 
   const updateMessage = useCallback(
@@ -271,17 +335,12 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
     if (!authenticated || !currentUserId) return;
 
     let cancelled = false;
+    const baseline = new Map(conversationVersions.current);
     void chatService
       .listConversations()
       .then((items) => {
         if (!cancelled) {
-          setConversations((current) =>
-            items.map((item) => {
-              const mapped = mapApiConversation(item, currentUserId);
-              const existing = current.find((conversation) => conversation.id === item.id);
-              return existing ? { ...mapped, messages: existing.messages } : mapped;
-            }),
-          );
+          mergeSummaries(items, baseline);
         }
       })
       .catch(() => {
@@ -291,13 +350,16 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [authenticated, currentUserId]);
+  }, [authenticated, currentUserId, mergeSummaries]);
 
   useEffect(() => {
     if (!authenticated || !currentUserId) return;
 
     let cancelled = false;
     let socket: Socket | undefined;
+    const toastIds = chatToastIds.current;
+    const popups = pendingPopups.current;
+    seenMessageIds.current.clear();
     void keycloak
       .updateToken(30)
       .then(() => {
@@ -308,17 +370,10 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
         });
         socket.io.on("reconnect", () => {
           chatService.clearProfileCache();
+          const baseline = new Map(conversationVersions.current);
           void chatService.listConversations().then((items) => {
             if (cancelled) return;
-            setConversations((current) => items.map((item) => {
-              const existing = current.find((conversation) => conversation.id === item.id);
-              return {
-                ...mapApiConversation(item, currentUserId),
-                messages: existing?.messages ?? [],
-                isHidden: existing?.isHidden ?? false,
-                isPinned: existing?.isPinned ?? false,
-              };
-            }));
+            mergeSummaries(items, baseline);
           }).catch(() => undefined);
         });
         socket.on("chat:message", (message: ChatApiMessage) => void receiveMessage(message));
@@ -368,20 +423,28 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       socket?.disconnect();
       if (socketRef.current === socket) socketRef.current = null;
+      toastIds.forEach((id) => toast.dismiss(id));
+      toastIds.clear();
+      popups.clear();
     };
-  }, [authenticated, currentUserId, receiveMessage, removeMessage, updateMessage]);
+  }, [authenticated, currentUserId, receiveMessage, removeMessage, updateMessage, mergeSummaries]);
 
   useEffect(() => {
     if (!authenticated || !currentUserId) return;
     const timer = window.setInterval(refreshActiveProfile, 15_000);
-    window.addEventListener("focus", refreshActiveProfile);
-    document.addEventListener("visibilitychange", refreshActiveProfile);
+    const onVisible = () => {
+      refreshActiveProfile();
+      const active = conversationsRef.current.find((item) => item.id === activeConversationId.current);
+      if (active?.unreadCount && active.messages.length) void markVisibleRead(active.id);
+    };
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.clearInterval(timer);
-      window.removeEventListener("focus", refreshActiveProfile);
-      document.removeEventListener("visibilitychange", refreshActiveProfile);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [authenticated, currentUserId, refreshActiveProfile]);
+  }, [authenticated, currentUserId, refreshActiveProfile, markVisibleRead]);
 
   const setActiveConversationId = useCallback((conversationId: string | null) => {
     activeConversationId.current = conversationId;
@@ -464,21 +527,14 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
               : conversation,
           ),
         );
-        await chatService.markRead(conversationId);
-        setConversations((current) =>
-          current.map((conversation) =>
-            conversation.id === conversationId
-              ? { ...conversation, unreadCount: 0 }
-              : conversation,
-          ),
-        );
+        await markVisibleRead(conversationId);
       } catch {
         toast.error("Không thể tải nội dung cuộc trò chuyện");
       } finally {
         loadingConversationIds.current.delete(conversationId);
       }
     },
-    [currentUserId],
+    [currentUserId, markVisibleRead],
   );
 
   const openConversation = useCallback(

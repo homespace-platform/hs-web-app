@@ -15,7 +15,7 @@ function load(relativePath, mocks = {}) {
   }).outputText;
   const compiled = { exports: {} };
   vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename })(
-    (name) => Object.hasOwn(mocks, name) ? mocks[name] : require(name), compiled, compiled.exports,
+    (name) => Object.hasOwn(mocks, name) ? mocks[name] : name === "@/services/notification.service" ? {} : require(name), compiled, compiled.exports,
   );
   return compiled.exports;
 }

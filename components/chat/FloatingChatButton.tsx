@@ -9,7 +9,7 @@ import { useChatDemo } from "@/components/chat/ChatDemoProvider";
 export default function FloatingChatButton() {
   const pathname = usePathname();
   const router = useRouter();
-  const { conversations } = useChatDemo();
+  const { currentUserId, conversations } = useChatDemo();
   const [isHovered, setIsHovered] = useState(false);
 
   // Nếu đang ở màn hình /chat thì ẩn nút bấm
@@ -17,10 +17,11 @@ export default function FloatingChatButton() {
     return null;
   }
 
-  const unreadCount = conversations.reduce(
+  const unreadCount = currentUserId ? conversations.reduce(
     (total, conversation) => total + conversation.unreadCount,
     0
-  );
+  ) : 0;
+  const unreadConversation = conversations.find((item) => item.unreadCount > 0);
 
   return (
     <>
@@ -36,11 +37,13 @@ export default function FloatingChatButton() {
       {/* Nút Chat tròn nổi bật ở góc dưới bên phải */}
       <button
         type="button"
-        onClick={() => router.push("/chat")}
+        onClick={() => router.push(unreadCount > 0 && unreadConversation
+          ? `/chat?channel=direct&conversationId=${encodeURIComponent(unreadConversation.id)}` : "/chat")}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         className="pointer-events-auto relative w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-primary hover:bg-primary/95 text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer border-2 border-white/80 dark:border-white/20 group p-1"
         title="Mở tin nhắn & Trò chuyện"
+        aria-label={unreadCount > 0 ? `Mở trò chuyện, ${unreadCount} tin nhắn chưa đọc` : "Mở trò chuyện"}
       >
         {/* Khung nền trắng tương phản cao giúp Avatar AI nổi bật 100% */}
         <div className="w-full h-full rounded-full bg-white flex items-center justify-center p-1 shadow-xs overflow-hidden">
@@ -57,7 +60,7 @@ export default function FloatingChatButton() {
         {/* Unread Badge đỏ nổi bật */}
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-1.5 rounded-full bg-rose-600 text-white text-[10px] font-extrabold flex items-center justify-center border-2 border-background shadow-sm">
-            {unreadCount}
+            {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>

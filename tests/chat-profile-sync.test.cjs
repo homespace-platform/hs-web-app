@@ -14,7 +14,7 @@ function load(relativePath, mocks = {}) {
   }).outputText;
   const compiled = { exports: {} };
   vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename })(
-    (name) => Object.hasOwn(mocks, name) ? mocks[name] : require(name), compiled, compiled.exports,
+    (name) => Object.hasOwn(mocks, name) ? mocks[name] : name === "@/services/notification.service" ? {} : require(name), compiled, compiled.exports,
   );
   return compiled.exports;
 }
@@ -92,7 +92,7 @@ test("selected chat refreshes public profile on open, focus and visible timer wi
   global.window = { setInterval: (callback, delay) => { assert.equal(delay, 15_000); timer = callback; return 1; },
     clearInterval() {}, addEventListener: (name, fn) => { listeners[name] = fn; }, removeEventListener() {},
   };
-  global.document = { visibilityState: 'visible', addEventListener: (name, fn) => { listeners[name] = fn; }, removeEventListener() {} };
+  global.document = { visibilityState: 'visible', hasFocus: () => true, addEventListener: (name, fn) => { listeners[name] = fn; }, removeEventListener() {} };
   t.after(() => { global.window = previousWindow; global.document = previousDocument; });
   const effects = [];
   let calls = 0;

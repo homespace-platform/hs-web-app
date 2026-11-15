@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
+import UserAvatar from "@/components/common/UserAvatar";
 import Link from "next/link";
 import {
   Phone,
@@ -33,29 +34,48 @@ import type {
   ChatMessageAction,
 } from "@/types/chat-api.type";
 import storageService from "@/services/storage.service";
+import chatService from "@/services/chat.service";
 import { toast } from "sonner";
 
 function AttachmentPreview({
   attachment,
+  conversationId,
 }: {
   attachment: NonNullable<ChatMessage["attachments"]>[number];
+  conversationId: string;
 }) {
   const [url, setUrl] = useState(attachment.url);
 
   useEffect(() => {
     if (!url && attachment.storageId) {
-      void storageService
-        .getViewUrl(attachment.storageId)
+      const request = attachment.storageId.startsWith("chat_")
+        ? chatService.getAttachmentViewUrl(conversationId, attachment.storageId)
+        : storageService.getViewUrl(attachment.storageId);
+      void request
         .then(setUrl)
         .catch(() => undefined);
     }
-  }, [attachment.storageId, url]);
+  }, [attachment.storageId, conversationId, url]);
 
   return (
     <a
       href={url || undefined}
       target="_blank"
       rel="noreferrer"
+      onClick={(event) => {
+        if (!attachment.storageId?.startsWith("chat_")) return;
+        const fileTab = window.open("about:blank", "_blank");
+        if (!fileTab) return;
+        event.preventDefault();
+        fileTab.opener = null;
+        void chatService.getAttachmentViewUrl(conversationId, attachment.storageId).then((freshUrl) => {
+          setUrl(freshUrl);
+          fileTab.location.href = freshUrl;
+        }).catch(() => {
+          fileTab.close();
+          toast.error("Không thể mở tệp đính kèm");
+        });
+      }}
       className="mb-2 flex max-w-sm items-center gap-3 rounded-xl border border-border bg-card p-2.5 text-xs hover:border-primary/40"
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -167,7 +187,7 @@ export default function ChatWindow({
     if (!file || isUploading || isAi) return;
     setIsUploading(true);
     try {
-      const attachment = await storageService.uploadChatAttachment(file, conversation.id);
+      const attachment = await chatService.uploadAttachment(file, conversation.id);
       onSendMessage(
         conversation.id,
         inputText.trim() || `Đã gửi ${file.name}`,
@@ -183,7 +203,6 @@ export default function ChatWindow({
     }
   };
 
-  const initial = conversation.userName.charAt(0).toUpperCase();
   const isAi = conversation.id === "conv-ai-assistant";
   const attachments = conversation.messages.flatMap(
     (message) => message.attachments ?? [],
@@ -208,22 +227,11 @@ export default function ChatWindow({
   const headerIdentity = (
     <>
       <div className="relative shrink-0">
-        {conversation.userAvatar ? (
-          <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-blue-50 dark:bg-slate-800 p-0.5 border border-primary/30 shadow-xs">
-            <Image
-              src={conversation.userAvatar}
-              alt={conversation.userName}
-              width={38}
-              height={38}
-              className="object-contain w-full h-full"
-              unoptimized
-            />
-          </div>
-        ) : (
-          <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-xs bg-primary text-primary-foreground">
-            {initial}
-          </div>
-        )}
+        <UserAvatar
+          src={conversation.userAvatar}
+          name={conversation.userName}
+          sizeClassName="w-10 h-10 text-sm"
+        />
         <span
           className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-card ${
             conversation.isOnline ? "bg-emerald-500" : "bg-slate-400"
@@ -389,22 +397,18 @@ export default function ChatWindow({
                     isMe ? "flex-row-reverse" : "flex-row"
                   }`}
                 >
-                  {!isMe && conversation.userAvatar && (
-                    <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center bg-blue-50 dark:bg-slate-800 p-0.5 border border-primary/20 shrink-0 mb-1 shadow-2xs">
-                      <Image
-                        src={conversation.userAvatar}
-                        alt={conversation.userName}
-                        width={24}
-                        height={24}
-                        className="object-contain w-full h-full"
-                        unoptimized
-                      />
-                    </div>
+                  {!isMe && (
+                    <UserAvatar
+                      src={conversation.userAvatar}
+                      name={conversation.userName}
+                      sizeClassName="w-7 h-7 text-xs"
+                      className="mb-1"
+                    />
                   )}
 
                   <div className="flex flex-col">
                     {msg.attachments?.map((attachment) => (
-                      <AttachmentPreview key={attachment.storageId || attachment.name} attachment={attachment} />
+                      <AttachmentPreview key={attachment.storageId || attachment.name} attachment={attachment} conversationId={conversation.id} />
                     ))}
                     {/* Inline Listing Card Attachment inside message */}
                     {msg.listingCard && (
@@ -696,20 +700,11 @@ export default function ChatWindow({
             </div>
 
             <div className="flex flex-col items-center border-b border-border px-5 py-6 text-center">
-              {conversation.userAvatar ? (
-                <Image
-                  src={conversation.userAvatar}
-                  alt={conversation.userName}
-                  width={72}
-                  height={72}
-                  className="h-18 w-18 rounded-full border border-border object-cover"
-                  unoptimized
-                />
-              ) : (
-                <div className="flex h-18 w-18 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
-                  {initial}
-                </div>
-              )}
+              <UserAvatar
+                src={conversation.userAvatar}
+                name={conversation.userName}
+                sizeClassName="h-18 w-18 text-xl"
+              />
               <h3 className="mt-3 font-bold text-foreground">{conversation.userName}</h3>
               <p className="text-xs text-muted-foreground">
                 {conversation.isOnline ? "Đang hoạt động" : conversation.lastActive || "Ngoại tuyến"}
@@ -823,6 +818,7 @@ export default function ChatWindow({
                   {attachments.length ? (
                     attachments.map((attachment, index) => (
                       <AttachmentPreview
+                        conversationId={conversation.id}
                         key={`${attachment.storageId || attachment.url || attachment.name}-${index}`}
                         attachment={attachment}
                       />

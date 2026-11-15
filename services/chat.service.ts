@@ -8,6 +8,33 @@ import type {
   ChatCallToken,
 } from "@/types/chat-api.type";
 import type { RelatedListing } from "@/types/chat.type";
+import userService from "@/services/user.service";
+import type { PublicUserProfile } from "@/types/user.type";
+
+const profiles = new Map<string, { expiresAt: number; request: Promise<PublicUserProfile> }>();
+
+async function getParticipantProfile(id: string, force = false): Promise<PublicUserProfile> {
+  let entry = profiles.get(id);
+  if (force || !entry || entry.expiresAt <= Date.now()) {
+    entry = { expiresAt: Date.now() + 30_000, request: userService.getPublicProfile(id) };
+    profiles.set(id, entry);
+  }
+  try { return await entry.request; }
+  catch (error) { if (profiles.get(id) === entry) profiles.delete(id); throw error; }
+}
+
+async function hydrateProfile(conversation: ChatApiConversation): Promise<ChatApiConversation> {
+  try {
+    const profile = await getParticipantProfile(conversation.participantId);
+    return {
+      ...conversation,
+      participantName: [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim() || profile.username,
+      participantAvatar: profile.avatarUrl ?? undefined,
+    };
+  } catch {
+    return conversation;
+  }
+}
 
 export type ChatParticipantProfile = {
   displayName?: string;
@@ -16,12 +43,42 @@ export type ChatParticipantProfile = {
 };
 
 const chatService = {
+  clearProfileCache() { profiles.clear(); },
+  getParticipantProfile,
+
+  async uploadAttachment(file: File, conversationId: string): Promise<ChatApiAttachment> {
+    const typeByExtension: Record<string, string> = {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+      pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    };
+    const contentType = file.type && file.type !== 'application/octet-stream' ? file.type : typeByExtension[file.name.split('.').pop()?.toLowerCase() ?? ''];
+    if (!Object.values(typeByExtension).includes(contentType) || file.size < 1 || file.size > 25 * 1024 * 1024) {
+      throw new Error('Chỉ hỗ trợ JPG/PNG/WebP, PDF, Word; tối đa 25 MB/tệp.');
+    }
+    const base = `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/media`;
+    const response = await axiosClient.post<ApiResponse<{ storageId: string; uploadUrl: string }>>(`${base}/uploads`, {
+      fileName: file.name, contentType, size: file.size,
+    });
+    const { storageId, uploadUrl } = response.data.result;
+    const uploaded = await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': contentType }, body: file });
+    if (!uploaded.ok) throw new Error('Không thể tải tệp lên kho chat.');
+    const completed = await axiosClient.post<ApiResponse<ChatApiAttachment>>(`${base}/${encodeURIComponent(storageId)}/complete`);
+    return completed.data.result;
+  },
+
+  async getAttachmentViewUrl(conversationId: string, storageId: string): Promise<string> {
+    const response = await axiosClient.get<ApiResponse<{ url: string }>>(
+      `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/media/${encodeURIComponent(storageId)}/view-url`,
+    );
+    return response.data.result.url;
+  },
+
   async listConversations(limit = 30): Promise<ChatApiConversation[]> {
     const response = await axiosClient.get<ApiResponse<ChatApiConversation[]>>(
       "/api/v1/chat/conversations",
       { params: { limit } },
     );
-    return response.data.result ?? [];
+    return Promise.all((response.data.result ?? []).map(hydrateProfile));
   },
 
   async createConversation(
@@ -37,7 +94,7 @@ const chatService = {
         ...(participantProfile ? { participantProfile } : {}),
       },
     );
-    return response.data.result;
+    return hydrateProfile(response.data.result);
   },
 
   async listMessages(

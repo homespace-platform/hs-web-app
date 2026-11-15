@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
+import UserAvatar from "@/components/common/UserAvatar";
 import {
   Search,
   Eye,
@@ -474,7 +474,6 @@ export default function ChatSidebar({
               ) : (
                 sortedDirectConversations.map((conv) => {
                   const isSelected = activeDirectConversationId === conv.id;
-                  const initial = conv.userName.charAt(0).toUpperCase();
                   const lastMessage = conv.messages[conv.messages.length - 1];
                   const lastMessageIsMine = lastMessage?.senderId
                     ? lastMessage.senderId === currentUserId
@@ -499,18 +498,11 @@ export default function ChatSidebar({
                               : ""
                           }`}
                         >
-                          {conv.userAvatar ? (
-                            <Image
-                              src={conv.userAvatar}
-                              alt={conv.userName}
-                              width={36}
-                              height={36}
-                              className="h-full w-full object-cover"
-                              unoptimized
-                            />
-                          ) : (
-                            initial
-                          )}
+                          <UserAvatar
+                            src={conv.userAvatar}
+                            name={conv.userName}
+                            sizeClassName="w-9 h-9 text-xs"
+                          />
                         </div>
                         <span
                           className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-card ${

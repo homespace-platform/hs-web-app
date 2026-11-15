@@ -156,7 +156,7 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       profile
         ? {
             displayName:
-              [profile.lastName, profile.firstName].filter(Boolean).join(" ").trim() ||
+              [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim() ||
               profile.username,
             email: profile.email,
             avatarUrl: profile.avatarUrl ?? undefined,
@@ -169,6 +169,18 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   const activeConversationId = useRef<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const conversationsRef = useRef(conversations);
+  const refreshActiveProfile = useCallback(() => {
+    if (document.visibilityState !== "visible") return;
+    const partnerId = conversationsRef.current.find((item) => item.id === activeConversationId.current)?.userId;
+    if (!partnerId) return;
+    void chatService.getParticipantProfile(partnerId, true).then((updated) => {
+      setConversations((current) => current.map((item) => item.userId === partnerId ? {
+        ...item,
+        userName: [updated.firstName, updated.lastName].filter(Boolean).join(" ").trim() || updated.username,
+        userAvatar: updated.avatarUrl ?? undefined,
+      } : item));
+    }).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     conversationsRef.current = conversations;
@@ -294,6 +306,21 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
           path: "/api/v1/chat/socket.io",
           extraHeaders: { Authorization: `Bearer ${keycloak.token}` },
         });
+        socket.io.on("reconnect", () => {
+          chatService.clearProfileCache();
+          void chatService.listConversations().then((items) => {
+            if (cancelled) return;
+            setConversations((current) => items.map((item) => {
+              const existing = current.find((conversation) => conversation.id === item.id);
+              return {
+                ...mapApiConversation(item, currentUserId),
+                messages: existing?.messages ?? [],
+                isHidden: existing?.isHidden ?? false,
+                isPinned: existing?.isPinned ?? false,
+              };
+            }));
+          }).catch(() => undefined);
+        });
         socket.on("chat:message", (message: ChatApiMessage) => void receiveMessage(message));
         socket.on("chat:message:updated", updateMessage);
         socket.on("chat:message:deleted", removeMessage);
@@ -344,9 +371,22 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
     };
   }, [authenticated, currentUserId, receiveMessage, removeMessage, updateMessage]);
 
+  useEffect(() => {
+    if (!authenticated || !currentUserId) return;
+    const timer = window.setInterval(refreshActiveProfile, 15_000);
+    window.addEventListener("focus", refreshActiveProfile);
+    document.addEventListener("visibilitychange", refreshActiveProfile);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshActiveProfile);
+      document.removeEventListener("visibilitychange", refreshActiveProfile);
+    };
+  }, [authenticated, currentUserId, refreshActiveProfile]);
+
   const setActiveConversationId = useCallback((conversationId: string | null) => {
     activeConversationId.current = conversationId;
-  }, []);
+    if (conversationId) refreshActiveProfile();
+  }, [refreshActiveProfile]);
 
   const startCall = useCallback(
     (conversationId: string, mode: ChatCallMode, participantName: string) => {
@@ -471,14 +511,18 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
               displayName: input.contact.name,
               avatarUrl: input.contact.avatar,
             })
+            .then((updated) => {
+              const mapped = mapApiConversation(updated, currentUserId);
+              setConversations((current) => current.map((item) =>
+                item.id === updated.id ? { ...item, userName: mapped.userName, userAvatar: mapped.userAvatar } : item,
+              ));
+            })
             .catch(() => undefined);
           setConversations((current) =>
             current.map((item) =>
               item.id === conversation.id
                 ? {
                     ...item,
-                    userName: input.contact?.name || item.userName,
-                    userAvatar: input.contact?.avatar || item.userAvatar,
                     userRole: input.contact?.role || item.userRole,
                   }
                 : item,
@@ -502,8 +546,6 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
         );
         const newConversation: ChatConversation = {
           ...mapApiConversation(apiConversation, currentUserId),
-          userName: input.contact?.name || apiConversation.participantName || partnerId,
-          userAvatar: input.contact?.avatar,
           userRole: input.contact?.role || "Người dùng HomeSpace",
         };
         setConversations((current) => [

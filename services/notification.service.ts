@@ -4,6 +4,7 @@ import {
   FEED_MAX_LIMIT,
   NOTIFICATION_CATEGORIES,
   type NotificationCategory,
+  type NotificationChannel,
   type NotificationFeedPage,
   type NotificationFeedQuery,
   type NotificationFilterCategory,
@@ -122,9 +123,16 @@ export const NOTIFICATION_CATEGORY_META: Record<
     category: "SYSTEM",
     label: "Hệ thống",
     tag: "Hệ thống",
-    settingsTitle: "Hệ thống & Bản tin",
+    settingsTitle: "Hệ thống",
     settingsDescription:
       "Thông báo bảo trì, cập nhật tính năng và thông tin chung từ HomeSpace",
+  },
+  NEWS: {
+    category: "NEWS",
+    label: "Tin tức",
+    tag: "Tin tức",
+    settingsTitle: "Tin tức",
+    settingsDescription: "Bài viết và tin tức mới từ HomeSpace",
   },
 };
 
@@ -133,6 +141,7 @@ export const NOTIFICATION_FILTER_TABS: ReadonlyArray<{
   label: string;
 }> = [
   { id: "ALL", label: "Tất cả" },
+  { id: "NEWS", label: "Tin tức" },
   { id: "LISTING", label: "Tin đăng" },
   { id: "CONTRACT", label: "Hợp đồng" },
   { id: "PAYMENT", label: "Thanh toán" },
@@ -545,6 +554,17 @@ export const notificationService = {
     const response = await axiosClient.get<
       ApiResponse<{ items: NotificationPreferenceItem[] }>
     >(`${BASE_PATH}/preferences`);
+    return withDefaultPreferences(response.data?.result?.items);
+  },
+
+  async patchPreference(
+    category: NotificationCategory,
+    channel: NotificationChannel,
+    enabled: boolean,
+  ): Promise<NotificationPreferenceItem[]> {
+    const response = await axiosClient.patch<
+      ApiResponse<{ items: NotificationPreferenceItem[] }>
+    >(`${BASE_PATH}/preferences`, { category, channel, enabled });
     return withDefaultPreferences(response.data?.result?.items);
   },
 

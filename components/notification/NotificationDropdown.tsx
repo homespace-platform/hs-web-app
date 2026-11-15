@@ -271,6 +271,7 @@ export default function NotificationDropdown() {
 
   const renderIcon = (category: NotificationCategory) => {
     switch (category) {
+      case "NEWS":
       case "SYSTEM":
         return (
           <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-2xs">
@@ -327,6 +328,7 @@ export default function NotificationDropdown() {
     const { category } = item;
     const tag = getNotificationTag(item);
     switch (category) {
+      case "NEWS":
       case "SYSTEM":
         return (
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200/80 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-400 shrink-0">

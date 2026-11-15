@@ -29,7 +29,7 @@ import type {
   NotificationPreferenceItem,
 } from "@/types/notification.type";
 import { getApiErrorMessage } from "@/utils/apiError";
-import { disablePush, enablePush, isPushConfigured, isPushOptedIn, type PushStatus } from "@/services/notification-push.service";
+import { disablePush, enablePush, getPushStatus, isPushConfigured, isPushOptedIn, type PushStatus } from "@/services/notification-push.service";
 
 export default function NotificationsSection() {
   const { authenticated, initialized, userId, login } = useAuth();
@@ -86,7 +86,7 @@ export default function NotificationsSection() {
     const sync = () => setPushStatus(
       !isPushConfigured() || !("Notification" in window) ? "unavailable" :
       Notification.permission === "denied" ? "unavailable" :
-      isPushOptedIn() ? "registering" : "disabled",
+      isPushOptedIn() ? getPushStatus() : "disabled",
     );
     const onStatus = (event: Event) => setPushStatus((event as CustomEvent<PushStatus>).detail);
     sync();
@@ -123,7 +123,7 @@ export default function NotificationsSection() {
     setIsSaved(false);
 
     try {
-      const persisted = await notificationService.updatePreferences(nextItems);
+      const persisted = await notificationService.patchPreference(category, channel, value);
       setItems(persisted);
       setIsSaved(true);
       toast.success("Đã lưu cài đặt thông báo.");
@@ -143,8 +143,10 @@ export default function NotificationsSection() {
 
   const renderCategoryIcon = (category: NotificationCategory) => {
     switch (category) {
-      case "SYSTEM":
+      case "NEWS":
         return <Newspaper className="w-5 h-5" />;
+      case "SYSTEM":
+        return <Bell className="w-5 h-5" />;
       case "ACCOUNT":
         return <UserCheck className="w-5 h-5" />;
       case "LISTING":
@@ -230,7 +232,7 @@ export default function NotificationsSection() {
           Tùy chọn kênh nhận thông báo
         </h3>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Chọn nhận thông báo đẩy (Push) và Email cho từng danh mục hoạt động. Thông báo trong ứng dụng luôn được lưu tại Trung tâm thông báo để đảm bảo bạn không bỏ lỡ thông tin quan trọng.
+          Tùy chọn Push áp dụng cho cả popup trong trang và thông báo đẩy của trình duyệt. Bạn có thể chọn kênh nhận theo từng danh mục. Thông báo vẫn được lưu tại Trung tâm thông báo khi tắt các kênh này.
         </p>
       </div>
 
@@ -299,15 +301,12 @@ export default function NotificationsSection() {
                   />
                 </label>
 
-                <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
-                  <span className="text-muted-foreground">Email</span>
+                <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-not-allowed opacity-60" title="Thông báo Email sắp có">
+                  <span className="text-muted-foreground">Email <span className="text-[10px]">(Sắp có)</span></span>
                   <Switch
                     checked={item.email}
-                    disabled={savingCategory !== null}
+                    disabled
                     aria-label={`${meta.settingsTitle} - Email`}
-                    onCheckedChange={(val) =>
-                      void handleToggleChannel(item.category, "email", val)
-                    }
                   />
                 </label>
               </div>

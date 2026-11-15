@@ -92,7 +92,7 @@ export default function NotificationTransport() {
       socket.on("notification:new", (value: unknown) => {
         scheduleRefresh();
         if (!value || typeof value !== "object") return;
-        const item = value as Partial<NotificationItem>;
+        const item = value as Partial<NotificationItem> & { popupAllowed?: boolean };
         // Invalidate listing data even in hidden tabs; only the popup is visibility-gated.
         if (item.category === "LISTING") {
           const listingId = item.metadata?.listingId;
@@ -127,6 +127,7 @@ export default function NotificationTransport() {
           const bookingId = item.metadata?.bookingId;
           notificationService.notifyAppointmentChanged(typeof bookingId === "string" ? bookingId : undefined);
         }
+        if (item.popupAllowed === false) return;
         if (typeof item.id !== "string" || typeof item.title !== "string" || typeof item.body !== "string") return;
         const popup = { ...item, recipientId: userId } as Popup;
         setPopups((current) => current.some(({ id }) => id === popup.id)
@@ -171,7 +172,6 @@ export default function NotificationTransport() {
       if (disposed) stop();
       else stopPush = stop;
     }).catch(() => {
-      window.dispatchEvent(new CustomEvent("hs:notification-push-status", { detail: "error" }));
       // REST feed and Socket.IO remain usable if browser push setup fails.
     });
 

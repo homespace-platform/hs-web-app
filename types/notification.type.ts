@@ -1,5 +1,6 @@
 export const NOTIFICATION_CATEGORIES = [
   "SYSTEM",
+  "NEWS",
   "ACCOUNT",
   "LISTING",
   "APPOINTMENT",

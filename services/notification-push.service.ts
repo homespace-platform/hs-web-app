@@ -12,9 +12,15 @@ let registerCurrent: (() => Promise<void>) | undefined;
 let unregisterCurrent: (() => Promise<void>) | undefined;
 let loggingOut = false;
 let activeStart = 0;
+let currentPushStatus: PushStatus = "disabled";
 
 function emitStatus(status: PushStatus): void {
+  currentPushStatus = status;
   window.dispatchEvent(new CustomEvent<PushStatus>("hs:notification-push-status", { detail: status }));
+}
+
+export function getPushStatus(): PushStatus {
+  return currentPushStatus;
 }
 
 function getInstallation(): Installation {
@@ -56,59 +62,67 @@ export function isPushOptedIn(): boolean {
 export async function startPush(onChanged: () => void): Promise<() => void> {
   const generation = ++activeStart;
   loggingOut = false;
-  if (!isPushConfigured() || !("serviceWorker" in navigator) || !("Notification" in window)) {
+  if (!isPushConfigured() || !("serviceWorker" in navigator) || !("Notification" in window) || Notification.permission === "denied") {
     emitStatus("unavailable");
     return () => {};
   }
+  emitStatus(Notification.permission === "granted" && isPushOptedIn() ? "registering" : "disabled");
+  const isCurrentRegistration = () => generation === activeStart && isPushOptedIn() && keycloak.authenticated && !loggingOut;
 
-  const [{ getApp, getApps, initializeApp }, { getMessaging, isSupported, onMessage, onRegistered, register, unregister }] =
-    await Promise.all([import("firebase/app"), import("firebase/messaging")]);
-  const supported = await isSupported();
-  if (generation !== activeStart) return () => {};
-  if (!supported) {
-    emitStatus("unavailable");
-    return () => {};
-  }
-
-  const app = getApps().length ? getApp() : initializeApp({
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  });
-  const messaging = getMessaging(app);
-  const worker = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-  if (generation !== activeStart) return () => {};
-  const stopRegistered = onRegistered(messaging, (fid) => {
-    if (!isPushOptedIn() || !keycloak.authenticated || loggingOut) return;
-    const installation = getInstallation();
-    void axiosClient.put(DEVICE_URL, { ...installation, fid })
-      .then(() => emitStatus("registered"))
-      .catch(() => emitStatus("error"));
-  });
-  const stopMessage = onMessage(messaging, () => onChanged());
-  registerCurrent = () => register(messaging, {
-    vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY!,
-    serviceWorkerRegistration: worker,
-  });
-  unregisterCurrent = () => unregister(messaging);
-
-  if (Notification.permission === "granted" && isPushOptedIn()) {
-    emitStatus("registering");
-    void registerCurrent().catch(() => emitStatus("error"));
-  } else {
-    emitStatus("disabled");
-  }
-  return () => {
-    stopRegistered();
-    stopMessage();
-    if (generation === activeStart) {
-      activeStart++;
-      registerCurrent = undefined;
-      unregisterCurrent = undefined;
+  try {
+    const [{ getApp, getApps, initializeApp }, { getMessaging, isSupported, onMessage, onRegistered, register, unregister }] =
+      await Promise.all([import("firebase/app"), import("firebase/messaging")]);
+    const supported = await isSupported();
+    if (generation !== activeStart) return () => {};
+    if (!supported) {
+      emitStatus("unavailable");
+      return () => {};
     }
-  };
+
+    const app = getApps().length ? getApp() : initializeApp({
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    });
+    const messaging = getMessaging(app);
+    const worker = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+    if (generation !== activeStart) return () => {};
+    const stopRegistered = onRegistered(messaging, (fid) => {
+      if (!isCurrentRegistration()) return;
+      const installation = getInstallation();
+      void axiosClient.put(DEVICE_URL, { ...installation, fid })
+        .then(() => { if (isCurrentRegistration()) emitStatus("registered"); })
+        .catch(() => { if (isCurrentRegistration()) emitStatus("error"); });
+    });
+    const stopMessage = onMessage(messaging, () => onChanged());
+    registerCurrent = () => register(messaging, {
+      vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY!,
+      serviceWorkerRegistration: worker,
+    });
+    unregisterCurrent = () => unregister(messaging);
+
+    if (Notification.permission === "granted" && isPushOptedIn()) {
+      emitStatus("registering");
+      void registerCurrent().catch(() => { if (isCurrentRegistration()) emitStatus("error"); });
+    } else {
+      emitStatus("disabled");
+    }
+    return () => {
+      stopRegistered();
+      stopMessage();
+      if (generation === activeStart) {
+        activeStart++;
+        registerCurrent = undefined;
+        unregisterCurrent = undefined;
+        emitStatus("disabled");
+      }
+    };
+  } catch (error) {
+    if (generation === activeStart) emitStatus("error");
+    throw error;
+  }
 }
 
 export async function enablePush(): Promise<void> {

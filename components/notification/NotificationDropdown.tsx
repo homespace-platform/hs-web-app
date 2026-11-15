@@ -2,16 +2,10 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import NotificationIcon from "@/components/notification/NotificationIcon";
 import {
   Bell,
   CheckCheck,
-  ShieldCheck,
-  Building,
-  Newspaper,
-  Calendar,
-  MessageSquare,
-  UserCheck,
-  KeyRound,
   Trash2,
   Loader2,
   AlertCircle,
@@ -269,60 +263,11 @@ export default function NotificationDropdown() {
     }
   };
 
-  const renderIcon = (category: NotificationCategory) => {
-    switch (category) {
-      case "NEWS":
-      case "SYSTEM":
-        return (
-          <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-2xs">
-            <Newspaper className="w-5 h-5" />
-          </div>
-        );
-      case "PAYMENT":
-        return (
-          <div className="w-10 h-10 rounded-full bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/60 text-rose-500 flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
-            <span>¥</span>
-          </div>
-        );
-      case "CONTRACT":
-        return (
-          <div className="w-10 h-10 rounded-full bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 shadow-2xs">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-        );
-      case "APPOINTMENT":
-        return (
-          <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-2xs">
-            <Calendar className="w-5 h-5" />
-          </div>
-        );
-      case "CHAT":
-        return (
-          <div className="w-10 h-10 rounded-full bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 shadow-2xs">
-            <MessageSquare className="w-5 h-5" />
-          </div>
-        );
-      case "ACCOUNT":
-        return (
-          <div className="w-10 h-10 rounded-full bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 shadow-2xs">
-            <UserCheck className="w-5 h-5" />
-          </div>
-        );
-      case "RENTAL_REQUEST":
-        return (
-          <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-2xs">
-            <KeyRound className="w-5 h-5" />
-          </div>
-        );
-      case "LISTING":
-      default:
-        return (
-          <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-2xs">
-            <Building className="w-5 h-5" />
-          </div>
-        );
-    }
-  };
+  const renderIcon = (category: NotificationCategory) => (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
+      <NotificationIcon category={category} />
+    </div>
+  );
 
   const renderTagBadge = (item: NotificationItem) => {
     const { category } = item;

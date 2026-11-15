@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
-import { load, hookRuntime, clock, events, service, deferred, plain, nullComponent, icons, Link, html } from './helpers/notification-runtime.mjs';
+import { popupMocks, load, hookRuntime, clock, events, service, deferred, plain, nullComponent, icons, Link, html } from './helpers/notification-runtime.mjs';
 
 const TYPES = ['INVOICE_DRAFT_READY', 'INVOICE_ISSUED', 'INVOICE_OVERDUE', 'INVOICE_AMOUNT_UPDATED', 'INVOICE_EXTENSION_REQUESTED',
   'INVOICE_EXTENSION_APPROVED', 'INVOICE_EXTENSION_REJECTED', 'INVOICE_EXTENSION_EXPIRED', 'INVOICE_OVERDUE_ACTION_RECORDED',
@@ -46,6 +46,7 @@ function transport() {
   let pushCallback;
   const socket = { connected: true, on(name, callback) { handlers.set(name, callback); }, connect() { return socket; }, disconnect() { return socket; } };
   const Component = load('components/notification/NotificationTransport.tsx', {
+    ...popupMocks(notifications),
     react: runtime.hooks, 'next/link': Link, 'next/navigation': { usePathname: () => '/dashboard/invoices/contract-1' },
     'lucide-react': icons, 'socket.io-client': { io: () => socket }, '@/features/auth/useAuth': { useAuth: () => auth },
     '@/lib/keycloak': { token: 'test-token', updateToken: async () => {} }, '@/services/notification.service': notifications,

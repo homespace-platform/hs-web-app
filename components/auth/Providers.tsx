@@ -21,8 +21,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     >
       <StoreProvider>
         <AuthInitializer>
-          <NotificationTransport />
           <ChatDemoProvider>
+            <NotificationTransport />
             <DashboardRoleProvider>
               <AuthGuard>{children}</AuthGuard>
               <DashboardRolePickerModal />

@@ -20,6 +20,8 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { toggleFavoriteItem } from "@/features/favorite/favoriteSlice";
 import UserAvatar from "@/components/common/UserAvatar";
 import { toast } from "sonner";
+import { useChatDemo } from "@/components/chat/ChatDemoProvider";
+import { chatConversationUrl } from "@/lib/chat-demo-state";
 
 interface RentCollageCardProps {
   property: RentPropertyItem;
@@ -37,6 +39,8 @@ export default function RentCollageCard({
   openInNewTab = false,
 }: RentCollageCardProps) {
   const { authenticated, login } = useAuth();
+  const { openConversation, currentUserId } = useChatDemo();
+  const isOwnListing = Boolean(currentUserId && currentUserId === (property.ownerId || property.landlord.id));
   const router = useRouter();
   const dispatch = useAppDispatch();
   const isFavoritedInStore = useAppSelector((state) =>
@@ -47,6 +51,37 @@ export default function RentCollageCard({
   );
   const isFavorite = hasLoaded ? isFavoritedInStore : initialFavorited;
   const [isToggling, setIsToggling] = useState(false);
+  const [isOpeningChat, setIsOpeningChat] = useState(false);
+
+  const handleChatClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isOpeningChat) return;
+    if (!authenticated) {
+      login(`/rent/${property.id}`);
+      return;
+    }
+    const ownerId = property.ownerId || property.landlord.id;
+    if (!ownerId) {
+      toast.error("Không xác định được chủ nhà của tin đăng.");
+      return;
+    }
+    if (ownerId === currentUserId) {
+      toast.info("Đây là tin đăng của bạn.");
+      return;
+    }
+    setIsOpeningChat(true);
+    try {
+      const conversationId = await openConversation({
+        contact: { id: ownerId, name: property.landlord.name, avatar: property.landlord.avatar, role: property.landlord.role || "Chủ nhà" },
+        listing: { id: property.id, title: property.title, price: formattedPrice, location: property.location,
+          image: property.images[0] || "", bedrooms: property.beds, area: property.areaM2, verified: property.isVerified },
+      });
+      if (conversationId) router.push(chatConversationUrl(conversationId));
+    } finally {
+      setIsOpeningChat(false);
+    }
+  };
 
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -287,13 +322,12 @@ export default function RentCollageCard({
               </div>
 
               {/* Nút Chat */}
-              {!openInNewTab && <button
+              {!openInNewTab && !isOwnListing && <button
                 type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  router.push("/chat");
-                }}
+                onClick={handleChatClick}
+                disabled={isOpeningChat}
+                aria-label="Nhắn tin cho chủ nhà"
+                aria-busy={isOpeningChat}
                 title="Nhắn tin cho chủ nhà"
                 className="w-8 h-8 rounded-full border border-border bg-card hover:bg-muted text-muted-foreground hover:text-primary flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
               >
@@ -410,13 +444,12 @@ export default function RentCollageCard({
               </div>
 
               {/* Nút Chat nhanh */}
-              {!openInNewTab && <button
+              {!openInNewTab && !isOwnListing && <button
                 type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  router.push("/chat");
-                }}
+                onClick={handleChatClick}
+                disabled={isOpeningChat}
+                aria-label="Nhắn tin cho chủ nhà"
+                aria-busy={isOpeningChat}
                 title="Nhắn tin cho chủ nhà"
                 className="w-7 h-7 rounded-full border border-border bg-card hover:bg-muted text-muted-foreground hover:text-primary flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
               >

@@ -1,21 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, MessageCircle, X } from "lucide-react";
 import { io } from "socket.io-client";
 import { useAuth } from "@/features/auth/useAuth";
 import keycloak from "@/lib/keycloak";
-import notificationService, { getCategoryMeta, getNotificationTag, getSafeActionPath, isAgreementNotificationType, isAmendmentNotificationType, isInvoiceNotificationType, isRenewalNotificationType, isTerminationNotificationType, isReturnSettlementNotificationType, isRoutedPaymentType } from "@/services/notification.service";
+import notificationService, { getSafeActionPath, isAgreementNotificationType, isAmendmentNotificationType, isInvoiceNotificationType, isRenewalNotificationType, isTerminationNotificationType, isReturnSettlementNotificationType, isRoutedPaymentType } from "@/services/notification.service";
 import { startPush } from "@/services/notification-push.service";
 import type { NotificationItem } from "@/types/notification.type";
+import { useChatDemo } from "@/components/chat/ChatDemoProvider";
+import NotificationPopup from "@/components/notification/NotificationPopup";
 
-type Popup = Pick<NotificationItem, "id" | "category" | "type" | "metadata" | "title" | "body" | "priority" | "actionPath"> & { recipientId: string; chatAlert?: boolean };
+type Popup = Pick<NotificationItem, "id" | "category" | "type" | "metadata" | "title" | "body" | "priority" | "actionPath"> & { recipientId: string; chatAlert?: boolean; conversationId?: string };
 
 export default function NotificationTransport() {
   const { authenticated, initialized, userId } = useAuth();
   const pathname = usePathname();
+  const { conversations } = useChatDemo();
   const [popups, setPopups] = useState<Popup[]>([]);
 
   useEffect(() => {
@@ -152,7 +153,7 @@ export default function NotificationTransport() {
         // shortcut: retain 500 alert IDs; use server cursors if reconnect starts replaying older alerts.
         if (seenChatAlerts.size > 500) seenChatAlerts.delete(seenChatAlerts.values().next().value!);
         const popup: Popup = {
-          id: `chat:${eventId}`, recipientId: userId, chatAlert: true,
+          id: `chat:${eventId}`, recipientId: userId, chatAlert: true, conversationId,
           category: "CHAT", type: "CHAT_ALERT", metadata: null, priority: "NORMAL",
           title: "Bạn có tin nhắn mới", body: "Mở trò chuyện để xem tin nhắn.",
           actionPath,
@@ -220,30 +221,12 @@ export default function NotificationTransport() {
 
   return (
     <div className="pointer-events-none fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 z-[100] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-3" aria-live="polite" aria-atomic="false">
-      {visiblePopups.map((item) => (
-        <div key={item.id} className="pointer-events-auto overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_50px_rgba(15,23,42,0.22)] dark:border-slate-700 dark:bg-slate-900">
-          <div className={`h-1 ${item.priority === "URGENT" ? "bg-rose-500" : "bg-blue-600"}`} />
-          <div className="flex gap-3 p-4">
-            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${item.priority === "URGENT" ? "bg-rose-50 text-rose-600 dark:bg-rose-950" : "bg-blue-50 text-blue-600 dark:bg-blue-950"}`}>
-              {item.chatAlert ? <MessageCircle className="h-5 w-5" aria-hidden="true" /> : <Bell className="h-5 w-5" aria-hidden="true" />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
-                <span>HomeSpace</span><span aria-hidden="true">·</span><span>{getCategoryMeta(item.category).label}</span>
-                {(item.category === "LISTING" || item.category === "RENTAL_REQUEST" || item.category === "ACCOUNT" || item.category === "PAYMENT" || item.category === "CONTRACT") && getNotificationTag(item) !== getCategoryMeta(item.category).tag && (<><span aria-hidden="true">·</span><span>{getNotificationTag(item)}</span></>)}
-              </div>
-              <p className="line-clamp-2 font-semibold text-slate-900 dark:text-white">{item.title}</p>
-              <p className="mt-1 line-clamp-3 text-sm leading-5 text-slate-600 dark:text-slate-300">{item.body}</p>
-              <Link href={getSafeActionPath(item.actionPath) ?? "/notifications"} onClick={() => setPopups((current) => current.filter(({ id }) => id !== item.id))} className="mt-3 inline-block text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400">
-                {item.chatAlert ? "Mở trò chuyện →" : "Xem thông báo →"}
-              </Link>
-            </div>
-            <button type="button" onClick={() => setPopups((current) => current.filter(({ id }) => id !== item.id))} aria-label="Đóng thông báo" className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      ))}
+      {visiblePopups.map((item) => {
+        const sender = item.chatAlert ? conversations.find(({ id }) => id === item.conversationId) : undefined;
+        return <NotificationPopup key={item.id} item={item}
+          sender={item.chatAlert ? { name: sender?.userName || "Người dùng HomeSpace", avatar: sender?.userAvatar } : undefined}
+          onDismiss={() => setPopups((current) => current.filter(({ id }) => id !== item.id))} />;
+      })}
     </div>
   );
 }

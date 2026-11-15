@@ -123,5 +123,15 @@ const icons = new Proxy({}, { get: () => nullComponent });
 const Link = ({ children, ...props }) => React.createElement('a', props, children);
 const html = runtime => renderToStaticMarkup(runtime.tree);
 
+function popupMocks(notifications, conversations = []) {
+  return {
+    '@/components/chat/ChatDemoProvider': { useChatDemo: () => ({ conversations }) },
+    '@/components/notification/NotificationPopup': load('components/notification/NotificationPopup.tsx', {
+      'next/link': Link, 'lucide-react': icons, '@/services/notification.service': notifications,
+      '@/components/notification/NotificationIcon': load('components/notification/NotificationIcon.tsx', { 'lucide-react': icons }),
+      '@/components/common/UserAvatar': load('components/common/UserAvatar.tsx'),
+    }),
+  };
+}
 
-export { load, hookRuntime, clock, events, service, deferred, plain, nullComponent, icons, Link, html };
+export { load, hookRuntime, clock, events, service, deferred, plain, nullComponent, icons, Link, html, popupMocks };

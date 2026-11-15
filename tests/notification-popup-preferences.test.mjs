@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
-import { load, hookRuntime, clock, events, service, icons, Link, html } from './helpers/notification-runtime.mjs';
+import { popupMocks, load, hookRuntime, clock, events, service, icons, Link, html } from './helpers/notification-runtime.mjs';
 
-function transport() {
+function transport(conversations = []) {
   const runtime = hookRuntime(), timers = clock(), notifications = service(), handlers = new Map();
   const document = events({ title: 'HomeSpace', visibilityState: 'visible' });
   const window = events({ dispatchEvent() {} });
@@ -11,6 +11,7 @@ function transport() {
   const socket = { connected: true, on(name, callback) { handlers.set(name, callback); },
     connect() { return socket; }, disconnect() { return socket; } };
   const Component = load('components/notification/NotificationTransport.tsx', {
+    ...popupMocks(notifications, conversations),
     react: runtime.hooks, 'next/link': Link, 'next/navigation': { usePathname: () => '/settings/notifications' },
     'lucide-react': icons, 'socket.io-client': { io: () => socket },
     '@/features/auth/useAuth': { useAuth: () => ({ initialized: true, authenticated: true, userId }) },
@@ -39,7 +40,7 @@ test('backend chat alerts show a generic direct-chat popup once, with no feed re
     f.alert(alert); f.alert(alert);
     await f.runtime.settle();
     const markup = html(f.runtime);
-    assert.equal((markup.match(/Bạn có tin nhắn mới/g) ?? []).length, 1);
+    assert.equal((markup.match(/Có tin nhắn mới/g) ?? []).length, 1);
     assert.match(markup, /\/chat\?channel=direct&amp;conversationId=room%2Fone/);
     assert.match(markup, /Mở trò chuyện/);
     assert.doesNotMatch(markup, /message-1|event-1|Xem thông báo/);
@@ -59,7 +60,7 @@ test('chat alerts reject malformed events and clear old account popups and liste
     await f.runtime.settle();
     assert.equal(f.runtime.tree, null);
     f.alert(alert); await f.runtime.settle();
-    assert.match(html(f.runtime), /Bạn có tin nhắn mới/);
+    assert.match(html(f.runtime), /Có tin nhắn mới/);
     const oldHandler = f.chatHandler();
     f.switchUser('bob'); await f.runtime.settle();
     assert.equal(f.runtime.tree, null);
@@ -69,6 +70,49 @@ test('chat alerts reject malformed events and clear old account popups and liste
     f.alert({ ...alert, eventId: 'event-3' }); await f.runtime.settle();
     assert.equal(f.runtime.tree, null);
   } finally { f.cleanup(); }
+});
+
+test('chat popup uses the current participant name/avatar and never previews message content', async () => {
+  const conversations = [{ id: 'room-1', userName: 'Nguyễn Minh', userAvatar: 'https://example.test/avatar.png', lastMessage: 'PRIVATE MESSAGE' }];
+  const f = transport(conversations);
+  try {
+    f.alert({ eventId: 'event-1', conversationId: 'room-1', messageId: 'message-1', content: 'PRIVATE PAYLOAD' });
+    await f.runtime.settle();
+    let markup = html(f.runtime);
+    assert.match(markup, /Nguyễn Minh/);
+    assert.match(markup, /src="https:\/\/example.test\/avatar.png"/);
+    assert.match(markup, /Có tin nhắn mới/);
+    assert.doesNotMatch(markup, /PRIVATE MESSAGE|PRIVATE PAYLOAD/);
+    conversations[0] = { ...conversations[0], userName: 'Minh mới', userAvatar: undefined };
+    f.runtime.update();
+    markup = html(f.runtime);
+    assert.match(markup, /Minh mới/);
+    assert.doesNotMatch(markup, /avatar.png/);
+  } finally { f.cleanup(); }
+});
+
+test('popup navigates from the card, closes separately and rejects external action URLs', () => {
+  const notifications = service();
+  const Popup = popupMocks(notifications)['@/components/notification/NotificationPopup'].default;
+  const item = { category: 'APPOINTMENT', type: 'BOOKING_REQUESTED', title: 'Lịch mới', body: 'Nội dung dài '.repeat(50), priority: 'URGENT', actionPath: '/dashboard/viewing-schedules' };
+  let dismissed = 0;
+  const card = Popup({ item, onDismiss: () => dismissed++ });
+  const link = card.props.children[0];
+  assert.equal(link.props.href, item.actionPath);
+  link.props.onClick();
+  const close = card.props.children.at(-1);
+  close.props.onClick();
+  assert.equal(dismissed, 2);
+  assert.match(card.props.className, /h-\[104px\]/);
+  const content = card.props.children[2];
+  assert.match(content.props.children[1].props.className, /truncate/);
+  assert.match(content.props.children[2].props.className, /truncate/);
+  const unsafe = Popup({ item: { ...item, actionPath: 'https://evil.test' }, onDismiss() {} });
+  assert.equal(unsafe.props.children[0], null);
+  const chat = Popup({ item: { ...item, category: 'CHAT', title: 'PRIVATE TITLE', body: 'PRIVATE BODY' }, onDismiss() {} });
+  const markup = html({ tree: chat });
+  assert.match(markup, /Có tin nhắn mới/);
+  assert.doesNotMatch(markup, /PRIVATE TITLE|PRIVATE BODY/);
 });
 
 const categories = ['SYSTEM', 'NEWS', 'ACCOUNT', 'LISTING', 'APPOINTMENT', 'RENTAL_REQUEST', 'CONTRACT', 'PAYMENT', 'CHAT'];

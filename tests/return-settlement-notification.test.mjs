@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
-import { load, hookRuntime, clock, events, service, deferred, plain, nullComponent, icons, Link, html } from './helpers/notification-runtime.mjs';
+import { popupMocks, load, hookRuntime, clock, events, service, deferred, plain, nullComponent, icons, Link, html } from './helpers/notification-runtime.mjs';
 
 const ROOT = 'root-1';
 const TYPES = ['LEASE_RETURN_CONFIRMED', 'LEASE_RETURN_COMPLETED', 'SETTLEMENT_RESPONSE_NEEDED', 'SETTLEMENT_DISPUTED',
@@ -47,6 +47,7 @@ function transport() {
   let push;
   const socket = { on(name, fn) { handlers.set(name, fn); }, connect() {}, disconnect() {} };
   const Component = load('components/notification/NotificationTransport.tsx', {
+    ...popupMocks(f.notifications),
     react: f.runtime.hooks, 'next/link': Link, 'next/navigation': { usePathname: () => '/dashboard/payments' }, 'lucide-react': icons,
     'socket.io-client': { io: () => socket }, '@/features/auth/useAuth': { useAuth: () => ({ initialized: true, authenticated: true, userId: 'owner' }) },
     '@/lib/keycloak': { updateToken: async () => {} }, '@/services/notification.service': f.notifications,
@@ -76,7 +77,7 @@ test('visible return/settlement notices retain their exact route; malformed meta
   const f = transport();
   for (const type of TYPES) {
     f.fire(notice(type)); await f.runtime.settle();
-    assert.ok(flatten(f.runtime.tree).some(n => n.props?.href === route(type)), type);
+    assert.ok(flatten(f.runtime.tree).some(n => n.props?.item?.actionPath === route(type)), type);
   }
   f.signals.length = 0;
   for (const type of ['constructor', '__proto__', 'toString', 'SETTLEMENT_UNKNOWN']) f.fire(notice(type));

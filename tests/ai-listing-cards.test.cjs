@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Node CommonJS harness loads isolated TS modules. */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -13,10 +14,10 @@ function load(relativePath, mocks = {}) {
   const source = ts.transpileModule(fs.readFileSync(filename, "utf8"), {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText;
-  const module = { exports: {} };
+  const moduleRef = { exports: {} };
   const localRequire = (name) => Object.hasOwn(mocks, name) ? mocks[name] : require(name);
-  vm.runInThisContext(`(function(require,module,exports){${source}\n})`, { filename })(localRequire, module, module.exports);
-  return module.exports;
+  vm.runInThisContext(`(function(require,module,exports){${source}\n})`, { filename })(localRequire, moduleRef, moduleRef.exports);
+  return moduleRef.exports;
 }
 
 const { cardListingIds, createListingCardLoader, splitCardsAndLinks } = load("lib/ai-listing-cards.ts");
@@ -138,6 +139,8 @@ const mocks = {
   "@/features/favorite/favoriteSlice": { toggleFavoriteItem: () => {} },
   "@/components/common/UserAvatar": () => null,
   "@/lib/format-currency": load("lib/format-currency.ts"),
+  "@/components/chat/ChatDemoProvider": { useChatDemo: () => ({ openConversation: async () => null, currentUserId: "renter" }) },
+  "@/lib/chat-demo-state": load("lib/chat-demo-state.ts"),
 };
 const Card = load("components/rent/RentCollageCard.tsx", mocks).default;
 const property = { id: ids[0], title: "Phòng trọ có ban công", images: [], category: "room", categoryLabel: "Phòng trọ",
@@ -159,6 +162,58 @@ test("normal rent-page cards retain their existing navigation by default", () =>
   const html = renderToStaticMarkup(React.createElement(Card, { property }));
   assert.ok(!html.includes('target="_blank"'));
   assert.ok(html.includes("Nhắn tin cho chủ nhà"));
+});
+
+test("chat on both card layouts opens the listing owner and navigates to the returned conversation", async () => {
+  for (const viewMode of ["grid", "collage"]) {
+    const opened = [], routes = [];
+    const ChatCard = load("components/rent/RentCollageCard.tsx", {
+      ...mocks,
+      react: { ...React, useState: value => [value, () => {}] },
+      "next/navigation": { useRouter: () => ({ push: url => routes.push(url) }) },
+      "@/components/chat/ChatDemoProvider": { useChatDemo: () => ({ currentUserId: "renter",
+        openConversation: async input => { opened.push(input); return "room/owner"; } }) },
+    }).default;
+    const tree = ChatCard({ property: { ...property, ownerId: "actual-owner", landlord: { id: "old-owner", name: "Chủ nhà", avatar: "https://example.com/owner.jpg" } }, viewMode });
+    const flatten = node => !node || typeof node !== "object" ? [] : [node, ...React.Children.toArray(node.props?.children).flatMap(flatten)];
+    const button = flatten(tree).find(node => node.props?.title === "Nhắn tin cho chủ nhà");
+    let prevented = false, stopped = false;
+    await button.props.onClick({ preventDefault() { prevented = true; }, stopPropagation() { stopped = true; } });
+    assert.ok(prevented && stopped, "chat must not follow the enclosing listing link");
+    assert.equal(opened[0].contact.id, "actual-owner");
+    assert.equal(opened[0].contact.avatar, "https://example.com/owner.jpg");
+    assert.equal(opened[0].listing.id, property.id);
+    assert.deepEqual(routes, ["/chat?conversationId=room%2Fowner"]);
+  }
+});
+
+test("card chat handles legacy owner IDs, signed-out users, own listings and failed opens", async () => {
+  for (const scenario of ["legacy", "guest", "self", "missing", "failed"]) {
+    const opened = [], routes = [], logins = [];
+    const ChatCard = load("components/rent/RentCollageCard.tsx", {
+      ...mocks,
+      react: { ...React, useState: value => [value, () => {}] },
+      sonner: { toast: { error() {}, info() {} } },
+      "@/features/auth/useAuth": { useAuth: () => ({ authenticated: scenario !== "guest", login: url => logins.push(url) }) },
+      "next/navigation": { useRouter: () => ({ push: url => routes.push(url) }) },
+      "@/components/chat/ChatDemoProvider": { useChatDemo: () => ({ currentUserId: scenario === "self" ? "owner" : "renter",
+        openConversation: async input => { opened.push(input); return scenario === "failed" ? null : "room"; } }) },
+    }).default;
+    const tree = ChatCard({ property: { ...property, landlord: { id: scenario === "missing" ? undefined : "owner", name: "Chủ nhà" } } });
+    const flatten = node => !node || typeof node !== "object" ? [] : [node, ...React.Children.toArray(node.props?.children).flatMap(flatten)];
+    const button = flatten(tree).find(node => node.props?.title === "Nhắn tin cho chủ nhà");
+    if (scenario === "self") {
+      assert.equal(button, undefined);
+      const collage = ChatCard({ property: { ...property, ownerId: "owner", landlord: { name: "Chủ nhà" } }, viewMode: "collage" });
+      assert.equal(flatten(collage).find(node => node.props?.title === "Nhắn tin cho chủ nhà"), undefined);
+    } else {
+      await button.props.onClick({ preventDefault() {}, stopPropagation() {} });
+    }
+    assert.equal(opened.length, ["legacy", "failed"].includes(scenario) ? 1 : 0);
+    assert.deepEqual(routes, scenario === "legacy" ? ["/chat?conversationId=room"] : []);
+    if (scenario === "legacy") assert.equal(opened[0].contact.id, "owner");
+    assert.deepEqual(logins, scenario === "guest" ? [`/rent/${property.id}`] : []);
+  }
 });
 
 const CompactCard = load("components/chat/AiListingCompactCard.tsx", { "next/link": mocks["next/link"], "next/image": mocks["next/image"] }).default;

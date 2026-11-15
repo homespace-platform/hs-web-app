@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { popupMocks } from './helpers/notification-runtime.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -260,6 +261,7 @@ function transport({ socketEnabled = true, pushFails = false } = {}) {
   const socket = { connected: true, on(name, callback) { handlers.set(name, callback); },
     connect() { connected++; return socket; }, disconnect() { disconnected++; return socket; } };
   const Component = load('components/notification/NotificationTransport.tsx', {
+    ...popupMocks(notifications),
     react: runtime.hooks, 'next/link': Link, 'next/navigation': { usePathname: () => '/dashboard/properties' },
     'lucide-react': icons, 'socket.io-client': { io: () => socket }, '@/features/auth/useAuth': { useAuth: () => auth },
     '@/lib/keycloak': { token: 'test-token', updateToken: async () => {} }, '@/services/notification.service': notifications,

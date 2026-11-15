@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { popupMocks } from './helpers/notification-runtime.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -192,6 +193,7 @@ function transport({ socketEnabled = true, pushFails = false } = {}) {
   const socket = { connected: true, on(name, callback) { handlers.set(name, callback); },
     connect() { connected++; return socket; }, disconnect() { disconnected++; return socket; } };
   const Component = load('components/notification/NotificationTransport.tsx', {
+    ...popupMocks(notifications),
     react: runtime.hooks, 'next/link': Link, 'next/navigation': { usePathname: () => '/dashboard/properties' },
     'lucide-react': icons, 'socket.io-client': { io: () => socket }, '@/features/auth/useAuth': { useAuth: () => auth },
     '@/lib/keycloak': { token: 'test-token', updateToken: async () => {} }, '@/services/notification.service': notifications,
@@ -218,7 +220,7 @@ test('visible listing socket events invalidate by ID and render shared type tags
   assert.equal((html(f.runtime).match(/Nội dung chưa được duyệt/g) || []).length, 1);
   for (let i = 2; i <= 4; i++) f.fire('notification:new', listingNotice({ id: `notice-${i}`, title: `notice title ${i}`, actionPath: '//evil.test' }));
   await f.runtime.settle(); const output = html(f.runtime);
-  assert.doesNotMatch(output, /Nội dung chưa được duyệt|evil.test/); assert.equal((output.match(/href="\/notifications"/g) || []).length, 3);
+  assert.doesNotMatch(output, /Nội dung chưa được duyệt|evil.test|href=/); assert.equal((output.match(/notice title/g) || []).length, 3);
   await f.timers.advance(8000); await f.runtime.settle(); assert.equal(f.runtime.tree, null);
   f.cleanup();
 });

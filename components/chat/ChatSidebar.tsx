@@ -159,18 +159,6 @@ export default function ChatSidebar({
           <div className="grid grid-cols-2 p-1 bg-muted/60 rounded-xl border border-border/70 gap-1 text-xs font-semibold">
             <button
               type="button"
-              onClick={() => onChannelChange("ai")}
-              className={`py-1.5 px-2 rounded-lg text-center transition-all cursor-pointer ${
-                channel === "ai"
-                  ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                  : "text-muted-foreground hover:text-foreground hover:bg-card/40"
-              }`}
-            >
-              Trợ lý AI
-            </button>
-
-            <button
-              type="button"
               onClick={() => onChannelChange("direct")}
               className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-center transition-all cursor-pointer ${
                 channel === "direct"
@@ -190,6 +178,18 @@ export default function ChatSidebar({
                   {directUnreadTotal}
                 </span>
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onChannelChange("ai")}
+              className={`py-1.5 px-2 rounded-lg text-center transition-all cursor-pointer ${
+                channel === "ai"
+                  ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-card/40"
+              }`}
+            >
+              Trợ lý AI
             </button>
           </div>
         </div>

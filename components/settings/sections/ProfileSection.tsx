@@ -334,7 +334,7 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                             <span>Tài khoản này đã xác minh danh tính</span>
                         </div>
                     ) : (
-                        !profile.kycOptional && (
+                        (
                             <Link
                                 href="/settings/account-security"
                                 className="inline-flex items-start gap-1.5 max-w-full rounded-xl border border-amber-500/25 bg-amber-500/10 px-2.5 py-2 text-[11px] font-medium text-amber-800 dark:text-amber-200 hover:bg-amber-500/15 transition-colors text-left"

@@ -74,10 +74,14 @@ function statusMeta(status: KycStatus, rejectionReason?: string | null) {
 }
 
 export default function KycSection() {
+  const userId = useAppSelector((state) => state.auth.userId);
+  return <AccountKycSection key={userId ?? "anonymous"} />;
+}
+
+function AccountKycSection() {
   const dispatch = useAppDispatch();
   const userId = useAppSelector((state) => state.auth.userId);
   const profile = useAppSelector((state) => state.user.profile);
-  const kycOptional = Boolean(profile?.kycOptional || profile?.role === "ADMIN");
   const [kyc, setKyc] = useState<KycStatusResponse | null>(null);
   const [vnptSession, setVnptSession] = useState<(VnptKycSession & { ownerId: string }) | null>(null);
   const actorRef = useRef(userId);
@@ -97,9 +101,6 @@ export default function KycSection() {
   useEffect(() => {
     let cancelled = false;
     actorRef.current = userId;
-    setVnptSession(null);
-    setKyc(null);
-    setLoading(true);
     (async () => {
       try {
         const status = await kycService.getStatus();
@@ -196,16 +197,9 @@ export default function KycSection() {
       <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
         <BadgeCheck className="w-4 h-4 text-primary" />
         <span>Xác minh danh tính (KYC)</span>
-        {kycOptional && (
-          <span className="text-[10px] font-bold uppercase tracking-wide text-amber-700 bg-amber-500/15 border border-amber-500/25 px-1.5 py-0.5 rounded-md">
-            Tùy chọn
-          </span>
-        )}
       </h3>
       <p className="text-xs text-muted-foreground">
-        {kycOptional
-          ? "Tài khoản Admin được coi là đã xác minh danh tính (không bắt buộc eKYC). Bạn vẫn có thể chạy KYC nếu muốn đồng bộ CCCD thật."
-          : "Xác minh CCCD và khuôn mặt với VNPT eKYC để hoàn tất hồ sơ danh tính của bạn."}
+        Xác minh CCCD và khuôn mặt với VNPT eKYC để hoàn tất hồ sơ danh tính của bạn.
       </p>
 
       {vnptSession?.ownerId === userId && vnptSession && <VnptKycCapture session={vnptSession} onResult={onVnptResult} onCancel={() => void cancelKyc()} />}

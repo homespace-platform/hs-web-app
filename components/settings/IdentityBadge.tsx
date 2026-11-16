@@ -9,7 +9,7 @@ type IdentityBadgeProps = {
 };
 
 /**
- * ADMIN → crown (KYC optional).
+ * ADMIN → crown (role indicator).
  * USER + KYC verified → Facebook-style blue tick.
  * Otherwise → nothing.
  */

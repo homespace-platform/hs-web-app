@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
   Building2,
@@ -17,7 +17,7 @@ import userService from "@/services/user.service";
 import bankAccountService from "@/services/bank-account.service";
 import { fetchCurrentUser } from "@/features/user/userSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import type { OnboardingRequest, UserProfile } from "@/types/user.type";
+import type { OnboardingRequest, OnboardingStatusResponse, UserProfile } from "@/types/user.type";
 import { VIETNAMESE_BANKS } from "@/data/banks";
 import AddressEditor from "@/components/settings/AddressEditor";
 import { toast } from "sonner";
@@ -64,6 +64,11 @@ function profileToForm(profile: UserProfile): OnboardingForm {
 }
 
 export default function OnboardingInitializer() {
+  const userId = useAppSelector((state) => state.auth.userId);
+  return <AccountOnboarding key={userId ?? "anonymous"} />;
+}
+
+function AccountOnboarding() {
   const dispatch = useAppDispatch();
   const authenticated = useAppSelector((state) => state.auth.authenticated);
   const userId = useAppSelector((state) => state.auth.userId);
@@ -77,46 +82,35 @@ export default function OnboardingInitializer() {
   const [step, setStep] = useState<Step>("profile");
   const [error, setError] = useState<string | null>(null);
 
+  const applyStatus = useCallback((status: OnboardingStatusResponse) => {
+    setHasPassword(status.completedSteps.includes("PASSWORD"));
+    setOpen(!status.completed);
+    if (status.nextStep === "PROFILE") setStep("profile");
+    else if (status.nextStep === "ADDRESS") setStep("address");
+    else if (status.nextStep === "PASSWORD") setStep("password");
+    else if (status.nextStep === "BANK_ACCOUNT") setStep("bank");
+  }, []);
+
   useEffect(() => {
     if (
       !authenticated ||
       !userId ||
       profileStatus !== "succeeded" ||
       !profile ||
+      profile.id !== userId ||
       initializedForUser.current === userId
     ) {
       return;
     }
 
     initializedForUser.current = userId;
+    setOpen(true);
     setCheckingStatus(true);
     setError(null);
 
-    Promise.all([
-      userService.hasPassword(),
-      userService.getOnboardingStatus().catch(() => null),
-    ])
-      .then(([pwdStatus, onboardingStatus]) => {
-        setHasPassword(pwdStatus);
-
-        if (onboardingStatus && !onboardingStatus.completed) {
-          setOpen(true);
-          if (onboardingStatus.nextStep === "PROFILE") {
-            setStep("profile");
-          } else if (onboardingStatus.nextStep === "ADDRESS") {
-            setStep("address");
-          } else if (onboardingStatus.nextStep === "PASSWORD") {
-            setStep("password");
-          } else if (onboardingStatus.nextStep === "BANK_ACCOUNT") {
-            setStep("bank");
-          }
-        } else if (profile.onBoarded === false) {
-          setOpen(true);
-          setStep("profile");
-        }
-      })
+    userService.getOnboardingStatus()
+      .then(applyStatus)
       .catch((requestError) => {
-        initializedForUser.current = null;
         setError(
           getErrorMessage(
             requestError,
@@ -125,27 +119,15 @@ export default function OnboardingInitializer() {
         );
       })
       .finally(() => setCheckingStatus(false));
-  }, [authenticated, profile, profileStatus, userId]);
+  }, [authenticated, profile, profileStatus, userId, applyStatus]);
 
-  if (!open || !profile || !userId) return null;
+  if (!authenticated || !open || !profile || !userId || profile.id !== userId) return null;
 
   function retryStatusCheck() {
     setCheckingStatus(true);
     setError(null);
-    Promise.all([
-      userService.hasPassword(),
-      userService.getOnboardingStatus().catch(() => null),
-    ])
-      .then(([pwdStatus, onboardingStatus]) => {
-        setHasPassword(pwdStatus);
-        if (onboardingStatus && !onboardingStatus.completed) {
-          setOpen(true);
-          if (onboardingStatus.nextStep === "PROFILE") setStep("profile");
-          else if (onboardingStatus.nextStep === "ADDRESS") setStep("address");
-          else if (onboardingStatus.nextStep === "PASSWORD") setStep("password");
-          else if (onboardingStatus.nextStep === "BANK_ACCOUNT") setStep("bank");
-        }
-      })
+    userService.getOnboardingStatus()
+      .then(applyStatus)
       .catch((err) => setError(getErrorMessage(err, "Thử lại thất bại.")))
       .finally(() => setCheckingStatus(false));
   }
@@ -156,7 +138,7 @@ export default function OnboardingInitializer() {
       await userService.completeOnboarding(request);
       await dispatch(fetchCurrentUser({ userId: userId!, force: true })).unwrap();
       toast.success("Thông tin cá nhân đã được cập nhật.");
-      setStep("address");
+      applyStatus(await userService.getOnboardingStatus());
     } catch (requestError) {
       const message = getErrorMessage(
         requestError,
@@ -173,11 +155,7 @@ export default function OnboardingInitializer() {
     try {
       await dispatch(fetchCurrentUser({ userId: userId!, force: true })).unwrap();
       toast.success("Địa chỉ đã được lưu.");
-      if (hasPassword === false) {
-        setStep("password");
-      } else {
-        setStep("bank");
-      }
+      applyStatus(await userService.getOnboardingStatus());
     } catch (requestError) {
       const message = getErrorMessage(
         requestError,
@@ -193,9 +171,8 @@ export default function OnboardingInitializer() {
     setError(null);
     try {
       await userService.setInitialPassword({ newPassword });
-      setHasPassword(true);
       toast.success("Tạo mật khẩu thành công.");
-      setStep("bank");
+      applyStatus(await userService.getOnboardingStatus());
     } catch (requestError) {
       const message = getErrorMessage(
         requestError,
@@ -210,8 +187,10 @@ export default function OnboardingInitializer() {
   async function finishBank() {
     setError(null);
     try {
+      const status = await userService.getOnboardingStatus();
+      if (!status.completed) throw new Error("Hồ sơ thiết lập chưa hoàn tất. Vui lòng thử lại.");
       await dispatch(fetchCurrentUser({ userId: userId!, force: true })).unwrap();
-      setOpen(false);
+      applyStatus(status);
       toast.success("Thiết lập tài khoản hoàn tất. Chào mừng bạn đến với HomeSpace!");
     } catch (requestError) {
       const message = getErrorMessage(

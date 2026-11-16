@@ -6,6 +6,7 @@ import React from 'react';
 import { load, hookRuntime, clock, events, icons, html } from './helpers/notification-runtime.mjs';
 const flatten=node=>!node||typeof node!=='object'?[]:[node,...React.Children.toArray(node.props?.children).flatMap(flatten)];
 const detailsPanel=()=>null;
+const loadKyc=(mocks,globals={})=>load('components/settings/sections/KycSection.tsx',mocks,globals,'\nmodule.exports.default=AccountKycSection;');
 
 test('SDK bridge pins origin/source and routes capture without provider credentials or callback PII',async()=>{
  const messages=[],listeners=new Map(),config=[],parent={postMessage:(data,origin)=>messages.push({data,origin})};
@@ -39,13 +40,13 @@ test('SDK permits image upload only when development parent enables it',()=>{
 
 test('web defaults to VNPT and keeps upcoming providers disabled',async()=>{
  const runtime=hookRuntime(),calls=[],capture=()=>null;
- const Component=load('components/settings/sections/KycSection.tsx',{
+ const Component=loadKyc({
  react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},message(){},success(){}}},
  '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'NOT_VERIFIED',provider:'VNPT'}),createVnptSession:async()=>{calls.push('vnpt');return{sessionId:'attempt',expiresAt:'2099-01-01',maxImageMb:1};}}},
  './VnptKycCapture':{__esModule:true,default:capture},'@/components/settings/KycVerifiedDetailsPanel':{__esModule:true,default:detailsPanel},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
- '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:'alice'},user:{profile:{id:'alice'}}})},
+ '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:'alice'},user:{profile:{id:'alice',role:'ADMIN',kycOptional:true}}})},
  },{window:{clearInterval(){},setInterval(){}}}).default;
- runtime.mount(Component);await runtime.settle();assert.doesNotMatch(html(runtime),/Didit|backend|webhook/);
+ runtime.mount(Component);await runtime.settle();assert.doesNotMatch(html(runtime),/Didit|backend|webhook|Tùy chọn|không bắt buộc/);
  const providers=flatten(runtime.tree).filter(n=>n.type==='input'&&n.props.name==='kyc-provider');
  assert.deepEqual(providers.map(n=>n.props.value),['VNPT','FPT','VIETTEL']);
  assert.equal(providers[0].props.checked,true);assert.equal(providers[0].props.disabled,false);
@@ -94,7 +95,7 @@ test('successful SDK callback asks the backend to finalize once',async()=>{
 
 test('a session response from a previous account cannot reopen its capture',async()=>{
  const runtime=hookRuntime(),capture=()=>null;let actor='alice',resolve;
- const Component=load('components/settings/sections/KycSection.tsx',{
+ const Component=loadKyc({
  react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},message(){},success(){}}},
  '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'NOT_VERIFIED',provider:'VNPT'}),createVnptSession:()=>new Promise(done=>{resolve=done;})}},
  './VnptKycCapture':{__esModule:true,default:capture},'@/components/settings/KycVerifiedDetailsPanel':{__esModule:true,default:detailsPanel},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
@@ -108,7 +109,7 @@ test('a session response from a previous account cannot reopen its capture',asyn
 
 for(const provider of ['DIDIT','ADMIN'])test(`${provider} verified users stay verified without provider selection or a new session`,async()=>{
  const runtime=hookRuntime(),calls=[];
- const Component=load('components/settings/sections/KycSection.tsx',{
+ const Component=loadKyc({
  react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},success(){}}},
  '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'VERIFIED',provider,sessionId:'legacy',verifiedAt:null}),createVnptSession:async()=>calls.push('start')}},
  './VnptKycCapture':{__esModule:true,default:()=>null},'@/components/settings/KycVerifiedDetailsPanel':{__esModule:true,default:detailsPanel},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
@@ -121,7 +122,7 @@ for(const provider of ['DIDIT','ADMIN'])test(`${provider} verified users stay ve
 
 test('a pending VNPT session can be cancelled using the backend result',async()=>{
  const runtime=hookRuntime(),calls=[],capture=()=>null;
- const Component=load('components/settings/sections/KycSection.tsx',{
+ const Component=loadKyc({
  react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},success(){}}},
  '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'PENDING',provider:'VNPT',sessionId:'attempt'}),cancelSession:async()=>{calls.push('cancel');return{status:'EXPIRED',provider:'VNPT'};}}},
  './VnptKycCapture':{__esModule:true,default:capture},'@/components/settings/KycVerifiedDetailsPanel':{__esModule:true,default:detailsPanel},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
@@ -151,4 +152,14 @@ test('KYC details appear only in Account & Security',()=>{
  const security=fs.readFileSync('components/settings/sections/KycSection.tsx','utf8');
  assert.doesNotMatch(profile,/KycVerifiedDetailsPanel/);
  assert.match(security,/<KycVerifiedDetailsPanel/);
+});
+
+
+test('KYC gate never trusts role or the retired optional flag',()=>{
+ const {isKycSatisfied}=load('lib/kyc-gate.ts',{sonner:{toast:{error(){},info(){}}}});
+ for(const role of ['ADMIN','USER']) {
+  assert.equal(isKycSatisfied({role,kycVerified:false,kycOptional:true}),false);
+  assert.equal(isKycSatisfied({role,kycVerified:true}),true);
+ }
+ assert.equal(isKycSatisfied(null),false);
 });

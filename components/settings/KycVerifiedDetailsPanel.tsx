@@ -21,10 +21,9 @@ const checks: { key: keyof KycVerifiedDetails; label: string }[] = [
   { key: "faceNotCovered", label: "Khuôn mặt không bị che" },
 ];
 
-export default function KycVerifiedDetailsPanel({ cccd, verified, optional = false }: {
+export default function KycVerifiedDetailsPanel({ cccd, verified }: {
   cccd?: string | null;
   verified: boolean;
-  optional?: boolean;
 }) {
   const [details, setDetails] = useState<KycVerifiedDetails | null>(null);
   const [loading, setLoading] = useState(verified);
@@ -68,7 +67,7 @@ export default function KycVerifiedDetailsPanel({ cccd, verified, optional = fal
     </div>
     {loading && <p className="flex items-center gap-2 text-xs text-muted-foreground"><LoaderCircle className="h-4 w-4 animate-spin" />Đang tải kết quả VNPT...</p>}
     {error && <p className="text-xs text-destructive">Không tải được kết quả KYC. Vui lòng tải lại trang.</p>}
-    {!loading && !error && !details && <p className="text-xs text-muted-foreground">{optional ? "Tài khoản quản trị được miễn xác minh KYC." : verified ? "Lần xác minh trước chưa lưu kết quả chi tiết từ VNPT." : "Thông tin chi tiết sẽ xuất hiện sau khi xác minh với VNPT."}</p>}
+    {!loading && !error && !details && <p className="text-xs text-muted-foreground">{verified ? "Lần xác minh trước chưa lưu kết quả chi tiết từ VNPT." : "Thông tin chi tiết sẽ xuất hiện sau khi xác minh với VNPT."}</p>}
     {details && <div className="border-t border-border pt-4">
       <h4 className="mb-3 text-xs font-bold text-foreground">Kết quả kiểm tra</h4>
       <div className="grid gap-2 sm:grid-cols-2">

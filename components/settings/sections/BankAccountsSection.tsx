@@ -52,7 +52,12 @@ export default function BankAccountsSection() {
   }
 
   useEffect(() => {
-    loadAccounts();
+    let active = true;
+    bankAccountService.getBankAccounts()
+      .then(data => { if (active) setAccounts(data); })
+      .catch(err => { if (active) setError(getErrorMessage(err, "Không thể tải danh sách tài khoản ngân hàng.")); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, []);
 
   async function handleAddAccount(e: React.FormEvent) {

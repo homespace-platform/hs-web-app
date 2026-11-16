@@ -5,13 +5,9 @@ const KYC_SETTINGS_PATH = "/settings/account-security";
 
 type NavLike = { push: (href: string) => void };
 
-/** True when profile may perform KYC-gated actions (Admin trusted or identity verified). */
+/** Every role needs a verified identity for KYC-gated actions. */
 export function isKycSatisfied(profile: UserProfile | null | undefined): boolean {
-  if (!profile) return false;
-  if (profile.kycVerified === true) return true;
-  if (profile.kycOptional === true) return true;
-  if (String(profile.role ?? "").toUpperCase() === "ADMIN") return true;
-  return false;
+  return profile?.kycVerified === true;
 }
 
 export function notifyKycRequired(router?: NavLike) {

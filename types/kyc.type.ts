@@ -7,7 +7,7 @@ export type KycStatus =
   | "EXPIRED";
 
 /** DIDIT is retained only for historical verification records returned by Core. */
-export type KycProvider = "VNPT" | "DIDIT";
+export type KycProvider = "VNPT" | "DIDIT" | "ADMIN";
 
 export type KycStatusResponse = {
   status: KycStatus;

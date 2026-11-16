@@ -105,11 +105,11 @@ test('a session response from a previous account cannot reopen its capture',asyn
  assert.equal(flatten(runtime.tree).find(n=>n.type===capture),undefined);assert.doesNotMatch(html(runtime),/alice-attempt/);runtime.unmount();
 });
 
-test('historically verified users stay verified without provider selection or a new session',async()=>{
+for(const provider of ['DIDIT','ADMIN'])test(`${provider} verified users stay verified without provider selection or a new session`,async()=>{
  const runtime=hookRuntime(),calls=[];
  const Component=load('components/settings/sections/KycSection.tsx',{
  react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},success(){}}},
- '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'VERIFIED',provider:'DIDIT',sessionId:'legacy',verifiedAt:null}),createVnptSession:async()=>calls.push('start')}},
+ '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'VERIFIED',provider,sessionId:'legacy',verifiedAt:null}),createVnptSession:async()=>calls.push('start')}},
  './VnptKycCapture':{__esModule:true,default:()=>null},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
  '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:'alice'},user:{profile:{id:'alice'}}})},
  }).default;

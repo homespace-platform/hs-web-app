@@ -5,7 +5,7 @@ const KYC_SETTINGS_PATH = "/settings/account-security";
 
 type NavLike = { push: (href: string) => void };
 
-/** True when profile may perform KYC-gated actions (Admin trusted or Didit verified). */
+/** True when profile may perform KYC-gated actions (Admin trusted or identity verified). */
 export function isKycSatisfied(profile: UserProfile | null | undefined): boolean {
   if (!profile) return false;
   if (profile.kycVerified === true) return true;

@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Licensed VNPT assets prepared with scripts/setup-vnpt-sdk.py
+/public/vendor/vnpt/

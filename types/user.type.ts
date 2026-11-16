@@ -9,7 +9,7 @@ export type UserProfile = {
   avatarUrl?: string | null;
   avatarStorageId?: string | null;
   phone?: string | null;
-  /** Citizen ID synced from Didit when KYC Approved. */
+  /** Citizen ID confirmed by the backend after successful KYC. */
   cccd?: string | null;
   dob?: string | null;
   gender?: string | null;

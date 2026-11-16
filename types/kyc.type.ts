@@ -6,7 +6,8 @@ export type KycStatus =
   | "REJECTED"
   | "EXPIRED";
 
-export type KycProvider = "DIDIT";
+/** DIDIT is retained only for historical verification records returned by Core. */
+export type KycProvider = "VNPT" | "DIDIT";
 
 export type KycStatusResponse = {
   status: KycStatus;
@@ -17,8 +18,6 @@ export type KycStatusResponse = {
   rejectionReason?: string | null;
 };
 
-export type KycSessionResponse = {
-  sessionId: string;
-  url: string;
-  status: KycStatus;
-};
+export type VnptKycSession = { sessionId: string; expiresAt: string; maxImageMb: number };
+export const VNPT_KYC_STEPS = ["upload", "card", "ocr", "ocr-front", "face", "compare", "mask"] as const;
+export type VnptKycStep = (typeof VNPT_KYC_STEPS)[number];

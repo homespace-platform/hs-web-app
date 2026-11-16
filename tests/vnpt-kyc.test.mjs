@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import React from 'react';
 import { load, hookRuntime, clock, events, icons, html } from './helpers/notification-runtime.mjs';
 const flatten=node=>!node||typeof node!=='object'?[]:[node,...React.Children.toArray(node.props?.children).flatMap(flatten)];
+const detailsPanel=()=>null;
 
 test('SDK bridge pins origin/source and routes capture without provider credentials or callback PII',async()=>{
  const messages=[],listeners=new Map(),config=[],parent={postMessage:(data,origin)=>messages.push({data,origin})};
@@ -41,7 +42,7 @@ test('web defaults to VNPT and keeps upcoming providers disabled',async()=>{
  const Component=load('components/settings/sections/KycSection.tsx',{
  react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},message(){},success(){}}},
  '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'NOT_VERIFIED',provider:'VNPT'}),createVnptSession:async()=>{calls.push('vnpt');return{sessionId:'attempt',expiresAt:'2099-01-01',maxImageMb:1};}}},
- './VnptKycCapture':{__esModule:true,default:capture},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
+ './VnptKycCapture':{__esModule:true,default:capture},'@/components/settings/KycVerifiedDetailsPanel':{__esModule:true,default:detailsPanel},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
  '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:'alice'},user:{profile:{id:'alice'}}})},
  },{window:{clearInterval(){},setInterval(){}}}).default;
  runtime.mount(Component);await runtime.settle();assert.doesNotMatch(html(runtime),/Didit|backend|webhook/);
@@ -96,7 +97,7 @@ test('a session response from a previous account cannot reopen its capture',asyn
  const Component=load('components/settings/sections/KycSection.tsx',{
  react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},message(){},success(){}}},
  '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'NOT_VERIFIED',provider:'VNPT'}),createVnptSession:()=>new Promise(done=>{resolve=done;})}},
- './VnptKycCapture':{__esModule:true,default:capture},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
+ './VnptKycCapture':{__esModule:true,default:capture},'@/components/settings/KycVerifiedDetailsPanel':{__esModule:true,default:detailsPanel},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
  '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:actor},user:{profile:{id:actor}}})},
  },{window:{clearInterval(){},setInterval(){}}}).default;
  runtime.mount(Component);await runtime.settle();
@@ -110,7 +111,7 @@ for(const provider of ['DIDIT','ADMIN'])test(`${provider} verified users stay ve
  const Component=load('components/settings/sections/KycSection.tsx',{
  react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},success(){}}},
  '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'VERIFIED',provider,sessionId:'legacy',verifiedAt:null}),createVnptSession:async()=>calls.push('start')}},
- './VnptKycCapture':{__esModule:true,default:()=>null},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
+ './VnptKycCapture':{__esModule:true,default:()=>null},'@/components/settings/KycVerifiedDetailsPanel':{__esModule:true,default:detailsPanel},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
  '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:'alice'},user:{profile:{id:'alice'}}})},
  }).default;
  runtime.mount(Component);await runtime.settle();
@@ -123,11 +124,24 @@ test('a pending VNPT session can be cancelled using the backend result',async()=
  const Component=load('components/settings/sections/KycSection.tsx',{
  react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},success(){}}},
  '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'PENDING',provider:'VNPT',sessionId:'attempt'}),cancelSession:async()=>{calls.push('cancel');return{status:'EXPIRED',provider:'VNPT'};}}},
- './VnptKycCapture':{__esModule:true,default:capture},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
+ './VnptKycCapture':{__esModule:true,default:capture},'@/components/settings/KycVerifiedDetailsPanel':{__esModule:true,default:detailsPanel},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
  '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:'alice'},user:{profile:{id:'alice'}}})},
  }).default;
  runtime.mount(Component);await runtime.settle();
  flatten(runtime.tree).find(n=>n.type==='button'&&n.props.className.includes('border-rose')).props.onClick();await runtime.settle();
  assert.deepEqual(calls,['cancel']);assert.match(html(runtime),/Phiên xác minh đã hết hạn/);
  assert.equal(flatten(runtime.tree).find(n=>n.type===capture),undefined);runtime.unmount();
+});
+
+test('verified profile shows CCCD and vendor checks from the owner-only API',async()=>{
+ const runtime=hookRuntime(),calls=[];
+ const Component=load('components/settings/KycVerifiedDetailsPanel.tsx',{
+  react:runtime.hooks,'lucide-react':icons,
+  '@/services/kyc.service':{__esModule:true,default:{getVerifiedDetails:async()=>{calls.push('details');return{cccd:'001234567890',fullName:'NGUYEN VAN A',faceMatchPercent:97.654,documentValid:true,eyesOpen:false};}}},
+ }).default;
+ runtime.mount(Component,{cccd:'001234567890',verified:true});await runtime.settle();
+ assert.deepEqual(calls,['details']);assert.match(html(runtime),/Thông tin xác thực KYC/);
+ assert.match(html(runtime),/001234567890/);assert.match(html(runtime),/97.65%/);
+ assert.match(html(runtime),/Khuôn mặt hợp lệ|Mắt mở/);assert.match(html(runtime),/Không đạt/);
+ runtime.unmount();
 });

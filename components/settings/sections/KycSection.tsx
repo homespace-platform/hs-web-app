@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import kycService from "@/services/kyc.service";
 import VnptKycCapture from "./VnptKycCapture";
+import KycVerifiedDetailsPanel from "@/components/settings/KycVerifiedDetailsPanel";
 import type { VnptKycSession, KycStatus, KycStatusResponse } from "@/types/kyc.type";
 import { fetchCurrentUser } from "@/features/user/userSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -281,6 +282,7 @@ export default function KycSection() {
           </button>
         </div>
       </div>
+      {status === "VERIFIED" && kyc?.provider === "VNPT" && <KycVerifiedDetailsPanel key={userId} cccd={profile?.cccd} verified />}
     </div>
   );
 }

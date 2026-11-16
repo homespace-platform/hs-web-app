@@ -1,6 +1,6 @@
 import axiosClient from "@/lib/axios-client";
 import type { ApiResponse } from "@/types/api.type";
-import type { KycStatusResponse, VnptKycSession, VnptKycStep } from "@/types/kyc.type";
+import type { KycStatusResponse, KycVerifiedDetails, VnptKycSession, VnptKycStep } from "@/types/kyc.type";
 
 const kycService = {
   async createVnptSession(): Promise<VnptKycSession> {
@@ -20,6 +20,13 @@ const kycService = {
       "/api/v1/users/me/kyc"
     );
     return response.data.result!;
+  },
+
+  async getVerifiedDetails(): Promise<KycVerifiedDetails | null> {
+    const response = await axiosClient.get<ApiResponse<KycVerifiedDetails | null>>(
+      "/api/v1/users/me/kyc/details"
+    );
+    return response.data.result ?? null;
   },
 
   async cancelSession(): Promise<KycStatusResponse> {

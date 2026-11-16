@@ -17,7 +17,6 @@ import { userProfileSchema, type UserProfileForm } from '@/validation/user.schem
 import AddressEditor from '@/components/settings/AddressEditor';
 import IdentityBadge from '@/components/settings/IdentityBadge';
 import UserAvatar from '@/components/common/UserAvatar';
-import KycVerifiedDetailsPanel from '@/components/settings/KycVerifiedDetailsPanel';
 import { MediaLightboxModal, type MediaGalleryItem } from '@/components/common/MediaGallery';
 
 type ProfileForm = UserProfileForm;
@@ -432,8 +431,6 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                     </button>
                 </div>
             </form>
-
-            <KycVerifiedDetailsPanel key={profile.id} cccd={profile.cccd} verified={Boolean(profile.kycVerified && !profile.kycOptional)} optional={Boolean(profile.kycOptional)} />
 
             <AddressEditor
                 initialAddress={profile.address}

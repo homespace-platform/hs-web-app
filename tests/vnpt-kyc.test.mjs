@@ -133,7 +133,7 @@ test('a pending VNPT session can be cancelled using the backend result',async()=
  assert.equal(flatten(runtime.tree).find(n=>n.type===capture),undefined);runtime.unmount();
 });
 
-test('verified profile shows CCCD and vendor checks from the owner-only API',async()=>{
+test('verified KYC panel shows CCCD and vendor checks from the owner-only API',async()=>{
  const runtime=hookRuntime(),calls=[];
  const Component=load('components/settings/KycVerifiedDetailsPanel.tsx',{
   react:runtime.hooks,'lucide-react':icons,
@@ -144,4 +144,11 @@ test('verified profile shows CCCD and vendor checks from the owner-only API',asy
  assert.match(html(runtime),/001234567890/);assert.match(html(runtime),/97.65%/);
  assert.match(html(runtime),/Khuôn mặt hợp lệ|Mắt mở/);assert.match(html(runtime),/Không đạt/);
  runtime.unmount();
+});
+
+test('KYC details appear only in Account & Security',()=>{
+ const profile=fs.readFileSync('components/settings/sections/ProfileSection.tsx','utf8');
+ const security=fs.readFileSync('components/settings/sections/KycSection.tsx','utf8');
+ assert.doesNotMatch(profile,/KycVerifiedDetailsPanel/);
+ assert.match(security,/<KycVerifiedDetailsPanel/);
 });

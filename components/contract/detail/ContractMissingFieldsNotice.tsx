@@ -40,9 +40,9 @@ export default function ContractMissingFieldsNotice({ completeness, isLandlord, 
             {listedFields.length > 6 && <li>… và {listedFields.length - 6} trường khác</li>}
           </ul>
         </>}
-        {isLandlord && listedFields.some(field => field.key === "landlord.permanentAddress") && <Link href="/settings/profile"
+        {isLandlord && listedFields.some(field => field.key.startsWith("landlord.") && ["fullName", "idNumber", "birthDate", "gender", "permanentAddress", "issueDate", "expirationDate", "issuePlace"].includes(field.key.split(".")[1])) && <Link href="/settings/account-security"
           className="inline-flex text-xs font-semibold underline underline-offset-2 pt-1">
-          Cập nhật nơi thường trú trong hồ sơ cá nhân
+          Kiểm tra thông tin KYC đã xác thực
         </Link>}
       </div>
     </div>

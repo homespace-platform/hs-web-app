@@ -5,23 +5,24 @@ const prompt=read("hs-infra/prompts/HOMESPACE_CONTRACT_PROMPT.md"),catalog=read(
 const known=[...catalog.matchAll(/\badd\("([#\w.]+)"/g)].map(m=>m[1]);
 const markers=s=>[...new Set([...s.matchAll(/\{\{([#\w.]+)\}\}/g)].map(m=>m[1]))].sort();
 
-test("prompt bodies have exactly 56/57/57 supported unique markers, with six bank fields and six dynamic tables",()=>{
-  assert.equal(known.length,64);const parts=prompt.split(/### PROMPT \d:/).slice(1);assert.equal(parts.length,3);
+test("prompt bodies have exactly 66/67/67 supported unique markers, with six bank fields and six dynamic tables",()=>{
+  assert.equal(known.length,74);const parts=prompt.split(/### PROMPT \d:/).slice(1);assert.equal(parts.length,3);
   const required=[...catalog.matchAll(/\badd\("([^"\n]+)"[^\n]+, ALL\);/g)].map(m=>m[1]);assert.equal(required.length,27);
   for(const [i,part] of parts.entries()) {
     const body=part.split("III. CẤU TRÚC ĐIỀU KHOẢN CHI TIẾT")[1].split("```")[0],codes=markers(body);
-    assert.equal(codes.length,i===0?56:57);assert.deepEqual(codes.filter(c=>!known.includes(c)),[]);
+    assert.equal(codes.length,i===0?66:67);assert.deepEqual(codes.filter(c=>!known.includes(c)),[]);
     for(const key of [...required,...(i===0?[]:["property.unitNumber"])])assert.ok(codes.includes(key),key);
     for(const who of ["landlord","tenant"])for(const key of ["bankName","bankAccountNumber","bankAccountHolder"])assert.ok(codes.includes(`${who}.${key}`));
     for(const key of known.filter(c=>c.startsWith("#")))assert.equal([...body.matchAll(new RegExp("\\{\\{"+key+"\\}\\}","g"))].length,1,key);
   }
-  const catalogSection=prompt.split("## II. DANH MỤC 64")[1].split("## III.")[0];assert.deepEqual(markers(catalogSection),[...known].sort());
+  const catalogSection=prompt.split("## II. DANH MỤC 74")[1].split("## III.")[0];assert.deepEqual(markers(catalogSection),[...known].sort());
 });
 
 test("all catalog fields route to a view and amendment editor or an explicitly protected/derived record",()=>{
   const protectedCodes=new Set(["contract.number","contract.signingDate","contract.signingCity","contract.schemaVersion","contract.revisionNumber","rent.paymentDueDay","meters.electricityInitial","meters.waterInitial","#initialPaymentTable",...known.filter(k=>k.startsWith("payment.initial."))]);
+  for(const side of ["landlord","tenant"])for(const key of ["fullName","idNumber","birthDate","gender","permanentAddress","issueDate","expirationDate","issuePlace"])protectedCodes.add(side+"."+key);
   const derived=new Set(["rent.amountWords","deposit.amountWords"]);
-  assert.equal(protectedCodes.size,18);assert.equal(derived.size,2);assert.equal(known.filter(k=>!protectedCodes.has(k)&&!derived.has(k)).length,44);
+  assert.equal(protectedCodes.size,34);assert.equal(derived.size,2);assert.equal(known.filter(k=>!protectedCodes.has(k)&&!derived.has(k)).length,38);
   const files={landlord:"ContractPartiesSection",tenant:"ContractPartiesSection",property:"ContractPropertySection",lease:"ContractLeaseSection",rent:"ContractFinancialSection",deposit:"ContractFinancialSection",payment:"ContractInitialPaymentSection",meters:"ContractHandoverSection",contract:"ContractHeader"};
   const dynamic={"#chargesTable":"ContractChargesSection","#equipmentTable":"ContractEquipmentSection","#amenitiesTable":"ContractAmenitiesSection","#policiesTable":"ContractPoliciesSection","#propertyFeaturesTable":"ContractPropertySection","#initialPaymentTable":"ContractInitialPaymentSection"};
   const aliases={"deposit.amountNumber":"depositAmountNumber","deposit.amountWords":"depositAmountWords","deposit.description":"depositDescription","contract.number":"contractNumber","contract.signingDate":"signedAt"};
@@ -66,7 +67,8 @@ test("lease duration shows the month total once and supports older snapshots",()
   }
 });
 for(const type of ["Nhà nguyên căn","Căn hộ chung cư","Phòng trọ"])test(`${type}: both bank snapshots render in view/edit; initial ledger stays read-only and unchanged`,()=>{
-  const a={fullName:"Owner",bankName:"Ngân hàng A",bankAccountNumber:"000123456",bankAccountHolder:"CHU TAI KHOAN A"},b={fullName:"Tenant",bankName:"Ngân hàng B",bankAccountNumber:"000987654",bankAccountHolder:"CHU TAI KHOAN B",occupantCount:2};
+  const kyc={birthDate:"16/02/2004",gender:"Nam",idNumber:"001234567890",permanentAddress:"KYC address",issueDate:"31/05/2021",expirationDate:"16/02/2029",issuePlace:"KYC issuer"};
+  const a={...kyc,fullName:"Owner",bankName:"Ngân hàng A",bankAccountNumber:"000123456",bankAccountHolder:"CHU TAI KHOAN A"},b={...kyc,fullName:"Tenant",bankName:"Ngân hàng B",bankAccountNumber:"000987654",bankAccountHolder:"CHU TAI KHOAN B",occupantCount:2};
   const initialPayment={status:"CONFIRMED",monthlyRent:12345,depositAmount:67890,totalAmount:80235,payerReportedAt:"2026-10-15T01:00:00Z",payeeConfirmedAt:"2026-10-15T01:05:00Z",confirmedAt:"2026-10-15T01:05:00Z",transferReference:"REF-ORIGINAL",bankTransactionReference:"BANK-ORIGINAL",paidAt:"2026-10-15T01:05:00Z",transactionCode:"LEGACY-ORIGINAL",rows:[{itemName:"Khoản đã chốt",amountText:"80.235 VNĐ",note:"Xác nhận gốc"}]};
   const terms={landlord:a,tenant:b,property:{propertyType:type},financial:{amountValue:"999999999",depositAmountValue:"999999999"},initialPayment};
   const w={editing:false,data:{currentTerms:terms},values:structuredClone(terms),busy:false,patch(){}};
@@ -81,6 +83,7 @@ for(const type of ["Nhà nguyên căn","Căn hộ chung cư","Phòng trọ"])tes
     for(const key of ["bankAccountNumber","bankAccountHolder"])assert.ok(html.includes(`value="${person[key]}"`),key);
   }
   assert.equal((html.match(/<select/g)||[]).length,2);
+  assert.equal((html.match(/<input\b[^>]*disabled=""/g)||[]).length,16,"All eight identity fields of both parties are read-only");
   html=renderToStaticMarkup(React.createElement(Initial,{initialPayment:{totalAmount:999999999}}));
   for(const value of ["REF-ORIGINAL","BANK-ORIGINAL","LEGACY-ORIGINAL","Khoản đã chốt","80.235 VNĐ"])assert.ok(html.includes(value),value);
   assert.doesNotMatch(html,/999999999|<input|<textarea|<select/);assert.equal(initialPayment.totalAmount,80235);

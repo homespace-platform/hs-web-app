@@ -28,10 +28,10 @@ export default function ContractPartiesSection({
     <h3 className="text-sm font-bold">Chủ thể giao kết hợp đồng</h3>
     <div className="grid gap-4 md:grid-cols-2">{(["landlord","tenant"] as const).map(group=><section key={group} className="min-w-0 rounded-2xl border bg-card p-4.5 space-y-3">
       <h4 className="text-xs font-bold">{group==="landlord"?"Bên A — Bên cho thuê":"Bên B — Bên thuê"}</h4>
-      <ContractTermFields group={group} fields={[["fullName","Họ và tên"],["idNumber","Số CCCD / Định danh"],["permanentAddress","Nơi thường trú"],["phone","Số điện thoại"],["email","Email liên hệ"],["bankName","Ngân hàng"],["bankAccountNumber","Số tài khoản"],["bankAccountHolder","Chủ tài khoản"]]}/>
+      <ContractTermFields group={group} fields={[["fullName","Họ và tên",true,"Theo KYC đã xác thực"],["idNumber","Số CCCD / Định danh",true],["birthDate","Ngày sinh",true],["gender","Giới tính",true],["permanentAddress","Nơi thường trú",true],["issueDate","Ngày cấp CCCD",true],["expirationDate","Ngày hết hạn CCCD",true],["issuePlace","Nơi cấp CCCD",true],["phone","Số điện thoại"],["email","Email liên hệ"],["bankName","Ngân hàng"],["bankAccountNumber","Số tài khoản"],["bankAccountHolder","Chủ tài khoản"]]}/>
       <p className="text-xs text-muted-foreground">{draft
-        ? "Thông tin các bên dùng trên văn bản hợp đồng; không thay hồ sơ định danh hay tài khoản thu/hoàn tiền trong Settings. Phí theo người/xe được tính lại khi lưu; khoản đã thanh toán giữ lịch sử."
-        : "Sửa thông tin trên văn bản phụ lục, không thay tài khoản đăng nhập hoặc hồ sơ định danh. QR thanh toán dùng tài khoản ngân hàng đã đăng ký trong hồ sơ thanh toán."}</p>
+        ? "Danh tính lấy từ KYC đã xác thực và không được nhập sửa. Thông tin liên hệ dùng trên văn bản không thay tài khoản thu/hoàn tiền trong Settings. Phí theo người/xe được tính lại khi lưu; khoản đã thanh toán giữ lịch sử."
+        : "Danh tính KYC giữ nguyên theo snapshot hợp đồng. Bạn có thể sửa thông tin liên hệ và điều khoản được phép. QR thanh toán dùng tài khoản ngân hàng đã đăng ký trong hồ sơ thanh toán."}</p>
       {group==="tenant" && (draft ? <ContractTermFields group="tenant" fields={[["occupantCount","Số người cư trú"],["motorbikeCount","Xe máy đăng ký"],["carCount","Ô tô đăng ký"]]}/>
         : <InlineAmendmentFields group="residents"/>)}
     </section>)}</div>
@@ -68,9 +68,14 @@ export default function ContractPartiesSection({
           </div>
 
           <div className="space-y-0.5">
-            <FieldRow editable label="Họ và tên" value={landlord.fullName} highlight />
-            <FieldRow editable label="Số CCCD / Định danh" value={landlord.idNumber} />
-            <FieldRow editable label="Nơi thường trú" value={landlord.permanentAddress} />
+            <FieldRow label="Họ và tên" value={landlord.fullName} highlight />
+            <FieldRow label="Số CCCD / Định danh" value={landlord.idNumber} />
+            <FieldRow label="Nơi thường trú" value={landlord.permanentAddress} />
+            <FieldRow label="Ngày sinh" value={landlord.birthDate} />
+            <FieldRow label="Giới tính" value={landlord.gender} />
+            <FieldRow label="Ngày cấp CCCD" value={landlord.issueDate} />
+            <FieldRow label="Ngày hết hạn CCCD" value={landlord.expirationDate} />
+            <FieldRow label="Nơi cấp CCCD" value={landlord.issuePlace} />
             <FieldRow editable label="Số điện thoại" value={landlord.phone} />
             <FieldRow editable label="Email liên hệ" value={landlord.email} />
             <div className="pt-2"><p className="mb-1 text-xs font-semibold">Tài khoản nhận thanh toán</p>
@@ -98,9 +103,14 @@ export default function ContractPartiesSection({
           </div>
 
           <div className="space-y-0.5">
-            <FieldRow editable label="Họ và tên" value={tenant.fullName} highlight />
-            <FieldRow editable label="Số CCCD / Định danh" value={tenant.idNumber} />
-            <FieldRow editable label="Nơi thường trú" value={tenant.permanentAddress} />
+            <FieldRow label="Họ và tên" value={tenant.fullName} highlight />
+            <FieldRow label="Số CCCD / Định danh" value={tenant.idNumber} />
+            <FieldRow label="Nơi thường trú" value={tenant.permanentAddress} />
+            <FieldRow label="Ngày sinh" value={tenant.birthDate} />
+            <FieldRow label="Giới tính" value={tenant.gender} />
+            <FieldRow label="Ngày cấp CCCD" value={tenant.issueDate} />
+            <FieldRow label="Ngày hết hạn CCCD" value={tenant.expirationDate} />
+            <FieldRow label="Nơi cấp CCCD" value={tenant.issuePlace} />
             <FieldRow editable label="Số điện thoại" value={tenant.phone} />
             <FieldRow editable label="Email liên hệ" value={tenant.email} />
             <div className="pt-2"><p className="mb-1 text-xs font-semibold">Tài khoản nhận hoàn trả / hoàn cọc</p>

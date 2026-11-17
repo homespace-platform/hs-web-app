@@ -129,7 +129,8 @@ test('listing badges cover every event/status, retain category fallback and reje
   const { getNotificationTag: tag, getSafeActionPath } = service();
   for (const [type, expected] of Object.entries({ LISTING_CREATED: 'Tạo tin', LISTING_UPDATED: 'Cập nhật',
     LISTING_APPROVED: 'Đã duyệt', LISTING_REJECTED: 'Từ chối', LISTING_EDIT_APPROVED: 'Sửa đã duyệt',
-    LISTING_EDIT_REJECTED: 'Sửa bị từ chối', LISTING_EXPIRED: 'Hết hạn' })) {
+    LISTING_EDIT_REJECTED: 'Sửa bị từ chối', LISTING_EXPIRED: 'Hết hạn',
+    SAVED_LISTING_UNAVAILABLE: 'Tin đã lưu ngừng hiển thị', SAVED_LISTING_UPDATED: 'Tin đã lưu có cập nhật' })) {
     assert.equal(tag({ category: 'LISTING', type, metadata: null }), expected);
   }
   for (const [status, expected] of Object.entries({ PENDING_REVIEW: 'Chờ duyệt', HIDDEN: 'Đã ẩn', VIOLATION: 'Vi phạm', RENTED_EXTERNALLY: 'Đã cho thuê' })) {
@@ -139,6 +140,7 @@ test('listing badges cover every event/status, retain category fallback and reje
   for (const status of [undefined, null, 1, 'EXPIRED', 'toString', '__proto__']) assert.equal(tag({ category: 'LISTING', type: 'LISTING_STATUS_CHANGED', metadata: { status } }), 'Tin đăng');
   const route = '/dashboard/properties/view?id=listing-1';
   assert.equal(getSafeActionPath(route), route);
+  assert.equal(getSafeActionPath('/favorites'), '/favorites');
   for (const unsafe of ['//evil.test', 'https://evil.test', 'javascript:alert(1)', '/\\evil.test', '/a/../admin', '/a b', null]) assert.equal(getSafeActionPath(unsafe), null);
 });
 

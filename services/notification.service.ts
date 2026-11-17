@@ -185,6 +185,8 @@ const LISTING_TYPE_TAGS: Record<string, string> = {
   LISTING_EDIT_APPROVED: "Sửa đã duyệt",
   LISTING_EDIT_REJECTED: "Sửa bị từ chối",
   LISTING_EXPIRED: "Hết hạn",
+  SAVED_LISTING_UNAVAILABLE: "Tin đã lưu ngừng hiển thị",
+  SAVED_LISTING_UPDATED: "Tin đã lưu có cập nhật",
 };
 
 const LISTING_STATUS_TAGS: Record<string, string> = {

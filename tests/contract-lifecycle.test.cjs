@@ -24,7 +24,7 @@ function load(source, lifecycle, namespace = false) {
     : name === "next/image" ? { default: ({ unoptimized, ...props }) => React.createElement("img", props) }
     : name === "./SettlementPaymentPanel" ? { default: () => null }
     : ["@/components/payment/PaymentReceiptActions","@/components/payment/PaymentDisputePanel"].includes(name) ? { default: () => null }
-    : ["@/components/complaint/ComplaintPanel","@/components/rental-request/RentalWorkflowPanel"].includes(name) ? { default: () => null }
+    : ["@/components/complaint/ComplaintPanel","@/components/rental-request/RentalWorkflowPanel"].includes(name) ? { default: () => React.createElement("div", null, "CONTRACT_ONLY_WORKFLOW") }
     : name === "@/components/payment/DepositLedgerSummary" ? { default: load(fs.readFileSync(path.join(__dirname, "../components/payment/DepositLedgerSummary.tsx"), "utf8"), false) }
     : name === "./MeterReading" ? MeterComponents
     : name === "@/components/ui/vnd-money-input" ? { default: ({label, value}) => React.createElement("input", {"aria-label":label, value:value ?? "", readOnly:true}) }
@@ -78,6 +78,28 @@ test("separate payment module preserves settlement consent and hides contract re
   assert.match(settlement, /Đồng ý quyết toán/);assert.doesNotMatch(settlement, /Gửi yêu cầu gia hạn|Mở văn bản gia hạn/);
   const renewal = renderLifecycle(data, false, "renewal");
   assert.match(renewal, /Gửi yêu cầu gia hạn/);assert.doesNotMatch(renewal, /Đồng ý quyết toán|Bàn giao &amp; tiền cọc/);
+});
+
+test("deposit settlement omits contract workflows and links complaint decisions to the contract", () => {
+  const closure = { status: "PROPOSED", proposalVersion: 1, refundAmount: 20000000, complaintCaseId: "complaint" };
+  for (const isLandlord of [true, false]) {
+    const html = renderLifecycle({ rentalRequestId: "rental", closure }, isLandlord, "settlement");
+    assert.doesNotMatch(html, /CONTRACT_ONLY_WORKFLOW/);
+    assert.match(html, new RegExp(`/dashboard/${isLandlord ? "landlord" : "tenant"}/contracts/root`));
+    assert.match(html, /Khiếu nại &amp; hỗ trợ trong hồ sơ hợp đồng/);
+  }
+});
+
+test("paid early-exit settlement accepts handover in the proposal without sending users to another workflow", () => {
+  const closure={status:"WAITING_HANDOVER",proposalVersion:0};
+  for(const isLandlord of [true,false]) {
+    const html=renderLifecycle({closure,earlyReturnPending:true,canProposeClosure:isLandlord},isLandlord,"settlement");
+    assert.match(html,/Xác nhận bàn giao cùng đề xuất quyết toán/);
+    assert.doesNotMatch(html,/#workflow-early-exit|Mở bước xác nhận bàn giao/);
+    if(isLandlord)assert.match(html,/Gửi đề xuất quyết toán/);else assert.doesNotMatch(html,/Gửi đề xuất quyết toán/);
+  }
+  const ready=renderLifecycle({closure,earlyReturnPending:false,canProposeClosure:true},true,"settlement");
+  assert.match(ready,/Gửi đề xuất quyết toán/);assert.doesNotMatch(ready,/Mở bước xác nhận bàn giao/);
 });
 
 test("renewal disabled before server opening date, enabled for tenant only, cutoff explained", () => {

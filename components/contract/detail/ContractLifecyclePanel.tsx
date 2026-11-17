@@ -11,8 +11,6 @@ import { contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
 import { getApiErrorMessage } from "@/utils/apiError";
 import SettlementPaymentPanel from "./SettlementPaymentPanel";
 import DepositLedgerSummary from "@/components/payment/DepositLedgerSummary";
-import ComplaintPanel from "@/components/complaint/ComplaintPanel";
-import RentalWorkflowPanel from "@/components/rental-request/RentalWorkflowPanel";
 import { useNotificationChangeSync } from "@/hooks/useAgreementChangeSync";
 import { MeterReadingInput } from "./MeterReading";
 import { invoicePeriodLabel } from "@/lib/invoice-status";
@@ -206,7 +204,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
             <strong>{money(bill.totalAmount)} · {bill.status === "PAID" ? "Đã xác nhận thanh toán" : bill.status === "ROLLED_OVER" ? "Đã chuyển nợ" : bill.paymentStatus === "TRANSFER_REPORTED" ? "Đã thanh toán · Chờ chủ nhà xác nhận" : bill.paymentStatus === "DISPUTED" ? "Đang đối soát" : bill.status === "DRAFT" ? "Chờ chốt chỉ số/phát hành" : "Cần thanh toán"}</strong>
           </div>)}
           <p className={data.billing.allPaid ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>
-            {data.billing.allPaid ? data.closure.status === "CLOSED" ? "Tất cả hóa đơn đã hoàn tất." : noDepositToRefund ? "Tất cả hóa đơn đã hoàn tất. Tiếp tục xác nhận trả nhà và quyết toán các khoản còn lại; không cần hoàn cọc." : "Tất cả hóa đơn đã hoàn tất. Có thể tiếp tục quyết toán cọc." : noDepositToRefund ? "Chưa hoàn tất hóa đơn. Bước bàn giao/quyết toán đang khóa." : "Chưa hoàn tất hóa đơn. Bước quyết toán/hoàn cọc đang khóa."}</p>
+            {data.billing.allPaid ? data.closure.status === "CLOSED" ? "Tất cả hóa đơn đã hoàn tất." : data.earlyReturnPending ? "Tất cả hóa đơn đã hoàn tất. Hai bên xác nhận bàn giao trong đề xuất quyết toán cọc." : noDepositToRefund ? "Tất cả hóa đơn đã hoàn tất. Tiếp tục xác nhận trả nhà và quyết toán các khoản còn lại; không cần hoàn cọc." : "Tất cả hóa đơn đã hoàn tất. Có thể tiếp tục quyết toán cọc." : noDepositToRefund ? "Chưa hoàn tất hóa đơn. Bước bàn giao/quyết toán đang khóa." : "Chưa hoàn tất hóa đơn. Bước quyết toán/hoàn cọc đang khóa."}</p>
           <Link href={invoiceDetailPath(contractId)} className="inline-block rounded-lg bg-primary px-3 py-2 font-semibold text-primary-foreground">{isLandlord ? "Mở hóa đơn · Chốt chỉ số / xác nhận nhận tiền →" : "Mở hóa đơn · Thanh toán kỳ cuối →"}</Link>
           {data.billing.canIssueSupplement && <details className="space-y-2 border-t pt-3">
             <summary className="cursor-pointer font-semibold">Ngoại lệ · Bổ sung chi phí chưa thu (không bắt buộc)</summary>
@@ -234,6 +232,10 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
           <p className="whitespace-pre-wrap">{data.closure.history?.filter(event => event.type === "DISPUTED").at(-1)?.note}</p>
           <EvidenceLinks ids={data.closure.history?.filter(event => event.type === "DISPUTED").at(-1)?.evidenceIds} />
           <p>Chủ nhà đối chiếu minh chứng và gửi đề xuất phiên bản mới. Người thuê cần đọc và đồng ý lại.</p>
+        </div>}
+        {data.earlyReturnPending && <div role="status" className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+          <p className="font-semibold">Xác nhận bàn giao cùng đề xuất quyết toán</p>
+          <p>Chủ nhà xác nhận đã nhận lại nhà khi gửi đề xuất bên dưới. Người thuê xác nhận đã trả nhà khi đồng ý đúng phiên bản đề xuất; sau đó hệ thống mới tạo khoản hoàn hoặc khoản phải trả thêm. Không cần xác nhận lại ở hồ sơ chấm dứt sớm.</p>
         </div>}
         {data.canProposeClosure && <div className="space-y-3 rounded-xl bg-muted/30 p-3 text-xs">
           <p className="font-semibold">Bước 2 · {noDepositToRefund ? "Xác nhận trả nhà và quyết toán sau khi thanh toán đủ hóa đơn" : "Lập đề xuất quyết toán cọc sau khi thanh toán đủ hóa đơn"}</p>
@@ -286,7 +288,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
             </details>
           </>}
         </details>}
-        {data.closure.complaintCaseId && !data.closure.complaintOwnerApprovedAt && <p className="text-sm text-amber-800">Đề xuất từ hồ sơ khiếu nại cần chủ nhà đồng ý trước tại mục Khiếu nại & hỗ trợ bên dưới.</p>}
+        {data.closure.complaintCaseId && !data.closure.complaintOwnerApprovedAt && <p className="text-sm text-amber-800">Đề xuất từ hồ sơ khiếu nại cần chủ nhà đồng ý trước tại <Link href={contractDetailPath(isLandlord ? "landlord" : "tenant", contractId)} className="underline">mục Khiếu nại & hỗ trợ trong hồ sơ hợp đồng</Link>.</p>}
         {!!data.closure.history?.length && <details className="space-y-3 rounded-xl border p-3 text-xs">
           <summary className="cursor-pointer font-semibold">Lịch sử quyết toán & khiếu nại ({data.closure.history.length})</summary>
           {[...data.closure.history].reverse().map((event, index) => <article key={index} className="space-y-2 border-t pt-3">
@@ -299,7 +301,6 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
         {data.refundPayment && <SettlementPaymentPanel key={data.refundPayment.id} payment={data.refundPayment} isLandlord={isLandlord} refresh={refresh} />}
         {data.balancePayment && <SettlementPaymentPanel key={data.balancePayment.id} payment={data.balancePayment} isLandlord={isLandlord} refresh={refresh} />}
       </div>}
-      {mode !== "renewal" && data.rentalRequestId && <><RentalWorkflowPanel rentalRequestId={data.rentalRequestId} kind="early-exit" onUpdated={refresh}/><ComplaintPanel rentalRequestId={data.rentalRequestId} attention={data.closure?.status==="DISPUTED"} onUpdated={refresh}/></>}
     </>}
   </section>;
 }

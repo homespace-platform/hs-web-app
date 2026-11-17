@@ -37,6 +37,7 @@ const STATUS_BADGE: Record<ContractStatus, string> = {
 };
 
 function contractStatusLabel(contract: ContractResponse): string {
+  if (contract.agreementKind === "DEPOSIT" && contract.status === "CLOSED") return "Đã hoàn tất HĐ cọc";
   if (contract.agreementKind === "DEPOSIT" && contract.status === "ACTIVE") return "Đã ký đủ HĐ cọc";
   if (contract.agreementKind === "DEPOSIT" && contract.status === "DRAFT") return "HĐ cọc · Chờ ký";
   if (contract.status === "PENDING_REVIEW") {
@@ -62,7 +63,7 @@ function ContractListContent({ perspective }: { perspective: "landlord" | "tenan
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState<ContractStatus | "ALL">("ALL");
   const statusOptions=agreementKind==="DEPOSIT"
-    ? (["ALL","DRAFT","LANDLORD_SIGNATURE_PENDING","TENANT_SIGNATURE_PENDING","ACTIVE","TERMINATED","CANCELLED"] as const)
+    ? (["ALL","DRAFT","LANDLORD_SIGNATURE_PENDING","TENANT_SIGNATURE_PENDING","ACTIVE","CLOSED","TERMINATED","CANCELLED"] as const)
     : (["ALL","DRAFT","LANDLORD_SIGNATURE_PENDING","TENANT_SIGNATURE_PENDING","PENDING_REVIEW","ACTIVE","EXPIRED","CLOSED","TERMINATED","CANCELLED"] as const);
 
   const load = useCallback(async (silent = false) => {
@@ -140,7 +141,7 @@ function ContractListContent({ perspective }: { perspective: "landlord" | "tenan
                 : "bg-card border-border text-muted-foreground hover:bg-muted"
             }`}
           >
-            {key === "ALL" ? "Tất cả" : agreementKind==="DEPOSIT" && key==="DRAFT" ? "Chờ chủ nhà ký" : key === "ACTIVE" ? agreementKind==="DEPOSIT"?"Đã ký đủ HĐ cọc":"Đã ký / Hiệu lực" : key === "DRAFT" && perspective === "tenant" ? "Bản nháp để xem trước" : STATUS_LABEL[key]}
+            {key === "ALL" ? "Tất cả" : agreementKind==="DEPOSIT" && key==="CLOSED" ? "Đã hoàn tất HĐ cọc" : agreementKind==="DEPOSIT" && key==="DRAFT" ? "Chờ chủ nhà ký" : key === "ACTIVE" ? agreementKind==="DEPOSIT"?"Đã ký đủ HĐ cọc":"Đã ký / Hiệu lực" : key === "DRAFT" && perspective === "tenant" ? "Bản nháp để xem trước" : STATUS_LABEL[key]}
           </button>
         ))}
       </div>

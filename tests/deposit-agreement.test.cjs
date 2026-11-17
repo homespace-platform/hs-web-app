@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Isolated TypeScript component tests. */
 const {test}=require("node:test"),assert=require("node:assert/strict");
 const fs=require("node:fs"),path=require("node:path"),vm=require("node:vm"),ts=require("typescript");
 const source=fs.readFileSync(path.join(__dirname,"../lib/deposit-agreement-loader.ts"),"utf8");
@@ -106,4 +107,14 @@ test("deposit proof is attached only to its own final signed PDF",()=>{
   assert.match(renderPanel({rentalId:"rental",data}),/data-blockchain-document="final"/);
   assert.doesNotMatch(renderPanel({rentalId:"rental",data:{...data,documents:[{...data.documents[0],purpose:"SIGNED_LANDLORD"}]}}),/data-blockchain-document/);
   assert.doesNotMatch(renderPanel({rentalId:"rental",data:{...data,documents:[{...data.documents[0],contractId:"other-contract"}]}}),/data-blockchain-document/);
+});
+
+test("completed deposit keeps its signed PDF and blockchain proof while showing settlement completion",()=>{
+  const html=renderPanel({rentalId:"rental",data:{...ready,signingAllowed:false,obligation:"REFUNDED",
+    blockedReason:"Hợp đồng cọc đã hoàn tất cùng quyết toán hợp đồng thuê.",
+    agreement:{...ready.agreement,status:"CLOSED",signedAt:"2026-11-08T01:00:00Z"},
+    documents:[{id:"signed-final",contractId:"deposit-doc",status:"READY",purpose:"SIGNED_FINAL",documentType:"PDF"}]}});
+  assert.match(html,/Đã hoàn tất HĐ cọc/);assert.match(html,/đã hoàn tất cùng quyết toán/);
+  assert.match(html,/Xem \/ tải hợp đồng cọc đã ký/);assert.match(html,/data-blockchain-document="signed-final"/);
+  assert.doesNotMatch(html,/Kiểm tra \/ tạo lại tài liệu cọc/);
 });

@@ -74,7 +74,7 @@ export function depositSummary(data?: ContractLifecycle, onboarding?: RentalOnbo
   const payment = data.refundPayment || data.balancePayment;
   const amount = payment?.totalAmount ?? (closure.balanceAmount ? closure.balanceAmount : closure.refundAmount);
   if (closure.status === "CLOSED") return { label: "Đã hoàn tất", amount, detail: data.balancePayment ? "Đã nhận khoản còn thiếu" : data.refundPayment ? "Người thuê đã xác nhận nhận tiền" : "Đã thống nhất xử lý tiền cọc", tone: "success" };
-  if (closure.status === "WAITING_HANDOVER") return { label: "Chờ bàn giao & lập đề xuất", detail: data.billing.allPaid ? "Đã đủ hóa đơn, có thể lập đề xuất cọc" : "Hoàn tất hóa đơn trước khi xử lý cọc", tone: "warning" };
+  if (closure.status === "WAITING_HANDOVER") return { label: "Chờ bàn giao & lập đề xuất", detail: data.billing.allPaid ? data.canProposeClosure ? "Đã đủ hóa đơn, chủ nhà có thể lập đề xuất cọc" : "Đã đủ hóa đơn; theo dõi đề xuất quyết toán và xác nhận bàn giao" : "Hoàn tất hóa đơn trước khi xử lý cọc", tone: "warning" };
   if (closure.status === "PROPOSED") return { label: "Chờ người thuê đồng ý", amount, detail: "Đề xuất khấu trừ và số tiền hoàn", tone: "info" };
   if (closure.status === "DISPUTED") return { label: "Cần đối soát khấu trừ", amount, detail: "Người thuê chưa đồng ý đề xuất", tone: "warning" };
   return { label: payment?.status === "TRANSFER_REPORTED" ? "Chờ bên nhận xác nhận" : payment?.status === "DISPUTED" ? "Đang đối soát chuyển khoản" : closure.status === "BALANCE_PENDING" ? "Người thuê cần trả thêm" : "Chủ nhà cần chuyển cọc",

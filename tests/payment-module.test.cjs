@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Node tests load the real TypeScript with isolated imports. */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -43,6 +44,15 @@ test("deposit dispute, unaccepted proposal and zero settlement stay distinct", (
   assert.match(api.depositSummary(data).label, /Chờ người thuê/);
   assert.match(api.depositSummary({ ...data, closure: { status: "DISPUTED" } }).label, /đối soát/);
   assert.equal(api.depositSummary({ ...data, closure: { status: "CLOSED", refundAmount: 0, balanceAmount: 0 } }).amount, 0);
+});
+
+test("paid invoices never advertise deposit proposal before the server permits it", () => {
+  const data={heldDeposit:100,billing:{allPaid:true},closure:{status:"WAITING_HANDOVER"},earlyReturnPending:true,canProposeClosure:false};
+  assert.match(api.depositSummary(data).detail,/xác nhận bàn giao/);
+  assert.doesNotMatch(api.depositSummary(data).detail,/có thể lập/);
+  assert.doesNotMatch(api.depositSummary({...data,earlyReturnPending:false}).detail,/có thể lập/);
+  assert.match(api.depositSummary({...data,earlyReturnPending:false,canProposeClosure:true}).detail,/chủ nhà có thể lập/);
+  assert.match(api.depositSummary({...data,canProposeClosure:true}).detail,/chủ nhà có thể lập/);
 });
 test("invoice selection follows deep link or party action, preserving newest history and input order", () => {
   const bills = [bill("paid", "PAID", 20, 0), bill("pending", "UNPAID", 40, 1), bill("last", "PAID", 10, 2)];

@@ -9,6 +9,7 @@ export interface RentalStartChange {
 }
 export interface RentalOnboarding {
   serverNow: string; timezone: string; stage: string; startsOn: string; endExclusive: string;
+  originalEndExclusive?: string; leaseTermSource?: "EARLY_EXIT" | "SIGNED_ADJUSTMENT" | null;
   paymentOpensAt: string; paymentDueAt?: string; signingDueAt?: string;
   canPrepareContract: boolean; canSign: boolean; canRequestEarlierStart: boolean;
   holdMinutes: number; payments: PaymentRequest[]; startChanges: RentalStartChange[]; message: string; askerRole: "LANDLORD" | "TENANT";

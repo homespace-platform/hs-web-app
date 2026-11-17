@@ -15,7 +15,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 
 const labels: Record<string, string> = {
   DRAFT: "Đã lập · Chờ chủ nhà ký", LANDLORD_SIGNATURE_PENDING: "Chủ nhà đang ký",
-  TENANT_SIGNATURE_PENDING: "Chờ khách thuê ký", ACTIVE: "Đã ký đủ hai bên", CANCELLED: "Hồ sơ đã hủy", TERMINATED: "Đã chấm dứt HĐ cọc",
+  TENANT_SIGNATURE_PENDING: "Chờ khách thuê ký", ACTIVE: "Đã ký đủ hai bên", CLOSED: "Đã hoàn tất HĐ cọc", CANCELLED: "Hồ sơ đã hủy", TERMINATED: "Đã chấm dứt HĐ cọc",
 };
 
 export default function DepositAgreementPanel({ rentalRequestId, isLandlord, onUpdated }: {
@@ -118,13 +118,13 @@ export default function DepositAgreementPanel({ rentalRequestId, isLandlord, onU
     </div>}
     {!view && loading && !error && <p className="text-sm" role="status">Đang tải hợp đồng cọc và tài liệu…</p>}
     {contract && <p className="text-sm"><strong>{contract.contractNumber}</strong> · {labels[contract.status] || contract.status}</p>}
-    {contract?.status==="TERMINATED" && view?.blockedReason && <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">{view.blockedReason}</p>}
+    {contract && ["CLOSED","TERMINATED"].includes(contract.status) && view?.blockedReason && <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">{view.blockedReason}</p>}
     {view && !contract && !error && <p className="text-sm">Chưa có hồ sơ hợp đồng cọc. Sau khi chủ nhà xác nhận nhận tiền, hệ thống sẽ tự chuẩn bị tài liệu; bạn có thể kiểm tra mẫu hoặc dữ liệu còn thiếu bên dưới.</p>}
     {pdf && <button type="button" className="rounded-lg border px-3 py-2 text-sm" onClick={() => void open(pdf.id)}>{pdf.purpose === "SIGNED_FINAL" ? "Xem / tải hợp đồng cọc đã ký" : "Xem PDF hợp đồng cọc"}</button>}
     {pdf?.purpose === "SIGNED_FINAL" && pdf.contractId === contract?.id && <ContractBlockchainProof document={pdf}/>}
     {contract && !pdf && !error && <p className="text-sm text-muted-foreground">Hồ sơ cọc đã được lập, nhưng PDF chưa sẵn sàng. Hệ thống có thể đang kết xuất hoặc cần thử lại; không thu cọc lần nữa.</p>}
     {view && !error && (!contract || contract.status === "DRAFT") && !pdf && <button type="button" disabled={busy || loading} className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50" onClick={() => void prepare()}>{busy ? "Đang xử lý…" : "Kiểm tra / tạo lại tài liệu cọc"}</button>}
-    {view?.obligation&&<p className="text-xs">Nghĩa vụ cọc: {({RESERVATION_PENDING:"Đang giữ chỗ; chữ ký không thay cho nhận nhà",TRANSFERRED_TO_LEASE:"Nghĩa vụ giữ chỗ đã chuyển sang HĐ thuê · Cọc tiếp tục bảo đảm HĐ thuê",REFUND_DUE:"Còn nghĩa vụ hoàn cọc",REFUNDED:"Đã xác nhận hoàn cọc",RETAINED_BY_LANDLORD:"Đã xử lý khoản giữ lại theo hồ sơ",DISPUTED:"Đang đối soát / khiếu nại",ENDED:"Giữ chỗ đã kết thúc; xem sổ cọc và lịch sử"} as Record<string,string>)[view.obligation]??"Đang được theo dõi"}.</p>}
+    {view?.obligation&&<p className="text-xs">Nghĩa vụ cọc: {({RESERVATION_PENDING:"Đang giữ chỗ; chữ ký không thay cho nhận nhà",TRANSFERRED_TO_LEASE:"Nghĩa vụ giữ chỗ đã chuyển sang HĐ thuê · Cọc tiếp tục bảo đảm HĐ thuê",REFUND_DUE:"Còn nghĩa vụ hoàn cọc",REFUNDED:"Đã xác nhận hoàn cọc",RETAINED_BY_LANDLORD:"Đã xử lý khoản giữ lại theo hồ sơ",DISPUTED:"Đang đối soát / khiếu nại",ENDED:"Đã kết thúc; xem sổ cọc và lịch sử"} as Record<string,string>)[view.obligation]??"Đang được theo dõi"}.</p>}
     {view?.leaseContractId&&<a className="inline-block text-xs font-semibold text-primary underline" href={`/dashboard/${isLandlord?"landlord":"tenant"}/contracts/${encodeURIComponent(view.leaseContractId)}`}>Mở HĐ thuê liên kết →</a>}
     {signatureError && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{signatureError} Chưa kiểm tra được trạng thái ký; PDF đã có vẫn xem được. Bấm Làm mới để thử lại.</p>}
     {contract && signatureState && <SmartCaSignaturePanel key={contract.id} contract={contract} state={signatureState} isLandlord={isLandlord} isTenant={!isLandlord} hasReadyPdf={!!pdf} signingAllowed={!!view?.signingAllowed && !error && !signatureError} blockedReason={error || signatureError || view?.blockedReason || undefined} onUpdated={async () => { await load(); await onUpdated?.(); }}/>}

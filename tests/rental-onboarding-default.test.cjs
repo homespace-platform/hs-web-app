@@ -7,12 +7,37 @@ const testReact={...React,useState(initial){return React.useState(index++===0?sn
 const source=fs.readFileSync(path.join(__dirname,"../components/rental-request/RentalOnboardingPanel.tsx"),"utf8");
 const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 const mod={exports:{}};
-vm.runInThisContext(`(function(require,module,exports){${output}\n})`)(name=>name==="react"?testReact:name.startsWith("@/services/")?{rentalOnboardingService:{},default:{}}:name==="@/utils/apiError"?{getApiErrorMessage:()=>"error"}:["./RentalPaymentModal","./RentalWorkflowPanel","./DepositAgreementPanel","@/components/payment/PaymentReceiptActions","@/components/payment/PaymentDisputePanel","@/components/payment/DepositLedgerSummary","@/components/complaint/ComplaintPanel"].includes(name)?{default:()=>null}:require(name),mod,mod.exports);
+vm.runInThisContext(`(function(require,module,exports){${output}\n})`)(name=>name==="react"?testReact:name==="./useRentalRequestSync"?{useRentalRequestSync:()=>{}}:name.startsWith("@/services/")?{rentalOnboardingService:{},default:{}}:name==="@/utils/apiError"?{getApiErrorMessage:()=>"error"}:["./RentalPaymentModal","./RentalWorkflowPanel","./DepositAgreementPanel","@/components/payment/PaymentReceiptActions","@/components/payment/PaymentDisputePanel","@/components/payment/DepositLedgerSummary","@/components/complaint/ComplaintPanel"].includes(name)?{default:()=>null}:require(name),mod,mod.exports);
 function render(role,defaultCase={},stage="REQUIRES_REVIEW",extra={},props={}) {
   snapshot={stage,askerRole:role,serverNow:"2026-11-03T03:00:00Z",startsOn:"2026-11-01",endExclusive:"2027-02-01",payments:[],startChanges:[],history:[],canRequestCancellation:true,
     defaultCase:{eligibleKind:"FIRST_RENT",canComplete:false,...defaultCase},...extra};index=0;
   return renderToStaticMarkup(React.createElement(mod.exports.default,{rentalRequestId:"rental",...props}));
 }
+
+test("deposit workspace explains signed early termination and displays the replacement end for both parties",()=>{
+  for(const role of ["LANDLORD","TENANT"]) {
+    const html=render(role,{},"COMPLETED",{deposit:{},startsOn:"2026-11-17",endExclusive:"2026-12-17",originalEndExclusive:"2027-02-17",leaseTermSource:"EARLY_EXIT"});
+    assert.match(html,/Kết thúc: <strong>17\/12\/2026<\/strong>/);
+    assert.match(html,/Phụ lục chấm dứt sớm đã ký đủ hai bên/);
+    assert.match(html,/Thời hạn cũ trên HĐ cọc đã được thay thế/);
+    assert.match(html,/17\/02\/2027/);assert.match(html,/Không cần ký lại HĐ cọc/);
+    assert.match(html,/tiền cọc tiếp tục được quản lý và quyết toán/);
+  }
+});
+
+test("signed lease amendments and renewals show their end without claiming early termination",()=>{
+  const html=render("TENANT",{},"COMPLETED",{deposit:{},endExclusive:"2027-05-01",originalEndExclusive:"2027-02-01",leaseTermSource:"SIGNED_ADJUSTMENT"});
+  assert.match(html,/Kết thúc: <strong>01\/05\/2027<\/strong>/);
+  assert.match(html,/Phụ lục \/ văn bản gia hạn đã ký đủ hai bên/);
+  assert.doesNotMatch(html,/Phụ lục chấm dứt sớm đã ký/);
+});
+
+test("unchanged dates and legacy responses never invent an invalidated deposit term",()=>{
+  const unchanged=render("TENANT",{},"COMPLETED",{deposit:{},originalEndExclusive:"2027-02-01",leaseTermSource:null});
+  const legacy=render("TENANT",{},"COMPLETED",{deposit:{}});
+  assert.doesNotMatch(unchanged,/Thời hạn cũ trên HĐ cọc đã được thay thế/);
+  assert.doesNotMatch(legacy,/Thời hạn cũ trên HĐ cọc đã được thay thế/);
+});
 
 test("a tenant deposit signature removes voluntary cancellation even if a stale response offers it",()=>{
   const html=render("TENANT",{},"WAITING_START",{depositAgreementTenantSigned:true,canRequestCancellation:true});

@@ -93,7 +93,14 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
       <div className="rounded-xl bg-muted/40 p-3 text-sm"><p>Bắt đầu thuê: <strong>{date(view.startsOn)}</strong> · Kết thúc: <strong>{date(view.endExclusive)}</strong> (không bao gồm ngày này)</p>{!(view.defaultCase?.completedAt && view.defaultCase.notifiedAt) && <p className="mt-2">{view.message}</p>}<p className="mt-2 text-xs text-muted-foreground">Cập nhật {instant(view.serverNow)} · Giờ Việt Nam</p></div>
       {view.depositAgreementRequired === false
         ? <p className="text-sm text-muted-foreground">Không yêu cầu đặt cọc · Bỏ qua hợp đồng cọc. Thanh toán tiền thuê và ký hợp đồng thuê theo tiến trình bên trên.</p>
-        : showDepositAgreement && view.deposit && <DepositAgreementPanel rentalRequestId={rentalRequestId} isLandlord={!!isOwner} onUpdated={async()=>{await load();}}/>}
+        : showDepositAgreement && view.deposit && <>
+          <DepositAgreementPanel rentalRequestId={rentalRequestId} isLandlord={!!isOwner} onUpdated={async()=>{await load();}}/>
+          {view.leaseTermSource && view.originalEndExclusive && view.originalEndExclusive!==view.endExclusive && <div className="space-y-1 rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm">
+            <p className="font-semibold">Thời hạn cũ trên HĐ cọc đã được thay thế</p>
+            <p>{view.leaseTermSource==="EARLY_EXIT"?"Phụ lục chấm dứt sớm":"Phụ lục / văn bản gia hạn"} đã ký đủ hai bên đổi mốc kết thúc từ <strong>{date(view.originalEndExclusive)}</strong> sang <strong>{date(view.endExclusive)}</strong> lúc 00:00 (không bao gồm ngày này). Thời hạn cũ không còn áp dụng.</p>
+            <p className="text-muted-foreground">Không cần ký lại HĐ cọc. Bản cọc đã ký được lưu để đối chiếu; tiền cọc tiếp tục được quản lý và quyết toán theo thỏa thuận đã ký.</p>
+          </div>}
+        </>}
       {view.deposit && <DepositLedgerSummary ledger={view.deposit} />}
       {view.defaultCase?.notifiedAt && <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
         <p className="font-semibold">{view.defaultCase.completedAt ? "Đã hủy giữ phòng · Chủ nhà giữ tiền cọc" : view.stage === "CANCELLATION_REFUND_PENDING" ? "Đang chờ hoàn tiền · Thông báo giữ cọc cũ hết hiệu lực" : !noticeOpen ? "Hồ sơ đã kết thúc / hoàn tất ký · Thông báo cũ không còn áp dụng" : view.defaultCase.disputedAt ? "Đang có phản hồi · Chặn giữ cọc, cần đối soát" : "Hạn cuối để hoàn tất thủ tục thuê"}</p>

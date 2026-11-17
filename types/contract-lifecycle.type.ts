@@ -29,6 +29,7 @@ export interface ContractLifecycle {
   serverNow: string; endExclusive: string; renewalOpensAt: string; renewalSignBy: string;
   canRequestRenewal: boolean; renewals: ContractRenewal[]; closure?: ContractClosure;
   heldDeposit: number | null; canProposeClosure: boolean; refundPayment?: PaymentRequest; balancePayment?: PaymentRequest;
+  earlyReturnPending?: boolean;
   billing: { allPaid: boolean; canIssueSupplement: boolean; bills: {
     id: string; periodIndex: number; finalCostSupplement: boolean; status: MonthlyInvoiceStatus;
     billingPeriod?: BillingPeriodView;

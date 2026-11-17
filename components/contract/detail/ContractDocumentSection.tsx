@@ -147,7 +147,7 @@ export default function ContractDocumentSection({documents,contract}:{documents:
     {contract.depositAgreementContractId && !contract.parentContractId && <>
       {depositError && <p role="alert" className="text-xs text-amber-800">Chưa tải được HĐ cọc liên kết. Hãy tải lại trang để xem đầy đủ nguồn gốc hồ sơ.</p>}
       {!deposit && !depositError && <p className="text-xs text-muted-foreground">Đang tải HĐ cọc liên kết…</p>}
-      {depositContract && <DocumentCard title="1. Hợp đồng cọc" status={depositContract.signedAt?"Đã ký đủ hai bên":"Chưa hoàn tất ký"}>
+      {depositContract && <DocumentCard title="1. Hợp đồng cọc" status={depositContract.status==="CLOSED"?"Đã hoàn tất HĐ cọc":depositContract.signedAt?"Đã ký đủ hai bên":"Chưa hoàn tất ký"}>
         <p className="text-xs text-muted-foreground">{depositContract.contractNumber} · {depositContract.signedAt?"Ký đủ: "+documentTime(depositContract.signedAt):"Chưa có bản ký hoàn chỉnh"}</p>
         <DocumentFiles rows={depositRows} signed={Boolean(depositContract.signedAt)} revisionId={depositContract.currentRevisionId} busy={busy} action={action}/>
         {depositPdf && <ContractBlockchainProof document={depositPdf}/>}

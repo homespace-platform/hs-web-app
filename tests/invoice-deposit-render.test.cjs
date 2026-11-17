@@ -7,10 +7,10 @@ test("deposit panels have unique sibling keys across invoice refreshes",()=>{
   const data={contract:{id:"root",contractNumber:"HD-1",rentalRequestId:"rental",landlordId:"owner",tenantId:"tenant",status:"ACTIVE"},revision:{charges:[],meters:{}}};
   let state=0;
   const react={...React,useState:initial=>[state++===0?data:initial,()=>{}],useRef:initial=>({current:initial}),useCallback:callback=>callback,useEffect:()=>{}};
-  const deposit=()=>null,lifecycle=()=>null,empty=()=>null;
+  const deposit=()=>null,lifecycle=()=>null,onboarding=()=>null,empty=()=>null;
   const mocks={react,"next/link":{__esModule:true,default:empty},"next/navigation":{useParams:()=>({}),useSearchParams:()=>new URLSearchParams()},
     "@/components/contract/detail/MonthlyInvoicesSection":{__esModule:true,default:empty},
-    "@/components/rental-request/RentalOnboardingPanel":{__esModule:true,default:empty},
+    "@/components/rental-request/RentalOnboardingPanel":{__esModule:true,default:onboarding},
     "@/components/contract/detail/ContractLifecyclePanel":{__esModule:true,default:lifecycle},
     "@/components/contract/detail/SettlementPaymentPanel":{DepositAdjustmentPayments:deposit},
     "@/features/auth/useAuth":{useAuth:()=>({})},"@/hooks/useAgreementChangeSync":{useAgreementChangeSync:()=>{}},
@@ -22,6 +22,7 @@ test("deposit panels have unique sibling keys across invoice refreshes",()=>{
   const children=loaded.exports.InvoicesBody({actorId:"tenant",contractId:"root",section:"deposit",requestedInvoiceId:null}).props.children.filter(Boolean);
   assert.equal(children.filter(child=>child.type===deposit).length,1);
   assert.equal(children.filter(child=>child.type===lifecycle).length,1);
+  assert.equal(children.find(child=>child.type===onboarding).props.showComplaints,false);
   const keys=children.map(child=>child.key).filter(key=>key!==null);
   assert.equal(keys.length,new Set(keys).size);
 });

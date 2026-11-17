@@ -36,6 +36,7 @@ import type {
 import storageService from "@/services/storage.service";
 import chatService from "@/services/chat.service";
 import { toast } from "sonner";
+import { listingDetailPath } from "@/lib/listing-detail-access";
 
 function AttachmentPreview({
   attachment,
@@ -435,7 +436,7 @@ export default function ChatWindow({
                           </p>
                         </div>
                         <Link
-                          href={`/rent/${encodeURIComponent(msg.listingCard.id)}`}
+                          href={listingDetailPath(msg.listingCard.id)}
                           className="px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-semibold shrink-0 transition-colors flex items-center gap-1"
                         >
                           <span>Xem</span>

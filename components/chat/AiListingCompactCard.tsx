@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { ArrowUpRight, ImageOff, MapPin } from "lucide-react";
 import type { ListingDetailResponse } from "@/types/listing.type";
+import { listingDetailPath } from "@/lib/listing-detail-access";
 
 const CATEGORY_LABELS: Record<string, string> = {
   ROOM: "Phòng trọ", HOUSE: "Nhà nguyên căn", APARTMENT: "Chung cư",
@@ -47,7 +48,7 @@ export default function AiListingCompactCard({ listing, position }: {
   const location = [listing.address?.ward, listing.address?.city].filter(Boolean).join(", ");
 
   return (
-    <Link href={`/rent/${listing.id}`} target="_blank" rel="noopener noreferrer" prefetch={false}
+    <Link href={listingDetailPath(listing)} target="_blank" rel="noopener noreferrer" prefetch={false}
       title={`${listing.title} — Mở chi tiết trong tab mới`}
       className="group flex min-w-0 items-stretch gap-2 rounded-lg border border-border bg-background p-1.5 transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1">
       <div className="relative size-16 shrink-0 self-center overflow-hidden rounded-md bg-muted">

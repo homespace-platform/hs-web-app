@@ -82,6 +82,7 @@ test('clicking a private chat attachment requests a fresh URL; old attachments k
     'next/link': () => null,
     react: { ...React, useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}], useRef: (value) => ({ current: value }), useEffect: (fn) => effects.push(fn) },
     '@/components/common/UserAvatar': () => null,
+    '@/lib/listing-detail-access': { listingDetailPath: (id) => `/rent/${id}` },
     '@/services/chat.service': { getAttachmentViewUrl: async (...args) => { calls.push(['chat', ...args]); return 'https://s3.example/fresh-version'; } },
     '@/services/storage.service': { getViewUrl: async (id) => { calls.push(['core', id]); return 'https://s3.example/legacy'; } },
   }, 'components/chat/ChatWindow.tsx');

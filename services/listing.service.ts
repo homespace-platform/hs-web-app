@@ -83,6 +83,23 @@ const listingService = {
     return response.data.result;
   },
 
+  /** Same access rules as getAccessibleById, addressed by the public slug. */
+  async getAccessibleBySlug(slug: string): Promise<ListingDetailResponse> {
+    const response = await axiosClient.get<ApiResponse<ListingDetailResponse>>(
+      `/api/v1/listings/by-slug/${encodeURIComponent(slug)}`,
+    );
+    return response.data.result;
+  },
+
+  /** Public detail by slug (PUBLISHED or RESERVED). */
+  async getBySlug(slug: string): Promise<ListingDetailResponse> {
+    const baseUrl = process.env.NEXT_PUBLIC_GATEWAY_BASE_URL || "";
+    const response = await axios.get<ApiResponse<ListingDetailResponse>>(
+      `${baseUrl}/api/v1/public/listings/by-slug/${encodeURIComponent(slug)}`,
+    );
+    return response.data.result;
+  },
+
   /**
    * Lấy chi tiết bài đăng công khai (PUBLISHED hoặc RESERVED); không cấp quyền xem tin riêng tư.
    */

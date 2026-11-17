@@ -6,7 +6,6 @@ import { ArrowRight, Building, Loader2, MapPin } from "lucide-react";
 import RentCollageCard from "@/components/rent/RentCollageCard";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
-import { rentHrefFromLocation } from "@/lib/rent-filter-state";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { hydrateLocation } from "@/features/location/locationSlice";
 import type { ListingCategory } from "@/types/listing.type";
@@ -48,13 +47,10 @@ export default function FeaturedProperties() {
     : cityName || "khu vực của bạn";
 
   const viewAllHref = useMemo(() => {
-    const base = rentHrefFromLocation(cityId, wardId);
-    if (!apiCategory) return base;
-    const separator = base.includes("?") ? "&" : "?";
-    return `${base}${separator}category=${encodeURIComponent(
-      activeCategory,
-    )}`;
-  }, [activeCategory, apiCategory, cityId, wardId]);
+    // City/ward are already in the location store; /rent reads them from there.
+    if (!apiCategory) return "/rent";
+    return `/rent?category=${encodeURIComponent(activeCategory)}`;
+  }, [activeCategory, apiCategory]);
 
   useEffect(() => {
     if (!hydrated) return;

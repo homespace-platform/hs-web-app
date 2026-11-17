@@ -9,6 +9,7 @@ export interface RentMediaItem {
 
 export interface RentPropertyItem {
   id: string;
+  slug?: string | null;
   ownerId?: string;
   status?: string;
   title: string;

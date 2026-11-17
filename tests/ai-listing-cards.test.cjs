@@ -134,6 +134,7 @@ const mocks = {
   "next/link": ({ children, prefetch, ...props }) => React.createElement("a", props, children),
   "next/image": ({ fill, unoptimized, ...props }) => React.createElement("img", props),
   "next/navigation": { useRouter: () => ({ push: () => { throw new Error("unexpected redirect"); } }) },
+  "@/lib/listing-detail-access": load("lib/listing-detail-access.ts"),
   "@/features/auth/useAuth": { useAuth: () => ({ authenticated: true, login: () => {} }) },
   "@/store/hooks": { useAppDispatch: () => () => {}, useAppSelector: (select) => select({ favorite: { ids: [], status: "succeeded" } }) },
   "@/features/favorite/favoriteSlice": { toggleFavoriteItem: () => {} },
@@ -216,7 +217,7 @@ test("card chat handles legacy owner IDs, signed-out users, own listings and fai
   }
 });
 
-const CompactCard = load("components/chat/AiListingCompactCard.tsx", { "next/link": mocks["next/link"], "next/image": mocks["next/image"] }).default;
+const CompactCard = load("components/chat/AiListingCompactCard.tsx", { "next/link": mocks["next/link"], "next/image": mocks["next/image"], "@/lib/listing-detail-access": mocks["@/lib/listing-detail-access"] }).default;
 const listing = { id: ids[0], title: "Cho thuê phòng trọ có ban công tại Phường Phú Lợi", category: "ROOM",
   areaM2: 23.5, pricing: { amount: 2200000, unit: "PERSON_MONTH", currency: "VND" },
   roomDetail: { maxOccupants: 3 }, address: { ward: "Phường Phú Lợi", city: "Hồ Chí Minh", streetLine: "48/19 Lê Lợi" },

@@ -5,6 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import listingService from "@/services/listing.service";
 import type { ListingCategory } from "@/types/listing.type";
+import { useAppDispatch } from "@/store/hooks";
+import { setGlobalCity } from "@/features/location/locationSlice";
 
 interface AreaItem {
   id: string;
@@ -64,8 +66,9 @@ export default function PopularLocations() {
     };
   }, [apiCategory]);
 
-  const rentHref = (cityId: string) =>
-    `/rent?cityId=${encodeURIComponent(cityId)}&category=${encodeURIComponent(activeCategory)}`;
+  const dispatch = useAppDispatch();
+  const rentHref = `/rent?category=${encodeURIComponent(activeCategory)}`;
+  const selectCity = (area: AreaItem) => dispatch(setGlobalCity({ code: area.cityId, name: area.name }));
 
   return (
     <section
@@ -106,7 +109,8 @@ export default function PopularLocations() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4">
         <Link
-          href={rentHref(FEATURED_MAIN_AREA.cityId)}
+          href={rentHref}
+          onClick={() => selectCity(FEATURED_MAIN_AREA)}
           className="group relative rounded-2xl sm:rounded-3xl overflow-hidden h-[260px] sm:h-[360px] lg:h-[420px] shadow-sm hover:shadow-xl transition-all duration-300 block bg-slate-800"
         >
           <Image
@@ -131,7 +135,8 @@ export default function PopularLocations() {
           {SUB_AREAS.map((area) => (
             <Link
               key={area.id}
-              href={rentHref(area.cityId)}
+              href={rentHref}
+              onClick={() => selectCity(area)}
               className="group relative rounded-2xl sm:rounded-3xl overflow-hidden h-[130px] sm:h-[175px] lg:h-[202px] shadow-sm hover:shadow-xl transition-all duration-300 block bg-slate-800"
             >
               <Image

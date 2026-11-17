@@ -38,6 +38,7 @@ for (const url of [google, s3]) {
       "@/components/common/UserAvatar": UserAvatar,
       "@/services/storage.service": {},
       "@/services/chat.service": {},
+      "@/lib/listing-detail-access": { listingDetailPath: (id) => `/rent/${id}` },
     }).default;
     const ChatSidebar = load("components/chat/ChatSidebar.tsx", {
       "@/components/common/UserAvatar": UserAvatar,

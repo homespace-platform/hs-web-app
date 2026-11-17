@@ -32,9 +32,14 @@ function browser(initial = '/rent') {
   return win;
 }
 
-function harness(initial, renderPage = false, locations) {
+function harness(initial, renderPage = false, locations, stored = {}) {
   let index = 0, slots = [], effects = [], dirty = false, tree;
   const window = browser(initial), calls = [], listeners = new EventTarget();
+  for (const [key, value] of Object.entries(stored)) window.localStorage.setItem(key, JSON.stringify(value));
+  const slice = load('features/location/locationSlice.ts', { '@reduxjs/toolkit': require('@reduxjs/toolkit') }, { window, localStorage: window.localStorage });
+  // Header dispatches hydrateLocation on mount; the mocked Header cannot, so hydrate up front.
+  let loc = slice.default(undefined, slice.hydrateLocation());
+  const dispatch = action => { loc = slice.default(loc, action); dirty = true; return action; };
   const hooks = { ...React,
     useState(initial) { const i = index++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial;
       return [slots[i], value => { const next = typeof value === 'function' ? value(slots[i]) : value;
@@ -58,7 +63,8 @@ function harness(initial, renderPage = false, locations) {
       '@/services/listing.service': { __esModule: true, default: { getPublicListings: async params => { calls.push(params); return { result: [], totalElements: 0, totalPages: 1 }; } } },
       '@/lib/listing-to-rent-property': { toRentProperty: value => value },
       '@/features/auth/useAuth': { useAuth: () => ({ authenticated: false }) },
-      '@/store/hooks': { useAppSelector: selector => selector({favorite:{ids:[]}}) },
+      '@/store/hooks': { useAppSelector: selector => selector({favorite:{ids:[]}, location: loc}), useAppDispatch: () => dispatch },
+      '@/features/location/locationSlice': slice,
       '@/lib/pagination': { getVisiblePages: () => [] },
       'lucide-react': new Proxy({}, {get: () => 'i'}),
       '@/components/ui/button': { Button: 'button' }, '@/components/ui/input': { Input: 'input' }, '@/components/ui/switch': { Switch: 'switch' },
@@ -76,7 +82,7 @@ function harness(initial, renderPage = false, locations) {
   function find(predicate, node = tree) { if (!node || typeof node !== 'object') return null; if (predicate(node)) return node;
     for (const child of React.Children.toArray(node.props?.children)) { const result = find(predicate, child); if (result) return result; } return null; }
   render();
-  return { window, calls, hook, render, find, label, get value() { return tree; },
+  return { window, calls, hook, render, find, label, dispatch, slice, get loc() { return loc; }, get value() { return tree; },
     click(text) { const button = find(n => n.type === 'button' && label(n) === text); assert.ok(button, text); button.props.onClick(); render(); },
     async settle() { for (let i = 0; i < 10; i++) await Promise.resolve(); render(); },
   };
@@ -87,47 +93,72 @@ test('administrative search handles Vietnamese accents, Đ, case and whitespace'
   assert.ok(text.locationMatches('Phường Đa Kao', 'da kao'));
   assert.ok(text.locationMatches('Tỉnh Đắk Lắk', '  dak   lak '));
 });
-test('URL round trips all existing filters and exact string city/ward codes', () => {
-  const filter = {...state.DEFAULT_RENT_FILTER, wardId:'24332', category:'house', minPrice:10, maxPrice:30, hasVideoOnly:true, searchQuery:'ban công', areaRange:'50_80', beds:'2'};
-  const query = state.writeRentState('cityId=12', filter, 3), parsed = state.readRentState(query);
-  assert.equal(parsed.cityId, '12'); assert.equal(parsed.page, 3); assert.deepEqual(plain(parsed.filter), plain(filter));
-  const other = new URLSearchParams(state.changeRentCity(query, '11'));
-  assert.equal(other.get('cityId'), '11'); assert.equal(other.has('wardId'), false); assert.equal(other.has('page'), false);
-  assert.equal(other.get('minPrice'), '10'); assert.equal(other.get('q'), 'ban công');
-  const all = new URLSearchParams(state.changeRentCity(query, ''));
-  assert.equal(all.has('cityId'), false); assert.equal(all.has('wardId'), false);
+const HCM = {homespace_selected_city_vietmap: {code:'12', name:'Thành phố Hồ Chí Minh'}, homespace_selected_ward_vietmap: {code:'24332', name:'Phường An Nhơn', cityId:'12'}};
+test('URL round trips filters but never carries cityId/wardId', () => {
+  const filter = {...state.DEFAULT_RENT_FILTER, wardId:'24332', category:'house', minPrice:10, maxPrice:30, hasVideoOnly:true, searchQuery:'ban công', areaRange:'50_80', beds:'2', sortBy:'price_asc'};
+  const query = state.writeRentState('cityId=12&wardId=24332', filter, 3), params = new URLSearchParams(query), parsed = state.readRentState(query);
+  assert.equal(params.has('cityId'), false); assert.equal(params.has('wardId'), false);
+  assert.equal(params.get('areaRange'), '50_80'); assert.equal(params.get('category'), 'house'); assert.equal(params.get('sortBy'), 'price_asc');
+  assert.equal(params.get('q'), 'ban công'); assert.equal(params.get('minPrice'), '10'); assert.equal(params.get('page'), '3');
+  assert.equal(parsed.legacy, null); assert.equal(parsed.page, 3); assert.deepEqual(plain(parsed.filter), plain({...filter, wardId:''}));
 });
-test('malformed and legacy URL values do not become location keyword filters', () => {
-  const parsed = state.readRentState('wardId=24332&district=Gò+Vấp&city=old&category=bad&minPrice=NaN&page=-2');
-  assert.equal(parsed.cityId, ''); assert.equal(parsed.filter.wardId, ''); assert.equal(parsed.filter.searchQuery, ''); assert.equal(parsed.page, 1);
+test('malformed URL values do not become location keyword filters', () => {
+  const parsed = state.readRentState('district=Gò+Vấp&city=old&category=bad&minPrice=NaN&page=-2');
+  assert.equal(parsed.filter.wardId, ''); assert.equal(parsed.filter.searchQuery, ''); assert.equal(parsed.page, 1);
   assert.equal(parsed.filter.category, 'all'); assert.equal(parsed.filter.minPrice, 0);
 });
-test('real URL hook preserves geo and other filters across refresh and Back/Forward', () => {
-  const app = harness('/rent?cityId=12&wardId=24332&minPrice=10&page=3');
-  assert.equal(app.value.filter.wardId, '24332'); app.value.setCity('11'); app.render();
-  assert.equal(app.value.cityId, '11'); assert.equal(app.value.filter.wardId, ''); assert.equal(app.value.filter.minPrice, 10); assert.equal(app.value.page, 1);
-  app.window.history.back(); app.render(); assert.equal(app.value.cityId, '12'); assert.equal(app.value.filter.wardId, '24332'); assert.equal(app.value.page, 3);
-  app.window.history.forward(); app.render(); assert.equal(app.value.cityId, '11');
-  assert.equal(harness(app.window.location.pathname + app.window.location.search).value.cityId, '11');
+test('legacy cityId/wardId are parsed for one-time import only and validated', () => {
+  assert.equal(state.legacyLocationFromSearch('minPrice=10'), null);
+  assert.deepEqual(plain(state.legacyLocationFromSearch('cityId=12&wardId=24332')), {cityId:'12', wardId:'24332'});
+  assert.deepEqual(plain(state.legacyLocationFromSearch('cityId=12')), {cityId:'12', wardId:''});
+  assert.deepEqual(plain(state.legacyLocationFromSearch('wardId=24332')), {cityId:'', wardId:''}, 'ward without city is dropped');
+  assert.deepEqual(plain(state.legacyLocationFromSearch('cityId=abc&wardId=0')), {cityId:'', wardId:''});
+  assert.deepEqual(plain(state.readRentState('cityId=12&wardId=24332').legacy), {cityId:'12', wardId:'24332'});
+  assert.equal(state.readRentState('cityId=12&wardId=24332').filter.wardId, '', 'URL ward never reaches the filter');
+  assert.equal(state.stripLegacyLocation('cityId=12&wardId=1&category=house&page=2'), 'category=house&page=2');
 });
-test('actual rent page requires a city before searching and sends location IDs separately from keyword', async () => {
+test('real URL hook preserves filters and page across refresh and Back/Forward', () => {
+  const app = harness('/rent?areaRange=50_80&minPrice=10&page=3');
+  assert.equal(app.value.page, 3); app.value.setPage(1); app.render();
+  assert.equal(app.value.page, 1); assert.equal(app.value.filter.minPrice, 10); assert.equal(app.value.filter.areaRange, '50_80');
+  app.window.history.back(); app.render(); assert.equal(app.value.page, 3);
+  app.window.history.forward(); app.render(); assert.equal(app.value.page, 1);
+  assert.equal(harness(app.window.location.pathname + app.window.location.search).value.filter.minPrice, 10);
+});
+test('rent page needs a stored city, then sends store city/ward separately from keyword with URL-only filters', async () => {
   const all = harness('/rent', true); await all.settle();
-  assert.equal(all.calls.length, 0, 'No nationwide public search without cityId');
+  assert.equal(all.calls.length, 0, 'No nationwide public search without a stored city');
   assert.equal(all.find(n => n.type === 'button' && /Phường\/Xã/.test(all.label(n))), null, 'ward picker lives in global header');
-  const selected = harness('/rent?cityId=12&wardId=24332&q=ban+công&minPrice=10&maxPrice=30&category=house', true);
+  const selected = harness('/rent?q=ban+công&minPrice=10&maxPrice=30&category=house&areaRange=50_80', true, undefined, HCM);
   await selected.settle();
   const request = selected.calls.at(-1);
   assert.equal(request.cityId, '12'); assert.equal(request.wardId, '24332'); assert.equal(request.keyword, 'ban công');
-  assert.equal(request.priceMin, 10_000_000); assert.equal(request.priceMax, 30_000_000); assert.equal(request.category, 'HOUSE');
-  const current = state.readRentState(selected.window.location.search);
-  selected.hook.updateRentQuery(state.writeRentState(selected.window.location.search, {...current.filter, wardId:''}));
-  await selected.settle();
+  assert.equal(request.priceMin, 10_000_000); assert.equal(request.priceMax, 30_000_000); assert.equal(request.category, 'HOUSE'); assert.equal(request.areaMin, 50);
+  assert.equal(selected.window.location.search.includes('cityId'), false);
+  assert.ok(/Phường An Nhơn, Thành phố Hồ Chí Minh/.test(selected.label(selected.value)), 'copy follows the store location name');
+  selected.dispatch(selected.slice.setGlobalWard(null)); await selected.settle();
   assert.equal(selected.calls.at(-1).cityId, '12'); assert.equal(selected.calls.at(-1).wardId, undefined);
 });
-test('rentHrefFromLocation keeps global city/ward in the /rent entry URL', () => {
-  assert.equal(state.rentHrefFromLocation('12', '24332'), '/rent?cityId=12&wardId=24332');
-  assert.equal(state.rentHrefFromLocation('12', ''), '/rent?cityId=12');
-  assert.equal(state.rentHrefFromLocation('', '24332'), '/rent');
+test('store location change re-queries, drops page and switching city clears ward', async () => {
+  const app = harness('/rent?category=house&page=3', true, undefined, HCM); await app.settle();
+  assert.equal(app.calls.at(-1).page, 3);
+  app.dispatch(app.slice.setGlobalCity({code:'11', name:'Thành phố Hà Nội'})); await app.settle();
+  assert.equal(app.window.location.search, '?category=house', 'page dropped, other params kept');
+  const request = app.calls.at(-1);
+  assert.equal(request.cityId, '11'); assert.equal(request.wardId, undefined); assert.equal(request.page, 1); assert.equal(request.category, 'HOUSE');
+});
+test('legacy /rent?cityId&wardId links are imported once into the store and stripped from the URL', async () => {
+  const app = harness('/rent?cityId=11&wardId=14091&category=house&page=2', true); await app.settle();
+  assert.equal(app.window.location.search, '?category=house&page=2');
+  assert.deepEqual(plain({c:app.loc.cityId, cn:app.loc.cityName, w:app.loc.wardId, wn:app.loc.wardName}), {c:'11', cn:'Thành phố Hà Nội', w:'14091', wn:'Phường Ba Đình'});
+  assert.equal(JSON.parse(app.window.localStorage.getItem('homespace_selected_city_vietmap')).code, '11');
+  assert.equal(app.calls.length, 1, 'no query with stale location before the import');
+  assert.equal(app.calls[0].cityId, '11'); assert.equal(app.calls[0].wardId, '14091'); assert.equal(app.calls[0].page, 2, 'import does not reset page');
+  const offline = harness('/rent?cityId=99&wardId=77', true, { getCities: async () => { throw new Error('x'); }, getWards: async () => { throw new Error('x'); } });
+  await offline.settle();
+  assert.equal(offline.window.location.search, ''); assert.equal(offline.loc.cityName, '99'); assert.equal(offline.loc.wardName, '77');
+  const orphan = harness('/rent?wardId=24332&category=room', true, undefined, HCM); await orphan.settle();
+  assert.equal(orphan.window.location.search, '?category=room'); assert.equal(orphan.loc.cityId, '12'); assert.equal(orphan.loc.wardId, '24332', 'ward without city leaves store untouched');
 });
 test('catalog client shares pending requests, caches per city and retries failed downloads', async () => {
   let calls = [], fail = false;

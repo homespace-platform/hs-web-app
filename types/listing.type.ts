@@ -337,6 +337,7 @@ export type CreateListingResponse = {
   operationalStatus?: ListingStatus;
   pendingEditId?: string | null;
   id: string;
+  slug?: string | null;
   status: ListingStatus;
   title: string;
   submittedAt: string | null;
@@ -347,6 +348,7 @@ export type MyListingSummaryResponse = {
   pendingEditId?: string | null;
   operationalStatus?: ListingStatus;
   id: string;
+  slug?: string | null;
   branchId?: string | null;
   branchName?: string | null;
   title: string;
@@ -405,6 +407,7 @@ export type ListingDetailResponse = {
   editRejectionReason?: string | null;
   policies?: import("./listing-policy.type").ListingPolicyValue[];
   id: string;
+  slug?: string | null;
   ownerId: string;
   branchId?: string | null;
   branchName?: string | null;
@@ -500,6 +503,7 @@ export type ListingResponse = CreateListingResponse & {
 
 export type PublicListingSummaryResponse = {
   id: string;
+  slug?: string | null;
   title: string;
   category: ListingCategory;
   areaM2: number;

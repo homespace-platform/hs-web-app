@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
-import { rentHrefFromLocation } from "@/lib/rent-filter-state";
 
 const CATEGORIES = [
   { id: "house", label: "Nhà nguyên căn" },
@@ -15,7 +14,7 @@ const CATEGORIES = [
 export default function LocationMapExplorer() {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState("apartment");
-  const { cityId, cityName, wardId } = useAppSelector((state) => state.location);
+  const { cityId, cityName } = useAppSelector((state) => state.location);
 
   const mapQuery = cityName?.trim()
     ? `${cityName}, Vietnam`
@@ -26,9 +25,7 @@ export default function LocationMapExplorer() {
       router.push("/rent");
       return;
     }
-    const href = rentHrefFromLocation(cityId, wardId);
-    const separator = href.includes("?") ? "&" : "?";
-    router.push(`${href}${separator}category=${encodeURIComponent(activeCategory)}`);
+    router.push(`/rent?category=${encodeURIComponent(activeCategory)}`);
   };
 
   return (

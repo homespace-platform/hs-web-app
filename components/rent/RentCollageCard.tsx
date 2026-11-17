@@ -22,6 +22,7 @@ import UserAvatar from "@/components/common/UserAvatar";
 import { toast } from "sonner";
 import { useChatDemo } from "@/components/chat/ChatDemoProvider";
 import { chatConversationUrl } from "@/lib/chat-demo-state";
+import { listingDetailPath } from "@/lib/listing-detail-access";
 
 interface RentCollageCardProps {
   property: RentPropertyItem;
@@ -58,7 +59,7 @@ export default function RentCollageCard({
     e.stopPropagation();
     if (isOpeningChat) return;
     if (!authenticated) {
-      login(`/rent/${property.id}`);
+      login(listingDetailPath(property));
       return;
     }
     const ownerId = property.ownerId || property.landlord.id;
@@ -155,7 +156,7 @@ export default function RentCollageCard({
           {heartButtonElement}
         </div>
 
-        <Link href={`/rent/${property.id}`} {...navigationProps} className="block p-4 sm:p-5">
+        <Link href={listingDetailPath(property)} {...navigationProps} className="block p-4 sm:p-5">
           {/* Image Gallery: adapts to 3+, 2, 1, or 0 images (NEVER duplicates images) */}
           {property.images.length >= 3 ? (
             <div className="grid grid-cols-12 gap-1.5 sm:gap-2 h-56 sm:h-64 rounded-2xl overflow-hidden relative mb-4 bg-muted">
@@ -348,7 +349,7 @@ export default function RentCollageCard({
         {heartButtonElement}
       </div>
 
-      <Link href={`/rent/${property.id}`} {...navigationProps} className="flex flex-col flex-1 h-full">
+      <Link href={listingDetailPath(property)} {...navigationProps} className="flex flex-col flex-1 h-full">
         {/* Single Main Image */}
         <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-muted shrink-0">
           {property.images[0] ? (

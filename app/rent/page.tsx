@@ -12,13 +12,13 @@ import { RentPropertyItem } from "@/types/rent.type";
 import listingLocationService from "@/services/listing-location.service";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
-import type { AdministrativeCity } from "@/types/administrative-location.type";
-import { DEFAULT_RENT_FILTER, changeRentCity, writeRentState } from "@/lib/rent-filter-state";
+import { DEFAULT_RENT_FILTER, stripLegacyLocation, writeRentState } from "@/lib/rent-filter-state";
 import { useRentUrlState, updateRentQuery } from "@/hooks/useRentUrlState";
 import type { PublicListingQueryParams } from "@/types/listing.type";
 import type { ListingCategory } from "@/types/listing.type";
 import { useAuth } from "@/features/auth/useAuth";
-import { useAppSelector } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setGlobalCity, setGlobalWard } from "@/features/location/locationSlice";
 import {
   Home,
   ChevronLeft,
@@ -51,11 +51,48 @@ export default function RentPage() {
   const favoriteIdsList = useAppSelector((state) => state.favorite.ids);
   const favoriteIds = useMemo(() => new Set(favoriteIdsList), [favoriteIdsList]);
 
-  const { cityId: selectedProvinceCode, filter, setFilter, page: currentPage, setPage: setCurrentPage, ready: queryReady } = useRentUrlState();
-  const [cities, setCities] = useState<AdministrativeCity[]>([]);
-  const [catalogError, setCatalogError] = useState("");
-  const selectedProvinceName = cities.find(city => city.code === selectedProvinceCode)?.name
-    ?? (selectedProvinceCode ? "Đang tải khu vực…" : "Chọn tỉnh/thành phố");
+  const dispatch = useAppDispatch();
+  const { cityId: selectedProvinceCode, cityName, wardId: selectedWardId, wardName, hydrated: locationReady } = useAppSelector((state) => state.location);
+  const { legacy, filter: urlFilter, setFilter, page: currentPage, setPage: setCurrentPage, ready: urlReady } = useRentUrlState();
+  // Location store (not the URL) is the single source of truth for city/ward.
+  const filter = useMemo(() => ({ ...urlFilter, wardId: selectedProvinceCode ? selectedWardId : "" }), [urlFilter, selectedProvinceCode, selectedWardId]);
+  const queryReady = urlReady && locationReady && !legacy; // wait for the one-time legacy import below
+  const selectedProvinceName = selectedProvinceCode
+    ? (selectedWardId && wardName ? `${wardName}, ${cityName}` : cityName || selectedProvinceCode)
+    : "";
+  const seenLocation = useRef<string | null>(null);
+
+  // One-time import of old shared /rent?cityId=..&wardId=.. links into the store, then strip them from the URL.
+  useEffect(() => {
+    if (!legacy || !locationReady) return;
+    let cancelled = false;
+    const apply = (city: string, ward: string) => {
+      if (cancelled) return;
+      seenLocation.current = `${legacy.cityId}|${legacy.wardId}`;
+      if (legacy.cityId) {
+        dispatch(setGlobalCity({ code: legacy.cityId, name: city }));
+        if (legacy.wardId) dispatch(setGlobalWard({ code: legacy.wardId, name: ward }));
+      }
+      updateRentQuery(stripLegacyLocation(window.location.search), true);
+    };
+    if (!legacy.cityId) { apply("", ""); return; }
+    Promise.all([
+      listingLocationService.getCities().catch(() => []),
+      legacy.wardId ? listingLocationService.getWards(legacy.cityId).catch(() => []) : Promise.resolve([]),
+    ]).then(([cities, wards]) => apply(
+      cities.find((c) => c.code === legacy.cityId)?.name ?? legacy.cityId,
+      wards.find((w) => w.code === legacy.wardId)?.name ?? legacy.wardId,
+    ));
+    return () => { cancelled = true; };
+  }, [legacy, locationReady, dispatch]);
+
+  // Header changed the store location: the result set changes, so drop `page`.
+  useEffect(() => {
+    if (!queryReady) return;
+    const key = `${selectedProvinceCode}|${selectedWardId}`;
+    if (seenLocation.current !== null && seenLocation.current !== key && currentPage > 1) setCurrentPage(1);
+    seenLocation.current = key;
+  }, [queryReady, selectedProvinceCode, selectedWardId, currentPage, setCurrentPage]);
 
   // Search input state (chỉ gửi API khi bấm Tìm kiếm hoặc Enter để tránh quá tải CSDL)
   const [searchInput, setSearchInput] = useState("");
@@ -186,19 +223,12 @@ export default function RentPage() {
     setCurrentPage(1);
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    listingLocationService.getCities().then(data => { if (!cancelled) { setCities(data); setCatalogError(""); } })
-      .catch(() => { if (!cancelled) setCatalogError("Không thể tải danh mục tỉnh/thành phố. Vui lòng tải lại trang."); });
-    return () => { cancelled = true; };
-  }, []);
-
   useEffect(() => { setSearchInput(filter.searchQuery); }, [filter.searchQuery]);
 
   // Handle reset filter
   const handleReset = () => {
     setSearchInput("");
-    updateRentQuery(writeRentState(changeRentCity(window.location.search, ""), { ...DEFAULT_RENT_FILTER }));
+    updateRentQuery(writeRentState(window.location.search, { ...DEFAULT_RENT_FILTER }));
   };
 
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -317,7 +347,6 @@ export default function RentPage() {
                   </div>
                 </form>
 
-                {catalogError && <p role="alert" className="text-xs text-destructive">{catalogError}</p>}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                   {/* Left: Sort */}
                   <select

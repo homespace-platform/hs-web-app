@@ -20,6 +20,7 @@ import {
 import type { ListingCategory, MyListingSummaryResponse } from "@/types/listing.type";
 import { getListingStatusConfig } from "@/config/listing-status.config";
 import ListingStatusActionMenu from "./ListingStatusActionMenu";
+import { listingDetailPath } from "@/lib/listing-detail-access";
 
 const CATEGORY_ICONS: Record<ListingCategory, React.ReactNode> = {
   APARTMENT: <Building className="h-3.5 w-3.5" />,
@@ -81,7 +82,7 @@ export default function ListingItemCard({
   const canDuplicate = !isViolation;
 
   const handleOpenDetail = () => {
-    router.push(`/rent/${item.id}`);
+    router.push(listingDetailPath(item));
   };
 
   const handleEditListing = () => {

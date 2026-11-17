@@ -1,9 +1,12 @@
 import React from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import SettingsShell from "@/components/settings/SettingsShell";
 import { Home } from "lucide-react";
+
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default function SettingsLayout({
   children,

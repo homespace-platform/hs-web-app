@@ -32,7 +32,7 @@ test("access denial or network failure is not silently retried as public/owner a
       async getById(){publicCalls++;}}),actual=>actual===error);
     assert.equal(publicCalls,0);
   }
-  const page=read("app/rent/[id]/page.tsx");
+  const page=read("app/rent/[slug]/RentDetailClient.tsx");
   assert.match(page,/userId === property.ownerId/);
   assert.doesNotMatch(page,/isOwnerView = true/);
   assert.match(page,/loadedFor !== requestKey/);

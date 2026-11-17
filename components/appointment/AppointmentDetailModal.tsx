@@ -29,6 +29,7 @@ import type {
   AppointmentResponse,
   AppointmentStatus,
 } from "@/types/appointment.type";
+import { listingDetailPath } from "@/lib/listing-detail-access";
 
 interface AppointmentDetailModalProps {
   appointment: AppointmentResponse | null;
@@ -203,7 +204,7 @@ export default function AppointmentDetailModal({
             </div>
 
             <Link
-              href={`/rent/${appointment.listingId}`}
+              href={listingDetailPath(appointment.listingId)}
               target="_blank"
               className="px-3 py-1.5 rounded-xl border border-border bg-card text-xs font-semibold text-foreground hover:text-primary hover:border-primary/50 transition-colors flex items-center gap-1.5 shrink-0 self-end sm:self-auto"
             >

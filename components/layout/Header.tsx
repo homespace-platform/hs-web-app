@@ -12,8 +12,6 @@ import UserAvatar from "@/components/common/UserAvatar";
 import listingLocationService from "@/services/listing-location.service";
 import type { AdministrativeCity, AdministrativeWard } from "@/types/administrative-location.type";
 import { locationMatches } from "@/lib/administrative-location";
-import { changeRentCity, readRentState, rentHrefFromLocation, writeRentState } from "@/lib/rent-filter-state";
-import { updateRentQuery, useRentUrlState } from "@/hooks/useRentUrlState";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchFavoriteIds } from "@/features/favorite/favoriteSlice";
 import { fetchHistoryIds } from "@/features/history/historySlice";
@@ -43,7 +41,6 @@ export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const isDashboard = pathname?.startsWith("/dashboard");
-  const isRentPage = pathname === "/rent";
   const { openRolePicker } = useDashboardRole();
 
   const {
@@ -74,9 +71,8 @@ export default function Header() {
   const globalLocation = useAppSelector((state) => state.location);
 
   const [provinces, setProvinces] = useState<AdministrativeCity[]>([]);
-  const { cityId: urlCityId, filter: rentFilter, setCity, setWard, ready: rentQueryReady } = useRentUrlState();
-  const selectedProvinceCode = isRentPage ? urlCityId : globalLocation.cityId;
-  const selectedWardId = isRentPage ? rentFilter.wardId : globalLocation.wardId;
+  const selectedProvinceCode = globalLocation.cityId;
+  const selectedWardId = globalLocation.wardId;
   const selectedProvinceName =
     provinces.find((city) => city.code === selectedProvinceCode)?.name
     || (globalLocation.cityId === selectedProvinceCode ? globalLocation.cityName : "")
@@ -181,66 +177,9 @@ export default function Header() {
     };
   }, [selectedProvinceCode]);
 
-  // Prefer global city/ward into empty /rent URL; mirror shared /rent URL into global store.
-  useEffect(() => {
-    if (!isRentPage || !rentQueryReady || !globalLocation.hydrated) return;
-
-    if (!urlCityId && globalLocation.cityId) {
-      let query = changeRentCity(window.location.search, globalLocation.cityId);
-      if (globalLocation.wardId) {
-        const current = readRentState(query);
-        query = writeRentState(query, { ...current.filter, wardId: globalLocation.wardId });
-      }
-      updateRentQuery(query, true);
-      return;
-    }
-
-    if (!urlCityId) return;
-
-    if (urlCityId !== globalLocation.cityId) {
-      const cityName =
-        provinces.find((city) => city.code === urlCityId)?.name
-        || globalLocation.cityName
-        || urlCityId;
-      dispatch(setGlobalCity({ code: urlCityId, name: cityName }));
-      if (rentFilter.wardId) {
-        const wardName =
-          wards.find((ward) => ward.code === rentFilter.wardId)?.name
-          || rentFilter.wardId;
-        dispatch(setGlobalWard({ code: rentFilter.wardId, name: wardName }));
-      }
-      return;
-    }
-
-    if (rentFilter.wardId !== globalLocation.wardId) {
-      if (!rentFilter.wardId) {
-        dispatch(setGlobalWard(null));
-      } else {
-        const wardName =
-          wards.find((ward) => ward.code === rentFilter.wardId)?.name
-          || (globalLocation.wardId === rentFilter.wardId ? globalLocation.wardName : rentFilter.wardId);
-        dispatch(setGlobalWard({ code: rentFilter.wardId, name: wardName }));
-      }
-    }
-  }, [
-    dispatch,
-    globalLocation.cityId,
-    globalLocation.cityName,
-    globalLocation.hydrated,
-    globalLocation.wardId,
-    globalLocation.wardName,
-    isRentPage,
-    provinces,
-    rentFilter.wardId,
-    rentQueryReady,
-    urlCityId,
-    wards,
-  ]);
-
   const handleSelectProvince = (province: AdministrativeCity) => {
     if (!province.code) return;
     dispatch(setGlobalCity({ code: province.code, name: province.name }));
-    if (isRentPage) setCity(province.code);
     setLocationSearch("");
     setLocationStep("ward");
 
@@ -259,10 +198,8 @@ export default function Header() {
     if (!selectedProvinceCode) return;
     if (!ward) {
       dispatch(setGlobalWard(null));
-      if (isRentPage) setWard("");
     } else {
       dispatch(setGlobalWard({ code: ward.code, name: ward.name }));
-      if (isRentPage) setWard(ward.code);
     }
     setIsLocationOpen(false);
     setLocationSearch("");
@@ -278,7 +215,7 @@ export default function Header() {
     return wards.filter((ward) => locationMatches(ward.name, locationSearch));
   }, [wards, locationSearch]);
 
-  const rentHref = rentHrefFromLocation(selectedProvinceCode, selectedWardId);
+  const rentHref = "/rent"; // city/ward come from the persisted location store
 
   const openLocationPicker = () => {
     const nextOpen = !isLocationOpen;

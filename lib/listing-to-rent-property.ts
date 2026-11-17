@@ -49,6 +49,7 @@ export function toRentProperty(
 
     return {
       id: pub.id,
+      slug: pub.slug ?? null,
       status: (pub as any).status || "PUBLISHED",
       ownerId: pub.ownerId || undefined,
       title: pub.title,
@@ -223,6 +224,7 @@ export function toRentProperty(
 
   return {
     id: listing.id,
+    slug: listing.slug ?? null,
     status: listing.status,
     title: listing.title,
     description: listing.description ?? undefined,

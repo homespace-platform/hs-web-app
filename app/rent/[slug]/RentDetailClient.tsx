@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
 import Header from "@/components/layout/Header";
@@ -9,6 +8,7 @@ import Footer from "@/components/layout/Footer";
 import RentDetailView from "@/components/rent/RentDetailView";
 import { ArrowLeft, Loader2, Building, Clock } from "lucide-react";
 import type { RentPropertyItem } from "@/types/rent.type";
+import type { ListingDetailResponse } from "@/types/listing.type";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
 import { useAuth } from "@/features/auth/useAuth";
@@ -17,19 +17,28 @@ import { recordHistoryItem } from "@/features/history/historySlice";
 import { RENTAL_HOLD_DURATION_LABEL } from "@/config/rental-hold.config";
 
 import { getListingStatusConfig } from "@/config/listing-status.config";
-import { fetchListingForViewer } from "@/lib/listing-detail-access";
+import { fetchListingBySlugForViewer, fetchListingForViewer } from "@/lib/listing-detail-access";
 
-export default function RentDetailPage() {
-  const { id } = useParams<{ id: string }>();
+type Props = {
+  /** Bare slug (`.html` stripped) or legacy listing id, as resolved by the server page. */
+  id: string;
+  mode: "slug" | "id";
+  /** Public detail already fetched on the server; avoids the loading flash. */
+  initialListing?: ListingDetailResponse | null;
+};
+
+export default function RentDetailClient({ id, mode, initialListing = null }: Props) {
   const { initialized, authenticated, userId } = useAuth();
   const dispatch = useAppDispatch();
-  const [property, setProperty] = useState<RentPropertyItem | null>(null);
-  const [listingStatus, setListingStatus] = useState<string | null>(null);
+  const [property, setProperty] = useState<RentPropertyItem | null>(() =>
+    initialListing ? toRentProperty(initialListing) : null,
+  );
+  const [listingStatus, setListingStatus] = useState<string | null>(initialListing?.status ?? null);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [retry, setRetry] = useState(0);
   const requestKey = JSON.stringify([id, authenticated, userId, retry]);
-  const loading = !initialized || loadedFor !== requestKey;
+  const loading = (!initialized || loadedFor !== requestKey) && !(initialListing && loadedFor === null);
 
   useEffect(() => {
     if (!id || !initialized) return;
@@ -39,7 +48,9 @@ export default function RentDetailPage() {
       let listingDetail = null;
       let failed = false;
       try {
-        listingDetail = await fetchListingForViewer(id, authenticated, listingService);
+        listingDetail = mode === "slug"
+          ? await fetchListingBySlugForViewer(id, authenticated, listingService)
+          : await fetchListingForViewer(id, authenticated, listingService);
       } catch (error) {
         const status = isAxiosError(error) ? error.response?.status : undefined;
         failed = status !== 403 && status !== 404;
@@ -64,7 +75,7 @@ export default function RentDetailPage() {
 
       // Ghi nhận lượt xem (chỉ áp dụng cho tin công khai)
       if (isVisible) {
-        listingService.recordView(id).then((viewRes) => {
+        listingService.recordView(listingDetail.id).then((viewRes) => {
           if (viewRes.counted && !cancelled) {
             setProperty((prev) =>
               prev ? { ...prev, viewCount: viewRes.viewCount, viewsCount: viewRes.viewCount } : null,
@@ -75,7 +86,7 @@ export default function RentDetailPage() {
 
       // Ghi nhận lịch sử xem tin cho user đã đăng nhập
       if (authenticated && isVisible) {
-        dispatch(recordHistoryItem(id));
+        dispatch(recordHistoryItem(listingDetail.id));
       }
 
       setLoadedFor(requestKey);
@@ -86,7 +97,7 @@ export default function RentDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, initialized, authenticated, userId, requestKey, dispatch]);
+  }, [id, mode, initialized, authenticated, userId, requestKey, dispatch]);
 
   if (loading) {
     return (

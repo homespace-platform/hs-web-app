@@ -256,7 +256,7 @@ export default function ContractHeader({
               className="h-9 px-3.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs inline-flex items-center gap-1.5 transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
-              {showEffectiveDocument ? "Tải PDF đang áp dụng" : latestDoc?.purpose === "SIGNED_FINAL" ? "Tải PDF đã ký" : `Tải bản ${latestDoc?.documentType}`}
+              {showEffectiveDocument ? contract.agreedEarlyEndExclusive ? "Tải phụ lục chấm dứt đang áp dụng" : "Tải PDF đang áp dụng" : latestDoc?.purpose === "SIGNED_FINAL" ? "Tải PDF đã ký" : `Tải bản ${latestDoc?.documentType}`}
             </button>
           )}
 
@@ -268,7 +268,7 @@ export default function ContractHeader({
               className="h-9 px-3.5 rounded-xl border border-border bg-card hover:bg-muted hover:border-primary/40 text-foreground text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
             >
               <Eye className="w-3.5 h-3.5 text-primary" />
-              {showEffectiveDocument ? "Xem hợp đồng đang áp dụng" : latestDoc?.purpose === "SIGNED_FINAL" ? "Xem bản đã ký" : latestDoc?.purpose === "SIGNED_LANDLORD" ? "Xem bản đang ký" : "Xem bản soạn thảo"}
+              {showEffectiveDocument ? contract.agreedEarlyEndExclusive ? "Xem phụ lục chấm dứt đang áp dụng" : "Xem hợp đồng đang áp dụng" : latestDoc?.purpose === "SIGNED_FINAL" ? "Xem bản đã ký" : latestDoc?.purpose === "SIGNED_LANDLORD" ? "Xem bản đang ký" : "Xem bản soạn thảo"}
             </button>
           )}
           {signedAppendix && latestDoc && (latestDoc.storageObjectId || latestDoc.viewUrl || latestDoc.downloadUrl) && <button type="button" disabled={opening} onClick={() => void openDocument(false,true)}

@@ -507,7 +507,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     <ContractFieldLegend draft={isDraft} />
     <ContractPartiesSection landlord={landlord} tenant={tenant} />
     <ContractPropertySection property={property} />
-    <ContractLeaseSection lease={lease} />
+    <ContractLeaseSection lease={lease} agreedEarlyEndExclusive={contract.agreedEarlyEndExclusive} />
     <ContractFinancialSection financial={financial} />
     <ContractInitialPaymentSection initialPayment={revision.initialPayment} />
     <ContractAmenitiesSection amenities={amenities} />

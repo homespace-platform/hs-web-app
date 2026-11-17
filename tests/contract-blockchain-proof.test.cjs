@@ -74,15 +74,19 @@ test("SHA-256 is computed from exact file bytes; empty and oversized files never
   await assert.rejects(helper.hashPdfForProof({ size: 20 * 1024 * 1024 + 1, arrayBuffer() { assert.fail("large file"); } }), /20 MB/);
 });
 
-test("explorer URLs only allow a Sepolia transaction hash and scope includes only root leases and child amendments", () => {
+test("explorer URLs only allow a Sepolia transaction hash and proof scope includes signed child documents", () => {
   assert.equal(helper.blockchainTransactionUrl(11155111, "0x" + "c".repeat(64)), "https://sepolia.etherscan.io/tx/0x" + "c".repeat(64));
   assert.equal(helper.blockchainTransactionUrl(1, "0x" + "c".repeat(64)), undefined);
   assert.equal(helper.blockchainTransactionUrl(11155111, "javascript:alert(1)"), undefined);
-  assert.equal(helper.supportsLeaseProof({}), true);
-  assert.equal(helper.supportsLeaseProof({ agreementKind: "LEASE" }), true);
-  assert.equal(helper.supportsLeaseProof({ agreementKind: "AMENDMENT", parentContractId: "root" }), true);
-  for (const kind of ["DEPOSIT", "RENEWAL", "AMENDMENT", "WORKFLOW"]) assert.equal(helper.supportsLeaseProof({ agreementKind: kind }), false);
-  assert.equal(helper.supportsLeaseProof({ parentContractId: "root" }), false);
+  assert.equal(helper.supportsContractProof({}), true);
+  assert.equal(helper.supportsContractProof({ agreementKind: "LEASE" }), true);
+  assert.equal(helper.supportsContractProof({ agreementKind: "DEPOSIT" }), true);
+  assert.equal(helper.supportsContractProof({ agreementKind: "AMENDMENT", parentContractId: "root" }), true);
+  assert.equal(helper.supportsContractProof({ agreementKind: "WORKFLOW", parentContractId: "root" }), true);
+  assert.equal(helper.supportsContractProof({ agreementKind: "RENEWAL", parentContractId: "root" }), true);
+  assert.equal(helper.supportsContractProof({ parentContractId: "root" }), true);
+  for (const kind of ["RENEWAL", "AMENDMENT", "WORKFLOW"]) assert.equal(helper.supportsContractProof({ agreementKind: kind }), false);
+  assert.equal(helper.supportsContractProof({ agreementKind: "DEPOSIT", parentContractId: "root" }), false);
 });
 
 test("actual component polls pending and submitted, then stops after confirmed", async () => {
@@ -141,7 +145,7 @@ test("actual PDF verification sends only SHA-256 and distinguishes mismatch, mis
   f.unmount();
 });
 
-test("the dossier places proof next to signed root leases and child amendments only", () => {
+test("the dossier places proof next to signed root leases and child documents", () => {
   const section = load("components/contract/detail/ContractDocumentSection.tsx", name => {
     if (name === "@/lib/contract-blockchain-proof") return helper;
     if (name === "@/lib/contract-document-history") return history;
@@ -157,9 +161,13 @@ test("the dossier places proof next to signed root leases and child amendments o
   }).default;
   const html = extra => renderToStaticMarkup(React.createElement(section, { documents: [pdf], contract: { id: "contract", signedAt: "2026-11-08T01:00:00Z", currentRevisionId: "revision", status: "ACTIVE", ...extra } }));
   assert.match(html({}), /data-proof-document="pdf"/);
+  assert.match(html({ agreementKind: "DEPOSIT" }), /data-proof-document="pdf"/);
   assert.match(html({ agreementKind: "AMENDMENT", parentContractId: "root" }), /data-proof-document="pdf"/);
-  for (const agreementKind of ["AMENDMENT", "RENEWAL", "DEPOSIT"]) assert.doesNotMatch(html({ agreementKind }), /data-proof-document/);
-  assert.doesNotMatch(html({ parentContractId: "root" }), /data-proof-document/);
+  assert.match(html({ agreementKind: "WORKFLOW", parentContractId: "root" }), /data-proof-document="pdf"/);
+  assert.match(html({ agreementKind: "RENEWAL", parentContractId: "root" }), /data-proof-document="pdf"/);
+  assert.match(html({ parentContractId: "root" }), /data-proof-document="pdf"/);
+  for (const agreementKind of ["AMENDMENT", "RENEWAL", "WORKFLOW"]) assert.doesNotMatch(html({ agreementKind }), /data-proof-document/);
+  assert.doesNotMatch(html({ parentContractId: "root", agreementKind: "DEPOSIT" }), /data-proof-document/);
   assert.doesNotMatch(html({ signedAt: null }), /data-proof-document/);
 });
 

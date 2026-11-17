@@ -224,6 +224,22 @@ export const contractService = {
     const root = requested.parentContractId ? await contractService.getContract(requested.parentContractId) : requested;
     if (requested.id !== contractId || !root.id || root.parentContractId)
       throw new Error("Không xác định được hợp đồng gốc để đối chiếu văn bản đang áp dụng.");
+    if (root.agreedEarlyEndExclusive) {
+      const response = await axiosClient.get<ApiResponse<ContractDocumentResponse | null>>(
+        `/api/v1/contracts/${encodeURIComponent(root.id)}/effective-document`
+      );
+      const selected = response.data.result;
+      if (!selected) return null;
+      const agreement = await contractService.getContract(selected.contractId);
+      if (agreement.parentContractId !== root.id || agreement.agreementKind !== "WORKFLOW"
+        || agreement.status !== "ACTIVE" || !agreement.signedAt || agreement.currentRevisionId !== selected.revisionId)
+        throw new Error("Phụ lục chấm dứt không khớp hợp đồng đang áp dụng.");
+      const fresh = await contractService.getDocument(selected.id);
+      if (fresh.id !== selected.id || fresh.contractId !== agreement.id || fresh.revisionId !== agreement.currentRevisionId
+        || fresh.status !== "READY" || fresh.purpose !== "SIGNED_FINAL" || fresh.documentType !== "PDF" || !fresh.storageObjectId)
+        throw new Error("PDF đã ký không khớp phụ lục chấm dứt đang áp dụng.");
+      return fresh;
+    }
     const response = await axiosClient.get<ApiResponse<ContractAmendments>>(
       `/api/v1/contracts/${encodeURIComponent(root.id)}/amendments`
     );

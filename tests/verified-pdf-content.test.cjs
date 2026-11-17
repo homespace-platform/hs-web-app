@@ -105,3 +105,15 @@ test("download uses checked bytes and original file name, then releases its obje
   assert.deepEqual(calls, [["append"], ["click", "blob:checked", "contract.pdf"], ["remove"]]);
   scheduled[0](); assert.deepEqual(calls.at(-1), ["release", "blob:checked"]);
 });
+
+test("PDF overlay uses its native parent dialog and Escape closes only the PDF",()=>{
+ const host={},body={},calls=[];let node,target,closed=0;
+ const Modal=load("components/contract/detail/ContractPdfViewerModal.tsx",{
+  react:{...React,useRef:()=>({current:null}),useLayoutEffect(){}},"react-dom":{createPortal:(value,container)=>{node=value;target=container;return value;}},
+  "next/dynamic":{default:()=>()=>null},"@/lib/contract-document-history":history,"@/services/contract.service":{contractService:{}}
+ },{window:{document:{body}}}).default;
+ Modal({isOpen:true,document:finalPdf,portalContainer:host,onClose(){closed++;}});assert.equal(target,host);
+ node.props.onKeyDown({key:"Escape",preventDefault(){calls.push("prevent");},stopPropagation(){calls.push("stop");}});
+ assert.equal(closed,1);assert.deepEqual(calls,["prevent","stop"]);
+ Modal({isOpen:true,document:finalPdf,onClose(){}});assert.equal(target,body);
+});

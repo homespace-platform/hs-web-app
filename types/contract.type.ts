@@ -157,6 +157,7 @@ export interface ContractResponse {
   agreementKind?: "AMENDMENT" | "RENEWAL" | "DEPOSIT" | "WORKFLOW" | null;
   depositAgreementContractId?: string | null;
   effectiveLeaseMonths?: number | null;
+  agreedEarlyEndExclusive?: string | null;
   status: ContractStatus;
   paymentStatus: ContractPaymentStatus;
   rentalPaymentId?: string | null;

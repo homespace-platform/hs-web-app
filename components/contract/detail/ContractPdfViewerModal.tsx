@@ -11,6 +11,7 @@ interface ContractPdfViewerModalProps {
   isOpen: boolean;
   onClose: () => void;
   document: ContractDocumentResponse | null;
+  portalContainer?: Element | null;
 }
 
 // Dynamically import PDF viewer content with SSR disabled so pdfjs doesn't evaluate on Node server
@@ -51,6 +52,7 @@ export default function ContractPdfViewerModal({
   isOpen,
   onClose,
   document: doc,
+  portalContainer,
 }: ContractPdfViewerModalProps) {
   const container = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -72,6 +74,7 @@ export default function ContractPdfViewerModal({
   return createPortal(
     <div ref={container} role="dialog" aria-modal="true" aria-label={`Xem hợp đồng: ${doc.fileName || "PDF"}`} tabIndex={-1}
       className="fixed inset-0 z-[100]" onClick={event => event.stopPropagation()} onKeyDown={event => {
+        if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onClose(); return; }
         if (event.key !== "Tab") return;
         const elements = Array.from(container.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), [tabindex="0"]') ?? [])
           .filter(element => element.getClientRects().length > 0);
@@ -85,6 +88,6 @@ export default function ContractPdfViewerModal({
       onClose={onClose}
       document={doc}
     />}
-    </div>, window.document.body
+    </div>, portalContainer ?? window.document.body
   );
 }

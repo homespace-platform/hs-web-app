@@ -22,7 +22,7 @@ export const contractAmendmentService = {
   async propose(id: string, payload: AmendmentPayload) {
     return (await axiosClient.post<ApiResponse<ContractAmendments>>(`/api/v1/contracts/${id}/amendments`, payload)).data.result;
   },
-  async decide(id: string, proposalId: string, action: "APPROVE" | "REJECT" | "REQUEST_CHANGES" | "WITHDRAW", note?: string) {
+  async decide(id: string, proposalId: string, action: "APPROVE" | "REJECT" | "REQUEST_CHANGES" | "WITHDRAW" | "CANCEL", note?: string) {
     return (await axiosClient.post<ApiResponse<ContractAmendments>>(`/api/v1/contracts/${id}/amendments/${proposalId}/decision`, { action, note })).data.result;
   },
 };

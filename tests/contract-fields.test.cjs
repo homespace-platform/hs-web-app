@@ -88,3 +88,11 @@ for(const type of ["Nhà nguyên căn","Căn hộ chung cư","Phòng trọ"])tes
   for(const value of ["REF-ORIGINAL","BANK-ORIGINAL","LEGACY-ORIGINAL","Khoản đã chốt","80.235 VNĐ"])assert.ok(html.includes(value),value);
   assert.doesNotMatch(html,/999999999|<input|<textarea|<select/);assert.equal(initialPayment.totalAmount,80235);
 });
+
+test("agreed early cutoff is displayed separately without replacing signed lease terms",()=>{
+  const Lease=loader(null)("components/contract/detail/ContractLeaseSection.tsx").default;
+  const lease={startDateText:"01/03/2026",endDateText:"01/09/2026",durationMonths:6};
+  const html=renderToStaticMarkup(React.createElement(Lease,{lease,agreedEarlyEndExclusive:"2026-05-01"}));
+  assert.match(html,/01\/05\/2026 lúc 00:00/);assert.match(html,/Ngày kết thúc theo văn bản đã ký/);assert.match(html,/01\/09\/2026/);
+  assert.equal(lease.endDateText,"01/09/2026");assert.match(html,/Bàn giao và quyết toán thực hiện riêng/);
+});

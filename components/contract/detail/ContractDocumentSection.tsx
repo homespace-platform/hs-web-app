@@ -13,7 +13,7 @@ import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
 import { AmendmentComparisonTable } from "./ContractAmendmentPanel";
 import ContractPdfViewerModal from "./ContractPdfViewerModal";
 import ContractBlockchainProof from "./ContractBlockchainProof";
-import { supportsLeaseProof } from "@/lib/contract-blockchain-proof";
+import { supportsContractProof } from "@/lib/contract-blockchain-proof";
 import { depositAgreementService, type DepositAgreementView } from "@/services/deposit-agreement.service";
 
 const smallButton = "inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50";
@@ -95,6 +95,17 @@ export default function ContractDocumentSection({documents,contract}:{documents:
   const w=useAmendmentWorkspace();
   const [previewDoc,setPreviewDoc]=useState<ContractDocumentResponse|null>(null),[busy,setBusy]=useState(false);
   const [deposit,setDeposit]=useState<DepositAgreementView|null>(null),[depositError,setDepositError]=useState(false);
+  const [earlyExitFile,setEarlyExitFile]=useState<{end:string;document:ContractDocumentResponse|null;error:boolean}|null>(null),[earlyExitRetry,setEarlyExitRetry]=useState(0);
+  const earlyEnd=!contract.parentContractId?contract.agreedEarlyEndExclusive:null;
+  useEffect(()=>{
+    if(!earlyEnd)return;
+    let active=true;
+    contractService.getEffectiveDocument(contract.id).then(document=>{
+      if(!document||document.contractId===contract.id)throw new Error("Missing signed early-exit appendix");
+      if(active)setEarlyExitFile({end:earlyEnd,document,error:false});
+    }).catch(()=>{if(active)setEarlyExitFile({end:earlyEnd,document:null,error:true});});
+    return()=>{active=false;};
+  },[contract.id,earlyEnd,earlyExitRetry]);
   useEffect(()=>{
     if(!contract.depositAgreementContractId || contract.parentContractId)return;
     let active=true;
@@ -113,7 +124,7 @@ export default function ContractDocumentSection({documents,contract}:{documents:
   const depositContract=deposit && deposit.agreement?.id===contract.depositAgreementContractId?deposit.agreement:null;
   const depositRows=depositContract?deposit!.documents.filter(d=>d.contractId===depositContract.id):[];
   const depositPdf=depositContract?.signedAt?primaryDocument(depositRows,true,depositContract.currentRevisionId):undefined;
-  const proofDocument=rootSigned&&supportsLeaseProof(contract)?primaryDocument(rootRows,true,contract.currentRevisionId):undefined;
+  const proofDocument=rootSigned&&supportsContractProof(contract)?primaryDocument(rootRows,true,contract.currentRevisionId):undefined;
   const action:Action=async(doc,download=false)=>{
     if(busy)return;
     const verified=requiresVerifiedContent(doc);
@@ -129,10 +140,10 @@ export default function ContractDocumentSection({documents,contract}:{documents:
       else if(tab)tab.location.href=fresh.downloadUrl!;else setPreviewDoc(fresh);
     }catch(e){tab?.close();toast.error(e instanceof Error?e.message:"Không mở được tài liệu.");}finally{setBusy(false);}
   };
-  const title=contract.agreementKind==="AMENDMENT"?"Phụ lục đang xem":contract.agreementKind==="RENEWAL"?"Văn bản gia hạn đang xem":"Hợp đồng gốc";
+  const title=contract.agreementKind==="DEPOSIT"?"Hợp đồng cọc":contract.agreementKind==="AMENDMENT"?"Phụ lục đang xem":contract.agreementKind==="RENEWAL"||contract.parentContractId&&!contract.agreementKind?"Văn bản gia hạn đang xem":"Hợp đồng gốc";
   return <><section id="contract-document-history" className="scroll-mt-24 min-w-0 space-y-4 rounded-2xl border bg-card p-4 sm:p-5" aria-label="Hợp đồng và các lần điều chỉnh">
     <h2 className="flex items-center gap-2 text-sm font-bold"><FileText className="h-4 w-4 text-primary"/>Hợp đồng &amp; các lần điều chỉnh</h2>
-    {!contract.parentContractId&&w?.data&&<p className="rounded-xl bg-primary/5 p-3 text-xs text-muted-foreground">{contract.status==="ACTIVE"?applied.length?"Điều khoản hiện tại theo hợp đồng gốc và "+applied.length+" lần điều chỉnh đã áp dụng. Các mục không thay đổi vẫn theo văn bản trước đó.":"Chưa có phụ lục nào được áp dụng; điều khoản hiện tại theo hợp đồng gốc.":"Hồ sơ lưu trữ: các mốc dưới đây ghi lại những điều chỉnh đã được áp dụng, không có nghĩa hợp đồng vẫn đang có hiệu lực."}</p>}
+    {!contract.parentContractId&&w?.data&&<p className="rounded-xl bg-primary/5 p-3 text-xs text-muted-foreground">{earlyEnd?"Thời hạn thuê hiện tại theo phụ lục chấm dứt sớm đã ký; hợp đồng gốc và các điều chỉnh trước đó được giữ nguyên.":contract.status==="ACTIVE"?applied.length?"Điều khoản hiện tại theo hợp đồng gốc và "+applied.length+" lần điều chỉnh đã áp dụng. Các mục không thay đổi vẫn theo văn bản trước đó.":"Chưa có phụ lục nào được áp dụng; điều khoản hiện tại theo hợp đồng gốc.":"Hồ sơ lưu trữ: các mốc dưới đây ghi lại những điều chỉnh đã được áp dụng, không có nghĩa hợp đồng vẫn đang có hiệu lực."}</p>}
     {contract.depositAgreementContractId && !contract.parentContractId && <>
       {depositError && <p role="alert" className="text-xs text-amber-800">Chưa tải được HĐ cọc liên kết. Hãy tải lại trang để xem đầy đủ nguồn gốc hồ sơ.</p>}
       {!deposit && !depositError && <p className="text-xs text-muted-foreground">Đang tải HĐ cọc liên kết…</p>}
@@ -150,6 +161,12 @@ export default function ContractDocumentSection({documents,contract}:{documents:
       </DocumentFiles>
       {proofDocument&&<div id="contract-blockchain-proof" className="scroll-mt-24"><ContractBlockchainProof document={proofDocument}/></div>}
     </DocumentCard>
+    {earlyEnd&&<DocumentCard title="Phụ lục chấm dứt sớm" status="Đã ký đủ hai bên">
+      <p className="text-xs text-muted-foreground">Mốc kết thúc mới: {documentDate(earlyEnd)} lúc 00:00 (không bao gồm ngày này). Hợp đồng gốc vẫn là bản đã ký riêng ở trên.</p>
+      {earlyExitFile?.end!==earlyEnd?<p className="flex items-center gap-2 text-xs"><Loader2 className="h-3.5 w-3.5 animate-spin"/>Đang tải PDF phụ lục…</p>
+        :earlyExitFile.error?<p role="alert" className="text-xs">Chưa tải được PDF phụ lục đã ký. <button type="button" onClick={()=>{setEarlyExitFile(null);setEarlyExitRetry(n=>n+1);}} className="text-primary underline">Tải lại</button></p>
+        :earlyExitFile.document&&<><DocumentFiles rows={[earlyExitFile.document]} signed revisionId={earlyExitFile.document.revisionId} busy={busy} action={action}/><ContractBlockchainProof document={earlyExitFile.document}/></>}
+    </DocumentCard>}
     {w?.error&&<p role="alert" className="text-xs">Chưa tải được lịch sử điều chỉnh; không thể xác định đầy đủ các phụ lục. <button type="button" onClick={()=>void w.load()} className="text-primary underline">Tải lại lịch sử điều chỉnh</button></p>}
     {!contract.parentContractId&&["ACTIVE","EXPIRED","CLOSED","TERMINATED"].includes(contract.status)&&!w?.data&&!w?.error&&<p className="text-xs text-muted-foreground">Đang kiểm tra lịch sử điều chỉnh…</p>}
     {visible.map(p=><AmendmentDocumentCard key={p.id} proposal={p} number={signed.findIndex(s=>s.id===p.id)+1||undefined} serverNow={serverNow} action={action} busy={busy}/>)}

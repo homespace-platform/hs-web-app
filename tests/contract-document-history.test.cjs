@@ -129,20 +129,24 @@ test("viewing an individual appendix still opens that exact file, not whichever 
   const header=clickableHeader({getEffectiveDocument:()=>assert.fail("must preserve explicit history/signing view"),getDocument:async id=>{calls++;assert.equal(id,current.id);return current;}},{contract:{id:"appendix",parentContractId:"root",agreementKind:"AMENDMENT",status:"DRAFT"},latestDoc:current});
   header.button("Xem bản soạn thảo").props.onClick();await flush();assert.equal(header.state[1].id,current.id);assert.equal(calls,1);
 });
-function effectiveServiceFixture() {
+function effectiveServiceFixture(earlyExit=false) {
   const compiled={exports:{}},calls=[];
-  const root={id:"root",currentRevisionId:"r0",status:"ACTIVE"},pl2={id:"pl2",parentContractId:"root",currentRevisionId:"r2",status:"ACTIVE"};
+  const root={id:"root",currentRevisionId:"r0",status:"ACTIVE",agreedEarlyEndExclusive:earlyExit?"2026-12-17":null},pl2={id:"pl2",parentContractId:"root",currentRevisionId:"r2",status:"ACTIVE"};
+  const exit={id:"exit",parentContractId:"root",agreementKind:"WORKFLOW",currentRevisionId:"exit-revision",status:"ACTIVE",signedAt:"2026-11-17T05:00:00Z"};
   const state={serverNow:"2026-11-15T03:00:00Z",currentTermsRevisionId:"r1",proposals:[
     proposal("SCHEDULED",{id:"pl2",effectiveOn:"2026-12-15",signedAt:"2026-11-15T03:00:00Z",agreementContractId:"pl2"}),
     proposal("APPLIED",{id:"pl1",signedAt:"2026-10-20T00:00:00Z",agreementContractId:"pl1"})]};
   const files={root:[{...doc("original","SIGNED_FINAL","READY","PDF",undefined,"r0"),storageObjectId:"root-file"}],
     pl1:[{...doc("november","SIGNED_FINAL","READY","PDF",undefined,"r1"),contractId:"pl1",storageObjectId:"pl1-file"}],
-    pl2:[{...doc("december","SIGNED_FINAL","READY","PDF","2099-01-01T00:00:00Z","r2"),contractId:"pl2",storageObjectId:"pl2-file"}]};
+    pl2:[{...doc("december","SIGNED_FINAL","READY","PDF","2099-01-01T00:00:00Z","r2"),contractId:"pl2",storageObjectId:"pl2-file"}],
+    exit:[{...doc("exit-final","SIGNED_FINAL","READY","PDF",undefined,"exit-revision"),contractId:"exit",storageObjectId:"exit-file"}]};
   let freshOverride;
   const get=async url=>{
     calls.push(url);let result;
     if(url==="/api/v1/contracts/root")result=root;
+    else if(url==="/api/v1/contracts/exit")result=exit;
     else if(url==="/api/v1/contracts/pl2")result=pl2;
+    else if(url==="/api/v1/contracts/root/effective-document")result=files.exit[0];
     else if(url==="/api/v1/contracts/root/amendments")result=state;
     else if(/\/contracts\/(root|pl1|pl2)\/documents$/.test(url))result=files[url.split("/")[4]];
     else if(url.startsWith("/api/v1/contracts/documents/")){
@@ -154,8 +158,22 @@ function effectiveServiceFixture() {
   const source=ts.transpileModule(fs.readFileSync(path.join(__dirname,"../services/contract.service.ts"),"utf8"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText;
   const resolve=name=>name==="@/lib/axios-client"?{__esModule:true,default:{get}}:name==="@/lib/contract-document-history"?h:require(name);
   vm.runInThisContext(`(function(require,module,exports){${source}\n})`)(resolve,compiled,compiled.exports);
-  return {api:compiled.exports.contractService,state,files,calls,override:value=>{freshOverride=value;}};
+  return {api:compiled.exports.contractService,state,files,calls,exit,override:value=>{freshOverride=value;}};
 }
+test("agreed early exit opens only the signed workflow appendix matching the applied end",async()=>{
+  const f=effectiveServiceFixture(true);
+  const selected=await f.api.getEffectiveDocument("root");
+  assert.equal(selected.id,"exit-final");assert.equal(selected.contractId,"exit");
+  assert.equal(f.calls.includes("/api/v1/contracts/root/amendments"),false);
+  f.files.exit[0].contractId="root";
+  await assert.rejects(f.api.getEffectiveDocument("root"),/Phụ lục chấm dứt/);
+  f.files.exit[0].contractId="exit";
+  f.exit.signedAt=null;
+  await assert.rejects(f.api.getEffectiveDocument("root"),/Phụ lục chấm dứt/);
+  f.exit.signedAt="2026-11-17T05:00:00Z";
+  f.override({revisionId:"r0"});
+  await assert.rejects(f.api.getEffectiveDocument("root"),/PDF đã ký/);
+});
 test("15 November selects PL1 rather than already-signed PL2, without requiring a newly deployed endpoint",async()=>{
   const f=effectiveServiceFixture();
   for(const id of ["root","pl2"]) {

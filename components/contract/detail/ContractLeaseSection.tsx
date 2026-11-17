@@ -8,10 +8,12 @@ import { ContractTermFields } from "./InlineAmendmentFields";
 
 interface ContractLeaseSectionProps {
   lease: Record<string, unknown>;
+  agreedEarlyEndExclusive?: string | null;
 }
 
 export default function ContractLeaseSection({
   lease: originalLease,
+  agreedEarlyEndExclusive,
 }: ContractLeaseSectionProps) {
   const w = useAmendmentWorkspace();
   const lease = w?.data?.currentTerms.lease ?? originalLease;
@@ -44,13 +46,18 @@ export default function ContractLeaseSection({
         </span>
       </div>
 
+      {agreedEarlyEndExclusive&&<div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs">
+        <p className="font-semibold">Đã thống nhất kết thúc thuê sớm</p>
+        <p className="mt-1">Mốc kết thúc đang áp dụng: {agreedEarlyEndExclusive.split("-").reverse().join("/")} lúc 00:00 (không gồm ngày này).</p>
+        <p className="mt-1 text-muted-foreground">Thời hạn gốc trong văn bản đã ký bên dưới được giữ nguyên để đối chiếu. Bàn giao và quyết toán thực hiện riêng.</p>
+      </div>}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5">
         <FieldRow editable
           label="Ngày bắt đầu tính tiền thuê"
           value={lease.startDateText}
           highlight
         />
-        <FieldRow editable label="Ngày kết thúc hợp đồng" value={lease.endDateText} />
+        <FieldRow editable label={agreedEarlyEndExclusive?"Ngày kết thúc theo văn bản đã ký":"Ngày kết thúc hợp đồng"} value={lease.endDateText} />
         <FieldRow editable
           label="Thời hạn thuê"
           value={durationLabel}

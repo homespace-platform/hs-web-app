@@ -12,6 +12,7 @@ const button="rounded-xl border px-3 py-2 text-xs font-semibold transition-color
 const actionHints: Record<string,string> = {
   COMMENT:"Trao đổi với bên còn lại hoặc bổ sung chứng cứ cho hồ sơ này.",
   ESCALATE:"Chuyển hồ sơ và chứng cứ hiện có để HomeSpace hỗ trợ xem xét.",
+  CLOSE:"Chỉ đóng khi vấn đề đã được giải quyết. Lịch sử và chứng cứ vẫn được giữ lại.",
   WITHDRAW:"Ghi lý do rút hồ sơ. Lịch sử trao đổi vẫn được giữ lại.",
   REOPEN:"Nêu thông tin mới hoặc lý do cần tiếp tục xử lý hồ sơ đã đóng.",
 };
@@ -29,7 +30,8 @@ export default function ComplaintPanel({rentalRequestId,attention=false,onUpdate
   const scoped=rows.filter(c=>c.rentalRequestId===rentalRequestId&&[c.tenantId,c.landlordId].includes(profile?.id??""));
   const current=scoped.find(c=>c.id===selected)??scoped.find(c=>c.status!=="RESOLVED")??scoped[0];
   const valid=reason.trim().length>=10&&reason.trim().length<=500;
-  const actions=current?.allowedActions.filter(a=>["COMMENT","ESCALATE","WITHDRAW","REOPEN"].includes(a))??[];
+  const actions=current?.finalClosed?[]:current?.allowedActions.filter(a=>["COMMENT","ESCALATE","CLOSE","WITHDRAW","REOPEN"].includes(a))??[];
+  const actionLabel=(action:string)=>action==="ESCALATE"&&(current?.adminReviewCount??0)>0?"Yêu cầu admin xem xét lần 2":complaintActions[action];
   const activeAction=actions.includes(chosenAction)?chosenAction:actions.includes("COMMENT")?"COMMENT":actions[0];
   const resetDraft=()=>{editing.current=false;setReason("");setFiles([]);setChosenAction("");};
   const refresh=useCallback((automatic=false)=>{
@@ -103,9 +105,11 @@ export default function ComplaintPanel({rentalRequestId,attention=false,onUpdate
             <article className="space-y-3 rounded-xl border p-4">
               <div className="flex flex-wrap justify-between gap-2"><h3 className="font-semibold">{complaintCategories[current.category]}</h3><span className="text-xs text-primary">{complaintStages[current.stage]??current.stage}</span></div>
               <p className="whitespace-pre-wrap break-words">{current.reason}</p>
+              <p className="text-xs text-muted-foreground">Admin đã kết luận {current.adminReviewCount??0}/{current.adminReviewLimit??2} lần.</p>
+              {current.finalClosed?<p role="status" className="rounded-lg bg-muted p-3 text-xs">Admin đã kết luận lần 2 và đóng hồ sơ. Bạn có thể xem lại toàn bộ lịch sử.</p>:(current.adminReviewCount??0)===1&&current.status==="OPEN"&&<p className="rounded-lg bg-primary/5 p-3 text-xs">Hai bên tiếp tục trao đổi. Nếu đã giải quyết, chọn đóng hồ sơ; nếu chưa, yêu cầu admin xem xét lần 2. Kết luận lần 2 sẽ kết thúc hồ sơ.</p>}
               {current.respondBy&&<p className="text-xs text-muted-foreground">{current.responseDueFor===profile.id?"Bạn":current.responseDueFor==="ADMIN"?"HomeSpace":"Bên còn lại"} cần phản hồi trước {date(current.respondBy)}{current.overdue?" · Đã quá hạn":""}. Quá hạn không tự đồng ý hay xử lý tiền.</p>}
               {!!current.evidenceIds.length&&<div className="flex flex-wrap gap-2">{current.evidenceIds.map((id,i)=><button type="button" className={button} key={id} onClick={()=>void proof(id)}>Xem chứng cứ {i+1}</button>)}</div>}
-              {current.decision&&<div className="rounded-lg bg-primary/5 p-3"><p className="font-semibold">Kết luận HomeSpace</p><p className="whitespace-pre-wrap break-words">{current.decision}</p></div>}
+              {current.decision&&<div className="rounded-lg bg-primary/5 p-3"><p className="font-semibold">Kết luận HomeSpace · Lần {current.adminReviewCount??1}</p><p className="whitespace-pre-wrap break-words">{current.decision}</p></div>}
               {current.status==="RESOLVED"&&current.closingReason&&current.closingReason!==current.decision&&<p className="whitespace-pre-wrap break-words">Lý do đóng: {current.closingReason}</p>}
             </article>
             <ComplaintHistory complaint={current} expanded onProof={(id,document)=>void proof(id,document)}/>
@@ -118,10 +122,10 @@ export default function ComplaintPanel({rentalRequestId,attention=false,onUpdate
             {!creating&&activeAction!=="COMMENT"&&<p className="text-xs text-muted-foreground">{actionHints[activeAction!]}</p>}
             <p className="text-xs text-muted-foreground">{reason.trim().length}/500 ký tự</p>
             {(creating||activeAction==="COMMENT")&&<label className="block space-y-2 text-xs"><span>Đính kèm chứng cứ · Tối đa 5 ảnh/PDF, 15 MB/tệp</span><input aria-label="Chứng cứ khiếu nại" disabled={busy} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={e=>{if(!pick(e.target.files))e.target.value="";}} className="block w-full rounded-lg border p-2"/></label>}
-            <div className="flex flex-wrap gap-2"><button type="button" className={button+" border-primary bg-primary text-primary-foreground hover:bg-primary/90"} disabled={busy||!valid||(!creating&&(!activeAction||(activeAction!=="COMMENT"&&files.length>0)))} onClick={()=>void perform(creating?"OPEN":activeAction!)}>{busy?"Đang gửi…":creating?"Gửi khiếu nại":activeAction==="COMMENT"?"Gửi trao đổi":complaintActions[activeAction!]}</button>
+            <div className="flex flex-wrap gap-2"><button type="button" className={button+" border-primary bg-primary text-primary-foreground hover:bg-primary/90"} disabled={busy||!valid||(!creating&&(!activeAction||(activeAction!=="COMMENT"&&files.length>0)))} onClick={()=>void perform(creating?"OPEN":activeAction!)}>{busy?"Đang gửi…":creating?"Gửi khiếu nại":activeAction==="COMMENT"?"Gửi trao đổi":actionLabel(activeAction!)}</button>
               {!creating&&activeAction!=="COMMENT"&&actions.includes("COMMENT")&&<button type="button" className={button} disabled={busy} onClick={()=>setChosenAction("COMMENT")}>Quay lại trao đổi</button>}
             </div>
-            {!creating&&activeAction==="COMMENT"&&<div className="flex flex-wrap gap-3 text-xs">{actions.filter(a=>a!=="COMMENT").map(a=><button key={a} type="button" disabled={busy||files.length>0} className="text-primary underline disabled:opacity-50" onClick={()=>setChosenAction(a)}>{complaintActions[a]}</button>)}</div>}
+            {!creating&&activeAction==="COMMENT"&&<div className="flex flex-wrap gap-3 text-xs">{actions.filter(a=>a!=="COMMENT").map(a=><button key={a} type="button" disabled={busy||files.length>0} className="text-primary underline disabled:opacity-50" onClick={()=>setChosenAction(a)}>{actionLabel(a)}</button>)}</div>}
           </div>}
           {!creating&&!current&&!loading&&!error&&<p className="py-5 text-center text-muted-foreground">Chưa có hồ sơ khiếu nại. Chọn “Mở khiếu nại mới” để gửi thông tin.</p>}
         </div>

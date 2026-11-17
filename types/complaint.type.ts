@@ -5,6 +5,7 @@ export interface ComplaintCase {
   status: "OPEN" | "ESCALATED" | "RESOLVED"; stage: string; revision: number;
   respondBy?: string; responseDueFor?: string; overdue: boolean; assignedTo?: string;
   outcome?: "RECORD_FINDING" | "REVISE_SETTLEMENT"; decision?: string; proposedBy?: string; proposalReason?: string;
+  adminReviewCount: number; adminReviewLimit: number; finalClosed: boolean;
   sourceVersion?: number; tenantCompleted: boolean; landlordCompleted: boolean; allowedActions: string[];
   events: { revision: number; action: string; actorId: string; actorRole: string; reason: string; metadataJson?: string; occurredAt: string }[];
   evidenceIds: string[]; closingReason?: string; sources?: ComplaintWorkflowSource[];
@@ -21,14 +22,15 @@ export const complaintCategories: Record<ComplaintCategory,string> = {
 export const complaintStages: Record<string,string> = {
   WAITING_RESPONSE:"Chờ bên còn lại phản hồi", DISCUSSING:"Hai bên đang trao đổi", PROPOSAL_PENDING:"Chờ phản hồi đề xuất",
   WAITING_ADMIN:"Đã chuyển HomeSpace", UNDER_REVIEW:"Admin đang xem xét", WAITING_INFO:"Chờ bổ sung thông tin",
-  FOLLOW_UP:"Đã có kết luận · Đang theo dõi thực hiện", AGREED:"Hai bên đã thống nhất", WITHDRAWN:"Người gửi đã đóng", CLOSED:"Đã đóng hồ sơ",
+  FOLLOW_UP:"Đã kết luận lần 1 · Hai bên tiếp tục trao đổi", AGREED:"Hai bên đã thống nhất", WITHDRAWN:"Người gửi đã đóng", CLOSED:"Đã đóng hồ sơ",
 };
 export const complaintActions: Record<string,string> = {
   OPENED:"Mở khiếu nại", COMMENT:"Phản hồi / bổ sung chứng cứ", PROPOSE:"Đề xuất thỏa thuận", ACCEPT:"Đồng ý thỏa thuận",
   DECLINE:"Chưa đồng ý", ESCALATE:"Chuyển HomeSpace", WITHDRAW:"Đóng khiếu nại", REOPEN:"Mở lại có lý do", CLAIM:"Tiếp nhận xử lý",
-  REQUEST_INFO:"Yêu cầu bổ sung", DECIDE:"Ghi kết luận", CLOSE:"Đóng theo kết luận", CONFIRM_COMPLETE:"Xác nhận đã thực hiện",
+  REQUEST_INFO:"Yêu cầu bổ sung", DECIDE:"Ghi kết luận", CLOSE:"Đã giải quyết · Đóng hồ sơ", CONFIRM_COMPLETE:"Xác nhận đã thực hiện",
   REJECT_DECISION:"Đề nghị admin xem xét lại", APPROVE_SETTLEMENT:"Đồng ý đề xuất quyết toán của admin",
   FOLLOW_UP_PAYMENT:"Theo dõi nghĩa vụ thanh toán", COMPLETED:"Hoàn tất nghĩa vụ theo kết luận",
+  FINALIZED:"Đóng hồ sơ sau hai kết luận admin",
   SOURCE_DISPUTED:"Phản đối phiên bản quyết toán mới", SOURCE_ATTACHED:"Gắn biên bản / thỏa thuận làm căn cứ",
 };
 export function complaintEventContext(metadata?:string):{agreement?:string;deduction?:number;version?:number;evidenceIds:string[]}{

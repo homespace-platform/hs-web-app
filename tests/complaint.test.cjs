@@ -3,7 +3,7 @@ const {test}=require("node:test"),assert=require("node:assert/strict"),fs=requir
 let pollCallbacks=[];
 function compile(file,dependencies={}){const loaded={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,"..",file),"utf8"),{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:loaded,exports:loaded.exports,require:name=>dependencies[name]??require(name),document:{visibilityState:"visible"},window:{setInterval(fn){pollCallbacks.push(fn);return 1;},clearInterval(){},open(){return null;}}});return loaded.exports;}
 const labels=compile("types/complaint.type.ts"),History=compile("components/complaint/ComplaintHistory.tsx",{"@/types/complaint.type":labels}).default;
-const example=()=>({id:"case",rentalRequestId:"rental",contractId:"contract",tenantId:"tenant",landlordId:"owner",category:"REPAIR",reason:"Khóa cửa bị hỏng trước khi nhận nhà",openedBy:"tenant",openedAt:"2026-11-03T03:00:00Z",status:"OPEN",stage:"WAITING_RESPONSE",revision:7,respondBy:"2026-11-05T03:00:00Z",responseDueFor:"owner",overdue:false,allowedActions:["COMMENT","ESCALATE","WITHDRAW"],events:[],evidenceIds:[]});
+const example=()=>({id:"case",rentalRequestId:"rental",contractId:"contract",tenantId:"tenant",landlordId:"owner",category:"REPAIR",reason:"Khóa cửa bị hỏng trước khi nhận nhà",openedBy:"tenant",openedAt:"2026-11-03T03:00:00Z",status:"OPEN",stage:"WAITING_RESPONSE",revision:7,respondBy:"2026-11-05T03:00:00Z",responseDueFor:"owner",overdue:false,adminReviewCount:0,adminReviewLimit:2,finalClosed:false,allowedActions:["COMMENT","ESCALATE","CLOSE"],events:[],evidenceIds:[]});
 function panel(options={}){pollCallbacks=[];
   const c={...example(),...options.case},states=[options.rows??[c],"",options.reason??"Đã đọc và phản hồi đầy đủ hồ sơ",options.category??"OTHER",options.urgent??false,options.files??[],"",false,false,options.creating??false,options.action??"",options.modalOpen??true],updates=states.map(()=>[]);
   let index=0,refIndex=0,parentUpdates=0;const refs=[],effects=[],calls=[],errors=[];
@@ -120,4 +120,26 @@ test("an old identity's completion cannot unlock a new scope's in-flight action"
 test("workflow source history correctly attributes admin and system actions",()=>{
   const c=example();c.sources=[{workflowId:"w",kind:"EARLY_EXIT",revision:3,status:"AGREED",capturedAt:c.openedAt,proposal:{},history:[{revision:1,role:"ADMIN",at:c.openedAt,reason:"Đã kiểm tra hồ sơ"},{revision:2,role:"SYSTEM",at:c.openedAt,reason:"Đã đồng bộ trạng thái"}],evidenceIds:[]}];
   const html=renderToStaticMarkup(React.createElement(History,{complaint:c}));assert.match(html,/HomeSpace: Đã kiểm tra hồ sơ/);assert.match(html,/Hệ thống: Đã đồng bộ trạng thái/);
+});
+
+test("either party sees the self-resolution close button before admin intervention",()=>{
+  for(const actor of ["tenant","owner"]){const f=panel({actor});assert.ok(button(f,"Đã giải quyết · Đóng hồ sơ"));}
+});
+test("self-resolution close sends only its reason and reviewed revision",async()=>{
+  const f=panel({actor:"owner",action:"CLOSE"});button(f,"Đã giải quyết · Đóng hồ sơ").props.onClick();await tick();
+  const post=f.calls.find(c=>c.kind==="act");assert.equal(post.args[1],"CLOSE");assert.equal(post.args[2].expectedRevision,7);assert.equal(post.args[2].adminReviewCount,undefined);
+});
+test("first admin finding keeps discussion and clearly offers the last review",()=>{
+  const f=panel({case:{stage:"FOLLOW_UP",adminReviewCount:1,decision:"Chủ nhà kiểm tra và sửa khóa phòng"}});
+  assert.ok(button(f,"Gửi trao đổi"));assert.ok(button(f,"Yêu cầu admin xem xét lần 2"));assert.ok(button(f,"Đã giải quyết · Đóng hồ sơ"));
+  assert.match(f.html,/Kết luận lần 2 sẽ kết thúc hồ sơ/);assert.match(f.html,/Admin đã kết luận 1\/2 lần/);
+});
+test("second review request posts escalation without a client-controlled review count",async()=>{
+  const f=panel({action:"ESCALATE",case:{stage:"FOLLOW_UP",adminReviewCount:1}});button(f,"Yêu cầu admin xem xét lần 2").props.onClick();await tick();
+  assert.deepEqual(JSON.parse(JSON.stringify(f.calls.find(c=>c.kind==="act").args)),["case","ESCALATE",{expectedRevision:7,reason:"Đã đọc và phản hồi đầy đủ hồ sơ"}]);
+});
+test("final second conclusion is read-only even if an older action list was retained",()=>{
+  const f=panel({case:{status:"RESOLVED",stage:"CLOSED",adminReviewCount:2,finalClosed:true,allowedActions:["COMMENT","REOPEN"]}});
+  assert.equal(find(f.tree,n=>n.type==="textarea"),undefined);assert.equal(find(f.tree,n=>n.type==="input"&&n.props.type==="file"),undefined);
+  assert.match(f.html,/Admin đã kết luận lần 2 và đóng hồ sơ/);assert.equal(find(f.tree,n=>n.type==="button"&&text(n)==="Mở lại có lý do"),undefined);
 });

@@ -101,10 +101,11 @@ export default function NotificationTransport() {
           notificationService.notifyListingChanged(typeof listingId === "string" ? listingId : undefined);
         }
         if (item.category === "RENTAL_REQUEST") {
-          const requestId = item.metadata?.requestId;
+          const requestId = item.metadata?.requestId ?? item.metadata?.rentalRequestId;
           notificationService.notifyRentalRequestChanged(typeof requestId === "string" ? requestId : undefined);
+          if(item.type?.startsWith("COMPLAINT_"))window.dispatchEvent(new CustomEvent("homespace:complaint-changed",{detail:requestId}));
         }
-        if (item.category === "PAYMENT" && (item.type === "MEMBERSHIP_ACTIVATED" || item.type === "MEMBERSHIP_PAYMENT_REVIEW")) {
+        if (item.category === "PAYMENT" && (item.type === "MEMBERSHIP_ACTIVATED" || item.type === "MEMBERSHIP_PAYMENT_REVIEW" || item.type === "MEMBERSHIP_EXPIRING_SOON" || item.type === "MEMBERSHIP_EXPIRED")) {
           const orderId = item.metadata?.orderId;
           notificationService.notifyMembershipChanged(typeof orderId === "string" ? orderId : undefined);
         }

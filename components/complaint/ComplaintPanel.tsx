@@ -17,7 +17,7 @@ const actionHints: Record<string,string> = {
   REOPEN:"Nêu thông tin mới hoặc lý do cần tiếp tục xử lý hồ sơ đã đóng.",
 };
 const date=(value?:string)=>value?new Date(value).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"—";
-export default function ComplaintPanel({rentalRequestId,attention=false,onUpdated}:{rentalRequestId:string;attention?:boolean;onUpdated?:()=>Promise<unknown>|void}){
+export default function ComplaintPanel({rentalRequestId,initialComplaintId,attention=false,onUpdated}:{rentalRequestId:string;initialComplaintId?:string;attention?:boolean;onUpdated?:()=>Promise<unknown>|void}){
   const {profile}=useAuth();
   const actionGroup=useId();
   const [rows,setRows]=useState<ComplaintCase[]>([]),[selected,setSelected]=useState("");
@@ -28,7 +28,7 @@ export default function ComplaintPanel({rentalRequestId,attention=false,onUpdate
   const dialog=useRef<HTMLDialogElement>(null);
   const generation=useRef(0),identity=useRef(0),mutex=useRef<number|null>(null),uploaded=useRef(new Map<File,string>()),editing=useRef(false);
   const scoped=rows.filter(c=>c.rentalRequestId===rentalRequestId&&[c.tenantId,c.landlordId].includes(profile?.id??""));
-  const current=scoped.find(c=>c.id===selected)??scoped.find(c=>c.status!=="RESOLVED")??scoped[0];
+  const current=selected?scoped.find(c=>c.id===selected):scoped.find(c=>c.status!=="RESOLVED")??scoped[0];
   const valid=reason.trim().length>=10&&reason.trim().length<=500;
   const actions=current?.finalClosed?[]:current?.allowedActions.filter(a=>["COMMENT","ESCALATE","CLOSE","WITHDRAW","REOPEN"].includes(a))??[];
   const actionLabel=(action:string)=>action==="ESCALATE"&&(current?.adminReviewCount??0)>0?"Yêu cầu admin xem xét lần 2":complaintActions[action];
@@ -42,10 +42,11 @@ export default function ComplaintPanel({rentalRequestId,attention=false,onUpdate
   },[rentalRequestId]);
   useEffect(()=>{
     const scope=identity,requests=generation,cache=uploaded,draft=editing;draft.current=false;
-    setModalOpen(false);setRows([]);setSelected("");setReason("");setFiles([]);setBusy(false);setCreating(false);setChosenAction("");setCategory("OTHER");setUrgent(false);
+    setModalOpen(Boolean(initialComplaintId));setRows([]);setSelected(initialComplaintId??"");setReason("");setFiles([]);setBusy(false);setCreating(false);setChosenAction("");setCategory("OTHER");setUrgent(false);
     return ()=>{scope.current++;requests.current++;cache.current.clear();};
-  },[rentalRequestId,profile?.id]);
+  },[rentalRequestId,profile?.id,initialComplaintId]);
   useEffect(()=>{if(!rentalRequestId||!profile?.id)return;const scope=generation;setLoading(true);void refresh();const timer=window.setInterval(()=>{if(document.visibilityState==="visible")void refresh(true);},20000);return()=>{scope.current++;window.clearInterval(timer);};},[refresh,rentalRequestId,profile?.id]);
+  useEffect(()=>{const updated=(event:Event)=>{if((event as CustomEvent).detail===rentalRequestId)void refresh(true);};window.addEventListener("homespace:complaint-changed",updated);return()=>window.removeEventListener("homespace:complaint-changed",updated);},[rentalRequestId,refresh]);
   useEffect(()=>{
     const element=dialog.current;if(!modalOpen||!element)return;
     if(!element.open)element.showModal();
@@ -127,7 +128,7 @@ export default function ComplaintPanel({rentalRequestId,attention=false,onUpdate
             </div>
             {!creating&&activeAction==="COMMENT"&&<div className="flex flex-wrap gap-3 text-xs">{actions.filter(a=>a!=="COMMENT").map(a=><button key={a} type="button" disabled={busy||files.length>0} className="text-primary underline disabled:opacity-50" onClick={()=>setChosenAction(a)}>{actionLabel(a)}</button>)}</div>}
           </div>}
-          {!creating&&!current&&!loading&&!error&&<p className="py-5 text-center text-muted-foreground">Chưa có hồ sơ khiếu nại. Chọn “Mở khiếu nại mới” để gửi thông tin.</p>}
+          {!creating&&!current&&!loading&&!error&&<p className="py-5 text-center text-muted-foreground">{selected?"Không tìm thấy hồ sơ được thông báo hoặc bạn không có quyền xem. Hệ thống không tự mở hồ sơ khác.":"Chưa có hồ sơ khiếu nại. Chọn “Mở khiếu nại mới” để gửi thông tin."}</p>}
         </div>
       </>}
     </dialog>

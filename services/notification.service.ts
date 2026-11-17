@@ -30,7 +30,7 @@ export function isSafeActionPath(value: unknown): value is string {
 }
 
 export function getSafeActionPath(value: unknown): string | null {
-  return isSafeActionPath(value) ? value : null;
+  return isSafeActionPath(value) && !value.startsWith("/operations/") ? value : null;
 }
 
 export function isNotificationUnread(item: Pick<NotificationItem, "readAt">): boolean {
@@ -165,6 +165,7 @@ export function getCategoryMeta(category: NotificationCategory): NotificationCat
 }
 
 const APPOINTMENT_TYPE_TAGS: Record<string, string> = {
+  BOOKING_REMINDER: "Sắp đến lịch",
   BOOKING_REQUESTED: "Đặt mới",
   BOOKING_CONFIRMED: "Xác nhận",
   BOOKING_REJECTED: "Từ chối",
@@ -223,12 +224,14 @@ const RENTAL_REQUEST_TYPE_TAGS: Record<string, string> = {
 };
 
 const ACCOUNT_TYPE_TAGS: Record<string, string> = {
+  KYC_VERIFIED: "Đã xác minh", KYC_REJECTED: "Cần xác minh lại", KYC_RETRY_REQUIRED: "Thử lại xác minh",
   ACCOUNT_ROLE_CHANGED: "Đổi vai trò",
   ACCOUNT_DISABLED: "Đã vô hiệu hóa",
   ACCOUNT_ENABLED: "Đã kích hoạt lại",
 };
 
 const PAYMENT_TYPE_TAGS: Record<string, string> = {
+  MEMBERSHIP_EXPIRING_SOON: "Gói sắp hết hạn", MEMBERSHIP_EXPIRED: "Gói hết hạn", PAYMENT_DUE_SOON: "Sắp đến hạn",
   MEMBERSHIP_ACTIVATED: "Kích hoạt gói",
   MEMBERSHIP_PAYMENT_REVIEW: "Chờ đối soát",
   PAYMENT_REQUEST_CREATED: "Yêu cầu chuyển khoản",
@@ -248,6 +251,7 @@ const PAYMENT_TYPE_TAGS: Record<string, string> = {
 // Invoice lifecycle notices (PAYMENT category). They open /dashboard/invoices/<contractId>?section=monthly&invoice=<id>
 // and only invalidate the invoice page; they never feed payment/membership recovery.
 const INVOICE_TYPE_TAGS: Record<string, string> = {
+  INVOICE_METER_REMINDER: "Nhắc chốt chỉ số", INVOICE_PAYMENT_REMINDER: "Nhắc thanh toán",
   INVOICE_DRAFT_READY: "Bản nháp hóa đơn",
   INVOICE_ISSUED: "Đã phát hành",
   INVOICE_OVERDUE: "Quá hạn",
@@ -293,6 +297,7 @@ export function isAmendmentNotificationType(type: unknown): boolean {
 }
 
 const RENEWAL_TYPE_TAGS: Record<string, string> = {
+  LEASE_RENEWAL_WINDOW_OPENED: "Đến thời gian gia hạn",
   RENEWAL_REQUESTED: "Yêu cầu gia hạn",
   RENEWAL_APPROVED: "Gia hạn được duyệt",
   RENEWAL_REJECTED: "Gia hạn bị từ chối",
@@ -304,6 +309,7 @@ export function isRenewalNotificationType(type: unknown): boolean {
 }
 
 const TERMINATION_TYPE_TAGS: Record<string, string> = {
+  TERMINATION_APPROVED: "Đồng ý · Chờ ký phụ lục",
   TERMINATION_RESPONSE_NEEDED: "Cần phản hồi chấm dứt", TERMINATION_AGREED: "Đã đồng ý chấm dứt",
   TERMINATION_DECLINED: "Đã từ chối chấm dứt", TERMINATION_WITHDRAWN: "Đã rút đề nghị",
   TERMINATION_NOTICE_ISSUED: "Quyết định chấm dứt", TERMINATION_REVIEW_REQUESTED: "Cần xem xét quyết định",
@@ -329,6 +335,7 @@ export function isReturnSettlementNotificationType(type: unknown): boolean {
 
 // Routed payment types open /dashboard/payments?paymentId=…; legacy PAYMENT_* types do not.
 const ROUTED_PAYMENT_TYPES: ReadonlySet<string> = new Set([
+  "PAYMENT_DUE_SOON",
   "PAYMENT_REQUEST_CREATED",
   "PAYMENT_OBLIGATION_OVERDUE",
   "PAYMENT_TRANSFER_REPORTED",

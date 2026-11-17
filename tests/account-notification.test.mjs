@@ -30,6 +30,7 @@ test('account tags distinguish committed transitions and reject prototype lookup
 test('account notification action points to existing own-account page and preserves opt-out preferences', () => {
   assert.equal(api.getSafeActionPath('/settings/account-security'), '/settings/account-security');
   assert.equal(api.getSafeActionPath('//evil.test/settings'), null);
+  assert.equal(api.getSafeActionPath('/operations/system-alerts?incidentId=incident-1'), null);
   assert.ok(fs.existsSync(new URL('../app/settings/account-security/page.tsx', import.meta.url)));
   const configured = api.withDefaultPreferences([{ category: 'ACCOUNT', push: false, email: false }]);
   assert.equal(configured[0].push, false); assert.equal(configured[0].email, false);

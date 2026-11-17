@@ -5,12 +5,12 @@ function compile(file,dependencies={}){const loaded={exports:{}};vm.runInNewCont
 const labels=compile("types/complaint.type.ts"),History=compile("components/complaint/ComplaintHistory.tsx",{"@/types/complaint.type":labels}).default;
 const example=()=>({id:"case",rentalRequestId:"rental",contractId:"contract",tenantId:"tenant",landlordId:"owner",category:"REPAIR",reason:"Khóa cửa bị hỏng trước khi nhận nhà",openedBy:"tenant",openedAt:"2026-11-03T03:00:00Z",status:"OPEN",stage:"WAITING_RESPONSE",revision:7,respondBy:"2026-11-05T03:00:00Z",responseDueFor:"owner",overdue:false,adminReviewCount:0,adminReviewLimit:2,finalClosed:false,allowedActions:["COMMENT","ESCALATE","CLOSE"],events:[],evidenceIds:[]});
 function panel(options={}){pollCallbacks=[];
-  const c={...example(),...options.case},states=[options.rows??[c],"",options.reason??"Đã đọc và phản hồi đầy đủ hồ sơ",options.category??"OTHER",options.urgent??false,options.files??[],"",false,false,options.creating??false,options.action??"",options.modalOpen??true],updates=states.map(()=>[]);
+  const c={...example(),...options.case},states=[options.rows??[c],options.selected??"",options.reason??"Đã đọc và phản hồi đầy đủ hồ sơ",options.category??"OTHER",options.urgent??false,options.files??[],"",false,false,options.creating??false,options.action??"",options.modalOpen??true],updates=states.map(()=>[]);
   let index=0,refIndex=0,parentUpdates=0;const refs=[],effects=[],calls=[],errors=[];
   const hooks={...React,useId:()=>"test-complaint-actions",useState(initial){const i=index++;return [i<states.length?states[i]:initial,v=>updates[i].push(v)];},useRef(initial){return refs[refIndex++]??(refs[refIndex-1]={current:initial});},useCallback:fn=>fn,useEffect(fn){effects.push(fn);}};
   const api={list:async()=>{calls.push({kind:"list"});return options.nextRows??options.rows??[c];},open:async(...args)=>{calls.push({kind:"open",args});return c;},act:async(...args)=>{calls.push({kind:"act",args});if(options.error)throw options.error;return typeof options.pending==="function"?options.pending():options.pending??c;}};
   const C=compile("components/complaint/ComplaintPanel.tsx",{react:hooks,"@/features/auth/useAuth":{useAuth:()=>({profile:options.actor===null?null:{id:options.actor??"tenant"}})},"@/services/complaint.service":{complaintService:api},"@/services/storage.service":{default:{uploadComplaintEvidence:async(...args)=>{calls.push({kind:"upload",args});return "file";}}},"@/types/complaint.type":labels,"./ComplaintHistory":{default:History},"@/utils/apiError":{getApiErrorMessage:e=>e.message},sonner:{toast:{success(){},error:e=>errors.push(e)}}}).default;
-  const tree=C({rentalRequestId:options.rental??"rental",onUpdated:async()=>{parentUpdates++;if(options.parentError)throw options.parentError;}});
+  const tree=C({rentalRequestId:options.rental??"rental",initialComplaintId:options.initialComplaintId,onUpdated:async()=>{parentUpdates++;if(options.parentError)throw options.parentError;}});
   return {tree,html:renderToStaticMarkup(tree),calls,errors,updates,effects,get parentUpdates(){return parentUpdates;},get poll(){return pollCallbacks.at(-1);}};
 }
 function text(n){if(n==null||typeof n==="boolean")return "";if(Array.isArray(n))return n.map(text).join("");return typeof n==="object"?text(n.props?.children):String(n);}
@@ -53,6 +53,14 @@ test("opening sends category and leaves urgency off for ordinary issues",async()
 });
 test("closing history from another rental or logged-in account is not rendered",()=>{
   assert.doesNotMatch(panel({rental:"another"}).html,/Khóa cửa bị hỏng/);assert.doesNotMatch(panel({actor:"stranger"}).html,/Khóa cửa bị hỏng/);assert.equal(panel({actor:null}).html,"");
+});
+test("notification deep link selects its exact complaint and never falls back to another case",()=>{
+  const f=panel({initialComplaintId:"requested",selected:"requested"});
+  assert.doesNotMatch(f.html,/Khóa cửa bị hỏng/);
+  assert.match(f.html,/Không tìm thấy hồ sơ được thông báo/);
+  f.effects[0]();
+  assert.deepEqual(f.updates[1],["requested"]);
+  assert.deepEqual(f.updates[11],[true]);
 });
 test("late response after identity change cannot clear the next note or refresh old parent",async()=>{
   let release;const pending=new Promise(resolve=>{release=resolve;});const f=panel({pending});

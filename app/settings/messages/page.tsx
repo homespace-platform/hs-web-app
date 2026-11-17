@@ -1,7 +1,5 @@
-"use client";
-
-import MessagesSection from "@/components/settings/sections/MessagesSection";
+import { redirect } from "next/navigation";
 
 export default function SettingsMessagesPage() {
-  return <MessagesSection />;
+  redirect("/settings/profile");
 }

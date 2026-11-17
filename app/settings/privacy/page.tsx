@@ -1,7 +1,5 @@
-"use client";
-
-import PrivacySection from "@/components/settings/sections/PrivacySection";
+import { redirect } from "next/navigation";
 
 export default function SettingsPrivacyPage() {
-  return <PrivacySection />;
+  redirect("/settings/profile");
 }

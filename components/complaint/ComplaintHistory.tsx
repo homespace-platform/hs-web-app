@@ -1,8 +1,9 @@
-import { complaintActions, complaintEventContext, type ComplaintCase } from "@/types/complaint.type";
-export default function ComplaintHistory({ complaint,onProof }: { complaint: ComplaintCase;onProof?:(id:string)=>void }) {
-  return <div className="space-y-3"><ComplaintSources complaint={complaint} onProof={onProof}/><details className="rounded-lg border p-3 text-xs"><summary className="cursor-pointer font-semibold">Lịch sử khiếu nại ({complaint.events.length})</summary>
+import { complaintActions, complaintEventContext, type ComplaintCase, type ComplaintWorkflowSource } from "@/types/complaint.type";
+const actor=(role:string)=>({ADMIN:"HomeSpace",SYSTEM:"Hệ thống",TENANT:"Người thuê",LANDLORD:"Chủ nhà"} as Record<string,string>)[role]??"Người thực hiện";
+export default function ComplaintHistory({ complaint,onProof,expanded=false }: { complaint: ComplaintCase;expanded?:boolean;onProof?:(id:string,document?:NonNullable<ComplaintWorkflowSource["documents"]>[number])=>void }) {
+  return <div className="space-y-3"><ComplaintSources complaint={complaint} onProof={onProof}/><details open={expanded} className="rounded-lg border p-3 text-xs"><summary className="cursor-pointer font-semibold">Lịch sử khiếu nại ({complaint.events.length})</summary>
     <ol className="mt-3 max-h-80 space-y-2 overflow-y-auto">{complaint.events.map(e=>{const context=complaintEventContext(e.metadataJson);return <li key={e.revision} className="rounded-lg border p-2">
-      <p className="font-semibold">{complaintActions[e.action] ?? e.action} · {e.actorRole === "ADMIN" ? "HomeSpace" : e.actorRole === "SYSTEM" ? "Hệ thống" : e.actorRole === "TENANT" ? "Người thuê" : "Chủ nhà"}</p>
+      <p className="font-semibold">{complaintActions[e.action] ?? e.action} · {actor(e.actorRole)}</p>
       <p className="text-muted-foreground">{new Date(e.occurredAt).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"})}</p><p className="whitespace-pre-wrap">{e.reason}</p>
       {context.agreement&&<p>Thỏa thuận được phản hồi: {context.agreement}</p>}
       {context.deduction!=null&&<p>Đề xuất khấu trừ: {context.deduction.toLocaleString("vi-VN")} đ · Phiên bản {context.version??"—"}</p>}
@@ -11,16 +12,16 @@ export default function ComplaintHistory({ complaint,onProof }: { complaint: Com
   </details></div>;
 }
 
-function ComplaintSources({complaint,onProof}:{complaint:ComplaintCase;onProof?:(id:string)=>void}){
-  return <>{complaint.sources?.map((source,index)=>{const p=source.proposal;const title=({CANCELLATION:"Đề nghị xử lý trước thuê",EARLY_EXIT:"Thỏa thuận chấm dứt sớm"} as Record<string,string>)[source.kind]??"Hồ sơ nguồn";return <details key={`${source.workflowId}:${source.revision}:${index}`} className="space-y-2 rounded-lg border p-3 text-xs" open>
-    <summary className="font-semibold">Căn cứ: {title} · Bản {source.revision}</summary>
+function ComplaintSources({complaint,onProof}:{complaint:ComplaintCase;onProof?:(id:string,document?:NonNullable<ComplaintWorkflowSource["documents"]>[number])=>void}){
+  return <>{complaint.sources?.map((source,index)=>{const p=source.proposal;const title=({CANCELLATION:"Đề nghị xử lý trước thuê",EARLY_EXIT:"Thỏa thuận chấm dứt sớm"} as Record<string,string>)[source.kind]??"Hồ sơ nguồn";return <section key={`${source.workflowId}:${source.revision}:${index}`} className="space-y-2 rounded-xl border bg-muted/20 p-4 text-xs">
+    <h3 className="font-semibold">Căn cứ: {title} · Bản {source.revision}</h3>
     <p>Chụp lúc {new Date(source.capturedAt).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"})}. Nội dung này giữ nguyên khi hồ sơ nguồn được chỉnh sau đó.</p>
     <p className="whitespace-pre-wrap">{typeof p.reason==="string"?p.reason:""}</p>
     {typeof p.endExclusive==="string"&&<p>Ngày kết thúc (không tính ngày này): {p.endExclusive}</p>}{typeof p.handoverTerms==="string"&&<p>Bàn giao: {p.handoverTerms}</p>}
     {source.rentCalculation&&typeof source.rentCalculation.agreedFinalRent==="number"&&typeof source.rentCalculation.requiredRefund==="number"&&<p>Cách tính tiền thuê: {source.rentCalculation.policy==="DAILY_PRORATED"?"Theo ngày":"Trọn kỳ"} · {source.rentCalculation.usedDays}/{source.rentCalculation.periodDays} ngày · Tiền thuê kỳ cuối {source.rentCalculation.agreedFinalRent.toLocaleString("vi-VN")} đ · Khoản hoàn tối thiểu {source.rentCalculation.requiredRefund.toLocaleString("vi-VN")} đ</p>}
-    {source.documents?.map((doc,i)=><p key={doc.storageObjectId}><button type="button" disabled={!onProof} className="text-primary underline" onClick={()=>onProof?.(doc.storageObjectId)}>PDF căn cứ {i+1} · {doc.purpose==="SIGNED_FINAL"?"đã ký đủ":doc.purpose==="SIGNED_LANDLORD"?"chủ nhà đã ký":"bản nguồn"} · Bản {doc.sourceRevision}</button></p>)}
+    {source.documents?.map((doc,i)=><p key={doc.storageObjectId}><button type="button" disabled={!onProof} className="text-primary underline" onClick={()=>onProof?.(doc.storageObjectId,doc)}>PDF căn cứ {i+1} · {doc.purpose==="SIGNED_FINAL"?"đã ký đủ":doc.purpose==="SIGNED_LANDLORD"?"chủ nhà đã ký":"bản nguồn"} · Bản {doc.sourceRevision}</button></p>)}
     <p>Chủ nhà xác nhận: {source.ownerConfirmedAt?new Date(source.ownerConfirmedAt).toLocaleString("vi-VN"):"chưa xác nhận"} · Người thuê: {source.tenantConfirmedAt?new Date(source.tenantConfirmedAt).toLocaleString("vi-VN"):"chưa xác nhận"}</p>
     <div className="flex flex-wrap gap-3">{source.evidenceIds.map((id,i)=><button key={id} type="button" disabled={!onProof} className="text-primary underline" onClick={()=>onProof?.(id)}>Bằng chứng nguồn {i+1}</button>)}</div>
-    <details><summary>Lịch sử nguồn ({source.history.length})</summary>{source.history.map(e=><p key={e.revision}>{new Date(e.at).toLocaleString("vi-VN")} · {e.role==="LANDLORD"?"Chủ nhà":"Người thuê"}: {e.reason}</p>)}</details>
-  </details>;})}</>;
+    <div className="border-t pt-2"><p className="font-semibold">Lịch sử nguồn ({source.history.length})</p><ul className="mt-2 max-h-48 space-y-2 overflow-y-auto">{source.history.map(e=><li key={e.revision}>{new Date(e.at).toLocaleString("vi-VN")} · {actor(e.role)}: {e.reason}</li>)}</ul></div>
+  </section>;})}</>;
 }

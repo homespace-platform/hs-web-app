@@ -12,10 +12,10 @@ import type {RentalWorkflow,WorkflowDocument,WorkflowKind} from "@/types/rental-
 const button="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50";
 // agreementId (from a signing notice) selects that exact document, validated only against the viewer's own authorized list.
 export default function WorkflowDocumentsPanel({rentalRequestId,kind,data,agreementId,onUpdated}:{rentalRequestId:string;kind:WorkflowKind;data:RentalWorkflow;agreementId?:string;onUpdated:()=>Promise<unknown>|void}){
-  const [rows,setRows]=useState<WorkflowDocument[]>([]),[loaded,setLoaded]=useState(false),[selected,setSelected]=useState(agreementId??""),[open,setOpen]=useState(!!agreementId);
+  const [rows,setRows]=useState<WorkflowDocument[]>([]),[loaded,setLoaded]=useState(false),[selected,setSelected]=useState(agreementId??"");
   const [detail,setDetail]=useState<{id:string;contract:ContractResponse;state:SignatureStateResponse;documents:ContractDocumentResponse[]}|null>(null);
   const [error,setError]=useState(""),[busy,setBusy]=useState(false),[preview,setPreview]=useState<ContractDocumentResponse|null>(null);
-  const mounted=useRef(true),mutex=useRef(false),inflight=useRef<Promise<void>|null>(null),dirty=useRef(false),focusedFor=useRef<string|null>(null),box=useRef<HTMLDetailsElement>(null);
+  const mounted=useRef(true),mutex=useRef(false),inflight=useRef<Promise<void>|null>(null),dirty=useRef(false),focusedFor=useRef<string|null>(null),box=useRef<HTMLElement>(null);
   // An unknown/stale requested document never silently becomes a different one: it stays neutral until the viewer picks one.
   const requestedMissing=!!agreementId&&selected===agreementId&&loaded&&!rows.some(r=>r.signingContractId===agreementId);
   const current=requestedMissing?undefined:rows.find(r=>r.signingContractId===selected)??rows.find(r=>r.current)??rows[0];
@@ -38,7 +38,7 @@ export default function WorkflowDocumentsPanel({rentalRequestId,kind,data,agreem
   useEffect(()=>{void load();},[load,data.revision]);
   // A new notice for another document of the same page: reset to it and re-read the (authorized, per-request) list once.
   const seen=useRef(agreementId);
-  useEffect(()=>{if(seen.current===agreementId)return;seen.current=agreementId;setSelected(agreementId??"");if(agreementId){setOpen(true);setLoaded(false);void load();}},[agreementId,load]);
+  useEffect(()=>{if(seen.current===agreementId)return;seen.current=agreementId;setSelected(agreementId??"");if(agreementId){setLoaded(false);void load();}},[agreementId,load]);
   useAgreementChangeSync(id=>!id||id===agreementId||rows.some(r=>r.signingContractId===id),async()=>{await load();if(mounted.current)await onUpdated();});
   useEffect(()=>{if(!currentId)return;let active=true;const id=currentId;void Promise.all([contractService.getContract(id),contractService.getSignatureState(id),contractService.getDocuments(id)]).then(([contract,state,documents])=>{if(active)setDetail({id,contract,state,documents});}).catch(e=>{if(active)setError(getApiErrorMessage(e,"Chưa đọc được PDF/trạng thái ký."));});return()=>{active=false;};},[currentId,rows]);
   async function prepare(){if(mutex.current)return;mutex.current=true;setBusy(true);try{const doc=await service.prepareDocument(rentalRequestId,kind,data.revision);if(!mounted.current)return;setSelected(doc.signingContractId);await load();}catch(e){if(mounted.current){setError(getApiErrorMessage(e,"Chưa tạo được văn bản; hãy tải lại và đối chiếu phiên bản."));toast.error(getApiErrorMessage(e,"Chưa tạo được PDF."));}}finally{mutex.current=false;if(mounted.current)setBusy(false);}}
@@ -51,15 +51,15 @@ export default function WorkflowDocumentsPanel({rentalRequestId,kind,data,agreem
     box.current?.scrollIntoView({behavior:window.matchMedia?.("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});box.current?.focus({preventScroll:true});
   },[agreementId,ready?.id]);
   const pdf=ready?.documents.find(d=>d.status==="READY"&&d.purpose==="SIGNED_FINAL")??ready?.documents.find(d=>d.status==="READY"&&d.purpose==="SIGNED_LANDLORD")??ready?.documents.find(d=>d.status==="READY"&&d.documentType==="PDF");
-  return <details ref={box} tabIndex={-1} open={open} onToggle={e=>setOpen(e.currentTarget.open)} className="space-y-3 rounded-lg border p-3 text-xs"><summary className="cursor-pointer font-semibold">PDF & chữ ký SmartCA riêng</summary>
-    <p>Văn bản riêng gắn đúng bản biên bản/thỏa thuận. HĐ thuê/cọc gốc được giữ nguyên. Ký văn bản không xác nhận tiền đã chuyển/nhận.</p>
+  return <section ref={box} tabIndex={-1} aria-label="Văn bản thỏa thuận và chữ ký" className="space-y-3 rounded-lg border p-3 text-xs"><h3 className="font-semibold">Văn bản thỏa thuận & chữ ký SmartCA</h3>
+    <p>Xem nội dung trước khi ký. Khi đủ hai chữ ký hợp lệ trên bản đề nghị còn hiệu lực, hệ thống ghi nhận thỏa thuận; không cần đồng ý thêm lần nữa. Hợp đồng gốc được giữ nguyên, chữ ký không xác nhận đã bàn giao hoặc nhận tiền.</p>
     {error&&<p role="alert" className="text-rose-700">{error}</p>}
     <div className="flex flex-wrap gap-2">{["PROPOSED","AGREED","RETURNED","COMPLETED"].includes(data.status)&&data.depositObligation!=="COMPLETED"&&<button type="button" disabled={busy} className={button} onClick={()=>void prepare()}>Tạo / mở PDF của bản đang xem</button>}<button type="button" className={button} disabled={busy} onClick={()=>void load()}>Tải lại văn bản</button></div>
     {requestedMissing&&<p role="status">Không tìm thấy văn bản được chọn hoặc bạn không có quyền xem. Chưa có văn bản nào được tự chọn thay thế.</p>}
-    {(rows.length>1||requestedMissing&&rows.length>0)&&<label>Chọn bản văn bản<select className="ml-2 rounded border p-2" value={current?.signingContractId??""} onChange={e=>setSelected(e.target.value)}>{!current&&<option value="" disabled>Chọn văn bản</option>}{rows.map((r,i)=><option key={r.signingContractId} value={r.signingContractId}>Văn bản {rows.length-i} · {r.current?"khớp bản hiện tại":"bản cũ"} · {r.signedAt?"đã ký đủ":"chưa ký đủ"}</option>)}</select></label>}
+    {(rows.length>1||requestedMissing&&rows.length>0)&&<div className="flex flex-wrap gap-2" aria-label="Chọn phiên bản văn bản">{rows.map((row,index)=><button key={row.signingContractId} type="button" className={`${button} ${current?.signingContractId===row.signingContractId?"border-primary bg-primary/5 text-primary":""}`} aria-pressed={current?.signingContractId===row.signingContractId} onClick={()=>setSelected(row.signingContractId)}>Bản {rows.length-index} · {row.current?"hiện tại":"lưu trữ"} · {row.signedAt?"đã ký đủ":"chưa ký đủ"}</button>)}</div>}
     {current&&!current.current&&<p>Bản cũ chỉ để tra cứu; không ký hoặc áp dụng thay cho nội dung mới.</p>}
     {pdf&&<button type="button" className={button} onClick={()=>setPreview(pdf)}>Xem / tải PDF {pdf.purpose==="SIGNED_FINAL"?"đã ký đủ":"nguồn"}</button>}
     {ready&&<SmartCaSignaturePanel contract={ready.contract} state={ready.state} isLandlord={data.role==="LANDLORD"} isTenant={data.role==="TENANT"} hasReadyPdf={!!pdf} signingAllowed={!!current?.current} blockedReason={current?.current?undefined:"Văn bản cũ không còn khớp nguồn."} onUpdated={async()=>{await load();await onUpdated();}}/>}
     <ContractPdfViewerModal isOpen={!!preview} document={preview} onClose={()=>setPreview(null)}/>
-  </details>;
+  </section>;
 }

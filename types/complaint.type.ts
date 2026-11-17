@@ -12,9 +12,7 @@ export interface ComplaintCase {
 }
 export interface ComplaintAction {
   expectedRevision: number; reason: string; evidenceIds?: string[];
-  outcome?: "RECORD_FINDING" | "REVISE_SETTLEMENT"; requestedFrom?: string;
-  settlement?: { otherDeduction: number; note: string; vacantPossessionConfirmed: boolean;
-    expectedProposalVersion: number; deductions: { description: string; amount: number; evidenceIds: string[] }[] };
+  outcome?: "RECORD_FINDING"; requestedFrom?: string;
 }
 export const complaintCategories: Record<ComplaintCategory,string> = {
   DEPOSIT_SETTLEMENT:"Khấu trừ / quyết toán cọc", HANDOVER:"Bàn giao nhà", CONDITION:"Hiện trạng phòng",
@@ -23,11 +21,11 @@ export const complaintCategories: Record<ComplaintCategory,string> = {
 export const complaintStages: Record<string,string> = {
   WAITING_RESPONSE:"Chờ bên còn lại phản hồi", DISCUSSING:"Hai bên đang trao đổi", PROPOSAL_PENDING:"Chờ phản hồi đề xuất",
   WAITING_ADMIN:"Đã chuyển HomeSpace", UNDER_REVIEW:"Admin đang xem xét", WAITING_INFO:"Chờ bổ sung thông tin",
-  FOLLOW_UP:"Đã có kết luận · Đang theo dõi thực hiện", AGREED:"Hai bên đã thống nhất", WITHDRAWN:"Đã rút", CLOSED:"Đã đóng hồ sơ",
+  FOLLOW_UP:"Đã có kết luận · Đang theo dõi thực hiện", AGREED:"Hai bên đã thống nhất", WITHDRAWN:"Người gửi đã đóng", CLOSED:"Đã đóng hồ sơ",
 };
 export const complaintActions: Record<string,string> = {
   OPENED:"Mở khiếu nại", COMMENT:"Phản hồi / bổ sung chứng cứ", PROPOSE:"Đề xuất thỏa thuận", ACCEPT:"Đồng ý thỏa thuận",
-  DECLINE:"Chưa đồng ý", ESCALATE:"Chuyển HomeSpace", WITHDRAW:"Rút khiếu nại", REOPEN:"Mở lại có lý do", CLAIM:"Tiếp nhận xử lý",
+  DECLINE:"Chưa đồng ý", ESCALATE:"Chuyển HomeSpace", WITHDRAW:"Đóng khiếu nại", REOPEN:"Mở lại có lý do", CLAIM:"Tiếp nhận xử lý",
   REQUEST_INFO:"Yêu cầu bổ sung", DECIDE:"Ghi kết luận", CLOSE:"Đóng theo kết luận", CONFIRM_COMPLETE:"Xác nhận đã thực hiện",
   REJECT_DECISION:"Đề nghị admin xem xét lại", APPROVE_SETTLEMENT:"Đồng ý đề xuất quyết toán của admin",
   FOLLOW_UP_PAYMENT:"Theo dõi nghĩa vụ thanh toán", COMPLETED:"Hoàn tất nghĩa vụ theo kết luận",

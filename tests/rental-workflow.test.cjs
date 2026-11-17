@@ -4,12 +4,12 @@ function compile(file,deps={}){const m={exports:{}};vm.runInNewContext(ts.transp
 const labels=compile("types/rental-workflow.type.ts");
 function fixture(options={}){
  const data={kind:"CANCELLATION",status:"PROPOSED",revision:7,role:"TENANT",serverNow:"2026-11-03T03:00:00Z",contractId:"contract",proposal:{reason:"Đề nghị hoàn toàn bộ khoản đã nhận"},history:[],allowedActions:["ACCEPT","REJECT"],depositObligation:"RESERVATION_PENDING",refundPayments:[],...options.data};
- const states=[true,data,"",false,options.creating??false,"Đã kiểm tra nội dung và đồng ý thỏa thuận",options.ack??true,options.contacted??true,options.files??[],"2026-12-20","Hai bên hẹn trả nhà, chìa khóa và tài sản",options.refunds??[],[],undefined,options.policy??"FULL_STARTED_PERIOD",options.calculation??null,null];
+ const states=[true,data,"",false,options.creating??false,"Đã kiểm tra nội dung và đồng ý thỏa thuận",options.ack??true,options.contacted??true,options.files??[],"2026-12-20","Hai bên hẹn trả nhà, chìa khóa và tài sản",options.refunds??[],[],undefined,options.policy??"FULL_STARTED_PERIOD",options.calculation??null,null,options.selectedAction??null];
  let i=0,ri=0,parents=0;const changes=states.map(()=>[]),refs=[],effects=[],calls=[],errors=[];
  const hooks={...React,useState(v){const n=i++;return[n<states.length?states[n]:v,value=>changes[n].push(value)];},useRef(v){return refs[ri++]??(refs[ri-1]={current:v});},useEffect(fn){effects.push(fn);},useCallback:fn=>fn};
  const service={calculate:async(...args)=>{calls.push({kind:"calculate",args});return options.quote;},get:async(...args)=>{calls.push({kind:"get",args});return data;},act:async(...args)=>{calls.push({kind:"act",args});if(options.error)throw options.error;return options.pending??data;},propose:async(...args)=>{calls.push({kind:"propose",args});if(options.error)throw options.error;return data;}};
- const compiled=compile("components/rental-request/RentalWorkflowPanel.tsx",{react:hooks,"@/features/auth/useAuth":{useAuth:()=>({profile:options.actor===null?null:{id:options.actor??"tenant"}})},"@/services/rental-workflow.service":{rentalWorkflowService:service},"@/services/notification.service":{default:{subscribe:()=>()=>{}}},"@/services/storage.service":{default:{uploadComplaintEvidence:async(...args)=>{calls.push({kind:"upload",args});return "file";}}},"@/services/payment-request.service":{default:{getContractPayments:async()=>[]}},"@/utils/apiError":{getApiErrorMessage:e=>e.message},"@/types/rental-workflow.type":labels,"./WorkflowDocumentsPanel":{default:()=>null},"./RentalPaymentModal":{default:()=>null},sonner:{toast:{success(){},error:e=>errors.push(e)}}});
- const outer=compiled.default({rentalRequestId:options.rental??"rental",kind:options.kind??"cancellation",onUpdated:async()=>{parents++;}});
+ const compiled=compile("components/rental-request/RentalWorkflowPanel.tsx",{react:hooks,"@/features/auth/useAuth":{useAuth:()=>({profile:options.actor===null?null:{id:options.actor??"tenant"}})},"@/services/rental-workflow.service":{rentalWorkflowService:service},"@/services/notification.service":{default:{subscribe:()=>()=>{}}},"@/services/storage.service":{default:{uploadComplaintEvidence:async(...args)=>{calls.push({kind:"upload",args});return "file";}}},"@/services/payment-request.service":{default:{getContractPayments:async()=>[]}},"@/utils/apiError":{getApiErrorMessage:e=>e.message},"@/lib/contract-routes":{invoiceDetailPath:id=>`/dashboard/invoices/${id}`},"@/types/rental-workflow.type":labels,"./WorkflowDocumentsPanel":{default:()=>null},"./RentalPaymentModal":{default:()=>null},sonner:{toast:{success(){},error:e=>errors.push(e)}}});
+ const outer=compiled.default({rentalRequestId:options.rental??"rental",kind:options.kind??"cancellation",onUpdated:async()=>{parents++;if(options.parentError)throw options.parentError;}});
  const tree=outer?outer.type(outer.props):null;
  return {tree,outer,html:renderToStaticMarkup(tree),calls,changes,refs,effects,errors,get parents(){return parents;}};
 }
@@ -35,3 +35,57 @@ test("lease-signed deposit obligation keeps its precise label",()=>{const f=fixt
 test("completion renders authoritative financial state even after physical return",()=>{const f=fixture({kind:"early-exit",data:{status:"RETURNED",depositObligation:"COMPLETED",allowedActions:[]}});assert.match(f.html,/Đã hoàn tất/);assert.doesNotMatch(f.html,/Đang chờ quyết toán/);});
 
 test("late daily quote cannot replace the calculation after the end date changed",async()=>{let release;const pending=new Promise(r=>release=r);const f=fixture({kind:"early-exit",creating:true,policy:"DAILY_PRORATED",quote:pending,data:{allowedActions:["PROPOSE"]}});button(f,"Đối chiếu phép tính kỳ cuối").props.onClick();find(f.tree,n=>n.type==="input"&&n.props.type==="date").props.onChange({target:{value:"2026-12-25"}});release({policy:"DAILY_PRORATED",requiredRefund:999,sourcePaymentId:"old"});await tick();assert.deepEqual(plain(f.changes[15]),[null]);assert.equal(f.calls.filter(c=>c.kind==="propose").length,0);});
+
+
+test("early exit shows four clear steps without a collapsed entry or policy dropdown",()=>{
+ const f=fixture({kind:"early-exit",creating:true,data:{allowedActions:["PROPOSE"]}});
+ assert.match(f.html,/Tiến trình chấm dứt sớm/);
+ for(const label of ["Đề nghị","Thống nhất","Bàn giao","Quyết toán"])assert.ok(f.html.includes(label));
+ assert.equal(find(f.tree,n=>n.type==="button"&&n.props["aria-expanded"]!==undefined),undefined);
+ assert.equal(find(f.tree,n=>n.type==="select"),undefined);
+ assert.equal(find(f.tree,n=>n.type==="input"&&n.props.type==="radio"&&n.props.value==="FULL_STARTED_PERIOD").props.checked,true);
+});
+
+test("choosing an early-exit decision only opens its confirmation form",()=>{
+ const f=fixture({kind:"early-exit",data:{allowedActions:["ACCEPT","REJECT"]}});
+ button(f,"Đồng ý nội dung đang xem").props.onClick();
+ assert.equal(f.calls.length,0);assert.equal(f.changes[17].at(-1),"ACCEPT");assert.equal(f.changes[6].at(-1),false);
+ assert.equal(button(f,"Không đồng ý").props.disabled,false);
+});
+
+test("early-exit confirmation uses only the chosen server-authorized action and reviewed version",async()=>{
+ const f=fixture({kind:"early-exit",selectedAction:"REJECT",data:{allowedActions:["ACCEPT","REJECT"]}});
+ button(f,"Xác nhận thao tác").props.onClick();await tick();
+ assert.equal(f.calls.filter(c=>c.kind==="act").length,1);assert.equal(f.calls.find(c=>c.kind==="act").args[2],"REJECT");
+ assert.equal(f.calls.find(c=>c.kind==="act").args[3].expectedRevision,7);
+ const stale=fixture({kind:"early-exit",selectedAction:"ACCEPT",data:{allowedActions:["REJECT"]}});
+ assert.equal(find(stale.tree,n=>n.type==="button"&&text(n)==="Xác nhận thao tác"),undefined);
+});
+
+test("editing handover terms or feedback clears the content acknowledgement",()=>{
+ const f=fixture({kind:"early-exit",creating:true,data:{allowedActions:["PROPOSE"]}});
+ find(f.tree,n=>n.type==="textarea"&&n.props.value==="Hai bên hẹn trả nhà, chìa khóa và tài sản").props.onChange({target:{value:"Nội dung bàn giao đã thay đổi"}});
+ find(f.tree,n=>n.type==="textarea"&&n.props["aria-label"]==="Nội dung thao tác").props.onChange({target:{value:"Lý do cập nhật trong đề nghị mới"}});
+ assert.deepEqual(plain(f.changes[6]),[false,false]);
+});
+
+test("agreed and returned early exits point to final billing and deposit settlement",()=>{
+ for(const status of ["AGREED","RETURNED"]){const f=fixture({kind:"early-exit",data:{status,allowedActions:[]}});
+ assert.equal(find(f.tree,n=>n.type==="a"&&n.props.href==="/dashboard/invoices/contract").props.children,"Mở hồ sơ thanh toán & quyết toán →");}
+});
+
+
+test("early-exit save followed by parent refresh failure never reports a failed mutation",async()=>{
+ const f=fixture({kind:"early-exit",selectedAction:"REJECT",parentError:new Error("parent offline"),data:{allowedActions:["REJECT"]}});
+ button(f,"Xác nhận thao tác").props.onClick();await tick();
+ assert.equal(f.calls.filter(c=>c.kind==="act").length,1);assert.equal(f.parents,1);
+ assert.match(f.errors[0],/đã được ghi nhận/);assert.match(f.errors[0],/không cần gửi lại/);
+});
+
+test("withdraw and rejection do not ask for a handover or money acknowledgement",()=>{
+ for(const action of ["REJECT","WITHDRAW"]){
+  const f=fixture({kind:"early-exit",selectedAction:action,ack:false,data:{allowedActions:[action]}});
+  assert.equal(find(f.tree,n=>n.type==="input"&&n.props.type==="checkbox"),undefined);
+  assert.equal(button(f,"Xác nhận thao tác").props.disabled,false);
+ }
+});

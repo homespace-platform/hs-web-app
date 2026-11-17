@@ -2,7 +2,7 @@
 const {test}=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm"),path=require("node:path"),ts=require("typescript"),React=require("react");
 function fixture(options={}){
  const row={signingContractId:"doc",sourceRevision:9,status:"DRAFT",current:options.current??true},document={id:"pdf",documentType:"PDF",purpose:"OFFICIAL",status:"READY"};
- const detail={id:"doc",contract:{id:"doc",status:"DRAFT"},state:{smartCaEnabled:false},documents:[document]},states=[options.rows??[row],true,"doc",false,detail,"",false,null],updates=states.map(()=>[]),effects=[],refs=[],calls=[];
+ const detail={id:"doc",contract:{id:"doc",status:"DRAFT"},state:{smartCaEnabled:false},documents:[document]},states=[options.rows??[row],true,"doc",detail,"",false,null],updates=states.map(()=>[]),effects=[],refs=[],calls=[];
  let state=0,ref=0;
  const hooks={...React,useState(v){const i=state++;return [states[i]??v,x=>updates[i].push(x)];},useRef(v){return refs[ref++]??(refs[ref-1]={current:v});},useCallback:f=>f,useEffect(f){effects.push(f);}};
  const api={documents:async(...args)=>{calls.push({name:"list",args});return [row];},prepareDocument:async(...args)=>{calls.push({name:"prepare",args});return options.pending??row;}};

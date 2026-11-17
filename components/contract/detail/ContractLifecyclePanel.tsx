@@ -299,7 +299,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
         {data.refundPayment && <SettlementPaymentPanel key={data.refundPayment.id} payment={data.refundPayment} isLandlord={isLandlord} refresh={refresh} />}
         {data.balancePayment && <SettlementPaymentPanel key={data.balancePayment.id} payment={data.balancePayment} isLandlord={isLandlord} refresh={refresh} />}
       </div>}
-      {data.rentalRequestId && <><RentalWorkflowPanel rentalRequestId={data.rentalRequestId} kind="early-exit" onUpdated={refresh}/><ComplaintPanel rentalRequestId={data.rentalRequestId} attention={data.closure?.status==="DISPUTED"} onUpdated={refresh}/></>}
+      {mode !== "renewal" && data.rentalRequestId && <><RentalWorkflowPanel rentalRequestId={data.rentalRequestId} kind="early-exit" onUpdated={refresh}/><ComplaintPanel rentalRequestId={data.rentalRequestId} attention={data.closure?.status==="DISPUTED"} onUpdated={refresh}/></>}
     </>}
   </section>;
 }

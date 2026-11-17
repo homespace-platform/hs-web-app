@@ -168,7 +168,7 @@ test('early-exit document UI opens the exact requested historical child and neve
   };
   const exact = await mount('child-1');
   assert.deepEqual(exact.lists, [['rental', 'early-exit']]); assert.deepEqual(exact.reads, ['child-1']);
-  assert.equal(exact.runtime.tree.props.open, true); assert.equal(exact.signature.props.contract.id, 'child-1');
+  assert.equal(exact.runtime.tree.type, 'section'); assert.equal(exact.signature.props.contract.id, 'child-1');
   assert.equal(exact.signature.props.signingAllowed, false, 'historical PDF cannot be signed as the current revision');
   assert.match(html(exact.runtime), /Xem \/ tải PDF đã ký đủ/);
   exact.notifications.notifyAgreementChanged('foreign-root'); await exact.timers.advance(250); assert.equal(exact.updates.length, 0);

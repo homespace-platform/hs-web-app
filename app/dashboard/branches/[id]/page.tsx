@@ -30,9 +30,12 @@ import listingService from "@/services/listing.service";
 import type { MyListingSummaryResponse } from "@/types/listing.type";
 import ListingItemCard from "@/app/dashboard/properties/components/ListingItemCard";
 import { PROPERTY_CATEGORIES } from "../../properties/new/constants";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import { getChargeDisplay, getChargeMeta } from "../page";
 
 export default function BranchDetailPage() {
+  const postGate = useFeatureGate(PERMISSIONS.LISTING_POST);
   const params = useParams();
   const router = useRouter();
   const branchId = params?.id as string;
@@ -207,15 +210,17 @@ export default function BranchDetailPage() {
               <button
                 type="button"
                 onClick={handleDeleteBranch}
+                disabled={!postGate.allowed}
                 className={
                   displayUnitsCount > 0
                     ? "rounded-xl border border-border/60 p-2 text-muted-foreground/40 cursor-not-allowed transition-colors"
                     : "rounded-xl border border-border p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer"
                 }
                 title={
-                  displayUnitsCount > 0
+                  postGate.title ??
+                  (displayUnitsCount > 0
                     ? `Chi nhánh đang có ${displayUnitsCount} phòng/căn, không thể xóa!`
-                    : "Xóa chi nhánh"
+                    : "Xóa chi nhánh")
                 }
               >
                 <Trash2 className="h-4 w-4" />

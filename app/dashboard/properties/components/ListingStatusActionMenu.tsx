@@ -26,6 +26,8 @@ import {
 } from "@/config/listing-status.config";
 import type { ListingDetailResponse, ListingStatus } from "@/types/listing.type";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import { isListingQuotaExhaustedError } from "@/lib/membership";
 import InsufficientQuotaModal from "@/components/membership/InsufficientQuotaModal";
 
@@ -56,6 +58,7 @@ export default function ListingStatusActionMenu({
   size = "sm",
 }: ListingStatusActionMenuProps) {
   const dispatch = useAppDispatch();
+  const postGate = useFeatureGate(PERMISSIONS.LISTING_POST);
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<ListingOwnerAction | null>(null);
   const [note, setNote] = useState("");
@@ -201,7 +204,9 @@ export default function ListingStatusActionMenu({
                     key={action.targetStatus}
                     type="button"
                     onClick={() => selectAction(action)}
-                    className="flex w-full items-start gap-3 rounded-xl border border-transparent px-3 py-3 text-left transition-all hover:border-border hover:bg-muted/60"
+                    disabled={!postGate.allowed}
+                    title={postGate.title}
+                    className="flex w-full items-start gap-3 rounded-xl border border-transparent px-3 py-3 text-left transition-all hover:border-border hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <span
                       className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${action.accentClassName}`}

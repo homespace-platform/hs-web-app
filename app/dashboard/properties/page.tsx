@@ -33,6 +33,8 @@ import {
   Plus,
 } from "lucide-react";
 import { useAuth } from "@/features/auth/useAuth";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import listingService from "@/services/listing.service";
 import membershipService from "@/services/membership.service";
 import type { ListingCategory, ListingStatus, MyListingSummaryResponse } from "@/types/listing.type";
@@ -107,6 +109,7 @@ const EMPTY_COUNTS: Record<string, number> = {};
 export default function MyPropertiesPage() {
   const router = useRouter();
   const { authenticated, profile, userId } = useAuth();
+  const postGate = useFeatureGate(PERMISSIONS.LISTING_POST);
 
   // State
   // The account whose data the states below hold; anything else is hidden synchronously.
@@ -302,6 +305,8 @@ export default function MyPropertiesPage() {
           </Link>
           <Link
             href="/dashboard/properties/new"
+            onClick={postGate.guard}
+            title={postGate.title}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-2xs"
           >
             <Plus className="h-3.5 w-3.5" />

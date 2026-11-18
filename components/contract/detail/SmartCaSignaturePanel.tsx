@@ -11,6 +11,8 @@ import type {
   SignatureStateResponse,
 } from "@/types/contract.type";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 
 interface Props {
   contract: ContractResponse;
@@ -26,6 +28,7 @@ interface Props {
 const inProgress = new Set(["CREATED", "PENDING_USER_CONFIRMATION", "PROVIDER_SIGNED", "EMBEDDING"]);
 
 export default function SmartCaSignaturePanel({ contract, state, isLandlord, isTenant, hasReadyPdf, onUpdated, signingAllowed = true, blockedReason }: Props) {
+  const signGate = useFeatureGate(PERMISSIONS.CONTRACT_SIGN);
   const [localCurrent, setCurrent] = useState<{
     contractId: string; source: SignatureStateResponse["activeRequest"]; request: SignatureRequestResponse;
   } | null>(null);
@@ -160,13 +163,13 @@ export default function SmartCaSignaturePanel({ contract, state, isLandlord, isT
       {current && ["REJECTED", "EXPIRED", "FAILED", "CANCELLED"].includes(current.status) &&
         <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">{current.failureReason || "Yêu cầu ký chưa hoàn tất. Vui lòng kiểm tra trước khi thử lại."}</p>}
       {!hasReadyPdf && <p className="text-xs text-amber-700">Cần kết xuất PDF của bản sửa đổi hiện tại trước khi ký.</p>}
-      <button type="button" disabled={busy || !hasReadyPdf} onClick={() => void loadCertificates()} className="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50">{busy ? "Đang tải..." : "Chọn chứng thư SmartCA"}</button>
+      <button type="button" disabled={busy || !hasReadyPdf || !signGate.allowed} title={signGate.title} onClick={() => void loadCertificates()} className="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50">{busy ? "Đang tải..." : "Chọn chứng thư SmartCA"}</button>
       {certificates.length > 0 && <select value={serial} onChange={e => setSerial(e.target.value)} className="block w-full rounded-lg border p-2 text-sm" aria-label="Chọn chứng thư số">
         <option value="">Chọn chứng thư</option>
         {certificates.map(c => <option key={c.serialNumber} value={c.serialNumber}>{c.subject} — {c.serialNumber}</option>)}
       </select>}
       <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} /> Tôi đã đọc bản PDF và đồng ý ký số hợp đồng này.</label>
-      <button type="button" disabled={busy || !hasReadyPdf || !serial || !consent} onClick={() => void start()} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
+      <button type="button" disabled={busy || !hasReadyPdf || !serial || !consent || !signGate.allowed} title={signGate.title} onClick={() => void start()} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <PenLine className="h-4 w-4" />} Gửi yêu cầu ký tới SmartCA
       </button>
     </>}

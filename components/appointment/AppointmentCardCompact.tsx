@@ -20,6 +20,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import { vi } from "date-fns/locale";
 import type {
   AppointmentResponse,
@@ -110,6 +112,7 @@ export default function AppointmentCardCompact({
   onQuickReject,
   onQuickComplete,
 }: AppointmentCardCompactProps) {
+  const manageGate = useFeatureGate(PERMISSIONS.APPOINTMENT_MANAGE);
   const statusConfig = STATUS_CONFIG[appointment.status] || STATUS_CONFIG.PENDING;
   const StatusIcon = statusConfig.icon;
 
@@ -236,8 +239,9 @@ export default function AppointmentCardCompact({
             <button
               type="button"
               onClick={() => onQuickApprove(appointment)}
-              className="px-2.5 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-1"
-              title="Chấp nhận lịch hẹn"
+              disabled={!manageGate.allowed}
+              className="px-2.5 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+              title={manageGate.title ?? "Chấp nhận lịch hẹn"}
             >
               <Check className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Duyệt</span>

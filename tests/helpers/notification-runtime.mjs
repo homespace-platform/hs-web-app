@@ -124,7 +124,11 @@ const Link = ({ children, ...props }) => React.createElement('a', props, childre
 const html = runtime => renderToStaticMarkup(runtime.tree);
 
 function popupMocks(notifications, conversations = []) {
+  const dispatch = async () => {};
   return {
+    '@/features/user/userSlice': { fetchMyPermissions: () => ({ type: 'user/fetchMyPermissions' }) },
+    '@/lib/permissions': load('lib/permissions.ts'),
+    '@/store/hooks': { useAppDispatch: () => dispatch },
     '@/components/chat/ChatDemoProvider': { useChatDemo: () => ({ conversations }) },
     '@/components/notification/NotificationPopup': load('components/notification/NotificationPopup.tsx', {
       'next/link': Link, 'lucide-react': icons, '@/services/notification.service': notifications,

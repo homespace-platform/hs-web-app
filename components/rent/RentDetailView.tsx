@@ -47,6 +47,8 @@ import type { RelatedListing } from "@/types/chat.type";
 import { chatConversationUrl } from "@/lib/chat-demo-state";
 import { RENTAL_HOLD_DURATION_LABEL } from "@/config/rental-hold.config";
 import { requireKyc } from "@/lib/kyc-gate";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 
 const formatPrice = (priceMillion: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -133,6 +135,8 @@ export default function RentDetailView({
   const listingAddress = property.details?.address as ListingAddressResponse | undefined;
 
   const { profile, authenticated, login } = useAuth();
+  const rentalGate = useFeatureGate(PERMISSIONS.RENTAL_REQUEST_CREATE);
+  const bookGate = useFeatureGate(PERMISSIONS.APPOINTMENT_BOOK);
   const router = useRouter();
   const { openConversation, sendMessage } = useChatDemo();
   const currentUserId = profile?.id;
@@ -620,6 +624,7 @@ export default function RentDetailView({
                         login();
                         return;
                       }
+                      if (!rentalGate.guard()) return;
                       requireKyc(profile, {
                         router,
                         redirect: false,
@@ -627,7 +632,7 @@ export default function RentDetailView({
                       });
                     }}
                     className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3.5 px-4 text-sm font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all cursor-pointer active:scale-[0.98]"
-                    title="Gửi yêu cầu thuê nhà trực tiếp tới chủ nhà"
+                    title={rentalGate.title ?? "Gửi yêu cầu thuê nhà trực tiếp tới chủ nhà"}
                   >
                     <Home className="w-4 h-4" />
                     <span>Yêu cầu thuê nhà</span>
@@ -653,6 +658,7 @@ export default function RentDetailView({
                         login();
                         return;
                       }
+                      if (!bookGate.guard()) return;
                       requireKyc(profile, {
                         router,
                         redirect: false,
@@ -663,7 +669,7 @@ export default function RentDetailView({
                       ? "bg-emerald-500/10 border border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
                       : "border border-border bg-card hover:bg-muted text-foreground hover:border-primary/40"
                       }`}
-                    title="Đặt lịch hẹn gặp trực tiếp chủ nhà tại bất động sản"
+                    title={bookGate.title ?? "Đặt lịch hẹn gặp trực tiếp chủ nhà tại bất động sản"}
                   >
                     {hasActiveBooking ? (
                       <>

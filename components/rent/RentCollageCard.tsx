@@ -18,6 +18,8 @@ import { formatVietnamesePrice } from "@/lib/format-currency";
 import { useAuth } from "@/features/auth/useAuth";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { toggleFavoriteItem } from "@/features/favorite/favoriteSlice";
+import { usePermission } from "@/hooks/usePermission";
+import { FEATURE_LOCKED_MESSAGE, PERMISSIONS } from "@/lib/permissions";
 import UserAvatar from "@/components/common/UserAvatar";
 import { toast } from "sonner";
 import { useChatDemo } from "@/components/chat/ChatDemoProvider";
@@ -51,6 +53,7 @@ export default function RentCollageCard({
     (state) => state.favorite.status === "succeeded"
   );
   const isFavorite = hasLoaded ? isFavoritedInStore : initialFavorited;
+  const canFavorite = usePermission(PERMISSIONS.FAVORITE_USE);
   const [isToggling, setIsToggling] = useState(false);
   const [isOpeningChat, setIsOpeningChat] = useState(false);
 
@@ -97,6 +100,11 @@ export default function RentCollageCard({
       return;
     }
 
+    if (!canFavorite && !isFavorite) {
+      toast.error(FEATURE_LOCKED_MESSAGE);
+      return;
+    }
+
     if (isToggling) return;
     setIsToggling(true);
 
@@ -108,8 +116,8 @@ export default function RentCollageCard({
         toast.success("Đã bỏ lưu tin đăng!");
       }
       onFavoriteChange?.(property.id, result.isFavorite);
-    } catch {
-      toast.error("Không thể cập nhật yêu thích. Vui lòng thử lại!");
+    } catch (error) {
+      toast.error(typeof error === "string" ? error : "Không thể cập nhật yêu thích. Vui lòng thử lại!");
     } finally {
       setIsToggling(false);
     }
@@ -119,8 +127,9 @@ export default function RentCollageCard({
     <button
       type="button"
       onClick={handleFavoriteClick}
-      title={isFavorite ? "Bỏ lưu tin" : "Lưu tin này"}
-      className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-md backdrop-blur-md active:scale-90 ${
+      title={!canFavorite && !isFavorite ? FEATURE_LOCKED_MESSAGE : isFavorite ? "Bỏ lưu tin" : "Lưu tin này"}
+      aria-disabled={!canFavorite && !isFavorite}
+      className={`${canFavorite || isFavorite ? "" : "opacity-50 "}w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-md backdrop-blur-md active:scale-90 ${
         isFavorite
           ? "bg-white text-rose-500 shadow-rose-500/20"
           : "bg-black/40 hover:bg-black/60 text-white hover:text-rose-400"

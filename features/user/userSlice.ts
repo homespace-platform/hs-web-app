@@ -10,6 +10,10 @@ interface UserState {
   status: LoadStatus;
   error: string | null;
   loadedForUserId: string | null;
+  /** null = not loaded (or failed): the UI must not hide anything. */
+  permissions: string[] | null;
+  /** Latest fetchMyPermissions request; older/out-of-date (e.g. after logout) responses are ignored. */
+  permissionsRequestId: string | null;
 }
 
 const initialState: UserState = {
@@ -17,6 +21,8 @@ const initialState: UserState = {
   status: "idle",
   error: null,
   loadedForUserId: null,
+  permissions: null,
+  permissionsRequestId: null,
 };
 
 interface FetchCurrentUserArgs {
@@ -48,6 +54,17 @@ export const fetchCurrentUser = createAsyncThunk<
   },
 );
 
+export const fetchMyPermissions = createAsyncThunk<string[], void, { rejectValue: string }>(
+  "user/fetchMyPermissions",
+  async (_, { rejectWithValue }) => {
+    try {
+      return await userService.getMyPermissions();
+    } catch {
+      return rejectWithValue("permissions-unavailable");
+    }
+  },
+);
+
 const userSlice = createSlice({
   name: "user",
   initialState,
@@ -66,6 +83,13 @@ const userSlice = createSlice({
         state.status = "succeeded";
         state.error = null;
         state.loadedForUserId = action.meta.arg.userId;
+      })
+      .addCase(fetchMyPermissions.pending, (state, action) => {
+        state.permissionsRequestId = action.meta.requestId;
+      })
+      .addCase(fetchMyPermissions.fulfilled, (state, action) => {
+        if (state.permissionsRequestId !== action.meta.requestId) return;
+        state.permissions = action.payload;
       })
       .addCase(fetchCurrentUser.rejected, (state, action) => {
         if (action.meta.condition) return;

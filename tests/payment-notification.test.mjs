@@ -21,7 +21,7 @@ function fixture() {
   let search = `paymentId=${ID}`;
   const window = { location: { pathname: '/dashboard/payments', search: `?${search}`, hash: '#detail' }, ...timers.globals };
   const mocks = { react: runtime.hooks, 'next/link': Link, 'next/navigation': { useSearchParams: () => new URLSearchParams(search) },
-    'lucide-react': icons, sonner: { toast: { success() {} } }, '@/features/auth/useAuth': { useAuth: () => auth },
+    'lucide-react': icons, sonner: { toast: { success() {} } }, '@/hooks/usePermission': { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, '@/lib/permissions': { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, '@/features/auth/useAuth': { useAuth: () => auth },
     '@/services/notification.service': notifications, '@/components/payment/PaymentDisputePanel': Panel,
     '@/components/contract/detail/SettlementPaymentPanel': Panel,
     '@/lib/contract-routes': load('lib/contract-routes.ts'), '@/lib/payment-transfer-presentation': load('lib/payment-transfer-presentation.ts'),
@@ -109,7 +109,7 @@ test('same-status realtime refresh updates open dispute actions immediately whil
   const runtime = hookRuntime(), timers = clock(), calls = [], actions = [], uploads = [], payment = row(), pendingAction = deferred();
   const list = () => { const call = deferred(); calls.push(call); return call.promise; };
   const mocks = { react: runtime.hooks, sonner: { toast: { success() {}, error() {} } },
-    '@/features/auth/useAuth': { useAuth: () => ({ profile: { id: 'owner' } }) },
+    '@/hooks/usePermission': { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, '@/lib/permissions': { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, '@/features/auth/useAuth': { useAuth: () => ({ profile: { id: 'owner' } }) },
     '@/services/payment-request.service': {}, '@/services/payment-dispute.service': { paymentDisputeService: { list,
       act(...args) { actions.push(args); return pendingAction.promise; } } },
     '@/services/storage.service': { async uploadPaymentProof(file) { uploads.push(file); return 'draft-proof'; } },

@@ -35,6 +35,11 @@ const userService = {
     return profileRequest;
   },
 
+  async getMyPermissions(): Promise<string[]> {
+    const response = await axiosClient.get<ApiResponse<{ permissions?: string[] }>>("/api/v1/users/me/permissions");
+    return response.data.result?.permissions ?? [];
+  },
+
   async updateProfile(request: UpdateUserProfileRequest): Promise<void> {
     await axiosClient.post<ApiResponse<null>>(
       "/api/v1/users/me/profile",

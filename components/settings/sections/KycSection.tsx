@@ -19,6 +19,8 @@ import VnptKycCapture from "./VnptKycCapture";
 import KycVerifiedDetailsPanel from "@/components/settings/KycVerifiedDetailsPanel";
 import type { VnptKycSession, KycStatus, KycStatusResponse } from "@/types/kyc.type";
 import { fetchCurrentUser } from "@/features/user/userSlice";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 function statusMeta(status: KycStatus, rejectionReason?: string | null) {
@@ -79,6 +81,7 @@ export default function KycSection() {
 }
 
 function AccountKycSection() {
+  const kycGate = useFeatureGate(PERMISSIONS.KYC_SUBMIT);
   const dispatch = useAppDispatch();
   const userId = useAppSelector((state) => state.auth.userId);
   const profile = useAppSelector((state) => state.user.profile);
@@ -233,7 +236,8 @@ function AccountKycSection() {
             <button
               type="button"
               onClick={() => void startKyc()}
-              disabled={starting || cancelling}
+              disabled={starting || cancelling || !kycGate.allowed}
+              title={kycGate.title}
               className="h-9 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-xs hover:bg-primary/90 disabled:opacity-60 cursor-pointer inline-flex items-center gap-1.5"
             >
               {starting ? (

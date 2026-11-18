@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/useAuth";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import membershipService from "@/services/membership.service";
 import {
   MEMBERSHIP_PAYMENT_PROVIDERS,
@@ -70,6 +72,7 @@ export default function MembershipCheckoutModal({
   onClose,
 }: MembershipCheckoutModalProps) {
   const { authenticated, login } = useAuth();
+  const purchaseGate = useFeatureGate(PERMISSIONS.MEMBERSHIP_PURCHASE);
   const router = useRouter();
   const [quote, setQuote] = useState<MembershipQuote | null>(null);
   const [loadingQuote, setLoadingQuote] = useState(false);
@@ -575,8 +578,10 @@ export default function MembershipCheckoutModal({
               Boolean(quoteError) ||
               !quote ||
               submittingCheckout ||
+              !purchaseGate.allowed ||
               !MEMBERSHIP_PAYMENT_PROVIDERS.some((provider) => provider.code === selectedProvider && provider.enabled)
             }
+            title={purchaseGate.title}
             onClick={handleConfirmCheckout}
             className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-5 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
           >

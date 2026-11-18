@@ -197,7 +197,7 @@ function transport({ socketEnabled = true, pushFails = false } = {}) {
   const Component = load('components/notification/NotificationTransport.tsx', {
     ...popupMocks(notifications),
     react: runtime.hooks, 'next/link': Link, 'next/navigation': { usePathname: () => '/dashboard/properties' },
-    'lucide-react': icons, 'socket.io-client': { io: () => socket }, '@/features/auth/useAuth': { useAuth: () => auth },
+    'lucide-react': icons, 'socket.io-client': { io: () => socket }, '@/hooks/usePermission': { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, '@/lib/permissions': { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, '@/features/auth/useAuth': { useAuth: () => auth },
     '@/lib/keycloak': { token: 'test-token', updateToken: async () => {} }, '@/services/notification.service': notifications,
     '@/services/notification-push.service': { startPush: callback => { pushCallback = callback; return pushFails ? Promise.reject(new Error('unsupported')) : Promise.resolve(() => { stopped++; }); } },
   }, { ...timers.globals, document, window, navigator: { serviceWorker: worker },
@@ -266,7 +266,7 @@ function ownerDetail() {
   }, timers.globals);
   const exports = load('app/dashboard/properties/view/page.tsx', {
     react: runtime.hooks, 'next/link': Link, 'next/navigation': { useSearchParams: () => new URLSearchParams(search) },
-    'lucide-react': icons, '@/features/auth/useAuth': { useAuth: () => auth },
+    'lucide-react': icons, '@/hooks/usePermission': { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, '@/lib/permissions': { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, '@/features/auth/useAuth': { useAuth: () => auth },
     '@/components/rent/RentDetailView': Detail, '../components/ListingStatusActionMenu': nullComponent,
     '../components/useListingNotifications': notificationHook,
     '@/services/listing.service': { getMyListingById(id) { const request = { ...deferred(), id }; requests.push(request); return request.promise; },
@@ -344,7 +344,7 @@ function ownerList() {
   const request = list => { const pending = deferred(); list.push(pending); return pending.promise; };
   const Page = load('app/dashboard/properties/page.tsx', {
     react: runtime.hooks, 'next/link': Link, 'next/image': nullComponent, 'lucide-react': icons,
-    'next/navigation': { useRouter: () => ({ push() {} }) }, '@/features/auth/useAuth': { useAuth: () => auth },
+    'next/navigation': { useRouter: () => ({ push() {} }) }, '@/hooks/usePermission': { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, '@/lib/permissions': { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, '@/features/auth/useAuth': { useAuth: () => auth },
     '@/services/listing.service': { getMyListings: () => request(requests), getMyListingCounts: () => request(counts) },
     '@/services/membership.service': { getMyMembership: () => request(memberships) },
     '@/config/listing-status.config': { getListingStatusConfig: status => ({ label: status }) },

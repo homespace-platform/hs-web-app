@@ -5,6 +5,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 import keycloak from "@/lib/keycloak";
+import { FEATURE_LOCKED_MESSAGE, PERMISSIONS_STALE_EVENT, isPermissionDenied } from "@/lib/permissions";
 
 declare module "axios" {
   export interface AxiosRequestConfig {
@@ -110,6 +111,12 @@ axiosClient.interceptors.response.use(
 
     if (error.response.status === 401 && originalRequest._retry) {
       window.dispatchEvent(new Event("hs:auth-session-expired"));
+    }
+
+    // Revoked feature permission: callers read response.data.message, so give them the friendly text.
+    if (isPermissionDenied(error.response)) {
+      (error.response.data as { message?: string }).message = FEATURE_LOCKED_MESSAGE;
+      if (typeof window !== "undefined") window.dispatchEvent(new Event(PERMISSIONS_STALE_EVENT));
     }
 
     return Promise.reject(error);

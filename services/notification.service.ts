@@ -147,7 +147,6 @@ export const NOTIFICATION_FILTER_TABS: ReadonlyArray<{
   { id: "PAYMENT", label: "Thanh toán" },
   { id: "APPOINTMENT", label: "Lịch hẹn" },
   { id: "RENTAL_REQUEST", label: "Yêu cầu thuê" },
-  { id: "CHAT", label: "Tin nhắn" },
   { id: "ACCOUNT", label: "Tài khoản" },
   { id: "SYSTEM", label: "Hệ thống" },
 ];

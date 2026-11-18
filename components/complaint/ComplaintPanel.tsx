@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/useAuth";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import { complaintService as service } from "@/services/complaint.service";
 import storageService from "@/services/storage.service";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -19,6 +21,7 @@ const actionHints: Record<string,string> = {
 const date=(value?:string)=>value?new Date(value).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"—";
 export default function ComplaintPanel({rentalRequestId,initialComplaintId,attention=false,onUpdated}:{rentalRequestId:string;initialComplaintId?:string;attention?:boolean;onUpdated?:()=>Promise<unknown>|void}){
   const {profile}=useAuth();
+  const createGate=useFeatureGate(PERMISSIONS.COMPLAINT_CREATE);
   const actionGroup=useId();
   const [rows,setRows]=useState<ComplaintCase[]>([]),[selected,setSelected]=useState("");
   const [reason,setReason]=useState(""),[category,setCategory]=useState<ComplaintCategory>("OTHER"),[urgent,setUrgent]=useState(false),[files,setFiles]=useState<File[]>([]);
@@ -90,7 +93,7 @@ export default function ComplaintPanel({rentalRequestId,initialComplaintId,atten
         {attention&&<p className="mt-1 text-xs text-amber-800">Có vấn đề quyết toán cần trao đổi.</p>}
         {!loading&&<p className="mt-1 text-xs text-muted-foreground">{scoped.length?`${scoped.filter(c=>c.status!=="RESOLVED").length} đang mở · ${scoped.length} hồ sơ`:"Chưa có khiếu nại."}</p>}
       </div>
-      <div className="flex gap-2"><button type="button" className={button} disabled={busy} onClick={()=>{resetDraft();setCreating(false);setModalOpen(true);}}>Xem trao đổi{scoped.length?` (${scoped.length})`:""}</button><button type="button" className={button+" border-primary/30 text-primary"} disabled={busy||loading} onClick={openNew}>Mở khiếu nại mới</button></div>
+      <div className="flex gap-2"><button type="button" className={button} disabled={busy} onClick={()=>{resetDraft();setCreating(false);setModalOpen(true);}}>Xem trao đổi{scoped.length?` (${scoped.length})`:""}</button><button type="button" className={button+" border-primary/30 text-primary"} disabled={busy||loading||!createGate.allowed} title={createGate.title} onClick={openNew}>Mở khiếu nại mới</button></div>
     </div>
     {error&&!modalOpen&&<p role="alert" className="mt-2 text-xs text-rose-700">{error}</p>}
     <dialog ref={dialog} aria-labelledby={actionGroup} className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-2xl overflow-y-auto rounded-2xl border bg-card p-0 text-sm text-foreground shadow-2xl backdrop:bg-black/50" onCancel={e=>{e.preventDefault();close();}}>
@@ -99,7 +102,7 @@ export default function ComplaintPanel({rentalRequestId,initialComplaintId,atten
         <div className="space-y-4 p-4 sm:p-5">
           <p className="text-xs text-muted-foreground">Gửi thông tin, đính kèm chứng cứ và chuyển HomeSpace khi cần. Thay đổi hợp đồng hoặc xử lý tiền thực hiện ở chức năng tương ứng.</p>
           {error&&<p role="alert" className="rounded-lg border border-rose-200 p-3 text-rose-700">{error}</p>}
-          <div className="flex flex-wrap justify-between gap-2"><button type="button" className={button} disabled={busy||loading} onClick={()=>{setLoading(true);void refresh();}}>Tải lại</button>{creating?<button type="button" className={button} disabled={busy} onClick={()=>{resetDraft();setCreating(false);}}>Xem hồ sơ đã có</button>:<button type="button" className={button} disabled={busy||loading} onClick={openNew}>Mở khiếu nại mới</button>}</div>
+          <div className="flex flex-wrap justify-between gap-2"><button type="button" className={button} disabled={busy||loading} onClick={()=>{setLoading(true);void refresh();}}>Tải lại</button>{creating?<button type="button" className={button} disabled={busy} onClick={()=>{resetDraft();setCreating(false);}}>Xem hồ sơ đã có</button>:<button type="button" className={button} disabled={busy||loading||!createGate.allowed} title={createGate.title} onClick={openNew}>Mở khiếu nại mới</button>}</div>
           {loading&&!scoped.length&&!creating&&<p role="status">Đang tải hồ sơ…</p>}
           {!creating&&scoped.length>1&&<div aria-label="Chọn hồ sơ khiếu nại" className="flex flex-wrap gap-2">{scoped.map(c=><button type="button" key={c.id} disabled={busy} aria-pressed={current?.id===c.id} className={button+(current?.id===c.id?" border-primary text-primary":"")} onClick={()=>{resetDraft();setSelected(c.id);}}>{complaintCategories[c.category]} · {date(c.openedAt)}</button>)}</div>}
           {!creating&&current&&<>
@@ -123,7 +126,7 @@ export default function ComplaintPanel({rentalRequestId,initialComplaintId,atten
             {!creating&&activeAction!=="COMMENT"&&<p className="text-xs text-muted-foreground">{actionHints[activeAction!]}</p>}
             <p className="text-xs text-muted-foreground">{reason.trim().length}/500 ký tự</p>
             {(creating||activeAction==="COMMENT")&&<label className="block space-y-2 text-xs"><span>Đính kèm chứng cứ · Tối đa 5 ảnh/PDF, 15 MB/tệp</span><input aria-label="Chứng cứ khiếu nại" disabled={busy} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={e=>{if(!pick(e.target.files))e.target.value="";}} className="block w-full rounded-lg border p-2"/></label>}
-            <div className="flex flex-wrap gap-2"><button type="button" className={button+" border-primary bg-primary text-primary-foreground hover:bg-primary/90"} disabled={busy||!valid||(!creating&&(!activeAction||(activeAction!=="COMMENT"&&files.length>0)))} onClick={()=>void perform(creating?"OPEN":activeAction!)}>{busy?"Đang gửi…":creating?"Gửi khiếu nại":activeAction==="COMMENT"?"Gửi trao đổi":actionLabel(activeAction!)}</button>
+            <div className="flex flex-wrap gap-2"><button type="button" className={button+" border-primary bg-primary text-primary-foreground hover:bg-primary/90"} disabled={busy||!valid||(creating&&!createGate.allowed)||(!creating&&(!activeAction||(activeAction!=="COMMENT"&&files.length>0)))} onClick={()=>void perform(creating?"OPEN":activeAction!)}>{busy?"Đang gửi…":creating?"Gửi khiếu nại":activeAction==="COMMENT"?"Gửi trao đổi":actionLabel(activeAction!)}</button>
               {!creating&&activeAction!=="COMMENT"&&actions.includes("COMMENT")&&<button type="button" className={button} disabled={busy} onClick={()=>setChosenAction("COMMENT")}>Quay lại trao đổi</button>}
             </div>
             {!creating&&activeAction==="COMMENT"&&<div className="flex flex-wrap gap-3 text-xs">{actions.filter(a=>a!=="COMMENT").map(a=><button key={a} type="button" disabled={busy||files.length>0} className="text-primary underline disabled:opacity-50" onClick={()=>setChosenAction(a)}>{actionLabel(a)}</button>)}</div>}

@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import Image from "next/image";
 import {
   Building2,
@@ -85,6 +87,7 @@ export function getChargeMeta(chargeType: string) {
 interface CustomFeeRow { id: string; name: string; amount: number | string; unit: string; }
 
 export default function BranchesPage() {
+  const postGate = useFeatureGate(PERMISSIONS.LISTING_POST);
   const router = useRouter();
   const [branches, setBranches] = useState<PropertyBranch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -590,7 +593,9 @@ export default function BranchesPage() {
         <button
           type="button"
           onClick={handleOpenCreateModal}
-          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+          disabled={!postGate.allowed}
+          title={postGate.title}
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus className="h-4 w-4" />
           Thêm Chi nhánh / Tòa nhà
@@ -614,7 +619,9 @@ export default function BranchesPage() {
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90"
+            disabled={!postGate.allowed}
+            title={postGate.title}
+            className="mt-4 disabled:opacity-50 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90"
           >
             <Plus className="h-4 w-4" /> Tạo Chi nhánh ngay
           </button>
@@ -738,7 +745,8 @@ export default function BranchesPage() {
                   <button
                     type="button"
                     onClick={() => handleOpenEditModal(b)}
-                    title="Chỉnh sửa chi nhánh"
+                    disabled={!postGate.allowed}
+                    title={postGate.title ?? "Chỉnh sửa chi nhánh"}
                     className="rounded-xl p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   >
                     <Edit className="h-4 w-4" />
@@ -746,10 +754,12 @@ export default function BranchesPage() {
                   <button
                     type="button"
                     onClick={() => handleDelete(b)}
+                    disabled={!postGate.allowed}
                     title={
-                      (b.totalUnits || 0) > 0
+                      postGate.title ??
+                      ((b.totalUnits || 0) > 0
                         ? `Chi nhánh đang có ${b.totalUnits} phòng/căn, không thể xóa!`
-                        : "Xóa chi nhánh"
+                        : "Xóa chi nhánh")
                     }
                     className={
                       (b.totalUnits || 0) > 0

@@ -15,7 +15,7 @@ function panel(options={}){
     "@/services/payment-dispute.service":{paymentDisputeService:api},
     "@/services/payment-request.service":{default:{dispute:async(...args)=>calls.push({kind:"open",args})}},
     "@/services/storage.service":{default:{uploadPaymentProof:async()=>{uploads++;return "new-proof";}}},
-    "@/utils/apiError":{getApiErrorMessage:e=>e.message},"@/types/payment-dispute.type":labels,
+    "@/hooks/usePermission": { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, "@/lib/permissions": { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, "@/utils/apiError":{getApiErrorMessage:e=>e.message},"@/types/payment-dispute.type":labels,
     sonner:{toast:{success(){},error:e=>errors.push(e)}},
   }).default;
   const tree=C({payment,onUpdated:async()=>{parentUpdates++;}});

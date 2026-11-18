@@ -30,6 +30,8 @@ import type {
   AppointmentStatus,
 } from "@/types/appointment.type";
 import { listingDetailPath } from "@/lib/listing-detail-access";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 
 interface AppointmentDetailModalProps {
   appointment: AppointmentResponse | null;
@@ -131,6 +133,8 @@ export default function AppointmentDetailModal({
   onRejectReschedule,
   onRequestReschedule,
 }: AppointmentDetailModalProps) {
+  const manageGate = useFeatureGate(PERMISSIONS.APPOINTMENT_MANAGE);
+  const bookGate = useFeatureGate(PERMISSIONS.APPOINTMENT_BOOK);
   if (!isOpen || !appointment) return null;
 
   const statusConfig = STATUS_CONFIG[appointment.status] || STATUS_CONFIG.PENDING;
@@ -255,7 +259,9 @@ export default function AppointmentDetailModal({
                       onClose();
                       onApproveReschedule?.(appointment);
                     }}
-                    className="flex-1 py-2 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                    disabled={!manageGate.allowed}
+                    title={manageGate.title}
+                    className="flex-1 py-2 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Check className="w-3.5 h-3.5" />
                     <span>Đồng ý đổi lịch</span>
@@ -266,7 +272,9 @@ export default function AppointmentDetailModal({
                       onClose();
                       onRejectReschedule?.(appointment);
                     }}
-                    className="flex-1 py-2 px-3 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-bold transition-all cursor-pointer text-center"
+                    disabled={!manageGate.allowed}
+                    title={manageGate.title}
+                    className="flex-1 py-2 px-3 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-bold transition-all cursor-pointer text-center disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Từ chối đổi
                   </button>
@@ -418,7 +426,9 @@ export default function AppointmentDetailModal({
                       onClose();
                       onReject?.(appointment);
                     }}
-                    className="px-4 py-2 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-bold transition-all cursor-pointer"
+                    disabled={!manageGate.allowed}
+                    title={manageGate.title}
+                    className="px-4 py-2 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Từ chối lịch hẹn
                   </button>
@@ -428,7 +438,9 @@ export default function AppointmentDetailModal({
                       onClose();
                       onApprove?.(appointment);
                     }}
-                    className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-1.5"
+                    disabled={!manageGate.allowed}
+                    title={manageGate.title}
+                    className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Check className="w-3.5 h-3.5" />
                     <span>Chấp nhận lịch hẹn</span>
@@ -444,7 +456,9 @@ export default function AppointmentDetailModal({
                       onClose();
                       onCancel?.(appointment);
                     }}
-                    className="px-4 py-2 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-bold transition-all cursor-pointer"
+                    disabled={!manageGate.allowed}
+                    title={manageGate.title}
+                    className="px-4 py-2 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Hủy lịch hẹn
                   </button>
@@ -454,7 +468,9 @@ export default function AppointmentDetailModal({
                       onClose();
                       onComplete?.(appointment);
                     }}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-all cursor-pointer flex items-center gap-1.5"
+                    disabled={!manageGate.allowed}
+                    title={manageGate.title}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <CalendarCheck className="w-3.5 h-3.5" />
                     <span>Đã tiếp khách xong</span>
@@ -486,7 +502,9 @@ export default function AppointmentDetailModal({
                         onClose();
                         onRequestReschedule?.(appointment);
                       }}
-                      className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-1.5"
+                      disabled={!bookGate.allowed}
+                      title={bookGate.title}
+                      className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>Yêu cầu đổi lịch</span>

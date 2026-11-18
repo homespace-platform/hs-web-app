@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/features/auth/useAuth";
 import { requireKyc } from "@/lib/kyc-gate";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   DEFAULT_MEMBERSHIP_PLANS,
   formatVndPrice,
@@ -24,12 +26,14 @@ export default function LandlordCta() {
   const router = useRouter();
   const { authenticated, login, profile } = useAuth();
   const unlimited = isUnlimitedMembership(null, profile);
+  const postGate = useFeatureGate(PERMISSIONS.LISTING_POST);
 
   const goPostListing = () => {
     if (!authenticated) {
       login("/dashboard/properties/upsert");
       return;
     }
+    if (!postGate.guard()) return;
     requireKyc(profile, {
       router,
       redirect: true,
@@ -74,6 +78,7 @@ export default function LandlordCta() {
             <button
               type="button"
               onClick={goPostListing}
+              title={postGate.title}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 py-2.5 text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
@@ -186,6 +191,7 @@ export default function LandlordCta() {
                     <button
                       type="button"
                       onClick={goPostListing}
+                      title={postGate.title}
                       className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted/60 hover:bg-muted py-2.5 px-4 text-xs font-bold text-foreground transition-colors cursor-pointer"
                     >
                       <span>

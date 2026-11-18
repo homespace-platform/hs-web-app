@@ -35,6 +35,8 @@ function load(file) {
     if (["@/lib/rent-detail-sections", "@/lib/video-stream-url", "@/lib/contract-property-feature-labels", "@/lib/contract-amendment-input", "@/lib/contract-field-state", "@/lib/nearby-directions", "@/lib/nearby-presentation", "@/lib/format-time-ago", "@/types/nearby.type"].includes(name)) return load(name.replace("@/", "") + ".ts");
     if (name === "@/components/nearby/NearbyPlacesPanel") return load("components/nearby/NearbyPlacesPanel.tsx");
     if (name.startsWith("@/components/")) return noComponent;
+    if (name === "@/hooks/usePermission") return { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }) };
+    if (name === "@/lib/permissions") return { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) };
     if (name.startsWith("@/")) return {};
     return require(name);
   };

@@ -34,6 +34,8 @@ import { format, formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
 import { useAuth } from "@/features/auth/useAuth";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import { useRentalRequestSync } from "./useRentalRequestSync";
 import paymentRequestService from "@/services/payment-request.service";
 import storageService from "@/services/storage.service";
@@ -166,6 +168,8 @@ export default function RentalRequestDetailModal({
   isProcessingAction = false,
 }: RentalRequestDetailModalProps) {
   const { userId } = useAuth();
+  const manageGate = useFeatureGate(PERMISSIONS.RENTAL_REQUEST_MANAGE);
+  const contractGate = useFeatureGate(PERMISSIONS.CONTRACT_MANAGE);
   const [detail, setDetail] = useState<RentalRequestResponse | null>(null);
   const activeRequestId = useRef<string | null>(null);
   // Shared by the initial GET and silent refreshes: a result applies only if its ticket is newer than the last applied one.
@@ -851,7 +855,8 @@ export default function RentalRequestDetailModal({
                 <>
                   <button
                     type="button"
-                    disabled={isProcessingAction}
+                    disabled={isProcessingAction || !manageGate.allowed}
+                    title={manageGate.title}
                     onClick={() => onReject?.(detail)}
                     className="px-3.5 py-2 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold text-foreground transition-all cursor-pointer disabled:opacity-40"
                   >
@@ -859,7 +864,8 @@ export default function RentalRequestDetailModal({
                   </button>
                   <button
                     type="button"
-                    disabled={isProcessingAction}
+                    disabled={isProcessingAction || !manageGate.allowed}
+                    title={manageGate.title}
                     onClick={() => onAccept?.(detail)}
                     className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40"
                   >
@@ -907,7 +913,7 @@ export default function RentalRequestDetailModal({
                           : "Hợp đồng cọc được lập sau khi xác nhận nhận cọc; xem và ký trong mục Hợp đồng → Hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày vào và xác nhận đủ tiền tháng đầu."}
                       </p>
                       <RentalContractFallbackButton request={detail} mode={mode} contract={linkedContract} view={onboarding}
-                        busy={creatingContract} disabled={isProcessingAction} onCreate={onCreateDraft} />
+                        busy={creatingContract} disabled={isProcessingAction || !contractGate.allowed} onCreate={onCreateDraft} />
                     </div>
                   )
                 )

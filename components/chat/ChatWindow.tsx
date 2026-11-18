@@ -266,8 +266,7 @@ export default function ChatWindow({
               Trực tuyến 24/7
             </span>
           ) : (
-            conversation.lastActive ||
-            (conversation.isOnline ? "Đang hoạt động" : "Ngoại tuyến")
+            conversation.isOnline ? "Đang hoạt động" : conversation.lastActive || "Ngoại tuyến"
           )}
         </span>
       </div>

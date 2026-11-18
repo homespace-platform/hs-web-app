@@ -6,8 +6,9 @@ import keycloak from "@/lib/keycloak";
 import { initKeycloakSession, readKeycloakSession } from "@/features/auth/authSession";
 import { isProtectedRoute } from "@/features/auth/protectedRoutes";
 import { useAppDispatch } from "@/store/hooks";
+import { PERMISSIONS_STALE_EVENT, createThrottle } from "@/lib/permissions";
 import { sessionCleared, sessionInitialized } from "@/features/auth/authSlice";
-import { fetchCurrentUser, userCleared } from "@/features/user/userSlice";
+import { fetchCurrentUser, fetchMyPermissions, userCleared } from "@/features/user/userSlice";
 import { fetchFavoriteIds, favoritesCleared } from "@/features/favorite/favoriteSlice";
 import { fetchHistoryIds, historyCleared } from "@/features/history/historySlice";
 
@@ -35,6 +36,11 @@ export default function AuthInitializer({ children }: { children: React.ReactNod
     keycloak.onAuthRefreshError = clearSession;
     keycloak.onTokenExpired = refreshExpiredToken;
     window.addEventListener("hs:auth-session-expired", clearSession);
+    const allowRefetch = createThrottle(5_000);
+    const onPermissionsStale = () => {
+      if (keycloak.authenticated && allowRefetch()) void dispatch(fetchMyPermissions());
+    };
+    window.addEventListener(PERMISSIONS_STALE_EVENT, onPermissionsStale);
 
     initKeycloakSession()
       .then(() => {
@@ -44,6 +50,7 @@ export default function AuthInitializer({ children }: { children: React.ReactNod
         dispatch(sessionInitialized(session));
         if (session.authenticated && session.userId) {
           dispatch(fetchCurrentUser({ userId: session.userId }));
+          dispatch(fetchMyPermissions());
           dispatch(fetchFavoriteIds({ userId: session.userId }));
           dispatch(fetchHistoryIds({ userId: session.userId }));
           const returnUrl = sessionStorage.getItem("hs:return-url");
@@ -76,6 +83,7 @@ export default function AuthInitializer({ children }: { children: React.ReactNod
       keycloak.onAuthRefreshError = undefined;
       keycloak.onTokenExpired = undefined;
       window.removeEventListener("hs:auth-session-expired", clearSession);
+      window.removeEventListener(PERMISSIONS_STALE_EVENT, onPermissionsStale);
     };
   }, [dispatch, router]);
 

@@ -24,6 +24,8 @@ import { toast } from "sonner";
 import { format, getDay, isBefore, startOfDay, addDays } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useAuth } from "@/features/auth/useAuth";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import appointmentService from "@/services/appointment.service";
 import type {
   AppointmentResponse,
@@ -100,6 +102,7 @@ export default function BookingAppointmentModal({
 }: BookingAppointmentModalProps) {
   const router = useRouter();
   const { authenticated, login, profile } = useAuth();
+  const bookGate = useFeatureGate(PERMISSIONS.APPOINTMENT_BOOK);
 
   // State
   const [loading, setLoading] = useState(false);
@@ -780,7 +783,8 @@ export default function BookingAppointmentModal({
                 <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={submitting || !selectedSlot}
+                    disabled={submitting || !selectedSlot || !bookGate.allowed}
+                    title={bookGate.title}
                     className="w-full py-3.5 px-6 rounded-2xl bg-primary text-primary-foreground text-xs sm:text-sm font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.99]"
                   >
                     {submitting ? (

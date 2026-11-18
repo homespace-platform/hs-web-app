@@ -30,6 +30,8 @@ function load(source, lifecycle, namespace = false) {
     : name === "@/components/ui/vnd-money-input" ? { default: ({label, value}) => React.createElement("input", {"aria-label":label, value:value ?? "", readOnly:true}) }
     : name === "@/lib/invoice-status" ? load(fs.readFileSync(path.join(__dirname, "../lib/invoice-status.ts"), "utf8"), false, true)
     : name.startsWith("@/services/") ? { contractLifecycleService: {}, default: {} }
+    : name === "@/hooks/usePermission" ? { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }) }
+    : name === "@/lib/permissions" ? { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }
     : name === "@/utils/apiError" ? { getApiErrorMessage: () => "test error" }
     : name === "@/lib/contract-routes" ? { contractDetailPath: (role, id) => `/dashboard/${role}/contracts/${id}`, invoiceDetailPath: id => `/dashboard/invoices/${id}` }
     : name === "@/hooks/useAgreementChangeSync" ? { useNotificationChangeSync(matches) { agreementMatcher = id => matches({ type: "agreement-changed", agreementId: id }); } }

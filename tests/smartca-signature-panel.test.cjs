@@ -42,6 +42,8 @@ function fixture(refreshSmartCaSignature) {
   const imports = name => name === "react" ? hooks
     : name === "@/services/contract.service" ? { contractService: { refreshSmartCaSignature } }
     : name === "sonner" ? { toast: { success() {}, info() {}, warning() {}, error() {} } }
+    : name === "@/hooks/usePermission" ? { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }) }
+    : name === "@/lib/permissions" ? { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }
     : name === "@/utils/apiError" ? { getApiErrorMessage: (_, fallback) => fallback } : require(name);
   const window = { setInterval(fn) { const id = Symbol(); timers.set(id, fn); return id; }, clearInterval(id) { timers.delete(id); } };
   const mod = { exports: {} };

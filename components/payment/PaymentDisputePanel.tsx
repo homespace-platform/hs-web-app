@@ -6,6 +6,8 @@ import paymentService from "@/services/payment-request.service";
 import { paymentDisputeService as service } from "@/services/payment-dispute.service";
 import storageService from "@/services/storage.service";
 import { useAuth } from "@/features/auth/useAuth";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import { getApiErrorMessage } from "@/utils/apiError";
 import type { PaymentRequest } from "@/types/payment-request.type";
 import { disputeActionLabels, disputeResolutionLabels, disputeEventResolution, type DisputeAction, type DisputeResolution, type PaymentDisputeCase } from "@/types/payment-dispute.type";
@@ -16,6 +18,7 @@ const button = "rounded-lg border bg-background px-3 py-2 text-xs font-semibold 
 
 export default function PaymentDisputePanel({ payment, onUpdated }: Props) {
   const { profile } = useAuth();
+  const createGate = useFeatureGate(PERMISSIONS.PAYMENT_DISPUTE_CREATE);
   const [expanded, setExpanded] = useState(payment.status === "DISPUTED");
   const [rows, setRows] = useState<PaymentDisputeCase[]>([]), [selected, setSelected] = useState("");
   const [reason, setReason] = useState(""), [file, setFile] = useState<File | null>(null);
@@ -119,8 +122,8 @@ export default function PaymentDisputePanel({ payment, onUpdated }: Props) {
             {allowed.includes("ACCEPT") && <button type="button" className={button} disabled={busy || !reasonValid} onClick={() => act("ACCEPT")}>Đồng ý hướng xử lý</button>}
             {allowed.includes("DECLINE") && <button type="button" className={button} disabled={busy || !reasonValid} onClick={() => act("DECLINE")}>Chưa đồng ý</button>}
             {allowed.includes("ESCALATE") && <button type="button" className={button} disabled={busy || !reasonValid} onClick={() => act("ESCALATE")}>Chuyển quản trị viên</button>}
-            {canOpen && !scopedRows.some(c => c.status !== "RESOLVED") && <button type="button" className={button} disabled={busy || !reasonValid} onClick={() => void perform(() => paymentService.dispute(payment.id, { reason: reason.trim() }))}>Mở đối soát khoản tiền</button>}
-            {payment.status === "DISPUTED" && !scopedRows.some(c => c.status !== "RESOLVED") && <button type="button" className={button} disabled={busy || !reasonValid} onClick={() => void perform(() => service.adopt(payment.id, reason.trim()))}>Tiếp nhận khoản đang đối soát</button>}
+            {canOpen && !scopedRows.some(c => c.status !== "RESOLVED") && <button type="button" className={button} disabled={busy || !reasonValid || !createGate.allowed} title={createGate.title} onClick={() => void perform(() => paymentService.dispute(payment.id, { reason: reason.trim() }))}>Mở đối soát khoản tiền</button>}
+            {payment.status === "DISPUTED" && !scopedRows.some(c => c.status !== "RESOLVED") && <button type="button" className={button} disabled={busy || !reasonValid || !createGate.allowed} title={createGate.title} onClick={() => void perform(() => service.adopt(payment.id, reason.trim()))}>Tiếp nhận khoản đang đối soát</button>}
           </div>
         </div>}
       </>}

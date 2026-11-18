@@ -44,7 +44,7 @@ test('web defaults to VNPT and keeps upcoming providers disabled',async()=>{
  react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},message(){},success(){}}},
  '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'NOT_VERIFIED',provider:'VNPT'}),createVnptSession:async()=>{calls.push('vnpt');return{sessionId:'attempt',expiresAt:'2099-01-01',maxImageMb:1};}}},
  './VnptKycCapture':{__esModule:true,default:capture},'@/components/settings/KycVerifiedDetailsPanel':{__esModule:true,default:detailsPanel},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
- '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:'alice'},user:{profile:{id:'alice',role:'ADMIN',kycOptional:true}}})},
+ '@/hooks/usePermission': { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, '@/lib/permissions': { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:'alice'},user:{profile:{id:'alice',role:'ADMIN',kycOptional:true}}})},
  },{window:{clearInterval(){},setInterval(){}}}).default;
  runtime.mount(Component);await runtime.settle();assert.doesNotMatch(html(runtime),/Didit|backend|webhook|Tùy chọn|không bắt buộc/);
  const providers=flatten(runtime.tree).filter(n=>n.type==='input'&&n.props.name==='kyc-provider');
@@ -99,7 +99,7 @@ test('a session response from a previous account cannot reopen its capture',asyn
  react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},message(){},success(){}}},
  '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'NOT_VERIFIED',provider:'VNPT'}),createVnptSession:()=>new Promise(done=>{resolve=done;})}},
  './VnptKycCapture':{__esModule:true,default:capture},'@/components/settings/KycVerifiedDetailsPanel':{__esModule:true,default:detailsPanel},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
- '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:actor},user:{profile:{id:actor}}})},
+ '@/hooks/usePermission': { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, '@/lib/permissions': { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:actor},user:{profile:{id:actor}}})},
  },{window:{clearInterval(){},setInterval(){}}}).default;
  runtime.mount(Component);await runtime.settle();
  flatten(runtime.tree).find(n=>n.type==='button'&&n.props.className.includes('bg-primary')).props.onClick();await runtime.settle();
@@ -113,7 +113,7 @@ for(const provider of ['DIDIT','ADMIN'])test(`${provider} verified users stay ve
  react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},success(){}}},
  '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'VERIFIED',provider,sessionId:'legacy',verifiedAt:null}),createVnptSession:async()=>calls.push('start')}},
  './VnptKycCapture':{__esModule:true,default:()=>null},'@/components/settings/KycVerifiedDetailsPanel':{__esModule:true,default:detailsPanel},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
- '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:'alice'},user:{profile:{id:'alice'}}})},
+ '@/hooks/usePermission': { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, '@/lib/permissions': { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:'alice'},user:{profile:{id:'alice'}}})},
  }).default;
  runtime.mount(Component);await runtime.settle();
  assert.match(html(runtime),/Danh tính đã được xác minh/);assert.doesNotMatch(html(runtime),/Didit|Xác minh ngay|Nhà cung cấp xác minh/);
@@ -126,7 +126,7 @@ test('a pending VNPT session can be cancelled using the backend result',async()=
  react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},success(){}}},
  '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'PENDING',provider:'VNPT',sessionId:'attempt'}),cancelSession:async()=>{calls.push('cancel');return{status:'EXPIRED',provider:'VNPT'};}}},
  './VnptKycCapture':{__esModule:true,default:capture},'@/components/settings/KycVerifiedDetailsPanel':{__esModule:true,default:detailsPanel},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
- '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:'alice'},user:{profile:{id:'alice'}}})},
+ '@/hooks/usePermission': { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, '@/lib/permissions': { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:'alice'},user:{profile:{id:'alice'}}})},
  }).default;
  runtime.mount(Component);await runtime.settle();
  flatten(runtime.tree).find(n=>n.type==='button'&&n.props.className.includes('border-rose')).props.onClick();await runtime.settle();

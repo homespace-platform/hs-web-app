@@ -22,6 +22,8 @@ import {
 } from "@/features/location/locationSlice";
 import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
 import { requireKyc } from "@/lib/kyc-gate";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   Menu,
   X,
@@ -57,7 +59,9 @@ export default function Header() {
     openRolePicker();
   };
 
+  const postGate = useFeatureGate(PERMISSIONS.LISTING_POST);
   const goToPostListing = () => {
+    if (!postGate.guard()) return;
     requireKyc(profile, {
       router,
       redirect: true,
@@ -457,6 +461,7 @@ export default function Header() {
                     <button
                       type="button"
                       onClick={goToPostListing}
+                      title={postGate.title}
                       className="h-10 px-4 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-semibold flex items-center gap-2 shadow-xs transition-all cursor-pointer"
                     >
                       <Plus className="w-4 h-4 text-primary-foreground" />
@@ -704,6 +709,7 @@ export default function Header() {
             <button
               type="button"
               onClick={goToPostListing}
+              title={postGate.title}
               className="h-9 px-3.5 rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5 text-primary-foreground" />

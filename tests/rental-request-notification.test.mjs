@@ -263,7 +263,7 @@ function transport({ socketEnabled = true, pushFails = false } = {}) {
   const Component = load('components/notification/NotificationTransport.tsx', {
     ...popupMocks(notifications),
     react: runtime.hooks, 'next/link': Link, 'next/navigation': { usePathname: () => '/dashboard/properties' },
-    'lucide-react': icons, 'socket.io-client': { io: () => socket }, '@/features/auth/useAuth': { useAuth: () => auth },
+    'lucide-react': icons, 'socket.io-client': { io: () => socket }, '@/hooks/usePermission': { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, '@/lib/permissions': { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, '@/features/auth/useAuth': { useAuth: () => auth },
     '@/lib/keycloak': { token: 'test-token', updateToken: async () => {} }, '@/services/notification.service': notifications,
     '@/services/notification-push.service': { startPush: callback => { pushCallback = callback; return pushFails ? Promise.reject(new Error('unsupported')) : Promise.resolve(() => { stopped++; }); } },
   }, { ...timers.globals, document, window, navigator: { serviceWorker: worker },
@@ -392,7 +392,7 @@ function resourceFixture(detail = false, authOverrides = {}) {
   const request = () => { const call = deferred(); requests.push(call); return call.promise; };
   const mocks = { react: runtime.hooks, 'next/image': nullComponent, 'next/link': Link, 'lucide-react': icons,
     'next/navigation': { useRouter: () => ({ push() {} }) }, sonner: { toast: { error() {} } },
-    '@/features/auth/useAuth': { useAuth: () => auth },
+    '@/hooks/usePermission': { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, '@/lib/permissions': { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, '@/features/auth/useAuth': { useAuth: () => auth },
     '@/services/rental-request.service': { getOwnerRequests: request, getRequestById: request, getOwnerConflicts: async () => { conflicts++; return []; } },
     './useRentalRequestSync': sync, './useRentalRequestDeepLink': { useRentalRequestDeepLink: () => () => {} },
     '@/services/contract.service': { contractService: {} }, '@/services/rental-onboarding.service': {},

@@ -91,6 +91,31 @@ test('chat popup uses the current participant name/avatar and never previews mes
   } finally { f.cleanup(); }
 });
 
+test('chat delivery resolves participant metadata without refreshing the bell and updates when the conversation arrives', async () => {
+  const conversations = [];
+  const f = transport(conversations);
+  try {
+    await f.runtime.settle();
+    const before = f.notifications.calls.length;
+    const item = { id: 'chat-notice-1', category: 'CHAT', type: 'CHAT_ALERT_REQUESTED',
+      metadata: { conversationId: 'room-1', messageId: 'message-1' }, title: 'Tin nhắn mới',
+      body: 'PRIVATE PAYLOAD', priority: 'NORMAL', actionPath: '/chat?channel=direct&conversationId=room-1' };
+    f.fire(item); f.fire(item);
+    await f.runtime.settle();
+    assert.match(html(f.runtime), /Người dùng HomeSpace/);
+    conversations.push({ id: 'room-1', userName: 'Nguyễn Minh', userAvatar: 'https://example.test/avatar.png', lastMessage: 'PRIVATE MESSAGE' });
+    f.runtime.update();
+    const markup = html(f.runtime);
+    assert.match(markup, /Nguyễn Minh/);
+    assert.match(markup, /src="https:\/\/example.test\/avatar.png"/);
+    assert.equal((markup.match(/Có tin nhắn mới/g) ?? []).length, 1);
+    assert.doesNotMatch(markup, /PRIVATE PAYLOAD|PRIVATE MESSAGE/);
+    await f.timers.advance(150);
+    assert.equal(f.notifications.calls.length, before);
+    assert.equal(f.notifications.NOTIFICATION_FILTER_TABS.some(tab => tab.id === 'CHAT'), false);
+  } finally { f.cleanup(); }
+});
+
 test('popup navigates from the card, closes separately and rejects external action URLs', () => {
   const notifications = service();
   const Popup = popupMocks(notifications)['@/components/notification/NotificationPopup'].default;

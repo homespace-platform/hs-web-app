@@ -15,6 +15,9 @@ import type { ListingOptionsResponse, ListingSubmissionAction, ListingDetailResp
 import type { MembershipView } from "@/types/membership.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { isKycSatisfied, requireKyc } from "@/lib/kyc-gate";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
+import { FEATURE_LOCKED_MESSAGE } from "@/lib/permissions";
 import { isListingQuotaExhaustedError } from "@/lib/membership";
 import MembershipStatusCard from "@/components/membership/MembershipStatusCard";
 import InsufficientQuotaModal from "@/components/membership/InsufficientQuotaModal";
@@ -68,6 +71,7 @@ function getTodayDateString(): string {
 
 function CreatePropertyListingContent() {
   const router = useRouter();
+  const postGate = useFeatureGate(PERMISSIONS.LISTING_POST);
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
   const duplicateFrom = searchParams.get("duplicateFrom");
@@ -1059,6 +1063,24 @@ function CreatePropertyListingContent() {
             Nhân bản thành tin mới
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (!postGate.allowed) {
+    return (
+      <div className="mx-auto max-w-xl py-16 text-center space-y-4">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400">
+          <AlertTriangle className="h-7 w-7" />
+        </div>
+        <p className="text-sm text-muted-foreground">{FEATURE_LOCKED_MESSAGE}</p>
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard/properties")}
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-xs hover:bg-primary/90"
+        >
+          Quay lại danh sách tin đăng
+        </button>
       </div>
     );
   }

@@ -12,12 +12,15 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useAuth } from "@/features/auth/useAuth";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import membershipService from "@/services/membership.service";
 import MembershipStatusCard from "@/components/membership/MembershipStatusCard";
 import type { MembershipView } from "@/types/membership.type";
 
 export default function LandlordDashboardPage() {
   const { authenticated, profile } = useAuth();
+  const postGate = useFeatureGate(PERMISSIONS.LISTING_POST);
   const [membership, setMembership] = useState<MembershipView | null>(null);
   const [loadingMembership, setLoadingMembership] = useState(false);
 
@@ -65,6 +68,8 @@ export default function LandlordDashboardPage() {
           </Link>
           <Link
             href="/dashboard/properties/new"
+            onClick={postGate.guard}
+            title={postGate.title}
             className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 transition-all"
           >
             <PlusCircle className="h-4 w-4" />

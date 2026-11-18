@@ -5,6 +5,9 @@ import { usePathname } from "next/navigation";
 import { io } from "socket.io-client";
 import { useAuth } from "@/features/auth/useAuth";
 import keycloak from "@/lib/keycloak";
+import { fetchMyPermissions } from "@/features/user/userSlice";
+import { createThrottle, isPermissionChangeType } from "@/lib/permissions";
+import { useAppDispatch } from "@/store/hooks";
 import notificationService, { getSafeActionPath, isAgreementNotificationType, isAmendmentNotificationType, isInvoiceNotificationType, isRenewalNotificationType, isTerminationNotificationType, isReturnSettlementNotificationType, isRoutedPaymentType } from "@/services/notification.service";
 import { startPush } from "@/services/notification-push.service";
 import type { NotificationItem } from "@/types/notification.type";
@@ -16,6 +19,7 @@ type Popup = Pick<NotificationItem, "id" | "category" | "type" | "metadata" | "t
 export default function NotificationTransport() {
   const { authenticated, initialized, userId } = useAuth();
   const pathname = usePathname();
+  const dispatch = useAppDispatch();
   const { conversations } = useChatDemo();
   const [popups, setPopups] = useState<Popup[]>([]);
 
@@ -85,17 +89,25 @@ export default function NotificationTransport() {
       : null;
 
     if (socket) {
-      socket.on("connect", recoverChanges);
+      let connectedOnce = false;
+      const allowRefetch = createThrottle(5_000);
+      socket.on("connect", () => {
+        recoverChanges();
+        // AuthInitializer loads permissions on start; later connects may follow a missed change.
+        if (connectedOnce && allowRefetch()) void dispatch(fetchMyPermissions());
+        connectedOnce = true;
+      });
       for (const event of [
         "notification:read",
         "notification:deleted",
         "notification:unread-count",
       ]) socket.on(event, scheduleRefresh);
       socket.on("notification:new", (value: unknown) => {
-        scheduleRefresh();
-        if (!value || typeof value !== "object") return;
+        if (disposed || !value || typeof value !== "object") return;
         const item = value as Partial<NotificationItem> & { popupAllowed?: boolean };
+        if (item.category !== "CHAT") scheduleRefresh();
         // Invalidate listing data even in hidden tabs; only the popup is visibility-gated.
+        if (isPermissionChangeType(item.type)) void dispatch(fetchMyPermissions());
         if (item.category === "LISTING") {
           const listingId = item.metadata?.listingId;
           notificationService.notifyListingChanged(typeof listingId === "string" ? listingId : undefined);
@@ -215,7 +227,7 @@ export default function NotificationTransport() {
       socket?.disconnect();
       stopPush?.();
     };
-  }, [initialized, authenticated, userId]);
+  }, [initialized, authenticated, userId, dispatch]);
 
   const visiblePopups = popups.filter((item) => item.recipientId === userId);
   if (!authenticated || visiblePopups.length === 0) return null;
@@ -223,9 +235,10 @@ export default function NotificationTransport() {
   return (
     <div className="pointer-events-none fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 z-[100] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-3" aria-live="polite" aria-atomic="false">
       {visiblePopups.map((item) => {
-        const sender = item.chatAlert ? conversations.find(({ id }) => id === item.conversationId) : undefined;
+        const conversationId = item.conversationId ?? item.metadata?.conversationId;
+        const sender = item.category === "CHAT" ? conversations.find(({ id }) => id === conversationId) : undefined;
         return <NotificationPopup key={item.id} item={item}
-          sender={item.chatAlert ? { name: sender?.userName || "Người dùng HomeSpace", avatar: sender?.userAvatar } : undefined}
+          sender={item.category === "CHAT" ? { name: sender?.userName || "Người dùng HomeSpace", avatar: sender?.userAvatar } : undefined}
           onDismiss={() => setPopups((current) => current.filter(({ id }) => id !== item.id))} />;
       })}
     </div>

@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import favoriteService from "@/services/favorite.service";
 import type { RootState } from "@/store";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 type LoadStatus = "idle" | "loading" | "succeeded" | "failed";
 
@@ -71,9 +72,7 @@ export const toggleFavoriteItem = createAsyncThunk<
       const isFavorite = await favoriteService.toggleFavorite(listingId);
       return { listingId, isFavorite };
     } catch (error) {
-      return rejectWithValue(
-        error instanceof Error ? error.message : "Không thể cập nhật yêu thích"
-      );
+      return rejectWithValue(getApiErrorMessage(error, "Không thể cập nhật yêu thích"));
     }
   }
 );

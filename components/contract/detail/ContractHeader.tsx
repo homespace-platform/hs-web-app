@@ -27,6 +27,8 @@ import { contractService } from "@/services/contract.service";
 import { toast } from "sonner";
 import { documentTime, requiresVerifiedContent } from "@/lib/contract-document-history";
 import { FieldRow } from "./utils";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 
 const STATUS_CONFIG: Record<
   ContractStatus,
@@ -118,6 +120,7 @@ export default function ContractHeader({
   listingSyncAction,
 }: ContractHeaderProps) {
   const router = useRouter();
+  const manageGate = useFeatureGate(PERMISSIONS.CONTRACT_MANAGE);
   const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
   const [viewDoc,setViewDoc] = useState<ContractDocumentResponse|null>(null);
   const [opening,setOpening] = useState(false);
@@ -293,7 +296,8 @@ export default function ContractHeader({
               {!hasReadyDoc && <button
                 type={draftReview ? "submit" : "button"}
                 form={draftReview?.formId}
-                disabled={rendering || reconcilingPreview || sending || draftReview?.saving || draftReview?.locked}
+                disabled={rendering || reconcilingPreview || sending || draftReview?.saving || draftReview?.locked || !manageGate.allowed}
+                title={manageGate.title}
                 onClick={draftReview ? undefined : () => { window.scrollTo({ top: 0, behavior: "smooth" }); void onRender(); }}
                 className="h-9 px-3.5 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
               >
@@ -309,14 +313,14 @@ export default function ContractHeader({
               {!smartCaMode && (
                 <button
                   type="button"
-                  disabled={rendering || reconcilingPreview || sending || !completeness?.complete || !hasReadyDoc}
+                  disabled={rendering || reconcilingPreview || sending || !completeness?.complete || !hasReadyDoc || !manageGate.allowed}
                   onClick={onSend}
                   title={
-                    !completeness?.complete
+                    manageGate.title ?? (!completeness?.complete
                       ? "Bổ sung đủ trường trước khi gửi"
                       : !hasReadyDoc
                         ? "Kết xuất file hợp đồng trước khi gửi"
-                        : undefined
+                        : undefined)
                   }
                   className="h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >

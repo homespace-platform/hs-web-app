@@ -18,6 +18,7 @@ import chatService from "@/services/chat.service";
 import type { ChatParticipantProfile } from "@/services/chat.service";
 import type { ChatConversation, RelatedListing } from "@/types/chat.type";
 import { mapApiConversation, mapApiMessage } from "@/lib/chat-api-mapper";
+import { applyPresence, mergePresence, type ChatPresenceMap, type ChatPresenceUpdate } from "@/lib/chat-presence";
 import type {
   ChatApiAttachment,
   ChatApiConversation,
@@ -172,11 +173,17 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
         : undefined,
     [profile],
   );
-  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [rawConversations, setConversations] = useState<ChatConversation[]>([]);
+  const [presence, setPresence] = useState<ChatPresenceMap>({});
+  const presenceSubscribed = useRef(new Set<string>());
+  const conversations = useMemo(
+    () => rawConversations.map((item) => applyPresence(item, presence[item.userId])),
+    [rawConversations, presence],
+  );
   const loadingConversationIds = useRef(new Set<string>());
   const activeConversationId = useRef<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
-  const conversationsRef = useRef(conversations);
+  const conversationsRef = useRef(rawConversations);
   const seenMessageIds = useRef(new Set<string>());
   const conversationVersions = useRef(new Map<string, number>());
   const readVersions = useRef(new Map<string, number>());
@@ -223,8 +230,35 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    conversationsRef.current = conversations;
-  }, [conversations]);
+    conversationsRef.current = rawConversations;
+  }, [rawConversations]);
+
+  // Older chat-service builds never ack: the timeout is swallowed and users stay offline.
+  const subscribePresence = useCallback((ids: string[]) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+    const fresh = ids.filter((id) => !presenceSubscribed.current.has(id));
+    for (let i = 0; i < fresh.length; i += 200) {
+      const userIds = fresh.slice(i, i + 200);
+      userIds.forEach((id) => presenceSubscribed.current.add(id));
+      socket.timeout(5_000).emit(
+        "chat:presence:subscribe",
+        { userIds },
+        (error: unknown, ack?: { presences?: ChatPresenceUpdate[] }) => {
+          if (!error && Array.isArray(ack?.presences)) {
+            setPresence((current) => mergePresence(current, ack.presences!));
+          }
+        },
+      );
+    }
+  }, []);
+  const participantKey = useMemo(
+    () => [...new Set(rawConversations.map((item) => item.userId))].sort().join(","),
+    [rawConversations],
+  );
+  useEffect(() => {
+    if (participantKey) subscribePresence(participantKey.split(","));
+  }, [participantKey, subscribePresence]);
 
   const receiveMessage = useCallback(
     async (message: ChatApiMessage) => {
@@ -339,6 +373,12 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
           path: "/api/v1/chat/socket.io",
           extraHeaders: { Authorization: `Bearer ${keycloak.token}` },
         });
+        socket.on("connect", () => {
+          presenceSubscribed.current.clear();
+          subscribePresence(conversationsRef.current.map((item) => item.userId));
+        });
+        socket.on("chat:presence", (update: ChatPresenceUpdate) =>
+          setPresence((current) => mergePresence(current, [update])));
         socket.io.on("reconnect", () => {
           chatService.clearProfileCache();
           const baseline = new Map(conversationVersions.current);
@@ -392,10 +432,13 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       cancelled = true;
+      socket?.removeAllListeners();
       socket?.disconnect();
       if (socketRef.current === socket) socketRef.current = null;
+      presenceSubscribed.current.clear();
+      setPresence({});
     };
-  }, [authenticated, currentUserId, receiveMessage, removeMessage, updateMessage, mergeSummaries]);
+  }, [authenticated, currentUserId, receiveMessage, removeMessage, updateMessage, mergeSummaries, subscribePresence]);
 
   useEffect(() => {
     if (!authenticated || !currentUserId) return;

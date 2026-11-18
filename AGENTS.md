@@ -33,6 +33,8 @@ Next.js 16 (App Router in `app/`), React 19, TypeScript, Redux Toolkit (`store/`
 
 ## Notifications, Service Worker and Browser Permissions
 
+- Product rule: chat belongs to its own unread state, popups and push. Do not show CHAT in the notification bell, notification-center list/category tabs or bell unread count. Resolve popup name/avatar from conversation data. Do not "complete" notification coverage by reintroducing chat into the bell.
+
 - `public/firebase-messaging-sw.js` and push registration affect real users. Keep push content generic (the worker shows a generic message so a shared browser does not reveal another account's content). Do not put private notification text in push payloads or the worker.
 - Keep installation secrets out of logs. Preserve the unregister-on-logout / push toggle behavior with `hs-notification-service`.
 - Handle denied or unsupported notification permission gracefully. Realtime (Socket.IO) and REST feeds must degrade without breaking the page.

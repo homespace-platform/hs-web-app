@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import type { ContractResponse } from "@/types/contract.type";
 import { str } from "./utils";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 
 interface ContractSignaturePanelProps {
   contract: ContractResponse;
@@ -36,6 +38,8 @@ export default function ContractSignaturePanel({
   onSend,
   onSign,
 }: ContractSignaturePanelProps) {
+  const manageGate = useFeatureGate(PERMISSIONS.CONTRACT_MANAGE);
+  const signGate = useFeatureGate(PERMISSIONS.CONTRACT_SIGN);
   const [agreedLandlord, setAgreedLandlord] = useState(false);
   const [agreedTenant, setAgreedTenant] = useState(false);
 
@@ -127,14 +131,14 @@ export default function ContractSignaturePanel({
             </span>
             <button
               type="button"
-              disabled={!agreedLandlord || !canSend || sending}
+              disabled={!agreedLandlord || !canSend || sending || !manageGate.allowed}
               onClick={onSend}
               title={
-                !canSend
+                manageGate.title ?? (!canSend
                   ? "Bổ sung đủ dữ liệu và kết xuất file xem trước trước khi gửi"
                   : !agreedLandlord
                     ? "Vui lòng tích chọn đồng ý trước khi gửi"
-                    : undefined
+                    : undefined)
               }
               className="h-10 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs cursor-pointer inline-flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -193,12 +197,12 @@ export default function ContractSignaturePanel({
             </span>
             <button
               type="button"
-              disabled={!agreedTenant || signing}
+              disabled={!agreedTenant || signing || !signGate.allowed}
               onClick={onSign}
               title={
-                !agreedTenant
+                signGate.title ?? (!agreedTenant
                   ? "Vui lòng đọc và tích chọn đồng ý trước khi ký"
-                  : undefined
+                  : undefined)
               }
               className="h-10 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs cursor-pointer inline-flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >

@@ -30,6 +30,8 @@ import { format, formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import rentalRequestService from "@/services/rental-request.service";
 import { useAuth } from "@/features/auth/useAuth";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 import { useRentalRequestDeepLink } from "./useRentalRequestDeepLink";
 import { useRentalRequestSync } from "./useRentalRequestSync";
 import RentalRequestDetailModal from "./RentalRequestDetailModal";
@@ -150,6 +152,8 @@ export default function RentalRequestsManagement({ mode }: RentalRequestsManagem
 function RentalRequestsManagementView({ mode }: RentalRequestsManagementProps) {
   const router = useRouter();
   const { initialized, authenticated, userId, login } = useAuth();
+  const manageGate = useFeatureGate(PERMISSIONS.RENTAL_REQUEST_MANAGE);
+  const contractGate = useFeatureGate(PERMISSIONS.CONTRACT_MANAGE);
   const listRequestSeq = useRef(0);
   const listForegroundSeq = useRef(0);
   const listAppliedSeq = useRef(0);
@@ -756,7 +760,7 @@ function RentalRequestsManagementView({ mode }: RentalRequestsManagementProps) {
                   {/* Card Actions */}
                   <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 self-end sm:self-center">
                     <RentalContractFallbackButton request={req} mode={mode} contract={linkedContract}
-                      busy={creatingContractFor===req.id} disabled={isProcessing || creatingContractFor!==null}
+                      busy={creatingContractFor===req.id} disabled={isProcessing || creatingContractFor!==null || !contractGate.allowed}
                       onCreate={handleCreateDraft} />
                     {/* Nhiều yêu cầu cùng chờ duyệt cho một phòng: hỏi AI nên chọn ai */}
                     {mode === "RECEIVED" && req.status === "PENDING" && conflicts[req.listingId] && (
@@ -776,14 +780,18 @@ function RentalRequestsManagementView({ mode }: RentalRequestsManagementProps) {
                         <button
                           type="button"
                           onClick={() => setRejectTarget(req)}
-                          className="px-3 py-1.5 rounded-xl border border-border bg-background hover:bg-muted text-xs font-semibold text-foreground transition-all cursor-pointer"
+                          disabled={!manageGate.allowed}
+                          title={manageGate.title}
+                          className="px-3 py-1.5 rounded-xl border border-border bg-background hover:bg-muted text-xs font-semibold text-foreground transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           Từ chối
                         </button>
                         <button
                           type="button"
                           onClick={() => setAcceptTarget(req)}
-                          className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                          disabled={!manageGate.allowed}
+                          title={manageGate.title}
+                          className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span>Chấp thuận (Giữ chỗ {RENTAL_HOLD_DURATION_SHORT})</span>
@@ -796,7 +804,7 @@ function RentalRequestsManagementView({ mode }: RentalRequestsManagementProps) {
                       <button
                         type="button"
                         onClick={() => setCancelTarget(req)}
-                        className="px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-semibold transition-all cursor-pointer"
+                        className="px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-semibold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         Hủy yêu cầu
                       </button>

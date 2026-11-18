@@ -24,7 +24,7 @@ export default function VnptKycCapture({ session, onResult, onCancel }: {
     const onMessage = async (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow || !event.data || typeof event.data !== "object") return;
       const data = event.data;
-      if (data.type === "vnpt:ready") { send({ type: "vnpt:init", maxImageMb: session.maxImageMb, allowUpload: process.env.NODE_ENV === "development" }); return; }
+      if (data.type === "vnpt:ready") { send({ type: "vnpt:init", maxImageMb: session.maxImageMb, allowUpload: true }); return; }
       if (data.nonce !== nonce || disposed) return;
       if (data.type === "vnpt:error") { setError("Không thể tải SDK VNPT. Vui lòng đóng phiên và thử lại."); return; }
       if (data.type === "vnpt:camera-error") { setError("Không mở được camera. Hãy cấp quyền camera, đóng ứng dụng đang sử dụng camera rồi bắt đầu lại."); return; }

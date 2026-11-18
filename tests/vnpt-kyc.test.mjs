@@ -30,12 +30,26 @@ test('SDK bridge pins origin/source and routes capture without provider credenti
  await assert.rejects(win.fetch('http://localhost:3000/__homespace_vnpt__/arbitrary',{method:'POST',body:'{}'}),/Invalid/);
 });
 
-test('SDK permits image upload only when development parent enables it',()=>{
+test('SDK permits image upload when the parent enables it',()=>{
  const parent={postMessage(){}},listeners=new Map(),configs=[];
  const win={parent,location:{origin:'http://localhost:3000'},fetch:async()=>new Response('asset'),navigator:{mediaDevices:{getUserMedia:async()=>{}}},SDK:{launch:value=>configs.push(value)},addEventListener:(name,callback)=>listeners.set(name,callback)};
  vm.runInNewContext(fs.readFileSync('public/kyc/vnpt-frame.js','utf8'),{window:win,URL,Response,FormData,crypto,setTimeout,clearTimeout});
  listeners.get('message')({origin:win.location.origin,source:parent,data:{type:'vnpt:init',nonce:'nonce',maxImageMb:1,allowUpload:true}});
  assert.equal(configs[0].USE_METHOD,'PHOTO_AND_UPLOAD');
+});
+
+test('production VNPT session enables image upload',async()=>{
+ const runtime=hookRuntime(),timers=clock(),win=events({location:{origin:'https://homespace.example'},...timers.globals}),posts=[];
+ const child={postMessage:data=>posts.push(data)};
+ const Component=load('components/settings/sections/VnptKycCapture.tsx',{
+  react:runtime.hooks,'lucide-react':icons,'@/types/kyc.type':load('types/kyc.type.ts'),
+  '@/services/kyc.service':{__esModule:true,default:{}},
+ },{window:win,crypto,Blob,process:{env:{NODE_ENV:'production'}}}).default;
+ runtime.mount(Component,{session:{sessionId:'attempt',maxImageMb:1},onResult(){},onCancel(){}});
+ flatten(runtime.tree).find(n=>n.type==='iframe').props.ref.current={contentWindow:child};
+ win.fire('message',{origin:win.location.origin,source:child,data:{type:'vnpt:ready'}});
+ assert.equal(posts[0].allowUpload,true);
+ runtime.unmount();
 });
 
 test('web defaults to VNPT and keeps upcoming providers disabled',async()=>{

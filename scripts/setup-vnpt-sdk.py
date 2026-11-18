@@ -1,4 +1,4 @@
-"""Prepare the licensed VNPT Web SDK locally; exclude vendor files from source control."""
+"""Prepare VNPT Web SDK assets without the credential-bearing demo page."""
 from pathlib import Path
 import hashlib
 import sys

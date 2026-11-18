@@ -4,8 +4,10 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from "axios";
+import { toast } from "sonner";
 import keycloak from "@/lib/keycloak";
 import { FEATURE_LOCKED_MESSAGE, PERMISSIONS_STALE_EVENT, isPermissionDenied } from "@/lib/permissions";
+import { PROFILE_GATE_STALE_EVENT, isProfileIncomplete, profileGateHref } from "@/lib/profile-gate";
 
 declare module "axios" {
   export interface AxiosRequestConfig {
@@ -117,6 +119,15 @@ axiosClient.interceptors.response.use(
     if (isPermissionDenied(error.response)) {
       (error.response.data as { message?: string }).message = FEATURE_LOCKED_MESSAGE;
       if (typeof window !== "undefined") window.dispatchEvent(new Event(PERMISSIONS_STALE_EVENT));
+    }
+
+    // Incomplete profile (1010): keep the server message, refresh the status and point to settings.
+    if (isProfileIncomplete(error.response) && typeof window !== "undefined") {
+      window.dispatchEvent(new Event(PROFILE_GATE_STALE_EVENT));
+      toast.error((error.response.data as { message?: string }).message || "Vui lòng cập nhật đầy đủ hồ sơ.", {
+        id: "profile-gate-blocked",
+        action: { label: "Cập nhật hồ sơ", onClick: () => window.location.assign(profileGateHref(error.response)) },
+      });
     }
 
     return Promise.reject(error);

@@ -8,7 +8,8 @@ import { isProtectedRoute } from "@/features/auth/protectedRoutes";
 import { useAppDispatch } from "@/store/hooks";
 import { PERMISSIONS_STALE_EVENT, createThrottle } from "@/lib/permissions";
 import { sessionCleared, sessionInitialized } from "@/features/auth/authSlice";
-import { fetchCurrentUser, fetchMyPermissions, userCleared } from "@/features/user/userSlice";
+import { PROFILE_GATE_STALE_EVENT } from "@/lib/profile-gate";
+import { fetchCurrentUser, fetchMyPermissions, fetchOnboardingStatus, userCleared } from "@/features/user/userSlice";
 import { fetchFavoriteIds, favoritesCleared } from "@/features/favorite/favoriteSlice";
 import { fetchHistoryIds, historyCleared } from "@/features/history/historySlice";
 
@@ -41,6 +42,17 @@ export default function AuthInitializer({ children }: { children: React.ReactNod
       if (keycloak.authenticated && allowRefetch()) void dispatch(fetchMyPermissions());
     };
     window.addEventListener(PERMISSIONS_STALE_EVENT, onPermissionsStale);
+    const allowStatusRefetch = createThrottle(5_000);
+    const onProfileGateStale = () => {
+      if (keycloak.authenticated && allowStatusRefetch()) void dispatch(fetchOnboardingStatus());
+    };
+    window.addEventListener(PROFILE_GATE_STALE_EVENT, onProfileGateStale);
+    // Profile may be completed elsewhere (another tab, KYC provider); recover on focus.
+    const allowFocusRefetch = createThrottle(30_000);
+    const onFocus = () => {
+      if (keycloak.authenticated && allowFocusRefetch()) void dispatch(fetchOnboardingStatus());
+    };
+    window.addEventListener("focus", onFocus);
 
     initKeycloakSession()
       .then(() => {
@@ -51,6 +63,7 @@ export default function AuthInitializer({ children }: { children: React.ReactNod
         if (session.authenticated && session.userId) {
           dispatch(fetchCurrentUser({ userId: session.userId }));
           dispatch(fetchMyPermissions());
+          dispatch(fetchOnboardingStatus());
           dispatch(fetchFavoriteIds({ userId: session.userId }));
           dispatch(fetchHistoryIds({ userId: session.userId }));
           const returnUrl = sessionStorage.getItem("hs:return-url");
@@ -84,6 +97,8 @@ export default function AuthInitializer({ children }: { children: React.ReactNod
       keycloak.onTokenExpired = undefined;
       window.removeEventListener("hs:auth-session-expired", clearSession);
       window.removeEventListener(PERMISSIONS_STALE_EVENT, onPermissionsStale);
+      window.removeEventListener(PROFILE_GATE_STALE_EVENT, onProfileGateStale);
+      window.removeEventListener("focus", onFocus);
     };
   }, [dispatch, router]);
 

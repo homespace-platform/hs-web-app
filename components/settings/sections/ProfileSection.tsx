@@ -9,7 +9,7 @@ import Link from 'next/link';
 import userService from '@/services/user.service';
 import storageService from '@/services/storage.service';
 import AvatarCropModal from '@/components/avatar/AvatarCropModal';
-import { fetchCurrentUser } from '@/features/user/userSlice';
+import { fetchCurrentUser, fetchOnboardingStatus } from '@/features/user/userSlice';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import type { UpdateUserProfileRequest, UserProfile } from '@/types/user.type';
 import { toast } from 'sonner';
@@ -31,11 +31,6 @@ function profileToForm(profile: UserProfile): ProfileForm {
         firstName: profile.firstName ?? '',
         lastName: profile.lastName ?? '',
         phone: profile.phone ?? null,
-        dob: profile.dob ?? null,
-        gender:
-            profile.gender === 'FEMALE' || profile.gender === 'MALE' || profile.gender === 'OTHER'
-                ? profile.gender
-                : null,
     };
 }
 
@@ -43,8 +38,6 @@ function normalizeProfileForm(form: ProfileForm): ProfileForm {
     return {
         ...form,
         phone: form.phone?.trim() || null,
-        dob: form.dob || null,
-        gender: form.gender || null,
     };
 }
 
@@ -195,6 +188,7 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
             if (userId) {
                 await dispatch(fetchCurrentUser({ userId, force: true })).unwrap();
             }
+            void dispatch(fetchOnboardingStatus());
             const message = 'Cập nhật thông tin cá nhân thành công!';
             toast.success(message);
         } catch (requestError) {
@@ -382,38 +376,15 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                         inputMode="tel"
                         error={errors.phone?.message}
                     />
-                    <TextField
-                        label="Email"
-                        value={form.email}
-                        onChange={(value) => setField('email', value)}
-                        type="email"
-                        error={errors.email?.message}
-                    />
-                    <TextField
-                        label="Ngày sinh"
-                        value={form.dob ?? ''}
-                        onChange={(value) => setField('dob', value || null)}
-                        type="date"
-                        max={getLatestAdultBirthDate()}
-                        error={errors.dob?.message}
-                    />
-
-                    <div className="space-y-1.5">
-                        <label className="block text-[11px] font-semibold text-foreground">Giới tính</label>
-                        <select
-                            value={form.gender ?? ''}
-                            onChange={(event) =>
-                                setField('gender', (event.target.value || null) as ProfileForm['gender'])
-                            }
-                            className="w-full h-10 px-3.5 bg-muted/50 focus:bg-background rounded-xl border border-border focus:border-primary text-xs sm:text-sm text-foreground outline-none transition-all cursor-pointer"
-                        >
-                            <option value="">Chưa cập nhật</option>
-                            <option value="MALE">Nam</option>
-                            <option value="FEMALE">Nữ</option>
-                            <option value="OTHER">Khác</option>
-                        </select>
+                    <div className="sm:col-span-2">
+                        <TextField
+                            label="Email"
+                            value={form.email}
+                            onChange={(value) => setField('email', value)}
+                            type="email"
+                            error={errors.email?.message}
+                        />
                     </div>
-
                 </div>
 
                 <div className="pt-2 flex justify-end">
@@ -432,12 +403,15 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                 </div>
             </form>
 
-            <AddressEditor
-                initialAddress={profile.address}
-                onSaved={async () => {
-                    await dispatch(fetchCurrentUser({ userId: userId ?? profile.id, force: true })).unwrap();
-                }}
-            />
+            <div id="address" className="scroll-mt-28">
+                <AddressEditor
+                    initialAddress={profile.address}
+                    onSaved={async () => {
+                        await dispatch(fetchCurrentUser({ userId: userId ?? profile.id, force: true })).unwrap();
+                        void dispatch(fetchOnboardingStatus());
+                    }}
+                />
+            </div>
 
             {profile && (
                 <section className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-4 shadow-2xs">
@@ -480,14 +454,6 @@ function formatInstant(value?: string | null) {
         }).format(date);
 }
 
-function getLatestAdultBirthDate() {
-    const today = new Date();
-    const year = today.getFullYear() - 18;
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
 function formatRole(role?: string | null) {
     if (role === 'USER') return 'Người dùng';
     if (role === 'ADMIN') return 'Quản trị viên';
@@ -509,7 +475,6 @@ function TextField({
     onChange,
     type = 'text',
     inputMode,
-    max,
     error,
 }: {
     label: string;
@@ -517,7 +482,6 @@ function TextField({
     onChange: (value: string) => void;
     type?: React.HTMLInputTypeAttribute;
     inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
-    max?: string;
     error?: string;
 }) {
     return (
@@ -526,7 +490,6 @@ function TextField({
             <input
                 type={type}
                 inputMode={inputMode}
-                max={max}
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 aria-invalid={Boolean(error)}

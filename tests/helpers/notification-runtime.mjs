@@ -126,8 +126,9 @@ const html = runtime => renderToStaticMarkup(runtime.tree);
 function popupMocks(notifications, conversations = []) {
   const dispatch = async () => {};
   return {
-    '@/features/user/userSlice': { fetchMyPermissions: () => ({ type: 'user/fetchMyPermissions' }) },
+    '@/features/user/userSlice': { fetchMyPermissions: () => ({ type: 'user/fetchMyPermissions' }), fetchOnboardingStatus: () => ({ type: 'user/fetchOnboardingStatus' }) },
     '@/lib/permissions': load('lib/permissions.ts'),
+    '@/lib/profile-gate': load('lib/profile-gate.ts', { '@/lib/permissions': load('lib/permissions.ts') }),
     '@/store/hooks': { useAppDispatch: () => dispatch },
     '@/components/chat/ChatDemoProvider': { useChatDemo: () => ({ conversations }) },
     '@/components/notification/NotificationPopup': load('components/notification/NotificationPopup.tsx', {

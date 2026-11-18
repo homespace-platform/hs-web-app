@@ -11,24 +11,6 @@ const nullablePhone = z
         'Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0353999798)',
     );
 
-const nullableAdultDate = z
-    .string()
-    .nullable()
-    .refine((value) => {
-        if (!value) return true;
-        const date = new Date(`${value}T00:00:00`);
-        if (Number.isNaN(date.getTime())) return false;
-
-        const today = new Date();
-        const latestAllowedDate = new Date(
-            today.getFullYear() - 18,
-            today.getMonth(),
-            today.getDate(),
-        );
-
-        return date <= latestAllowedDate;
-    }, 'Bạn phải đủ 18 tuổi');
-
 export const userProfileSchema = z.object({
     username: z
         .string()
@@ -40,8 +22,6 @@ export const userProfileSchema = z.object({
     firstName: z.string().trim().min(2, 'Tên phải có ít nhất 2 ký tự').max(50, 'Tên không được quá 50 ký tự'),
     lastName: z.string().trim().min(2, 'Họ phải có ít nhất 2 ký tự').max(50, 'Họ không được quá 50 ký tự'),
     phone: nullablePhone,
-    dob: nullableAdultDate,
-    gender: z.enum(['FEMALE', 'MALE', 'OTHER']).nullable(),
 });
 
 export type UserProfileForm = z.infer<typeof userProfileSchema>;

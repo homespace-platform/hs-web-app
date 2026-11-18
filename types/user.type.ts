@@ -11,8 +11,6 @@ export type UserProfile = {
   phone?: string | null;
   /** Citizen ID confirmed by the backend after successful KYC. */
   cccd?: string | null;
-  dob?: string | null;
-  gender?: string | null;
   roleId?: string | null;
   role?: string | null;
   onBoarded?: boolean | null;
@@ -43,16 +41,12 @@ export type UpdateUserProfileRequest = {
   firstName: string;
   lastName: string;
   phone: string | null;
-  dob: string | null;
-  gender: "FEMALE" | "MALE" | "OTHER" | null;
 };
 
 export type OnboardingRequest = {
   firstName: string | null;
   lastName: string | null;
   phone: string | null;
-  dob: string | null;
-  gender: "FEMALE" | "MALE" | "OTHER" | null;
 };
 
 export type SetInitialPasswordRequest = {
@@ -74,5 +68,9 @@ export type OnboardingStatusResponse = {
   requiredSteps: string[];
   completedSteps: string[];
   nextStep: "PROFILE" | "ADDRESS" | "PASSWORD" | "BANK_ACCOUNT" | "COMPLETED";
+  /** Absent on older backends; see normalizeOnboardingStatus. */
+  passwordSet?: boolean;
+  missingRequirements?: Array<"PROFILE" | "ADDRESS" | "BANK_ACCOUNT" | "KYC">;
+  serviceReady?: boolean;
 };
 

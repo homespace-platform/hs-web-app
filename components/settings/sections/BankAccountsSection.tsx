@@ -13,6 +13,8 @@ import bankAccountService from "@/services/bank-account.service";
 import type { BankAccount, BankAccountRequest } from "@/types/bank-account.type";
 import { VIETNAMESE_BANKS } from "@/data/banks";
 import { toast } from "sonner";
+import { fetchOnboardingStatus } from "@/features/user/userSlice";
+import { useAppDispatch } from "@/store/hooks";
 import axios from "axios";
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -24,6 +26,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 export default function BankAccountsSection() {
+  const dispatch = useAppDispatch();
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +84,7 @@ export default function BankAccountsSection() {
         defaultForRefunds: defaultRefund,
       };
       await bankAccountService.createBankAccount(payload);
+      void dispatch(fetchOnboardingStatus());
       toast.success("Thêm tài khoản ngân hàng thành công.");
       setShowAddModal(false);
       setAccountNumber("");
@@ -97,6 +101,7 @@ export default function BankAccountsSection() {
     setActionInProgress(id);
     try {
       await bankAccountService.updateDefaults(id, { defaultForIncomingPayments: true });
+      void dispatch(fetchOnboardingStatus());
       toast.success("Đã đặt làm tài khoản mặc định nhận thanh toán.");
       await loadAccounts();
     } catch (err) {
@@ -110,6 +115,7 @@ export default function BankAccountsSection() {
     setActionInProgress(id);
     try {
       await bankAccountService.updateDefaults(id, { defaultForRefunds: true });
+      void dispatch(fetchOnboardingStatus());
       toast.success("Đã đặt làm tài khoản mặc định nhận hoàn tiền.");
       await loadAccounts();
     } catch (err) {
@@ -126,6 +132,7 @@ export default function BankAccountsSection() {
     setActionInProgress(id);
     try {
       await bankAccountService.deleteBankAccount(id);
+      void dispatch(fetchOnboardingStatus());
       toast.success("Đã xóa tài khoản thành công.");
       await loadAccounts();
     } catch (err) {

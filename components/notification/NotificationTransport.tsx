@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation";
 import { io } from "socket.io-client";
 import { useAuth } from "@/features/auth/useAuth";
 import keycloak from "@/lib/keycloak";
-import { fetchMyPermissions } from "@/features/user/userSlice";
+import { fetchMyPermissions, fetchOnboardingStatus } from "@/features/user/userSlice";
 import { createThrottle, isPermissionChangeType } from "@/lib/permissions";
+import { isKycChangeType } from "@/lib/profile-gate";
 import { useAppDispatch } from "@/store/hooks";
 import notificationService, { getSafeActionPath, isAgreementNotificationType, isAmendmentNotificationType, isInvoiceNotificationType, isRenewalNotificationType, isTerminationNotificationType, isReturnSettlementNotificationType, isRoutedPaymentType } from "@/services/notification.service";
 import { startPush } from "@/services/notification-push.service";
@@ -108,6 +109,7 @@ export default function NotificationTransport() {
         if (item.category !== "CHAT") scheduleRefresh();
         // Invalidate listing data even in hidden tabs; only the popup is visibility-gated.
         if (isPermissionChangeType(item.type)) void dispatch(fetchMyPermissions());
+        if (item.category === "ACCOUNT" && isKycChangeType(item.type)) void dispatch(fetchOnboardingStatus());
         if (item.category === "LISTING") {
           const listingId = item.metadata?.listingId;
           notificationService.notifyListingChanged(typeof listingId === "string" ? listingId : undefined);

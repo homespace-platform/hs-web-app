@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/useAuth";
 import { Button } from "@/components/ui/button";
 import UserDropdown from "./UserDropdown";
+import ProfileCompletionBanner from "./ProfileCompletionBanner";
 import NotificationDropdown from "@/components/notification/NotificationDropdown";
 import UserAvatar from "@/components/common/UserAvatar";
 import listingLocationService from "@/services/listing-location.service";
@@ -702,9 +703,10 @@ export default function Header() {
         </div>
       )}
     </header>
+      <ProfileCompletionBanner />
 
       {authenticated && !mobileMenuOpen && (
-        <div className="fixed top-[88px] right-4 z-40 flex gap-2 sm:hidden select-none animate-in fade-in-50 duration-200">
+        <div className="fixed top-[calc(88px+var(--hs-banner-h,0px))] right-4 z-40 flex gap-2 sm:hidden select-none animate-in fade-in-50 duration-200">
           {isDashboard ? (
             <button
               type="button"

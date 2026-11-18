@@ -535,7 +535,7 @@ function ChatWorkspace() {
       <Header />
 
       <main className="flex-1 pt-20 flex h-screen overflow-hidden">
-        <div className="w-full h-[calc(100vh-80px)] flex bg-card border-t border-border overflow-hidden relative">
+        <div className="w-full h-[calc(100vh-80px-var(--hs-banner-h,0px))] flex bg-card border-t border-border overflow-hidden relative">
           {/* Cột Trái: Sidebar (Co giãn độ rộng theo thao tác kéo thả và thu gọn) */}
           <div
             ref={sidebarRef}

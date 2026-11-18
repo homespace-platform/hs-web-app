@@ -4,44 +4,43 @@ import React from 'react';
 import { load, hookRuntime, icons } from './helpers/notification-runtime.mjs';
 
 const nodes=node=>!node||typeof node!=='object'?[]:[node,...React.Children.toArray(node.props?.children).flatMap(nodes)];
-function fixture(role, getStatus) {
+function fixture({authenticated=true,onboarding}={}, calls=[]) {
  const runtime=hookRuntime();
- const state={auth:{authenticated:true,userId:'actor'},user:{status:'succeeded',profile:{id:'actor',role,onBoarded:false}}};
+ const state={auth:{authenticated,userId:'actor'},user:{onboarding}};
  const Component=load('features/onboarding/OnboardingInitializer.tsx',{
   react:runtime.hooks,'lucide-react':icons,
-  '@/services/user.service':{__esModule:true,default:{getOnboardingStatus:getStatus}},
-  '@/services/bank-account.service':{__esModule:true,default:{}},
-  '@/features/user/userSlice':{fetchCurrentUser:args=>args},
-  '@/store/hooks':{useAppDispatch:()=>()=>({unwrap:async()=>{}}),useAppSelector:fn=>fn(state)},
-  '@/data/banks':{VIETNAMESE_BANKS:[]},
-  '@/components/settings/AddressEditor':{__esModule:true,default:()=>null},
+  '@/services/user.service':{__esModule:true,default:{setInitialPassword:async r=>{calls.push(['password',r]);}}},
+  '@/features/user/userSlice':{fetchOnboardingStatus:()=>({type:'fetchOnboardingStatus'})},
+  '@/store/hooks':{useAppDispatch:()=>action=>{calls.push(['dispatch',action.type]);return {unwrap:async()=>{}};},useAppSelector:fn=>fn(state)},
   sonner:{toast:{success(){},error(){}}},
  },{},'\nmodule.exports.AccountOnboarding=AccountOnboarding;').AccountOnboarding;
  runtime.mount(Component);
  return runtime;
 }
-const status=(nextStep,completedSteps=[])=>({completed:nextStep==='COMPLETED',nextStep,completedSteps,requiredSteps:['PROFILE','ADDRESS','PASSWORD','BANK_ACCOUNT'],version:2});
+const gate=(passwordSet,missing=[])=>({passwordSet,missing,serviceReady:missing.length===0});
 
-for(const role of ['ADMIN','USER']) {
- for(const [nextStep,component] of [['PROFILE','ProfileStep'],['ADDRESS','AddressStep'],['PASSWORD','PasswordStep'],['BANK_ACCOUNT','BankStep']]) {
-  test(`${role} resumes the server-selected ${nextStep} step`,async()=>{
-   const runtime=fixture(role,async()=>status(nextStep));
-   await runtime.settle();
-   assert.ok(nodes(runtime.tree).some(n=>n.type?.name===component));
-   runtime.unmount();
-  });
- }
- test(`${role} does not reopen completed onboarding from a stale profile flag`,async()=>{
-  const runtime=fixture(role,async()=>status('COMPLETED',['PROFILE','ADDRESS','PASSWORD','BANK_ACCOUNT']));
-  await runtime.settle();assert.equal(runtime.tree,null);runtime.unmount();
- });
-}
+test('a missing password blocks with the password step only',()=>{
+ const runtime=fixture({onboarding:gate(false,['PROFILE','ADDRESS','BANK_ACCOUNT'])});
+ const names=nodes(runtime.tree).map(n=>n.type?.name);
+ assert.ok(names.includes('PasswordStep'));
+ for(const old of ['ProfileStep','AddressStep','BankStep','StepIndicator']) assert.ok(!names.includes(old));
+ assert.equal(runtime.tree.props.role,'dialog');
+ runtime.unmount();
+});
 
-test('an onboarding status failure is visible and retry uses the server result',async()=>{
- let attempts=0;
- const runtime=fixture('ADMIN',async()=>{if(++attempts===1)throw Error('Status unavailable');return status('COMPLETED');});
- await runtime.settle();
- const retry=nodes(runtime.tree).find(n=>n.type==='button');
- assert.ok(retry);retry.props.onClick();await runtime.settle();
- assert.equal(attempts,2);assert.equal(runtime.tree,null);runtime.unmount();
+for(const [name,options] of [
+ ['password set with other items missing',{onboarding:gate(true,['PROFILE','ADDRESS','BANK_ACCOUNT','KYC'])}],
+ ['status not loaded',{onboarding:null}],
+ ['anonymous user',{authenticated:false,onboarding:gate(false)}],
+]) test(`no blocking modal: ${name}`,()=>{
+ const runtime=fixture(options);assert.equal(runtime.tree,null);runtime.unmount();
+});
+
+test('setting the password sets it then refetches the status',async()=>{
+ const calls=[];
+ const runtime=fixture({onboarding:gate(false)},calls);
+ const step=nodes(runtime.tree).find(n=>n.type?.name==='PasswordStep');
+ await step.props.onSubmit('Secret123');
+ assert.deepEqual(JSON.parse(JSON.stringify(calls)),[['password',{newPassword:'Secret123'}],['dispatch','fetchOnboardingStatus']]);
+ runtime.unmount();
 });

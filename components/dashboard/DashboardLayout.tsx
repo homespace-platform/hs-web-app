@@ -124,7 +124,7 @@ export default function DashboardLayout({
           mobileOpen={mobileOpen}
           onCloseMobile={() => setMobileOpen(false)}
         />
-        {mobileOpen && <button type="button" aria-label="Đóng menu quản lý" onClick={() => setMobileOpen(false)} className="fixed inset-x-0 bottom-0 top-20 z-30 bg-black/30 md:hidden" />}
+        {mobileOpen && <button type="button" aria-label="Đóng menu quản lý" onClick={() => setMobileOpen(false)} className="fixed inset-x-0 bottom-0 top-[calc(5rem+var(--hs-banner-h,0px))] z-30 bg-black/30 md:hidden" />}
 
         {/* Main Content Area */}
         <div

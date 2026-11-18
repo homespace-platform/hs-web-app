@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import userService from "@/services/user.service";
 import type { RootState } from "@/store";
 import type { UserProfile } from "@/types/user.type";
+import { normalizeOnboardingStatus, type ProfileGateState } from "@/lib/profile-gate";
 
 type LoadStatus = "idle" | "loading" | "succeeded" | "failed";
 
@@ -14,6 +15,9 @@ interface UserState {
   permissions: string[] | null;
   /** Latest fetchMyPermissions request; older/out-of-date (e.g. after logout) responses are ignored. */
   permissionsRequestId: string | null;
+  /** null = not loaded (or failed): nothing is blocked and no password modal is shown. */
+  onboarding: ProfileGateState | null;
+  onboardingRequestId: string | null;
 }
 
 const initialState: UserState = {
@@ -23,6 +27,8 @@ const initialState: UserState = {
   loadedForUserId: null,
   permissions: null,
   permissionsRequestId: null,
+  onboarding: null,
+  onboardingRequestId: null,
 };
 
 interface FetchCurrentUserArgs {
@@ -65,6 +71,17 @@ export const fetchMyPermissions = createAsyncThunk<string[], void, { rejectValue
   },
 );
 
+export const fetchOnboardingStatus = createAsyncThunk<ProfileGateState, void, { rejectValue: string }>(
+  "user/fetchOnboardingStatus",
+  async (_, { rejectWithValue }) => {
+    try {
+      return normalizeOnboardingStatus(await userService.getOnboardingStatus());
+    } catch {
+      return rejectWithValue("onboarding-status-unavailable");
+    }
+  },
+);
+
 const userSlice = createSlice({
   name: "user",
   initialState,
@@ -90,6 +107,13 @@ const userSlice = createSlice({
       .addCase(fetchMyPermissions.fulfilled, (state, action) => {
         if (state.permissionsRequestId !== action.meta.requestId) return;
         state.permissions = action.payload;
+      })
+      .addCase(fetchOnboardingStatus.pending, (state, action) => {
+        state.onboardingRequestId = action.meta.requestId;
+      })
+      .addCase(fetchOnboardingStatus.fulfilled, (state, action) => {
+        if (state.onboardingRequestId !== action.meta.requestId) return;
+        state.onboarding = action.payload;
       })
       .addCase(fetchCurrentUser.rejected, (state, action) => {
         if (action.meta.condition) return;

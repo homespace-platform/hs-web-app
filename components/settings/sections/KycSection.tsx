@@ -18,7 +18,7 @@ import kycService from "@/services/kyc.service";
 import VnptKycCapture from "./VnptKycCapture";
 import KycVerifiedDetailsPanel from "@/components/settings/KycVerifiedDetailsPanel";
 import type { VnptKycSession, KycStatus, KycStatusResponse } from "@/types/kyc.type";
-import { fetchCurrentUser } from "@/features/user/userSlice";
+import { fetchCurrentUser, fetchOnboardingStatus } from "@/features/user/userSlice";
 import { useFeatureGate } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -97,6 +97,7 @@ function AccountKycSection() {
     setKyc(status);
     if (status.status === "VERIFIED" && userId) {
       void dispatch(fetchCurrentUser({ userId, force: true }));
+      void dispatch(fetchOnboardingStatus());
     }
     return status;
   }, [dispatch, userId]);
@@ -130,7 +131,10 @@ function AccountKycSection() {
 
   const onVnptResult = useCallback((result: KycStatusResponse) => {
     setVnptSession(null); setKyc(result);
-    if (result.status === "VERIFIED" && userId) void dispatch(fetchCurrentUser({ userId, force: true }));
+    if (result.status === "VERIFIED" && userId) {
+      void dispatch(fetchCurrentUser({ userId, force: true }));
+      void dispatch(fetchOnboardingStatus());
+    }
   }, [dispatch, userId]);
 
   const startKyc = async () => {

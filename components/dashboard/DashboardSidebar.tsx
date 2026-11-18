@@ -39,7 +39,7 @@ export default function DashboardSidebar({
 
   return (
     <aside
-      className={`fixed top-20 left-0 z-40 h-[calc(100vh-5rem)] bg-card border-r border-border ${mobileOpen ? "flex" : "hidden"} md:flex flex-col transition-all duration-300 select-none ${
+      className={`fixed top-[calc(5rem+var(--hs-banner-h,0px))] left-0 z-40 h-[calc(100vh-5rem-var(--hs-banner-h,0px))] bg-card border-r border-border ${mobileOpen ? "flex" : "hidden"} md:flex flex-col transition-all duration-300 select-none ${
         collapsed ? "w-20" : "w-64"
       }`}
     >

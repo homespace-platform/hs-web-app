@@ -16,7 +16,29 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Protect secrets and sensitive data in code, commits, tests, logs and reports. Treat third-party hooks as untrusted until reviewed and explicitly authorized.
 - Change production configuration, deploy or run destructive data operations only when explicitly authorized for the target environment.
 - Keep review tasks read-only unless the developer requests fixes.
-- Run targeted verification first. Broaden coverage when the risk or affected interfaces warrant it. Report checks that ran and any unverified behavior.
+
+## Execution policy
+
+- **FAST** is the default for a small fix, one API, a simple UI or configuration change, or a limited refactor. Start as soon as the scope is clear. Use the fewest useful calls, with a soft ceiling of roughly 8–12 in normal conditions.
+- **STANDARD** fits multi-file features, API contract changes, broader refactors and hard-to-reproduce bugs. Make a short plan, inspect affected dependencies and verify in one focused round after editing.
+- **DEEP** is required for significant security, authentication, authorization, payment, deposit, transaction, contract lifecycle, migration, architecture or incident risk. Identify the relevant invariants and verify the affected boundaries, including failure and denied cases where applicable. Escalate by risk even for small changes.
+
+### Work and tools
+
+- Identify the goal and smallest correct scope. Read the directly affected files, then check callers or dependencies when the change can affect them. Plan mentally or in a few lines for complex work, then execute.
+- Give each tool call a purpose that advances the request or reduces a real risk. Batch independent reads and search exact paths or symbols. Reuse results when inputs are unchanged. Skip full repo scans, subagents and independent review passes for routine tasks.
+- For a small review, stop at the requested diff when it establishes the findings. Inspect callers, test setup or runtime behavior only if a material finding depends on evidence missing from that diff.
+- **No repeated verification without new evidence.** Repeat a read, search or check only when relevant inputs changed, an error or conflicting evidence appeared, or a required risk check remains. If two investigation attempts yield no useful evidence, change approach or stop that investigation.
+- Make routine technical decisions independently. Ask when essential information is missing or the action requires authorization. Reuse existing code and patterns, protect user changes, and keep edits and dependencies within scope.
+
+### Git and validation
+
+- Run `git status --short` at most once at the start if needed to identify existing edits, and once at the end if needed to report files. Inspect the scoped diff once when useful. Use `git diff --stat` only to summarize scope and `git diff --check` at most once at the end when applicable. Reuse existing evidence for the same Git state. Recheck affected state for new errors, conflicts or concrete risk. Commit, reset, clean, checkout or discard only when requested.
+- Normally validate once after editing with the smallest relevant test or compiler check. Skip full builds for small changes. Expand checks when evidence or risk warrants it. On failure, distinguish code from environment causes, diagnose and rerun only the affected check after a relevant change. Reuse test output already returned. If a check is blocked, use a permitted alternative only when the evidence is necessary, or report the blocker.
+
+### Stop and report
+
+Stop when the request and acceptance criteria are met, required checks are complete and concrete in-scope issues are resolved. Skip speculative optimization, unrelated refactors and automatic chains of review, audit or verification. Report **Completed**, **Validation** and **Notes** when needed. List only checks actually run and state material limits or remaining risks.
 
 Rules below apply to this repository. They do not replace the Next.js block above; follow that block for any Next.js API question.
 
@@ -61,12 +83,9 @@ Check `package.json` scripts before choosing a command. Existing scripts: `npm r
 - Run focused tests for the touched area, for example `node --test tests/<file>.test.cjs`.
 - Lint the changed files, for example `npx eslint <changed files>`.
 - Typecheck with `npx tsc --noEmit` when types or props change.
-- A full `npm run build` is not required for small edits. Use it for routing, configuration, `next.config.ts` or broad type changes.
+- Use `npm run build` when routing, configuration or broad type changes need build-time evidence that a focused check cannot provide.
 - Do not start the dev server, Gateway or backend services for ordinary changes.
-- A simple UI change (copy, styling, small component fix) is L1/L2: one agent, inspect the change, and at most a targeted lint or test of the touched files. No full build and no review skill unless requested.
-- Never rerun a passing lint or test whose inputs are unchanged. After a failure, diagnose, then rerun only the affected check.
-- Do not repeat `git status` / `git diff` without intervening edits; run `git diff --check` once after the final edit.
-- Risk: auth, payment, contract signing, deposit and notification-registration UI are L3 (verify the API contract with the service in `services/`). Component logic is L2. Text and styling are L1.
+- Use FAST for copy, styling and small component fixes. Use DEEP for auth, payment, contract signing, deposit and notification registration. Verify those API contracts against the corresponding client in `services/`.
 
 ## Skills
 

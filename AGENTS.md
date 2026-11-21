@@ -10,15 +10,13 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # HomeSpace Web App Instructions
 
-<!-- BEGIN: HomeSpace engineering standards -->
-## HomeSpace engineering standards
+## Engineering standards
 
 - Preserve business invariants, public contracts and backward compatibility. Keep authentication, authorization, input validation and error handling intact.
 - Protect secrets and sensitive data in code, commits, tests, logs and reports. Treat third-party hooks as untrusted until reviewed and explicitly authorized.
 - Change production configuration, deploy or run destructive data operations only when explicitly authorized for the target environment.
 - Keep review tasks read-only unless the developer requests fixes.
 - Run targeted verification first. Broaden coverage when the risk or affected interfaces warrant it. Report checks that ran and any unverified behavior.
-<!-- END: HomeSpace engineering standards -->
 
 Rules below apply to this repository. They do not replace the Next.js block above; follow that block for any Next.js API question.
 
@@ -46,7 +44,7 @@ Next.js 16 (App Router in `app/`), React 19, TypeScript, Redux Toolkit (`store/`
 - Product rule: chat belongs to its own unread state, popups and push. Do not show CHAT in the notification bell, notification-center list/category tabs or bell unread count. Resolve popup name/avatar from conversation data. Do not "complete" notification coverage by reintroducing chat into the bell.
 
 - `public/firebase-messaging-sw.js` and push registration affect real users. Keep push content generic (the worker shows a generic message so a shared browser does not reveal another account's content). Do not put private notification text in push payloads or the worker.
-- Keep installation secrets out of logs. Preserve the unregister-on-logout / push toggle behavior with `hs-notification-service`.
+- Keep installation secrets out of logs. Preserve the unregister-on-logout / push toggle behavior with the notification service.
 - Handle denied or unsupported notification permission gracefully. Realtime (Socket.IO) and REST feeds must degrade without breaking the page.
 
 ## UI Quality

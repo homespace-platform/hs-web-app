@@ -10,6 +10,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # HomeSpace Web App Instructions
 
+<!-- BEGIN: HomeSpace engineering standards -->
+## HomeSpace engineering standards
+
+- Preserve business invariants, public contracts and backward compatibility. Keep authentication, authorization, input validation and error handling intact.
+- Protect secrets and sensitive data in code, commits, tests, logs and reports. Treat third-party hooks as untrusted until reviewed and explicitly authorized.
+- Change production configuration, deploy or run destructive data operations only when explicitly authorized for the target environment.
+- Keep review tasks read-only unless the developer requests fixes.
+- Run targeted verification first. Broaden coverage when the risk or affected interfaces warrant it. Report checks that ran and any unverified behavior.
+<!-- END: HomeSpace engineering standards -->
+
 Rules below apply to this repository. They do not replace the Next.js block above; follow that block for any Next.js API question.
 
 ## Stack

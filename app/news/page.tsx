@@ -149,7 +149,7 @@ export default function NewsPage() {
                       }}
                       className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
                         isActive
-                          ? "bg-foreground text-background shadow-xs font-bold"
+                          ? "bg-primary text-primary-foreground shadow-xs"
                           : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                       }`}
                     >
@@ -157,7 +157,7 @@ export default function NewsPage() {
                       <span
                         className={`text-[11px] px-1.5 py-0.2 rounded-full ${
                           isActive
-                            ? "bg-background text-foreground font-bold"
+                            ? "bg-primary-foreground text-primary font-bold"
                             : "bg-background/80 text-muted-foreground"
                         }`}
                       >

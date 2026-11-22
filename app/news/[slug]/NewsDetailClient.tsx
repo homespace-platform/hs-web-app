@@ -7,7 +7,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import NewsCard from "@/components/news/NewsCard";
 import newsService from "@/services/news.service";
-import { sanitizeNewsInlineMarkup } from "@/lib/news-content";
+import { readPastedNewsImage, sanitizeNewsInlineMarkup } from "@/lib/news-content";
 import type { NewsArticle, PublicNewsResponse, PublicNewsSummary } from "@/types/news.type";
 import { toast } from "sonner";
 import {
@@ -182,17 +182,29 @@ export default function NewsDetailClient({ params }: NewsDetailProps) {
 
           {/* Body Content */}
           <div className="prose dark:prose-invert max-w-none text-muted-foreground text-sm sm:text-base leading-relaxed space-y-5">
-            {article.contentBlocks?.map((block, index) => block.type === "IMAGE" ? (
-              <figure key={index} className="space-y-2">
-                {/* eslint-disable-next-line @next/next/no-img-element -- News media URLs are supplied dynamically by the CMS. */}
-                <img src={block.storageObjectId ? article.media?.find((media) => media.storageObjectId === block.storageObjectId)?.url || "" : ""} alt="Ảnh trong bài viết" className="w-full rounded-2xl object-contain" />
-                {block.caption && <figcaption className="text-center text-xs italic text-muted-foreground">{block.caption}</figcaption>}
-              </figure>
-            ) : block.type === "HEADING" ? (
-              <h2 key={index} className="font-heading font-bold text-lg sm:text-xl text-foreground pt-4" dangerouslySetInnerHTML={{ __html: sanitizeNewsInlineMarkup(block.text) }} />
-            ) : block.type === "QUOTE" ? (
-              <blockquote key={index} className="border-l-4 border-primary pl-4 italic" dangerouslySetInnerHTML={{ __html: sanitizeNewsInlineMarkup(block.text) }} />
-            ) : <p key={index} dangerouslySetInnerHTML={{ __html: sanitizeNewsInlineMarkup(block.text) }} />)}
+            {article.contentBlocks?.map((block, index) => {
+              const pastedImage = block.type === "PARAGRAPH" ? readPastedNewsImage(block.text) : null;
+              if (block.type === "IMAGE" || pastedImage) {
+                const src = pastedImage?.src ?? article.media?.find(
+                  (media) => media.storageObjectId === block.storageObjectId,
+                )?.url;
+                if (!src) return null;
+
+                return (
+                  <figure key={index} className="space-y-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- News media URLs are supplied dynamically by the CMS. */}
+                    <img src={src} alt={pastedImage?.alt ?? "Ảnh trong bài viết"} loading="lazy" referrerPolicy="no-referrer" className="w-full rounded-2xl object-contain" />
+                    {block.caption && <figcaption className="text-center text-xs italic text-muted-foreground">{block.caption}</figcaption>}
+                  </figure>
+                );
+              }
+
+              return block.type === "HEADING" ? (
+                <h2 key={index} className="font-heading font-bold text-lg sm:text-xl text-foreground pt-4" dangerouslySetInnerHTML={{ __html: sanitizeNewsInlineMarkup(block.text) }} />
+              ) : block.type === "QUOTE" ? (
+                <blockquote key={index} className="border-l-4 border-primary pl-4 italic" dangerouslySetInnerHTML={{ __html: sanitizeNewsInlineMarkup(block.text) }} />
+              ) : <p key={index} dangerouslySetInnerHTML={{ __html: sanitizeNewsInlineMarkup(block.text) }} />;
+            })}
           </div>
 
           {/* Tags */}

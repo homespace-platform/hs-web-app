@@ -94,6 +94,30 @@ test('administrative search handles Vietnamese accents, Đ, case and whitespace'
   assert.ok(text.locationMatches('Tỉnh Đắk Lắk', '  dak   lak '));
 });
 const HCM = {homespace_selected_city_vietmap: {code:'12', name:'Thành phố Hồ Chí Minh'}, homespace_selected_ward_vietmap: {code:'24332', name:'Phường An Nhơn', cityId:'12'}};
+test('first sign-in without a location selects all of Ho Chi Minh City and saves it', async () => {
+  const app = harness('/rent', true);
+  await app.settle();
+  assert.equal(app.loc.cityId, '');
+  assert.equal(app.calls.length, 0);
+
+  app.dispatch(app.slice.hydrateLocation(true));
+  await app.settle();
+  assert.equal(app.loc.cityId, '12');
+  assert.equal(app.loc.wardId, '');
+  assert.deepEqual(JSON.parse(app.window.localStorage.getItem(app.slice.CITY_STORAGE_KEY)), HCM.homespace_selected_city_vietmap);
+  assert.equal(app.window.localStorage.getItem(app.slice.WARD_STORAGE_KEY), null);
+  assert.equal(app.calls.at(-1).cityId, '12');
+  assert.equal(app.calls.at(-1).wardId, undefined);
+});
+test('sign-in keeps an existing city and ward selection', () => {
+  const app = harness('/rent', false, undefined, {
+    homespace_selected_city_vietmap: { code: '11', name: 'Thành phố Hà Nội' },
+    homespace_selected_ward_vietmap: { code: '14091', name: 'Phường Ba Đình', cityId: '11' },
+  });
+  app.dispatch(app.slice.hydrateLocation(true));
+  assert.equal(app.loc.cityId, '11');
+  assert.equal(app.loc.wardId, '14091');
+});
 test('URL round trips filters but never carries cityId/wardId', () => {
   const filter = {...state.DEFAULT_RENT_FILTER, wardId:'24332', category:'house', minPrice:10, maxPrice:30, hasVideoOnly:true, searchQuery:'ban công', areaRange:'50_80', beds:'2', sortBy:'price_asc'};
   const query = state.writeRentState('cityId=12&wardId=24332', filter, 3), params = new URLSearchParams(query), parsed = state.readRentState(query);

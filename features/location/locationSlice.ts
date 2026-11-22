@@ -2,6 +2,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 export const CITY_STORAGE_KEY = "homespace_selected_city_vietmap";
 export const WARD_STORAGE_KEY = "homespace_selected_ward_vietmap";
+const SIGNED_IN_DEFAULT_CITY = { code: "12", name: "Thành phố Hồ Chí Minh" };
 
 export type LocationPlace = { code: string; name: string };
 
@@ -79,8 +80,17 @@ const locationSlice = createSlice({
   name: "location",
   initialState: empty,
   reducers: {
-    hydrateLocation(state) {
-      Object.assign(state, readStoredLocation(), { hydrated: true });
+    hydrateLocation(state, { payload: authenticated }: PayloadAction<boolean | undefined>) {
+      if (!state.hydrated) {
+        Object.assign(state, readStoredLocation(), { hydrated: true });
+      }
+      if (authenticated && !state.cityId) {
+        state.cityId = SIGNED_IN_DEFAULT_CITY.code;
+        state.cityName = SIGNED_IN_DEFAULT_CITY.name;
+        state.wardId = "";
+        state.wardName = "";
+        persistLocation(state);
+      }
     },
     setGlobalCity(state, action: PayloadAction<LocationPlace>) {
       state.cityId = action.payload.code;

@@ -105,8 +105,8 @@ export default function Header() {
       : selectedProvinceName;
 
   useEffect(() => {
-    dispatch(hydrateLocation());
-  }, [dispatch]);
+    dispatch(hydrateLocation(authenticated));
+  }, [authenticated, dispatch]);
 
   // Close dropdown when clicking outside
   useEffect(() => {

@@ -296,10 +296,12 @@ export default function MediaGallery({
     const isVideo = item.type === "video";
 
     return (
-      <div
+      <button
+        type="button"
         key={item.id || `${item.url}-${index}`}
         onClick={() => handleOpen(index)}
-        className={`relative group overflow-hidden cursor-pointer bg-muted/60 select-none ${extraClasses}`}
+        aria-label={`Xem ${isVideo ? "video" : "ảnh"} ${index + 1}`}
+        className={`relative block w-full text-left group overflow-hidden cursor-pointer bg-muted/60 select-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary focus-visible:outline-none ${extraClasses}`}
       >
         {isVideo ? (
           <div className="w-full h-full relative overflow-hidden bg-slate-950 flex items-center justify-center">
@@ -336,14 +338,14 @@ export default function MediaGallery({
             unoptimized
           />
         )}
-      </div>
+      </button>
     );
   };
 
   return (
     <section
       aria-label="Thư viện hình ảnh"
-      className={`relative w-full rounded-2xl overflow-hidden shadow-xs border border-border bg-card select-none ${className}`}
+      className={`relative w-full rounded-3xl overflow-hidden shadow-sm border border-border bg-card select-none ${className}`}
     >
       {categoryLabel && (
         <div className="absolute top-4 left-4 z-10 hidden sm:block">
@@ -416,17 +418,28 @@ export default function MediaGallery({
             {renderMediaCell(mediaItems[4], 4, "h-full")}
 
             {/* Badge "Xem tất cả ảnh" */}
-            <div
+            <button
+              type="button"
               onClick={() => handleOpen(0)}
-              className="absolute bottom-3 right-3 z-10 cursor-pointer"
+              className="absolute bottom-3 right-3 z-10 cursor-pointer inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-card/90 hover:bg-card text-foreground text-xs font-bold shadow-lg backdrop-blur-md border border-border/80 transition-all hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
-              <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-card/90 hover:bg-card text-foreground text-xs font-bold shadow-lg backdrop-blur-md border border-border/80 transition-all hover:scale-105 active:scale-95">
-                <Camera className="w-4 h-4 text-primary" />
-                Xem tất cả {total} ảnh & video
-              </span>
-            </div>
+              <Camera className="w-4 h-4 text-primary" />
+              Xem tất cả {total} ảnh & video
+            </button>
           </div>
         </div>
+      )}
+
+      {/* Mobile: counter + mở thư viện */}
+      {total >= 2 && (
+        <button
+          type="button"
+          onClick={() => handleOpen(0)}
+          className="sm:hidden absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md text-white text-xs font-semibold shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          <Camera className="w-4 h-4" />
+          1/{total}
+        </button>
       )}
 
       {/* Lightbox Modal */}

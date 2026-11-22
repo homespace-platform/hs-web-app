@@ -14,7 +14,6 @@ import {
   Camera,
   CheckCircle2,
   ChevronRight,
-  ImageIcon,
   MapPin,
   MessageSquare,
   ShieldCheck,
@@ -27,6 +26,10 @@ import {
   Edit,
   Copy,
   Layers,
+  FileText,
+  Info,
+  Maximize2,
+  Users,
   Handshake,
   ExternalLink,
 } from "lucide-react";
@@ -79,11 +82,41 @@ function formatLocationLabel(value: string) {
   return value.replace(/^(thành phố|tỉnh|tp\.?|p\.?|phường|xã)\s*/i, "").trim();
 }
 
+const focusRing =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+
+const chipClass =
+  "inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1.5 text-sm text-foreground";
+
+const locationChipClass = `inline-flex items-center rounded-full border border-border bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary ${focusRing}`;
+
+function SectionCard({
+  title,
+  icon: Icon,
+  children,
+  id,
+}: {
+  title: string;
+  icon: typeof Layers;
+  children: React.ReactNode;
+  id?: string;
+}) {
+  return (
+    <section id={id} className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-xs scroll-mt-28">
+      <h2 className="mb-4 flex items-center gap-2 font-heading text-lg font-semibold">
+        <Icon className="w-5 h-5 text-primary" />
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
 function DetailValue({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2.5">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-foreground">{value}</p>
+    <div className="flex items-baseline justify-between gap-4 border-b border-border/60 py-3">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="text-right text-sm font-semibold text-foreground break-words">{value}</dd>
     </div>
   );
 }
@@ -98,12 +131,12 @@ function DetailMetric({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
-        <Icon className="w-4 h-4" />
+    <div className="flex items-center gap-3">
+      <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
+        <Icon className="w-5 h-5" />
       </div>
       <div className="min-w-0">
-        <p className="text-[11px] font-semibold text-muted-foreground truncate">{label}</p>
+        <p className="text-xs text-muted-foreground truncate">{label}</p>
         <p className="font-heading text-base font-semibold text-foreground truncate">{value}</p>
       </div>
     </div>
@@ -154,6 +187,8 @@ export default function RentDetailView({
   const acceptsNewRequests = property.status === "PUBLISHED";
   const publicListing = acceptsNewRequests || property.status === "RESERVED";
 
+  const [descExpanded, setDescExpanded] = useState(false);
+  const showVisitorCta = !(isOwner || !showLandlordContact);
   const [quickMessage, setQuickMessage] = useState("");
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [hasActiveBooking, setHasActiveBooking] = useState(false);
@@ -213,13 +248,10 @@ export default function RentDetailView({
     await openPropertyChat(quickMessage);
   };
 
-  const highlights = [
-    { icon: Building2, label: property.categoryLabel },
-    { icon: Camera, label: `${property.photosCount} ảnh thực tế` },
-    property.hasVideo
-      ? { icon: Video, label: "Có video tham quan" }
-      : { icon: ImageIcon, label: "Xem thư viện hình ảnh" },
-  ];
+  // Category and video already appear in the badge row above the title.
+  const highlights = property.photosCount > 0
+    ? [{ icon: Camera, label: `${property.photosCount} ảnh thực tế` }]
+    : [];
 
   const detailSections = getRentDetailSections(property);
   const showBedroomMetric = ["apartment", "house", "villa"].includes(property.category);
@@ -255,11 +287,8 @@ export default function RentDetailView({
     ? property.details.viewingSlots
     : [];
 
-  const contactButtonClass =
-    "inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card py-3 text-xs font-semibold text-foreground transition-colors hover:border-primary hover:bg-muted";
-
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${showVisitorCta ? "pb-24 lg:pb-0" : ""}`}>
       {/* Optional Top Bar (e.g. Breadcrumbs + Status + Dashboard Actions) */}
       {topBar}
 
@@ -278,44 +307,77 @@ export default function RentDetailView({
       />
 
       {/* Main Details & Sidebar Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6 lg:gap-10">
         {/* Left Column: Property Specs & Details */}
-        <div className="lg:col-span-2 space-y-10">
-          <section>
-            {property.hasVideo && (
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className="inline-flex items-center gap-1 rounded-full bg-accent-ai/10 px-2.5 py-1 text-[11px] font-bold text-accent-ai">
+        <div className="min-w-0 space-y-6">
+          {/* Overview */}
+          <section className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-xs">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs font-semibold text-foreground">
+                {property.categoryLabel}
+              </span>
+              {property.isVerified && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-verified/10 px-2.5 py-1 text-xs font-semibold text-verified">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Đã xác minh
+                </span>
+              )}
+              {property.hasVideo && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-accent-ai/10 px-2.5 py-1 text-xs font-semibold text-accent-ai">
                   <Video className="w-3.5 h-3.5" />
                   Có video tham quan
                 </span>
-              </div>
-            )}
+              )}
+            </div>
 
-            <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight mb-4">
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight leading-tight text-balance mb-3">
               {property.title}
             </h1>
 
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-muted-foreground mb-4">
-              <div className="flex items-start gap-2 min-w-0">
-                <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span className="leading-relaxed break-words">{property.location}</span>
-              </div>
-              <div className="flex items-center gap-3 shrink-0 text-xs">
-                <span className="flex items-center gap-1 font-medium text-muted-foreground">
-                  <Clock className="w-3.5 h-3.5 text-muted-foreground/70" />
-                  {property.timeAgo}
-                </span>
-                <span className="flex items-center gap-1 font-semibold text-foreground/80">
-                  <Eye className="w-3.5 h-3.5 text-primary" />
-                  {property.viewCount ?? property.viewsCount ?? 0} lượt xem
-                </span>
-              </div>
+            <div className="flex items-start gap-2 text-sm text-muted-foreground">
+              <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <span className="leading-relaxed break-words">{property.location}</span>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {wardLabel && (
+                <Link href={wardHref} className={locationChipClass}>
+                  {wardLabel}
+                </Link>
+              )}
+              {provinceCode && provinceLabel && (
+                <Link href={provinceHref} className={locationChipClass}>
+                  {provinceLabel}
+                </Link>
+              )}
             </div>
 
-            {/* Quick Metrics Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl border border-border bg-card">
-              <DetailMetric icon={BedDouble} label="Giá thuê" value={`${formatPrice(property.priceMillion)}/th`} />
-              <DetailMetric icon={Bath} label="Diện tích" value={`${property.areaM2} mét vuông`} />
+            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5" />
+                {property.timeAgo}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span className="inline-flex items-center gap-1">
+                <Eye className="w-3.5 h-3.5" />
+                {property.viewCount ?? property.viewsCount ?? 0} lượt xem
+              </span>
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-2">
+              <span className="font-heading text-3xl font-bold text-primary tabular-nums">
+                {formatPrice(property.priceMillion)}
+              </span>
+              <span className="text-sm text-muted-foreground">/tháng</span>
+              {isNegotiable && (
+                <span className="ml-1 inline-flex items-center rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                  Có thể thương lượng
+                </span>
+              )}
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-4 border-t border-border pt-5">
+              <DetailMetric icon={Maximize2} label="Diện tích" value={`${property.areaM2} m²`} />
               {showBedroomMetric ? (
                 <DetailMetric icon={BedDouble} label="Phòng ngủ" value={`${property.beds} PN`} />
               ) : property.category === "office" && property.details?.expectedSeats != null ? (
@@ -323,7 +385,7 @@ export default function RentDetailView({
               ) : property.category === "commercial" && property.details?.frontageWidthM != null ? (
                 <DetailMetric icon={Building2} label="Mặt tiền" value={`${property.details.frontageWidthM} m`} />
               ) : property.category === "room" && property.details?.maxOccupants != null ? (
-                <DetailMetric icon={Building2} label="Tối đa" value={`${property.details.maxOccupants} người`} />
+                <DetailMetric icon={Users} label="Tối đa" value={`${property.details.maxOccupants} người`} />
               ) : (
                 <DetailMetric icon={Building2} label="Loại hình" value={property.categoryLabel} />
               )}
@@ -337,66 +399,61 @@ export default function RentDetailView({
                   } WC`}
               />
             </div>
-          </section>
 
-          {/* Highlights */}
-          <section className="space-y-4">
-            <h2 className="font-heading text-lg font-bold">Điểm nổi bật</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {/* Highlights */}
+            {highlights.length > 0 && <div className="mt-5 flex flex-wrap gap-2">
               {highlights.map((h, i) => (
-                <div key={i} className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-muted/20 text-xs font-semibold">
-                  <h.icon className="w-4 h-4 text-primary shrink-0" />
-                  <span>{h.label}</span>
-                </div>
+                <span key={i} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-foreground">
+                  <h.icon className="w-3.5 h-3.5 text-primary shrink-0" />
+                  {h.label}
+                </span>
               ))}
-            </div>
+            </div>}
           </section>
 
           {/* Categorized Detail Sections */}
           {detailSections.map((section, idx) => (
-            <section key={idx} className="space-y-4">
-              <h2 className="font-heading text-lg font-bold">{section.title}</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <SectionCard key={idx} title={section.title} icon={Layers}>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
                 {section.items.map((item, itemIdx) => (
                   <DetailValue key={itemIdx} label={item.label} value={item.value} />
                 ))}
-              </div>
-            </section>
+              </dl>
+            </SectionCard>
           ))}
 
-          {/* Amenities */}
           <ListingPoliciesCard rows={Array.isArray(property.details?.policies) ? property.details.policies as ListingPolicyValue[] : undefined} />
+
+          {/* Amenities */}
           {amenities.length > 0 && (
-            <section className="space-y-4">
-              <h2 className="font-heading text-lg font-bold">Tiện ích tòa nhà & dịch vụ</h2>
+            <SectionCard title="Tiện ích tòa nhà & dịch vụ" icon={CheckCircle2}>
               <div className="flex flex-wrap gap-2">
                 {amenities.map((item, idx) => (
-                  <span key={idx} className="inline-flex items-center gap-1.5 rounded-xl border border-primary/20 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span key={idx} className={chipClass}>
+                    <CheckCircle2 className="w-4 h-4 text-primary" />
                     {item}
                   </span>
                 ))}
               </div>
-            </section>
+            </SectionCard>
           )}
 
           {/* Trang thiết bị / Nội thất bàn giao */}
           {rawFurnishings.length > 0 ? (
-            <section className="space-y-4">
-              <h2 className="font-heading text-lg font-bold">Trang thiết bị / Nội thất bàn giao</h2>
+            <SectionCard title="Trang thiết bị / Nội thất bàn giao" icon={Home}>
               <div className="overflow-x-auto rounded-xl border border-border">
-                <table className="w-full min-w-105 border-collapse text-xs">
+                <table className="w-full min-w-105 border-collapse text-sm">
                   <thead>
-                    <tr className="bg-muted/50 text-left font-semibold text-muted-foreground">
-                      <th className="w-10 px-3 py-2.5">STT</th>
-                      <th className="px-3 py-2.5">Tên tài sản / Trang thiết bị</th>
-                      <th className="w-20 px-3 py-2.5">Số lượng</th>
-                      <th className="px-3 py-2.5">Hiện trạng bàn giao</th>
+                    <tr className="bg-muted/40 text-left font-semibold text-muted-foreground">
+                      <th scope="col" className="w-12 px-3 py-2.5">STT</th>
+                      <th scope="col" className="px-3 py-2.5">Tên tài sản / Trang thiết bị</th>
+                      <th scope="col" className="w-24 px-3 py-2.5">Số lượng</th>
+                      <th scope="col" className="px-3 py-2.5">Hiện trạng bàn giao</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rawFurnishings.map((item, idx) => (
-                      <tr key={idx} className="border-t border-border/60">
+                      <tr key={idx} className="border-t border-border/60 hover:bg-muted/30">
                         <td className="px-3 py-2.5 text-muted-foreground">{item.index ?? idx + 1}</td>
                         <td className="px-3 py-2.5 font-medium text-foreground">{item.assetName}</td>
                         <td className="px-3 py-2.5 text-foreground">{item.quantity ?? 1}</td>
@@ -409,41 +466,41 @@ export default function RentDetailView({
                   </tbody>
                 </table>
               </div>
-            </section>
+            </SectionCard>
           ) : roomFeatures.length > 0 ? (
-            <section className="space-y-4">
-              <h2 className="font-heading text-lg font-bold">Trang thiết bị / Nội thất bàn giao</h2>
+            <SectionCard title="Trang thiết bị / Nội thất bàn giao" icon={Home}>
               <div className="flex flex-wrap gap-2">
                 {roomFeatures.map((item, idx) => (
-                  <span key={idx} className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                  <span key={idx} className={chipClass}>
+                    <CheckCircle2 className="w-4 h-4 text-primary" />
                     {item}
                   </span>
                 ))}
               </div>
-            </section>
+            </SectionCard>
           ) : ["house", "apartment", "room"].includes(property.category) ? (
-            <section className="space-y-4">
-              <h2 className="font-heading text-lg font-bold">Trang thiết bị / Nội thất bàn giao</h2>
-              <p className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
-                {property.details?.furnishingStatus === "UNFURNISHED"
-                  ? "Không có nội thất bàn giao kèm theo. Bài đăng được chủ nhà khai báo là không nội thất."
-                  : "Chủ nhà chưa cung cấp danh sách nội thất bàn giao. Vui lòng xác nhận khi xem nhà."}
+            <SectionCard title="Trang thiết bị / Nội thất bàn giao" icon={Home}>
+              <p className="flex items-start gap-2 rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+                <Info className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>
+                  {property.details?.furnishingStatus === "UNFURNISHED"
+                    ? "Không có nội thất bàn giao kèm theo. Bài đăng được chủ nhà khai báo là không nội thất."
+                    : "Chủ nhà chưa cung cấp danh sách nội thất bàn giao. Vui lòng xác nhận khi xem nhà."}
+                </span>
               </p>
-            </section>
+            </SectionCard>
           ) : null}
 
           {/* Viewing Schedule */}
           {(viewingDays.length > 0 || viewingSlots.length > 0) && (
-            <section className="space-y-4">
-              <h2 className="font-heading text-lg font-bold">Lịch hẹn xem nhà</h2>
-              <div className="rounded-xl border border-border bg-card p-4 space-y-3 text-xs">
+            <SectionCard title="Lịch hẹn xem nhà" icon={Calendar}>
+              <div className="space-y-4">
                 {viewingDays.length > 0 && (
                   <div>
-                    <span className="font-semibold text-muted-foreground block mb-1.5">Ngày tiếp khách trong tuần:</span>
-                    <div className="flex flex-wrap gap-1.5">
+                    <span className="block mb-2 text-sm font-medium text-muted-foreground">Ngày tiếp khách trong tuần</span>
+                    <div className="flex flex-wrap gap-2">
                       {viewingDays.map((d) => (
-                        <span key={d} className="rounded-lg border border-border bg-muted/40 px-2.5 py-1 font-semibold text-foreground">
+                        <span key={d} className="rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium text-foreground">
                           {VIEWING_DAY_LABELS[d] || d}
                         </span>
                       ))}
@@ -452,10 +509,10 @@ export default function RentDetailView({
                 )}
                 {viewingSlots.length > 0 && (
                   <div>
-                    <span className="font-semibold text-muted-foreground block mb-1.5">Khung giờ tiếp khách:</span>
-                    <div className="flex flex-wrap gap-1.5">
+                    <span className="block mb-2 text-sm font-medium text-muted-foreground">Khung giờ tiếp khách</span>
+                    <div className="flex flex-wrap gap-2">
                       {viewingSlots.map((s) => (
-                        <span key={s} className="rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1 font-semibold text-primary">
+                        <span key={s} className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
                           {VIEWING_SLOT_LABELS[s] || s}
                         </span>
                       ))}
@@ -463,17 +520,30 @@ export default function RentDetailView({
                   </div>
                 )}
               </div>
-            </section>
+            </SectionCard>
           )}
 
           {/* Description */}
           {property.description && (
-            <section className="space-y-4">
-              <h2 className="font-heading text-lg font-bold">Mô tả chi tiết</h2>
-              <div className="rounded-xl border border-border bg-muted/20 p-5 text-sm text-foreground leading-relaxed whitespace-pre-line">
+            <SectionCard title="Mô tả chi tiết" icon={FileText}>
+              <div
+                className={`max-w-prose text-[15px] leading-7 text-foreground whitespace-pre-line ${
+                  property.description.length > 600 && !descExpanded ? "line-clamp-[10]" : ""
+                }`}
+              >
                 {property.description}
               </div>
-            </section>
+              {property.description.length > 600 && (
+                <button
+                  type="button"
+                  aria-expanded={descExpanded}
+                  onClick={() => setDescExpanded((v) => !v)}
+                  className={`mt-3 rounded-md text-sm font-semibold text-primary hover:underline ${focusRing}`}
+                >
+                  {descExpanded ? "Thu gọn" : "Xem thêm"}
+                </button>
+              )}
+            </SectionCard>
           )}
 
           <NearbyPlacesPanel listingId={property.id}
@@ -482,10 +552,10 @@ export default function RentDetailView({
         </div>
 
         {/* Right Column: Landlord Card & Action Sidebar */}
-        <aside className="space-y-4">
-          <div className="space-y-4 lg:sticky lg:top-28 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto">
+        <aside className="min-w-0">
+          <div className="space-y-4 lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto no-scrollbar">
           {isOwner || !showLandlordContact ? (
-            /* Khi là bài đăng của bản thân: Bỏ card liên hệ (ảnh 2), hiện thông tin chính chủ & nút quản lý */
+            /* Khi là bài đăng của bản thân: Bỏ card liên hệ, hiện thông tin chính chủ & nút quản lý */
             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-xs space-y-4">
               <div className="flex items-center gap-3">
                 <div className="shrink-0">
@@ -504,8 +574,8 @@ export default function RentDetailView({
               </div>
 
               <div className="rounded-xl bg-card border border-border p-3.5 text-xs text-muted-foreground space-y-1">
-                <p className="font-bold text-foreground">Bạn đang xem bài đăng của chính mình</p>
-                <p className="text-[11px] leading-relaxed">
+                <p className="text-sm font-bold text-foreground">Bạn đang xem bài đăng của chính mình</p>
+                <p className="text-xs leading-relaxed">
                   Các nút liên hệ, đặt lịch xem nhà sẽ tự động ẩn với bạn và chỉ hiển thị đối với khách tìm thuê.
                 </p>
               </div>
@@ -517,7 +587,7 @@ export default function RentDetailView({
                   String(property.status || "").trim().toUpperCase() !== "VIOLATION" && (
                   <Link
                     href={`/dashboard/properties/new?id=${property.id}`}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all active:scale-[0.98]"
+                    className={`w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all active:scale-[0.98] ${focusRing}`}
                   >
                     <Edit className="w-4 h-4" />
                     <span>Chỉnh sửa bài đăng</span>
@@ -526,7 +596,7 @@ export default function RentDetailView({
                 {String(property.status || "").trim().toUpperCase() !== "VIOLATION" && (
                   <Link
                     href={`/dashboard/properties/new?duplicateFrom=${property.id}`}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-xs font-bold text-foreground hover:bg-muted transition-all active:scale-[0.98]"
+                    className={`w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-sm font-bold text-foreground hover:bg-muted transition-all active:scale-[0.98] ${focusRing}`}
                   >
                     <Copy className="w-4 h-4" />
                     <span>Nhân bản bài đăng</span>
@@ -534,7 +604,7 @@ export default function RentDetailView({
                 )}
                 <Link
                   href="/dashboard/properties"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-xs font-bold text-foreground hover:bg-muted transition-all active:scale-[0.98]"
+                  className={`w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-sm font-bold text-foreground hover:bg-muted transition-all active:scale-[0.98] ${focusRing}`}
                 >
                   <Layers className="w-4 h-4" />
                   <span>Quản lý tin đăng</span>
@@ -542,11 +612,21 @@ export default function RentDetailView({
               </div>
             </div>
           ) : (
-            /* Khi là bài đăng của người khác: Hiển thị 2 card theo đúng Ảnh 3 nâng cấp từ Ảnh 1 */
+            /* Khi là bài đăng của người khác */
             <div className="space-y-4">
               {/* Card 1: Bạn quan tâm đến căn này? */}
-              <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-3">
-                <h3 className="font-heading font-bold text-sm text-foreground">
+              <div id="listing-contact" className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-3 scroll-mt-28">
+                <div className="pb-3 border-b border-border">
+                  <p className="font-heading text-2xl font-bold text-primary tabular-nums">
+                    {formatPrice(property.priceMillion)}
+                    <span className="ml-1 text-sm font-normal text-muted-foreground">/tháng</span>
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {property.areaM2} m²
+                    {showBedroomMetric ? ` · ${property.beds} PN` : ""}
+                  </p>
+                </div>
+                <h3 className="font-heading font-bold text-base text-foreground">
                   Bạn quan tâm đến căn này?
                 </h3>
 
@@ -558,7 +638,7 @@ export default function RentDetailView({
                       onClick={() => {
                         router.push("/dashboard/rental-requests/my-requests");
                       }}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 py-3.5 px-4 text-sm font-bold text-amber-700 dark:text-amber-300 shadow-xs hover:bg-amber-500/20 transition-all cursor-pointer active:scale-[0.98]"
+                      className={`w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 py-3.5 px-4 text-sm font-bold text-amber-700 dark:text-amber-300 shadow-xs hover:bg-amber-500/20 transition-all cursor-pointer active:scale-[0.98] ${focusRing}`}
                       title="Xem yêu cầu thuê đang chờ duyệt của bạn"
                     >
                       <Clock className="w-4 h-4 text-amber-500 animate-pulse shrink-0" />
@@ -567,7 +647,7 @@ export default function RentDetailView({
                     <div className="text-center">
                       <Link
                         href="/dashboard/rental-requests/my-requests"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                        className={`inline-flex items-center gap-1 rounded-md text-xs font-semibold text-primary hover:underline ${focusRing}`}
                       >
                         <span>Xem yêu cầu của tôi</span>
                         <ExternalLink className="w-3 h-3" />
@@ -581,7 +661,7 @@ export default function RentDetailView({
                       onClick={() => {
                         router.push("/dashboard/rental-requests/my-requests");
                       }}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 py-3.5 px-4 text-sm font-bold text-emerald-700 dark:text-emerald-300 shadow-xs hover:bg-emerald-500/20 transition-all cursor-pointer active:scale-[0.98]"
+                      className={`w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 py-3.5 px-4 text-sm font-bold text-emerald-700 dark:text-emerald-300 shadow-xs hover:bg-emerald-500/20 transition-all cursor-pointer active:scale-[0.98] ${focusRing}`}
                       title={`Yêu cầu thuê đã được duyệt và đang giữ chỗ trong ${RENTAL_HOLD_DURATION_LABEL}! Bấm để xem chi tiết`}
                     >
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -590,7 +670,7 @@ export default function RentDetailView({
                     <div className="text-center">
                       <Link
                         href="/dashboard/rental-requests/my-requests"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                        className={`inline-flex items-center gap-1 rounded-md text-xs font-semibold text-primary hover:underline ${focusRing}`}
                       >
                         <span>Xem yêu cầu của tôi</span>
                         <ExternalLink className="w-3 h-3" />
@@ -631,7 +711,7 @@ export default function RentDetailView({
                         onAllowed: () => setIsRentalModalOpen(true),
                       });
                     }}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3.5 px-4 text-sm font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all cursor-pointer active:scale-[0.98]"
+                    className={`w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3.5 px-4 text-sm font-bold text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90 hover:shadow-lg transition-all cursor-pointer active:scale-[0.98] ${focusRing}`}
                     title={rentalGate.title ?? "Gửi yêu cầu thuê nhà trực tiếp tới chủ nhà"}
                   >
                     <Home className="w-4 h-4" />
@@ -665,7 +745,7 @@ export default function RentDetailView({
                         onAllowed: () => setIsBookingModalOpen(true),
                       });
                     }}
-                    className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-[0.98] ${hasActiveBooking
+                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-sm font-bold transition-all cursor-pointer active:scale-[0.98] ${focusRing} ${hasActiveBooking
                       ? "bg-emerald-500/10 border border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
                       : "border border-border bg-card hover:bg-muted text-foreground hover:border-primary/40"
                       }`}
@@ -704,7 +784,7 @@ export default function RentDetailView({
                             toast.info("Tính năng Thương lượng đang được kết nối!"),
                         });
                       }}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground py-2.5 px-3 text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-[0.98] hover:border-primary/40"
+                      className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground py-2.5 px-3 text-sm font-bold transition-all cursor-pointer active:scale-[0.98] hover:border-primary/40 ${focusRing}`}
                       title="Đề xuất giá thuê, tiền cọc hoặc các điều khoản mong muốn"
                     >
                       <Handshake className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -718,10 +798,10 @@ export default function RentDetailView({
                   <button
                     type="button"
                     onClick={() => void openPropertyChat()}
-                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 px-3 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all cursor-pointer"
+                    className={`w-full inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 px-3 text-sm font-semibold text-foreground hover:bg-muted/60 transition-all cursor-pointer ${focusRing}`}
                   >
-                    <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span>Chat</span>
+                    <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                    <span>Nhắn tin với chủ nhà</span>
                   </button>
                 </div>
               </div>
@@ -750,19 +830,20 @@ export default function RentDetailView({
 
                 {/* Quick Chat Input Box */}
                 <form onSubmit={handleSendQuickMessage} className="space-y-2">
-                  <div className="relative flex items-center rounded-xl border border-border bg-muted/30 px-3 py-1.5 focus-within:border-primary focus-within:bg-card focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                  <div className="relative flex min-h-11 items-center rounded-xl border border-border bg-muted/30 px-3 py-1.5 focus-within:border-primary focus-within:bg-card focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                     <MessageSquare className="w-4 h-4 text-muted-foreground shrink-0" />
                     <input
                       type="text"
                       value={quickMessage}
                       onChange={(e) => setQuickMessage(e.target.value)}
                       placeholder="Nhắn hỏi thông tin"
-                      className="w-full bg-transparent px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
+                      aria-label="Nội dung tin nhắn"
+                      className="w-full bg-transparent px-2.5 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
                     />
                     <button
                       type="submit"
                       disabled={!quickMessage.trim()}
-                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all ${quickMessage.trim()
+                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all ${focusRing} ${quickMessage.trim()
                         ? "bg-primary text-primary-foreground shadow-2xs cursor-pointer hover:bg-primary/90"
                         : "bg-muted text-muted-foreground/60 cursor-not-allowed"
                         }`}
@@ -772,13 +853,13 @@ export default function RentDetailView({
                   </div>
 
                   {/* Suggestion Chips */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+                  <div className="flex flex-wrap gap-2 pt-0.5">
                     {QUICK_SUGGESTIONS.map((sug, i) => (
                       <button
                         key={i}
                         type="button"
                         onClick={() => setQuickMessage(sug)}
-                        className="px-2.5 py-1 rounded-full border border-border bg-muted/20 hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all whitespace-nowrap cursor-pointer shrink-0"
+                        className={`px-2.5 py-1 rounded-full border border-border bg-muted/20 hover:bg-muted text-xs text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all cursor-pointer ${focusRing}`}
                       >
                         {sug}
                       </button>
@@ -792,8 +873,9 @@ export default function RentDetailView({
                           ];
                         setQuickMessage(random);
                       }}
-                      className="p-1 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+                      className={`p-1 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground shrink-0 cursor-pointer ${focusRing}`}
                       title="Gợi ý khác"
+                      aria-label="Gợi ý khác"
                     >
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
@@ -801,7 +883,7 @@ export default function RentDetailView({
                 </form>
 
                 {/* Trust & Safety notes */}
-                <div className="pt-3 border-t border-border space-y-2 text-[11px] leading-relaxed text-muted-foreground">
+                <div className="pt-3 border-t border-border space-y-2 text-xs leading-relaxed text-muted-foreground">
                   <p className="flex items-start gap-1.5">
                     <ShieldCheck className="w-3.5 h-3.5 mt-0.5 text-primary shrink-0" />
                     <span>Thông tin chủ nhà và điều khoản thuê cần được xác nhận trước khi đặt cọc.</span>
@@ -817,6 +899,22 @@ export default function RentDetailView({
           </div>
         </aside>
       </div>
+
+      {showVisitorCta && (
+        <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+          <p className="min-w-0 font-heading text-lg font-bold text-primary tabular-nums truncate">
+            {formatPrice(property.priceMillion)}
+            <span className="ml-1 text-xs font-normal text-muted-foreground">/tháng</span>
+          </p>
+          <a
+            href="#listing-contact"
+            className={`shrink-0 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-6 text-sm font-bold text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90 ${focusRing}`}
+          >
+            Liên hệ
+          </a>
+        </div>
+      )}
+
 
       {/* Modal Đặt lịch xem nhà */}
       <BookingAppointmentModal

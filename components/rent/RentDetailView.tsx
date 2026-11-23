@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useStickyTop } from "@/hooks/useStickyTop";
 import Image from "next/image";
 import ListingPoliciesCard from "@/components/listing/ListingPoliciesCard";
 import NearbyPlacesPanel from "@/components/nearby/NearbyPlacesPanel";
@@ -184,6 +185,8 @@ export default function RentDetailView({
   const publicListing = acceptsNewRequests || property.status === "RESERVED";
 
   const [descExpanded, setDescExpanded] = useState(false);
+  // Header is h-20 (80px); stick 16px below it.
+  const [setAsideEl, asideTop] = useStickyTop<HTMLDivElement>(96);
   const showVisitorCta = !(isOwner || !showLandlordContact);
   const [quickMessage, setQuickMessage] = useState("");
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -305,7 +308,11 @@ export default function RentDetailView({
         </div>
 
         {/* Right column: overview card (+ actions) */}
-        <div className="min-w-0 space-y-4 lg:col-span-5 lg:col-start-8 lg:row-start-1">
+        <div
+          ref={setAsideEl}
+          style={{ top: asideTop }}
+          className="min-w-0 space-y-4 lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:row-span-2 lg:sticky lg:self-start"
+        >
           {/* Overview */}
           <section
             id={showVisitorCta ? "listing-contact" : undefined}
@@ -742,8 +749,9 @@ export default function RentDetailView({
             </>
           )}
         </div>
-      </div>
-      <div className="space-y-6">
+
+        {/* Sections: left column under the gallery (mobile: after the right column) */}
+        <div className="min-w-0 space-y-6 lg:col-span-7 lg:col-start-1 lg:row-start-2">
           {/* Categorized Detail Sections */}
           {detailSections.map((section, idx) => (
             <SectionCard key={idx} title={section.title} icon={Layers}>
@@ -882,6 +890,7 @@ export default function RentDetailView({
           <NearbyPlacesPanel listingId={property.id}
             latitude={listingAddress?.latitude}
             longitude={listingAddress?.longitude} />
+        </div>
       </div>
 
       {showVisitorCta && (

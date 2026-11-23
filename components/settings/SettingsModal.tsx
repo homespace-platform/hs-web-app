@@ -29,7 +29,8 @@ export default function SettingsModal({
     document.body.style.overflow = "hidden";
     dialogRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCloseRef.current();
+      // A dialog stacked on top (e.g. add bank account) handles its own Escape.
+      if (e.key === "Escape" && document.querySelectorAll("[aria-modal=\"true\"]").length <= 1) onCloseRef.current();
     };
     window.addEventListener("keydown", onKey);
     return () => {

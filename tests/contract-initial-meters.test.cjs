@@ -23,7 +23,7 @@ const sectionDeps=name=>{
   if(name==='./ContractDraftEditor')return draftEditor;
   if(name==='./ContractAmendmentWorkspace')return {useAmendmentWorkspace:()=>null,amendmentInput:''};
   if(name==='@/components/ui/vnd-money-input')return ()=>null;
-  if(name==='@/data/banks')return load('data/banks.ts');
+  if(name==='@/hooks/useBanks')return {useBanks:()=>({banks:[],loading:true,error:false,retry(){}})};
   if(name.startsWith('@/lib/'))return load(name.slice(2)+'.ts');
   return require(name);
 };

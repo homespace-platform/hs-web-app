@@ -8,7 +8,7 @@ import VndMoneyInput from "@/components/ui/vnd-money-input";
 import { amendmentNumbers, amendmentDateInput, amendmentDateText, amendmentLeasePatch, squareMetresText } from "@/lib/contract-amendment-input";
 import { useContractDraftEditor } from "./ContractDraftEditor";
 import { FieldRow } from "./utils";
-import { VIETNAMESE_BANKS } from "@/data/banks";
+import { useBanks } from "@/hooks/useBanks";
 
 type Group = "rent" | "residents" | "charges" | "equipments" | "amenities" | "rules";
 export type TermField = readonly [key: string, label: string, locked?: boolean, hint?: string];
@@ -42,6 +42,19 @@ export function BillingSystemRuleLabels({ policies, rules, deadlineOnly=false }:
     </>}
   </aside>;
 }
+function BankNameSelect({label,ariaLabel,raw,disabled,onPick}:{label:string;ariaLabel:string;raw:string;disabled:boolean;onPick:(name:string)=>void}) {
+  const {banks,loading,error,retry}=useBanks();
+  const bank=banks.find(b=>b.name===raw || b.shortName===raw || b.code===raw);
+  return <label className="block min-w-0 text-xs font-medium">{label}
+    <select aria-label={ariaLabel} className={input} disabled={disabled||loading||error} value={bank?.bin??"__CURRENT__"}
+      onChange={e=>{const chosen=banks.find(b=>b.bin===e.target.value);if(chosen)onPick(chosen.name);}}>
+      {!bank&&<option value="__CURRENT__">{loading?"Đang tải danh sách ngân hàng...":raw||"Chọn ngân hàng"}</option>}
+      {banks.map(b=><option key={b.bin} value={b.bin}>{b.code} - {b.shortName} ({b.name})</option>)}
+    </select>
+    {error&&<span role="alert" className="mt-1 block text-red-600">Không thể tải danh sách ngân hàng. <button type="button" className="font-semibold underline" onClick={retry}>Thử lại</button></span>}
+  </label>;
+}
+
 export function ContractTermFields({ group, fields }: {group:"landlord"|"tenant"|"property"|"lease"|"financial"|"policies";fields:readonly TermField[]}) {
   const amendment = useAmendmentWorkspace();
   const draft = useContractDraftEditor();
@@ -54,14 +67,7 @@ export function ContractTermFields({ group, fields }: {group:"landlord"|"tenant"
     if (draft && locked) return <FieldRow key={key} label={label} value={values[key]} />;
     const ariaLabel=draft && (group==="landlord"||group==="tenant")?label+(group==="landlord"?" Bên A":" Bên B"):label;
     if(key==="bankName") {
-      const bank=VIETNAMESE_BANKS.find(b=>b.name===raw || b.shortName===raw || b.code===raw);
-      return <ContractEditField key={key} group={group} field={key}><label className="block min-w-0 text-xs font-medium">{label}
-        <select aria-label={ariaLabel} className={input} disabled={w.busy||locked} value={bank?.bin??"__CURRENT__"}
-          onChange={e=>{const chosen=VIETNAMESE_BANKS.find(b=>b.bin===e.target.value);if(chosen)w.patch(group,{...values,bankName:chosen.name});}}>
-          {!bank&&<option value="__CURRENT__">{raw||"Chọn ngân hàng"}</option>}
-          {VIETNAMESE_BANKS.map(b=><option key={b.bin} value={b.bin}>{b.code} - {b.shortName} ({b.name})</option>)}
-        </select>
-      </label></ContractEditField>;
+      return <ContractEditField key={key} group={group} field={key}><BankNameSelect label={label} ariaLabel={ariaLabel} raw={raw} disabled={!!(w.busy||locked)} onPick={name=>w.patch(group,{...values,bankName:name})} /></ContractEditField>;
     }
     const value = date ? amendmentDateInput(raw) : area ? raw.replace(/\s*(m²|m2|mét vuông)\s*$/i, "") : key === "unitNumber" ? raw || "Toàn bộ căn" : key === "latePaymentFeeMode" ? feeLabels[raw] ?? raw : squareMetresText(raw);
     return <ContractEditField key={key} group={group} field={key} readonly={locked}><label className="block min-w-0 text-xs font-medium">{label}

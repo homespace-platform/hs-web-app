@@ -31,3 +31,11 @@ export interface UpdateBankAccountDefaultsRequest {
   defaultForIncomingPayments?: boolean;
   defaultForRefunds?: boolean;
 }
+
+export interface Bank {
+  bin: string;
+  code: string;
+  name: string;
+  shortName: string;
+  logo: string | null;
+}

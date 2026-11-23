@@ -36,6 +36,7 @@ import {
   hasVehicleParkingAllowed,
   hasPersonBasedCharges,
 } from "./rental-request.helper";
+import { InfoDisclosure, TermsDialog } from "@/components/common/InfoDisclosure";
 import { RentalCostSummary } from "./RentalCostSummary";
 
 interface RentalRequestModalProps {
@@ -521,13 +522,16 @@ export default function RentalRequestModal({
         </div>
 
         {/* THÔNG BÁO THỜI HẠN GIỮ CHỖ */}
-        <div className="flex items-start gap-2.5 px-4 py-3 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
-          <Clock className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+        <InfoDisclosure
+          tone="warning"
+          icon={<Clock className="w-4 h-4" />}
+          className="rounded-none border-x-0 border-t-0"
+          summary={<>Sau khi chủ nhà chấp thuận, bạn có <strong>{holdMinutes ? `${holdMinutes} phút` : "thời hạn hiển thị trên yêu cầu thanh toán"}</strong> để hoàn tất khoản giữ chỗ.</>}
+        >
           <p>
-            Sau khi chủ nhà chấp thuận, bạn có{" "}
-            <strong>{holdMinutes ? `${holdMinutes} phút` : "thời hạn hiển thị trên yêu cầu thanh toán"}</strong> để hoàn tất khoản giữ chỗ được mở. {depositAmount === 0 ? "Không yêu cầu đặt cọc: bỏ qua chuyển cọc và ký hợp đồng cọc. Tiền thuê tháng đầu và ký hợp đồng thuê mở vào ngày bắt đầu thuê." : "Dọn vào cùng ngày: thu cọc + tiền thuê tháng đầu. Dọn vào sau: chỉ thu cọc trước, đến ngày dọn vào mới mở tiền thuê tháng đầu. Sau khi chủ nhà xác nhận nhận cọc, hai bên xem và ký hợp đồng cọc trước, không đợi đến ngày vào. Hợp đồng thuê ký riêng khi đến ngày vào và xác nhận đủ tiền tháng đầu."} Bạn có thể đề nghị chủ nhà đồng ý bắt đầu thuê sớm.
+            Khoản giữ chỗ được mở sau khi chủ nhà chấp thuận. {depositAmount === 0 ? "Không yêu cầu đặt cọc: bỏ qua chuyển cọc và ký hợp đồng cọc. Tiền thuê tháng đầu và ký hợp đồng thuê mở vào ngày bắt đầu thuê." : "Dọn vào cùng ngày: thu cọc + tiền thuê tháng đầu. Dọn vào sau: chỉ thu cọc trước, đến ngày dọn vào mới mở tiền thuê tháng đầu. Sau khi chủ nhà xác nhận nhận cọc, hai bên xem và ký hợp đồng cọc trước, không đợi đến ngày vào. Hợp đồng thuê ký riêng khi đến ngày vào và xác nhận đủ tiền tháng đầu."} Bạn có thể đề nghị chủ nhà đồng ý bắt đầu thuê sớm.
           </p>
-        </div>
+        </InfoDisclosure>
 
         {/* FORM BODY */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 max-h-[75vh] overflow-y-auto">
@@ -1145,7 +1149,15 @@ export default function RentalRequestModal({
           {/* 10. FOOTER ACTIONS */}
           <label className="flex items-start gap-2 rounded-xl border p-3 text-xs leading-relaxed">
             <input type="checkbox" required disabled={!reservationPolicy} checked={reservationPolicyAccepted} onChange={e=>setReservationPolicyAccepted(e.target.checked)} className="mt-1" />
-            <span><strong>Tôi đã đọc và đồng ý điều kiện giữ chỗ (bắt buộc):</strong> {reservationPolicy?.text.replace(/^./, letter => letter.toUpperCase()) || "Đang tải điều kiện giữ chỗ…"} {reservationPolicy && <small className="block">Phiên bản: {reservationPolicy.version}</small>}</span>
+            <span>
+              <strong>Tôi đã đọc và đồng ý </strong>
+              {reservationPolicy ? (
+                <TermsDialog label="điều kiện giữ chỗ" title="Điều kiện giữ chỗ" version={reservationPolicy.version} onAgree={() => setReservationPolicyAccepted(true)}>
+                  {reservationPolicy.text.replace(/^./, letter => letter.toUpperCase())}
+                </TermsDialog>
+              ) : "điều kiện giữ chỗ (đang tải…)"}
+              <strong> (bắt buộc)</strong>
+            </span>
           </label>
           <div className="pt-3 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2.5">
             {!reservationPolicyAccepted ? (

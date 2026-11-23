@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import SettingsShell from "./SettingsShell";
 import type { SettingsSectionId } from "./settings-nav";
 import ProfileSection from "./sections/ProfileSection";
@@ -37,9 +37,15 @@ export default function SettingsContent({
   onClose,
   initialTab = "profile",
 }: SettingsContentProps) {
+  const [section, setSection] = useState<SettingsSectionId>(initialTab);
   return (
-    <SettingsShell onClose={onClose}>
-      <SectionBody section={initialTab} />
+    <SettingsShell
+      onClose={onClose}
+      activeSection={section}
+      onSelect={setSection}
+      className="h-full rounded-none border-0 sm:rounded-3xl sm:border"
+    >
+      <SectionBody section={section} />
     </SettingsShell>
   );
 }

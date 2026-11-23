@@ -23,6 +23,13 @@ const userService = {
     return response.data.result;
   },
 
+  async getPublicProfileByUsername(username: string): Promise<PublicUserProfile> {
+    const response = await axiosClient.get<ApiResponse<PublicUserProfile>>(
+      `/api/v1/public/users/${encodeURIComponent(username)}`,
+    );
+    return response.data.result;
+  },
+
   async getProfile(): Promise<UserProfile> {
     if (!profileRequest) {
       profileRequest = axiosClient

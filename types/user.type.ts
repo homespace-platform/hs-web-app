@@ -31,6 +31,7 @@ export type PublicUserProfile = {
   avatarUrl?: string | null;
   kycVerified?: boolean | null;
   createdAt?: string | null;
+  provinceName?: string | null;
 };
 
 export type UpsertUserAddressRequest = { refId: string; addressNote?: string };

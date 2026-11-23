@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import SettingsContent, { SettingsTabId } from "./SettingsContent";
 
 interface SettingsModalProps {
@@ -14,45 +15,50 @@ export default function SettingsModal({
   onClose,
   initialTab = "profile",
 }: SettingsModalProps) {
-  // Lock body scroll when modal is open
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
+    onCloseRef.current = onClose;
+  });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseRef.current();
+    };
+    window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = "unset";
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      previous?.focus?.();
     };
   }, [isOpen]);
 
-  // Close on ESC key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    if (isOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-    }
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  if (!isOpen || typeof document === "undefined") return null;
 
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 select-none animate-in fade-in-50 duration-200">
-      {/* Backdrop */}
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center sm:p-6 animate-in fade-in-50 duration-200">
       <div
+        aria-hidden="true"
         onClick={onClose}
-        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+        className="absolute inset-0 bg-black/60 backdrop-blur-xs"
       />
-
-      {/* Modal Container */}
-      <div className="relative w-full max-w-4xl max-h-[90vh] z-10 animate-in zoom-in-95 duration-200">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-dialog-title"
+        tabIndex={-1}
+        className="relative z-10 h-full w-full max-w-4xl outline-none sm:h-[min(680px,90vh)] animate-in zoom-in-95 duration-200"
+      >
         <SettingsContent onClose={onClose} initialTab={initialTab} />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

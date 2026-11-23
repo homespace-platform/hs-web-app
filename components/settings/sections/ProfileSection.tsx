@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
-import { Camera, Check, LoaderCircle, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Camera, Check, Copy, ExternalLink, LoaderCircle, ShieldAlert, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import userService from '@/services/user.service';
 import storageService from '@/services/storage.service';
@@ -273,6 +273,8 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                 }}
             />
 
+            <PublicProfileLink username={profile.username} />
+
             <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 flex flex-col sm:flex-row items-center gap-4 shadow-2xs">
                 <div className="relative group">
                     <input
@@ -497,6 +499,43 @@ function TextField({
                     }`}
             />
             {error && <p className="text-[11px] font-medium text-red-600">{error}</p>}
+        </div>
+    );
+}
+
+function PublicProfileLink({ username }: { username?: string | null }) {
+    if (!username) return null;
+    const path = `/u/${encodeURIComponent(username)}`;
+    const copy = async () => {
+        try {
+            await navigator.clipboard.writeText(`${window.location.origin}${path}`);
+            toast.success('Đã sao chép liên kết trang cá nhân');
+        } catch {
+            toast.error('Không thể sao chép liên kết');
+        }
+    };
+    return (
+        <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-2xs sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-foreground">Trang cá nhân công khai</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">/u/{username}</p>
+            </div>
+            <div className="flex gap-2">
+                <Link
+                    href={path}
+                    target="_blank"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted"
+                >
+                    <ExternalLink className="h-3.5 w-3.5" /> Xem
+                </Link>
+                <button
+                    type="button"
+                    onClick={() => void copy()}
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                    <Copy className="h-3.5 w-3.5" /> Sao chép
+                </button>
+            </div>
         </div>
     );
 }

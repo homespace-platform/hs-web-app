@@ -15,6 +15,7 @@ import {
   Crown,
   Infinity as InfinityIcon,
 } from "lucide-react";
+import SettingsModal from "@/components/settings/SettingsModal";
 import UserAvatar from "@/components/common/UserAvatar";
 import { useAppSelector } from "@/store/hooks";
 import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
@@ -32,6 +33,7 @@ export default function UserDropdown() {
   const historyCount = useAppSelector((state) => state.history.count);
   const { openRolePicker } = useDashboardRole();
   const [isOpen, setIsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [membership, setMembership] = useState<MembershipView | null>(null);
   const [loadingMembership, setLoadingMembership] = useState(false);
   const [membershipError, setMembershipError] = useState(false);
@@ -250,17 +252,20 @@ export default function UserDropdown() {
             <div className="my-1.5 border-t border-border" />
 
             {/* Cài đặt */}
-            <Link
-              href="/settings/profile"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group"
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                setSettingsOpen(true);
+              }}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-foreground hover:bg-muted transition-colors group text-left cursor-pointer"
             >
               <div className="flex items-center gap-3">
                 <Settings className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 <span className="text-xs font-semibold">Cài đặt</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-            </Link>
+            </button>
 
             {/* Divider */}
             <div className="my-1.5 border-t border-border" />
@@ -283,6 +288,7 @@ export default function UserDropdown() {
           </nav>
         </div>
       )}
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

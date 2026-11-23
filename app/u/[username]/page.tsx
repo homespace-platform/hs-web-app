@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { username } = await params;
   const profile = await fetchProfile(username);
   if (!profile) return { title: "Trang cá nhân | HomeSpace", robots: { index: false, follow: false } };
-  const name = [profile.lastName, profile.firstName].filter(Boolean).join(" ") || profile.username;
+  const name = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.username;
   const url = `${SITE_URL}/u/${encodeURIComponent(profile.username)}`;
   const description = `Trang cá nhân của ${name} (@${profile.username}) trên HomeSpace.`;
   return {

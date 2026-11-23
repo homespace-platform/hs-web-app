@@ -273,8 +273,6 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                 }}
             />
 
-            <PublicProfileLink username={profile.username} />
-
             <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 flex flex-col sm:flex-row items-center gap-4 shadow-2xs">
                 <div className="relative group">
                     <input
@@ -322,6 +320,7 @@ function ProfileContent({ profile }: { profile: UserProfile }) {
                     <div className="flex items-center justify-center sm:justify-start gap-1.5">
                         <h3 className="font-bold text-base text-foreground">{fullName}</h3>
                         <IdentityBadge role={profile.role} kycVerified={profile.kycVerified} />
+                        <PublicProfileLink username={profile.username} />
                     </div>
                     <p className="text-xs text-muted-foreground">{form.email}</p>
                     {profile.kycVerified ? (
@@ -514,28 +513,28 @@ function PublicProfileLink({ username }: { username?: string | null }) {
             toast.error('Không thể sao chép liên kết');
         }
     };
+    const iconBtn =
+        'inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary';
     return (
-        <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-2xs sm:flex-row sm:items-center">
-            <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-foreground">Trang cá nhân công khai</p>
-                <p className="mt-0.5 truncate text-xs text-muted-foreground">/u/{username}</p>
-            </div>
-            <div className="flex gap-2">
-                <Link
-                    href={path}
-                    target="_blank"
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted"
-                >
-                    <ExternalLink className="h-3.5 w-3.5" /> Xem
-                </Link>
-                <button
-                    type="button"
-                    onClick={() => void copy()}
-                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
-                >
-                    <Copy className="h-3.5 w-3.5" /> Sao chép
-                </button>
-            </div>
-        </div>
+        <span className="inline-flex items-center">
+            <Link
+                href={path}
+                target="_blank"
+                title="Xem trang cá nhân công khai"
+                aria-label="Xem trang cá nhân công khai"
+                className={iconBtn}
+            >
+                <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+            <button
+                type="button"
+                onClick={() => void copy()}
+                title="Sao chép liên kết trang cá nhân"
+                aria-label="Sao chép liên kết trang cá nhân"
+                className={iconBtn}
+            >
+                <Copy className="h-3.5 w-3.5" />
+            </button>
+        </span>
     );
 }

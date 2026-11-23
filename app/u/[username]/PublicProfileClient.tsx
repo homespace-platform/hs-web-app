@@ -51,12 +51,12 @@ function Shell({ crumb, children }: { crumb: string; children: React.ReactNode }
 function Skeleton() {
   return (
     <div className="animate-pulse" aria-busy="true" aria-label="Đang tải">
-      <div className={`${card} overflow-hidden`}>
-        <div className="h-36 bg-muted sm:h-52" />
-        <div className="px-5 pb-6 sm:px-8">
-          <div className="-mt-12 h-24 w-24 rounded-full border-4 border-card bg-muted sm:-mt-14 sm:h-28 sm:w-28" />
-          <div className="mt-4 h-6 w-48 rounded bg-muted" />
-          <div className="mt-2 h-4 w-32 rounded bg-muted" />
+      <div className={`${card} flex flex-col items-center gap-5 p-5 sm:p-8 md:flex-row`}>
+        <div className="h-24 w-24 shrink-0 rounded-full bg-muted sm:h-28 sm:w-28" />
+        <div className="flex flex-1 flex-col items-center gap-2 md:items-start">
+          <div className="h-7 w-56 rounded bg-muted" />
+          <div className="h-4 w-32 rounded bg-muted" />
+          <div className="mt-2 h-6 w-72 max-w-full rounded-full bg-muted" />
         </div>
       </div>
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
@@ -137,7 +137,8 @@ export default function PublicProfileClient({ username }: { username: string }) 
     );
   }
 
-  const fullName = [profile.lastName, profile.firstName].filter(Boolean).join(" ") || profile.username;
+  // Same order as the settings profile (firstName holds the family name).
+  const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.username;
   const joinedAt = profile.createdAt
     ? new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(new Date(profile.createdAt))
     : null;
@@ -174,25 +175,47 @@ export default function PublicProfileClient({ username }: { username: string }) 
 
   return (
     <Shell crumb={fullName}>
-      <section className={`${card} overflow-hidden`}>
-        <div className="h-36 bg-gradient-to-br from-primary via-primary/70 to-primary/20 sm:h-52" />
-        <div className="px-5 pb-6 sm:px-8">
-          <div className="-mt-12 flex flex-col gap-4 sm:-mt-14 sm:flex-row sm:items-end">
-            <div className="w-fit rounded-full ring-4 ring-card">
-              <UserAvatar
-                src={profile.avatarUrl}
-                name={fullName}
-                sizeClassName="h-24 w-24 text-3xl sm:h-28 sm:w-28"
-              />
+      <section className={`${card} p-5 sm:p-8`}>
+        <div className="flex flex-col items-center gap-5 text-center md:flex-row md:items-center md:text-left">
+          <UserAvatar
+            src={profile.avatarUrl}
+            name={fullName}
+            sizeClassName="h-24 w-24 shrink-0 text-3xl sm:h-28 sm:w-28"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
+              <h1 className="break-words text-2xl font-bold sm:text-3xl">{fullName}</h1>
+              <IdentityBadge kycVerified={profile.kycVerified} />
             </div>
-            <div className="min-w-0 flex-1 sm:pb-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="break-words text-2xl font-bold sm:text-3xl">{fullName}</h1>
-                <IdentityBadge kycVerified={profile.kycVerified} />
-              </div>
-              <p className="text-sm text-muted-foreground">@{profile.username}</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">@{profile.username}</p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2 md:justify-start">
+              {joinedAt && (
+                <span className={chip}>
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  Tham gia {joinedAt}
+                </span>
+              )}
+              {profile.provinceName && (
+                <span className={chip}>
+                  <MapPin className="h-3.5 w-3.5" />
+                  {profile.provinceName}
+                </span>
+              )}
+              {profile.kycVerified && (
+                <span className={`${chip} bg-primary/10 text-primary`}>
+                  <BadgeCheck className="h-3.5 w-3.5" />
+                  Đã xác minh danh tính
+                </span>
+              )}
+              {!listingError && (
+                <span className={chip}>
+                  <Home className="h-3.5 w-3.5" />
+                  {listings.length} tin đăng
+                </span>
+              )}
             </div>
-            <div className="flex flex-wrap gap-2 sm:pb-1">
+          </div>
+          <div className="flex flex-wrap justify-center gap-2 md:shrink-0 md:flex-col md:items-stretch">
               {isOwn ? (
                 <button type="button" onClick={() => setSettingsOpen(true)} className={primaryBtn}>
                   <Pencil className="h-4 w-4" />
@@ -212,33 +235,6 @@ export default function PublicProfileClient({ username }: { username: string }) 
                 <Copy className="h-4 w-4" />
                 Sao chép liên kết
               </button>
-            </div>
-          </div>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {joinedAt && (
-              <span className={chip}>
-                <CalendarDays className="h-3.5 w-3.5" />
-                Tham gia {joinedAt}
-              </span>
-            )}
-            {profile.provinceName && (
-              <span className={chip}>
-                <MapPin className="h-3.5 w-3.5" />
-                {profile.provinceName}
-              </span>
-            )}
-            {profile.kycVerified && (
-              <span className={`${chip} bg-primary/10 text-primary`}>
-                <BadgeCheck className="h-3.5 w-3.5" />
-                Đã xác minh danh tính
-              </span>
-            )}
-            {!listingError && (
-              <span className={chip}>
-                <Home className="h-3.5 w-3.5" />
-                {listings.length} tin đăng
-              </span>
-            )}
           </div>
         </div>
       </section>

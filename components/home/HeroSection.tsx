@@ -47,6 +47,10 @@ export default function HeroSection() {
     });
   }, [api]);
 
+  React.useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) plugin.stop();
+  }, [plugin]);
+
   return (
     <section className="relative w-full flex flex-col items-center overflow-hidden">
       {/* 1. Full-Width 100% Banner Carousel */}
@@ -63,7 +67,8 @@ export default function HeroSection() {
           <CarouselContent className="-ml-0">
             {BANNERS.map((banner, index) => (
               <CarouselItem key={banner.id} className="pl-0 basis-full">
-                <div className="relative w-full">
+                {/* 1920x600 = 16:5, so the fixed ratio matches the art and avoids layout shift */}
+                <div className="relative w-full aspect-[16/5]">
                   <Image
                     src={banner.image}
                     alt={banner.alt}
@@ -71,7 +76,7 @@ export default function HeroSection() {
                     height={600}
                     priority={index === 0}
                     unoptimized
-                    className="w-full h-auto block object-cover select-none"
+                    className="h-full w-full block object-cover select-none"
                   />
                 </div>
               </CarouselItem>
@@ -79,24 +84,29 @@ export default function HeroSection() {
           </CarouselContent>
 
           {/* Navigation Arrows */}
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 hidden sm:block">
-            <CarouselPrevious className="left-6 bg-white/90 dark:bg-slate-900/90 hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-white border-slate-200 dark:border-slate-700 shadow-xl h-12 w-12 cursor-pointer" />
-            <CarouselNext className="right-6 bg-white/90 dark:bg-slate-900/90 hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-white border-slate-200 dark:border-slate-700 shadow-xl h-12 w-12 cursor-pointer" />
+          <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200 hidden sm:block">
+            <CarouselPrevious className="left-6 h-12 w-12 cursor-pointer border-border bg-card/90 text-foreground shadow-sm transition-colors hover:bg-card active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background" />
+            <CarouselNext className="right-6 h-12 w-12 cursor-pointer border-border bg-card/90 text-foreground shadow-sm transition-colors hover:bg-card active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background" />
           </div>
 
           {/* Pagination Indicators - Placed above the search bar */}
-          <div className="absolute bottom-20 sm:bottom-28 md:bottom-32 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10 bg-slate-900/50 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/15">
+          <div className="absolute bottom-20 sm:bottom-28 md:bottom-32 left-1/2 -translate-x-1/2 flex items-center z-10 bg-slate-900/50 px-2 rounded-full border border-white/15">
             {Array.from({ length: count }).map((_, index) => (
               <button
                 key={index}
                 type="button"
                 onClick={() => api?.scrollTo(index)}
-                className={`transition-all duration-300 rounded-full cursor-pointer ${current === index
-                  ? "w-7 h-2 bg-[#2563EB] dark:bg-[#06B6D4]"
-                  : "w-2 h-2 bg-white/60 hover:bg-white"
-                  }`}
-                aria-label={`Go to slide ${index + 1}`}
-              />
+                className="group/dot flex h-6 min-w-6 items-center justify-center rounded-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                aria-label={`Chuyển tới banner ${index + 1}`}
+                aria-current={current === index ? "true" : undefined}
+              >
+                <span
+                  className={`block h-2 rounded-full transition-all duration-300 ${current === index
+                    ? "w-6 bg-primary dark:bg-accent-ai"
+                    : "w-2 bg-white/60 group-hover/dot:bg-white"
+                    }`}
+                />
+              </button>
             ))}
           </div>
         </Carousel>
@@ -104,24 +114,30 @@ export default function HeroSection() {
 
       {/* Floating search bar and trust badges */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full -mt-16 sm:-mt-20 md:-mt-24 lg:-mt-28 relative z-20 flex flex-col items-center mb-8">
-        <div className="w-full max-w-6xl shadow-2xl rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 p-2 sm:p-3 border border-slate-200/80 dark:border-slate-800">
+        <div
+          className="hs-fade-up w-full max-w-6xl rounded-3xl border border-border bg-card p-2 shadow-lg shadow-slate-900/5 sm:p-3"
+          style={{ animationDelay: "0ms" }}
+        >
           <AiSearchBar />
         </div>
 
-        <div className="mt-8 pt-4 w-full max-w-4xl grid grid-cols-2 md:grid-cols-3 gap-4 text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">
-          <div className="flex items-center justify-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-[#22C55E] shrink-0" />
+        <ul
+          className="hs-fade-up mt-6 flex w-full max-w-4xl flex-col items-center gap-3 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-8 sm:gap-y-3"
+          style={{ animationDelay: "120ms" }}
+        >
+          <li className="flex items-center gap-2">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-verified/10"><ShieldCheck className="h-4 w-4 text-verified" /></span>
             <span>Hợp đồng số hóa 100% On-chain</span>
-          </div>
-          <div className="flex items-center justify-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#06B6D4] shrink-0" />
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-ai/10"><Sparkles className="h-4 w-4 text-accent-ai" /></span>
             <span>Định giá & Phân tích AI chuẩn xác</span>
-          </div>
-          <div className="hidden md:flex items-center justify-center gap-2 col-span-2 md:col-span-1">
-            <Zap className="w-4 h-4 text-[#2563EB] shrink-0" />
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10"><Zap className="h-4 w-4 text-primary" /></span>
             <span>Đặt cọc an toàn</span>
-          </div>
-        </div>
+          </li>
+        </ul>
       </div>
     </section>
   );

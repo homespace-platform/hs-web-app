@@ -65,13 +65,13 @@ export default function AiSearchBar() {
       >
       <div className="min-h-0 overflow-hidden">
       <div className="p-1">
-      <div className="bg-card text-card-foreground rounded-2xl shadow-xl shadow-primary-dark/5 border border-border p-2 sm:p-3 relative z-30">
+      <div className="bg-card text-card-foreground rounded-2xl border border-border p-2 sm:p-3 relative z-30">
         <div className="mb-2 flex items-center justify-between gap-2 px-2 pt-1 text-xs">
           <span className="flex items-center gap-1.5 font-semibold text-primary"><Sparkles className="h-3.5 w-3.5" />Tìm kiếm nhanh AI</span>
           <span className="hidden sm:inline text-muted-foreground">Hỏi AI ngay tại đây</span>
         </div>
         <form onSubmit={(event) => { event.preventDefault(); handleSearch(); }} className="flex flex-col sm:flex-row gap-2">
-          <div className="flex min-w-0 flex-1 items-start px-4 py-3 rounded-xl bg-muted/60 focus-within:ring-2 focus-within:ring-primary/30 transition-colors">
+          <div className="flex min-w-0 flex-1 items-start px-4 py-3 rounded-xl bg-muted/60 focus-within:ring-2 focus-within:ring-primary/40 focus-within:ring-offset-2 focus-within:ring-offset-background transition-colors">
             <Search className="w-5 h-5 text-primary shrink-0 mr-3 mt-1" />
             <textarea
               value={keyword}
@@ -94,7 +94,7 @@ export default function AiSearchBar() {
             disabled={chatState.isSending || !initialized}
             aria-controls="home-ai-conversation"
             aria-expanded={chatVisible}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-7 py-3 h-auto sm:self-center rounded-xl shadow-md shadow-primary/20 hover:shadow-lg transition-all shrink-0 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-7 py-3 min-h-12 h-auto w-full sm:w-auto sm:self-center rounded-xl shadow-sm transition-colors active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background shrink-0 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {chatState.isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             <span>{chatState.isSending ? "AI đang hỗ trợ…" : "Tìm kiếm nhanh AI"}</span>

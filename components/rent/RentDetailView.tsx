@@ -303,7 +303,6 @@ export default function RentDetailView({
             ? property.mediaItems
             : property.images.map((img) => ({ type: "image", url: img }))
         }
-        categoryLabel={property.categoryLabel}
       />
 
       {/* Main Details & Sidebar Grid */}

@@ -11,6 +11,16 @@ const CATEGORIES = [
   { id: "room", label: "Phòng trọ" },
 ];
 
+const FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+
+const HIGHLIGHTS = [
+  "Dữ liệu thật từ tin đăng cho thuê",
+  "Chi tiết đến quận, phường, đường",
+  "Giá giao dịch thực tế",
+  "Cập nhật hằng tháng",
+];
+
 export default function LocationMapExplorer() {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState("apartment");
@@ -29,32 +39,38 @@ export default function LocationMapExplorer() {
   };
 
   return (
-    <section
-      id="location-map"
-      className="py-12 md:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full"
-    >
-      <div className="bg-card text-card-foreground rounded-3xl p-6 sm:p-8 lg:p-10 border border-border shadow-sm">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
-          <div className="lg:col-span-6 xl:col-span-7 flex flex-col">
-            <h2 className="font-heading font-bold text-2xl sm:text-3xl text-foreground tracking-tight mb-2">
+    <section id="location-map" className="py-16 md:py-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+          <div className="lg:col-span-6 xl:col-span-5 flex flex-col hs-reveal">
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-3">
+              Giá thị trường
+            </p>
+            <h2 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-balance text-foreground">
               Tham khảo giá thuê nhà
             </h2>
-            <p className="text-sm sm:text-base text-muted-foreground mb-6 max-w-2xl">
+            <p className="mt-3 text-base text-muted-foreground max-w-2xl">
               Dùng khu vực đã chọn trên thanh điều hướng để xem giá thuê trên HomeSpace
             </p>
 
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 mb-6">
+            <div
+              role="group"
+              aria-label="Loại hình bất động sản"
+              className="flex flex-wrap items-center gap-2 mt-8"
+            >
               {CATEGORIES.map((cat) => {
                 const isActive = activeCategory === cat.id;
                 return (
                   <button
                     key={cat.id}
                     type="button"
+                    aria-pressed={isActive}
                     onClick={() => setActiveCategory(cat.id)}
-                    className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all cursor-pointer ${isActive
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                      }`}
+                    className={`min-h-11 px-4 rounded-full text-sm font-semibold transition-colors duration-200 active:scale-[0.98] cursor-pointer ${FOCUS_RING} ${
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
                   >
                     {cat.label}
                   </button>
@@ -62,46 +78,41 @@ export default function LocationMapExplorer() {
               })}
             </div>
 
-            <div className="mb-8">
+            <div className="mt-6">
               <button
                 type="button"
                 onClick={handleViewPrice}
-                className="h-[52px] px-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm sm:text-base shadow-sm hover:shadow-md hover:shadow-primary/20 transition-all flex items-center justify-center cursor-pointer"
+                className={`min-h-11 px-8 rounded-xl bg-primary hover:bg-primary-dark text-primary-foreground font-semibold text-sm sm:text-base shadow-sm transition-colors duration-200 active:scale-[0.98] flex items-center justify-center cursor-pointer ${FOCUS_RING}`}
               >
                 Xem giá ngay
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-xs sm:text-sm text-foreground font-semibold">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-primary shrink-0 stroke-[2.2]" />
-                <span>Dữ liệu thật từ tin đăng cho thuê</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-primary shrink-0 stroke-[2.2]" />
-                <span>Chi tiết đến quận, phường, đường</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-primary shrink-0 stroke-[2.2]" />
-                <span>Giá giao dịch thực tế</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-primary shrink-0 stroke-[2.2]" />
-                <span>Cập nhật hằng tháng</span>
-              </div>
-            </div>
+            <ul className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm text-foreground">
+              {HIGHLIGHTS.map((text) => (
+                <li key={text} className="flex items-start gap-2.5 leading-6">
+                  <CheckCircle2
+                    aria-hidden="true"
+                    className="w-4 h-4 mt-1 text-primary shrink-0"
+                  />
+                  <span>{text}</span>
+                </li>
+              ))}
+            </ul>
           </div>
 
-          <div className="lg:col-span-6 xl:col-span-5 relative w-full h-[280px] sm:h-[340px] lg:h-[380px] rounded-2xl sm:rounded-3xl overflow-hidden border border-border shadow-md bg-muted">
-            <iframe
-              title={`Bản đồ tham khảo giá ${cityName || "Việt Nam"}`}
-              width="100%"
-              height="100%"
-              style={{ border: 0 }}
-              loading="lazy"
-              src={`https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=12&output=embed`}
-              className="w-full h-full"
-            />
+          <div className="lg:col-span-6 xl:col-span-7 rounded-3xl border border-border bg-card p-2 sm:p-3 shadow-sm overflow-hidden">
+            <div className="relative w-full h-[320px] sm:h-[400px] lg:h-[440px] rounded-2xl overflow-hidden bg-muted">
+              <iframe
+                title={`Bản đồ tham khảo giá ${cityName || "Việt Nam"}`}
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                loading="lazy"
+                src={`https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=12&output=embed`}
+                className="absolute inset-0 w-full h-full"
+              />
+            </div>
           </div>
         </div>
       </div>

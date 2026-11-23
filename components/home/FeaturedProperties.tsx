@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Building, Loader2, MapPin } from "lucide-react";
+import { ArrowRight, Building, CircleAlert, MapPin } from "lucide-react";
 import RentCollageCard from "@/components/rent/RentCollageCard";
 import listingService from "@/services/listing.service";
 import { toRentProperty } from "@/lib/listing-to-rent-property";
@@ -93,10 +93,13 @@ export default function FeaturedProperties() {
   }, [apiCategory, cityId, hydrated, wardId]);
 
   return (
-    <section id="featured-listings" className="py-12 md:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-      <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 gap-4">
+    <section id="featured-listings" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+      <div className="hs-reveal flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
         <div>
-          <h2 className="font-heading font-bold text-2xl sm:text-3xl text-foreground tracking-tight mb-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-2">
+            Gợi ý cho bạn
+          </p>
+          <h2 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-balance text-foreground mb-3">
             Nhà cho thuê quanh bạn
           </h2>
           <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
@@ -108,25 +111,30 @@ export default function FeaturedProperties() {
 
         <Link
           href={viewAllHref}
-          className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:text-primary/80 transition-colors group self-start md:self-auto"
+          className="group inline-flex items-center gap-1.5 self-start md:self-auto rounded-lg text-sm font-semibold text-primary hover:text-primary/80 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <span>Xem tất cả tin đăng</span>
-          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
         </Link>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-6 no-scrollbar">
+      <div
+        role="group"
+        aria-label="Loại nhà"
+        className="flex items-center gap-2 overflow-x-auto p-1 -m-1 mb-7 no-scrollbar [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-16px),transparent)] sm:[mask-image:none]"
+      >
         {PROPERTY_CATEGORIES.map((category) => {
           const isActive = activeCategory === category.id;
           return (
             <button
               key={category.id}
               type="button"
+              aria-pressed={isActive}
               onClick={() => setActiveCategory(category.id)}
-              className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap transition-all cursor-pointer ${
+              className={`min-h-10 px-4 rounded-full border text-sm font-semibold whitespace-nowrap cursor-pointer transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                 isActive
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                  ? "bg-foreground text-background border-foreground"
+                  : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
               }`}
             >
               {category.label}
@@ -136,41 +144,67 @@ export default function FeaturedProperties() {
       </div>
 
       {!hydrated || isLoading ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-          <Loader2 className="w-5 h-5 animate-spin text-primary" />
-          <span>Đang tải tin đăng mới nhất...</span>
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="sr-only">Đang tải</span>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              aria-hidden="true"
+              className="rounded-3xl border border-border bg-card overflow-hidden animate-pulse motion-reduce:animate-none"
+            >
+              <div className="aspect-[4/3] bg-muted" />
+              <div className="p-4 space-y-3">
+                <div className="h-4 w-3/4 rounded-full bg-muted" />
+                <div className="h-4 w-1/2 rounded-full bg-muted" />
+                <div className="h-3 w-2/3 rounded-full bg-muted" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : !cityId ? (
-        <div className="rounded-3xl border border-border bg-card p-10 text-center text-muted-foreground flex flex-col items-center gap-3">
-          <MapPin className="w-8 h-8 text-primary" />
-          <p className="text-sm font-semibold text-foreground">Chưa chọn tỉnh/thành phố</p>
-          <p className="text-xs sm:text-sm max-w-md">
+        <div className="rounded-3xl border border-border bg-card p-10 text-center flex flex-col items-center gap-3">
+          <div className="grid place-items-center size-14 rounded-full bg-primary/10 text-primary">
+            <MapPin className="w-6 h-6" />
+          </div>
+          <p className="font-heading text-base font-semibold text-foreground">Chưa chọn tỉnh/thành phố</p>
+          <p className="text-sm text-muted-foreground max-w-md">
             Dùng bộ chọn khu vực trên header để chọn tỉnh. Có thể thu hẹp thêm theo phường/xã.
           </p>
         </div>
       ) : error ? (
-        <div className="rounded-3xl border border-border bg-card p-10 text-center text-destructive text-sm">
-          {error}
+        <div role="alert" className="rounded-3xl border border-border bg-card p-10 text-center flex flex-col items-center gap-3">
+          <div className="grid place-items-center size-14 rounded-full bg-destructive/10 text-destructive">
+            <CircleAlert className="w-6 h-6" />
+          </div>
+          <p className="font-heading text-base font-semibold text-destructive">Không thể tải tin đăng</p>
+          <p className="text-sm text-muted-foreground max-w-md">{error}</p>
         </div>
       ) : properties.length === 0 ? (
-        <div className="rounded-3xl border border-border bg-card p-10 text-center text-muted-foreground flex flex-col items-center gap-3">
-          <Building className="w-8 h-8 text-muted-foreground/50" />
-          <p className="text-sm font-semibold text-foreground">
+        <div className="rounded-3xl border border-border bg-card p-10 text-center flex flex-col items-center gap-3">
+          <div className="grid place-items-center size-14 rounded-full bg-muted text-muted-foreground">
+            <Building className="w-6 h-6" />
+          </div>
+          <p className="font-heading text-base font-semibold text-foreground">
             Chưa có tin mới tại {areaLabel}
           </p>
-          <p className="text-xs sm:text-sm max-w-md">
+          <p className="text-sm text-muted-foreground max-w-md">
             Thử đổi loại nhà hoặc chọn phạm vi tỉnh/phường khác trên header.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 items-stretch">
           {properties.map((property) => (
-            <RentCollageCard
-              key={property.id}
-              property={property}
-              viewMode="grid"
-              initialFavorited={favoriteSet.has(property.id)}
-            />
+            <div key={property.id} className="hs-reveal flex flex-col">
+              <RentCollageCard
+                property={property}
+                viewMode="grid"
+                initialFavorited={favoriteSet.has(property.id)}
+              />
+            </div>
           ))}
         </div>
       )}

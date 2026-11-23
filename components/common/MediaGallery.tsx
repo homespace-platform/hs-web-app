@@ -3,9 +3,16 @@
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  type CarouselApi,
+} from "@/components/ui/carousel";
+import {
   Camera,
   ChevronLeft,
   ChevronRight,
+  LayoutGrid,
   LoaderCircle,
   Play,
   Video,
@@ -272,11 +279,22 @@ export interface MediaGalleryProps {
 export default function MediaGallery({
   title,
   mediaItems,
-  categoryLabel,
   className = "",
 }: MediaGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+  const [currentSlide, setCurrentSlide] = useState(0);
   const total = mediaItems.length;
+
+  useEffect(() => {
+    if (!carouselApi) return;
+    const onSelect = () => setCurrentSlide(carouselApi.selectedScrollSnap());
+    onSelect();
+    carouselApi.on("select", onSelect);
+    return () => {
+      carouselApi.off("select", onSelect);
+    };
+  }, [carouselApi]);
 
   if (total === 0) return null;
 
@@ -291,7 +309,8 @@ export default function MediaGallery({
   const renderMediaCell = (
     item: MediaGalleryItem,
     index: number,
-    extraClasses = ""
+    extraClasses = "",
+    sizes = "50vw"
   ) => {
     const isVideo = item.type === "video";
 
@@ -332,8 +351,8 @@ export default function MediaGallery({
             src={item.url}
             alt={`${title} - ${index + 1}`}
             fill
-            sizes="(max-width: 768px) 100vw, 50vw"
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            sizes={sizes}
+            className="object-cover transition-[transform,filter] duration-500 group-hover:scale-[1.03] group-hover:brightness-95"
             priority={index === 0}
             unoptimized
           />
@@ -342,105 +361,70 @@ export default function MediaGallery({
     );
   };
 
+  // Desktop collage: main photo ~2/3 width; 2-4 items use a 3-col grid (max 3 cells), 5+ a 4-col grid (max 5 cells).
+  const isWide = total >= 5;
+  const shownCount = isWide ? 5 : Math.min(total, 3);
+  const hiddenCount = total - shownCount;
+  const desktopItems = mediaItems.slice(0, shownCount);
+  const desktopSpan = (index: number) => {
+    if (index === 0) return total === 1 ? "col-span-3 row-span-2" : "col-span-2 row-span-2";
+    return total === 2 ? "row-span-2" : "";
+  };
+  const hasVideo = mediaItems.some((m) => m.type === "video");
+  const viewAllLabel = `Xem tất cả ${total} ${hasVideo ? "ảnh & video" : "ảnh"}`;
+
   return (
     <section
       aria-label="Thư viện hình ảnh"
-      className={`relative w-full rounded-3xl overflow-hidden shadow-sm border border-border bg-card select-none ${className}`}
+      className={`relative w-full select-none ${className}`}
     >
-      {categoryLabel && (
-        <div className="absolute top-4 left-4 z-10 hidden sm:block">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-semibold shadow-md">
-            {categoryLabel}
+      {/* Mobile: swipe carousel */}
+      <Carousel setApi={setCarouselApi} opts={{ loop: total > 1 }} className="sm:hidden overflow-hidden rounded-2xl">
+        <CarouselContent className="ml-0">
+          {mediaItems.map((item, index) => (
+            <CarouselItem key={item.id || `${item.url}-${index}`} className="pl-0">
+              {renderMediaCell(item, index, "aspect-[4/3]", "100vw")}
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+        {total > 1 && (
+          <span
+            aria-live="polite"
+            className="pointer-events-none absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md tabular-nums"
+          >
+            <Camera className="h-3.5 w-3.5" aria-hidden="true" />
+            {currentSlide + 1}/{total}
           </span>
-        </div>
-      )}
+        )}
+      </Carousel>
 
-      {/* Trường hợp 1 ảnh */}
-      {total === 1 && (
-        <div className="relative h-[320px] sm:h-[420px] md:h-[480px]">
-          {renderMediaCell(mediaItems[0], 0, "w-full h-full")}
-        </div>
-      )}
-
-      {/* Trường hợp 2 ảnh */}
-      {total === 2 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 h-[320px] sm:h-[420px] md:h-[480px]">
-          {renderMediaCell(mediaItems[0], 0, "h-full")}
-          {renderMediaCell(mediaItems[1], 1, "h-full")}
-        </div>
-      )}
-
-      {/* Trường hợp 3 ảnh */}
-      {total === 3 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 h-[320px] sm:h-[420px] md:h-[480px]">
-          <div className="sm:col-span-2 h-full">
-            {renderMediaCell(mediaItems[0], 0, "h-full")}
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-1 gap-1.5 h-full">
-            {renderMediaCell(mediaItems[1], 1, "h-full")}
-            {renderMediaCell(mediaItems[2], 2, "h-full")}
-          </div>
-        </div>
-      )}
-
-      {/* Trường hợp 4 ảnh */}
-      {total === 4 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 h-[340px] sm:h-[440px] md:h-[500px]">
-          <div className="h-full">
-            {renderMediaCell(mediaItems[0], 0, "h-full")}
-          </div>
-          <div className="grid grid-cols-2 gap-1.5 h-full">
-            <div className="col-span-2 h-[50%]">
-              {renderMediaCell(mediaItems[1], 1, "h-full")}
-            </div>
-            <div className="h-full">
-              {renderMediaCell(mediaItems[2], 2, "h-full")}
-            </div>
-            <div className="h-full">
-              {renderMediaCell(mediaItems[3], 3, "h-full")}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Trường hợp 5 ảnh trở lên */}
-      {total >= 5 && (
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-1.5 h-[340px] sm:h-[440px] md:h-[520px]">
-          <div className="sm:col-span-2 h-full">
-            {renderMediaCell(mediaItems[0], 0, "h-full")}
-          </div>
-          <div className="hidden sm:grid sm:col-span-1 grid-rows-2 gap-1.5 h-full">
-            {renderMediaCell(mediaItems[1], 1, "h-full")}
-            {renderMediaCell(mediaItems[2], 2, "h-full")}
-          </div>
-          <div className="hidden sm:grid sm:col-span-1 grid-rows-2 gap-1.5 h-full relative">
-            {renderMediaCell(mediaItems[3], 3, "h-full")}
-            {renderMediaCell(mediaItems[4], 4, "h-full")}
-
-            {/* Badge "Xem tất cả ảnh" */}
-            <button
-              type="button"
-              onClick={() => handleOpen(0)}
-              className="absolute bottom-3 right-3 z-10 cursor-pointer inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-card/90 hover:bg-card text-foreground text-xs font-bold shadow-lg backdrop-blur-md border border-border/80 transition-all hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            >
-              <Camera className="w-4 h-4 text-primary" />
-              Xem tất cả {total} ảnh & video
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile: counter + mở thư viện */}
-      {total >= 2 && (
-        <button
-          type="button"
-          onClick={() => handleOpen(0)}
-          className="sm:hidden absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md text-white text-xs font-semibold shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          <Camera className="w-4 h-4" />
-          1/{total}
-        </button>
-      )}
+      {/* Tablet & desktop: collage grid */}
+      <div className={`relative hidden sm:grid ${isWide ? "grid-cols-4" : "grid-cols-3"} grid-rows-2 gap-2 h-[340px] md:h-[400px] lg:h-[460px] overflow-hidden rounded-3xl`}>
+        {desktopItems.map((item, index) => {
+          const sizes = index === 0 ? "66vw" : "33vw";
+          if (index === shownCount - 1 && hiddenCount > 0) {
+            return (
+              <div key={item.id || `${item.url}-${index}`} className={`relative ${desktopSpan(index)}`}>
+                {renderMediaCell(item, index, "h-full", sizes)}
+                <span aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 font-heading text-2xl font-semibold text-white">
+                  +{hiddenCount}
+                </span>
+              </div>
+            );
+          }
+          return renderMediaCell(item, index, `h-full ${desktopSpan(index)}`, sizes);
+        })}
+        {total > 1 && (
+          <button
+            type="button"
+            onClick={() => handleOpen(0)}
+            className="absolute bottom-4 left-4 z-10 inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-white/60 bg-white/95 px-3 text-xs md:text-sm font-semibold text-slate-900 shadow-md backdrop-blur-md transition-colors hover:bg-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+          >
+            <LayoutGrid className="h-4 w-4 text-primary" aria-hidden="true" />
+            {viewAllLabel}
+          </button>
+        )}
+      </div>
 
       {/* Lightbox Modal */}
       <MediaLightboxModal

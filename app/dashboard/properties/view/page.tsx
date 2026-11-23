@@ -10,6 +10,7 @@ import {
   Copy,
   Loader2,
 } from "lucide-react";
+import { useBreadcrumbTitle } from "@/components/common/BreadcrumbTitle";
 import RentDetailView from "@/components/rent/RentDetailView";
 import ListingStatusActionMenu from "../components/ListingStatusActionMenu";
 import { useListingNotifications } from "../components/useListingNotifications";
@@ -97,6 +98,8 @@ function DashboardPropertyViewContent() {
   const visibleListing = fetchedListing && fetchedListing.id === id && fetchedListing.ownerId === userId ? fetchedListing : null;
   const property = useMemo(() => (visibleListing ? toRentProperty(visibleListing) : null), [visibleListing]);
 
+  useBreadcrumbTitle(property?.title);
+
   if ((loading || !initialized || !authenticated) && !visibleListing && !error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-muted-foreground">
@@ -135,24 +138,10 @@ function DashboardPropertyViewContent() {
   const canEdit = !isViolation && !isRentedExternally;
   const canDuplicate = !isViolation;
 
-  // Top Bar with Breadcrumbs, Status Pill and Landlord Actions
+  // Top Bar with Status Pill and Landlord Actions
   const topBar = (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-2 border-b border-border/80">
       <div className="space-y-1.5">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Link href="/dashboard" className="hover:text-foreground transition-colors">
-            Dashboard
-          </Link>
-          <span>/</span>
-          <Link href="/dashboard/properties" className="hover:text-foreground transition-colors">
-            Tin đăng
-          </Link>
-          <span>/</span>
-          <span className="text-foreground font-medium truncate max-w-[200px] sm:max-w-xs">
-            {property.title}
-          </span>
-        </div>
-
         <div className="flex items-center gap-2.5">
           {/* Status Badge */}
           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${statusConfig.badgeClassName}`}>

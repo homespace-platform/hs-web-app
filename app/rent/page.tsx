@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import Link from "next/link";
+import Breadcrumb from "@/components/common/Breadcrumb";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import RentCollageCard from "@/components/rent/RentCollageCard";
@@ -20,7 +20,6 @@ import { useAuth } from "@/features/auth/useAuth";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setGlobalCity, setGlobalWard } from "@/features/location/locationSlice";
 import {
-  Home,
   ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
@@ -250,17 +249,10 @@ export default function RentPage() {
       <main className="flex-1 pt-24 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           {/* 1. Breadcrumbs */}
-          <nav className="flex items-center gap-2 text-xs text-muted-foreground mb-6">
-            <Link
-              href="/"
-              className="hover:text-primary transition-colors flex items-center gap-1"
-            >
-              <Home className="w-3.5 h-3.5" />
-              <span>Trang chủ</span>
-            </Link>
-            <span>/</span>
-            <span className="font-semibold text-foreground">Nhà cho thuê</span>
-          </nav>
+          <Breadcrumb
+            items={[{ label: "Trang chủ", href: "/" }, { label: "Nhà cho thuê" }]}
+            className="mb-6"
+          />
 
           {/* 2. Page Header & Stats */}
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-border/80 mb-8">

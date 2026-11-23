@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import {
   Carousel,
@@ -9,13 +9,12 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import {
-  Camera,
   ChevronLeft,
   ChevronRight,
-  LayoutGrid,
+  Expand,
+  ImageOff,
   LoaderCircle,
   Play,
-  Video,
   X,
 } from "lucide-react";
 
@@ -44,6 +43,7 @@ export interface MediaLightboxModalProps {
   title?: string;
   alwaysShowThumbnails?: boolean;
   primaryAction?: MediaLightboxPrimaryAction;
+  onIndexChange?: (index: number) => void;
 }
 
 /**
@@ -58,6 +58,7 @@ export function MediaLightboxModal({
   title = "Chi tiết hình ảnh",
   alwaysShowThumbnails = false,
   primaryAction,
+  onIndexChange,
 }: MediaLightboxModalProps) {
   const [selectedIndex, setSelectedIndex] = useState<number>(initialIndex);
   const total = mediaItems.length;
@@ -69,6 +70,10 @@ export function MediaLightboxModal({
       );
     }
   }, [isOpen, initialIndex, total]);
+
+  useEffect(() => {
+    if (isOpen) onIndexChange?.(selectedIndex);
+  }, [isOpen, selectedIndex, onIndexChange]);
 
   const handlePrev = useCallback(() => {
     if (total <= 1) return;
@@ -272,23 +277,85 @@ export interface MediaGalleryProps {
   className?: string;
 }
 
+/** Ảnh có skeleton khi đang tải và trạng thái lỗi khi URL hỏng. */
+function GalleryImage({
+  src,
+  alt,
+  sizes,
+  priority,
+  contain = false,
+}: {
+  src: string;
+  alt: string;
+  sizes: string;
+  priority?: boolean;
+  contain?: boolean;
+}) {
+  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
+
+  if (status === "error") {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted text-muted-foreground">
+        <ImageOff className="h-6 w-6" aria-hidden="true" />
+        <span className="text-xs font-medium">Không tải được ảnh</span>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {status === "loading" && (
+        <div className="absolute inset-0 animate-pulse bg-muted motion-reduce:animate-none" aria-hidden="true" />
+      )}
+      {contain && (
+        <Image
+          src={src}
+          alt=""
+          aria-hidden="true"
+          fill
+          sizes="64px"
+          unoptimized
+          className="h-full w-full scale-110 object-cover opacity-50 blur-2xl"
+        />
+      )}
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes={sizes}
+        priority={priority}
+        unoptimized
+        onLoad={() => setStatus("loaded")}
+        onError={() => setStatus("error")}
+        className={`${contain ? "object-contain" : "object-cover"} transition-opacity duration-300 motion-reduce:transition-none ${status === "loaded" ? "opacity-100" : "opacity-0"}`}
+      />
+    </>
+  );
+}
+
+const focusRing =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
+
+const navButtonClass = `absolute top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-md transition-[transform,background-color] duration-200 hover:bg-white active:scale-95 ${focusRing}`;
+
 /**
- * Gallery hiển thị dạng lưới Collage (1, 2, 3, 4, 5+ ảnh)
- * kèm Lightbox Modal xem chi tiết hình ảnh & video.
+ * Gallery dạng carousel: một ảnh chính (vuốt / kéo / prev-next / phím mũi tên),
+ * dải thumbnail bên dưới, đồng bộ chỉ số với Lightbox toàn màn hình.
  */
 export default function MediaGallery({
   title,
   mediaItems,
   className = "",
 }: MediaGalleryProps) {
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [current, setCurrent] = useState(0);
+  const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const total = mediaItems.length;
 
   useEffect(() => {
     if (!carouselApi) return;
-    const onSelect = () => setCurrentSlide(carouselApi.selectedScrollSnap());
+    const onSelect = () => setCurrent(carouselApi.selectedScrollSnap());
     onSelect();
     carouselApi.on("select", onSelect);
     return () => {
@@ -296,144 +363,164 @@ export default function MediaGallery({
     };
   }, [carouselApi]);
 
+  // Keep the active thumbnail centred by scrolling the strip only (never the page).
+  useEffect(() => {
+    const thumb = thumbRefs.current[current];
+    const strip = thumb?.parentElement;
+    if (!thumb || !strip) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    strip.scrollTo({
+      left: thumb.offsetLeft - strip.clientWidth / 2 + thumb.clientWidth / 2,
+      behavior: reduce ? "auto" : "smooth",
+    });
+  }, [current]);
+
+  const handleLightboxIndex = useCallback(
+    (index: number) => carouselApi?.scrollTo(index, true),
+    [carouselApi]
+  );
+
   if (total === 0) return null;
 
-  const handleOpen = (index: number) => {
-    setSelectedIndex(index);
-  };
-
-  const handleClose = () => {
-    setSelectedIndex(null);
-  };
-
-  const renderMediaCell = (
-    item: MediaGalleryItem,
-    index: number,
-    extraClasses = "",
-    sizes = "50vw"
-  ) => {
-    const isVideo = item.type === "video";
-
-    return (
-      <button
-        type="button"
-        key={item.id || `${item.url}-${index}`}
-        onClick={() => handleOpen(index)}
-        aria-label={`Xem ${isVideo ? "video" : "ảnh"} ${index + 1}`}
-        className={`relative block w-full text-left group overflow-hidden cursor-pointer bg-muted/60 select-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary focus-visible:outline-none ${extraClasses}`}
-      >
-        {isVideo ? (
-          <div className="w-full h-full relative overflow-hidden bg-slate-950 flex items-center justify-center">
-            <video
-              src={`${item.streamUrl || item.url}#t=0.5`}
-              preload="metadata"
-              muted
-              playsInline
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none group-hover:scale-105 transition-transform duration-500"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/40 group-hover:via-black/25 transition-colors duration-300 pointer-events-none" />
-
-            <div className="relative z-10 flex flex-col items-center justify-center gap-2">
-              <div className="w-14 h-14 rounded-full bg-rose-600/90 hover:bg-rose-600 text-white flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform duration-300 backdrop-blur-xs">
-                <Play className="w-7 h-7 fill-white translate-x-0.5" />
-              </div>
-              <span className="text-white text-xs font-semibold px-3 py-1 rounded-full bg-black/60 backdrop-blur-md shadow-md">
-                Xem Video
-              </span>
-            </div>
-            <div className="absolute top-2.5 right-2.5 px-2.5 py-0.5 rounded-md bg-rose-600 text-white text-[11px] font-bold flex items-center gap-1 shadow-md z-10">
-              <Video className="w-3.5 h-3.5" />
-              <span>Video</span>
-            </div>
-          </div>
-        ) : (
-          <Image
-            src={item.url}
-            alt={`${title} - ${index + 1}`}
-            fill
-            sizes={sizes}
-            className="object-cover transition-[transform,filter] duration-500 group-hover:scale-[1.03] group-hover:brightness-95"
-            priority={index === 0}
-            unoptimized
-          />
-        )}
-      </button>
-    );
-  };
-
-  // Desktop collage: main photo ~2/3 width; 2-4 items use a 3-col grid (max 3 cells), 5+ a 4-col grid (max 5 cells).
-  const isWide = total >= 5;
-  const shownCount = isWide ? 5 : Math.min(total, 3);
-  const hiddenCount = total - shownCount;
-  const desktopItems = mediaItems.slice(0, shownCount);
-  const desktopSpan = (index: number) => {
-    if (index === 0) return total === 1 ? "col-span-3 row-span-2" : "col-span-2 row-span-2";
-    return total === 2 ? "row-span-2" : "";
-  };
-  const hasVideo = mediaItems.some((m) => m.type === "video");
-  const viewAllLabel = `Xem tất cả ${total} ${hasVideo ? "ảnh & video" : "ảnh"}`;
+  const hasMany = total > 1;
+  const itemKey = (item: MediaGalleryItem, index: number) => item.id || `${item.url}-${index}`;
 
   return (
-    <section
-      aria-label="Thư viện hình ảnh"
-      className={`relative w-full select-none ${className}`}
-    >
-      {/* Mobile: swipe carousel */}
-      <Carousel setApi={setCarouselApi} opts={{ loop: total > 1 }} className="sm:hidden overflow-hidden rounded-2xl">
-        <CarouselContent className="ml-0">
-          {mediaItems.map((item, index) => (
-            <CarouselItem key={item.id || `${item.url}-${index}`} className="pl-0">
-              {renderMediaCell(item, index, "aspect-[4/3]", "100vw")}
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        {total > 1 && (
-          <span
-            aria-live="polite"
-            className="pointer-events-none absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md tabular-nums"
-          >
-            <Camera className="h-3.5 w-3.5" aria-hidden="true" />
-            {currentSlide + 1}/{total}
-          </span>
-        )}
-      </Carousel>
+    <section aria-label="Thư viện hình ảnh" className={`relative w-full ${className}`}>
+      <div className="relative">
+        <Carousel
+          setApi={setCarouselApi}
+          opts={{ loop: hasMany, duration: 25 }}
+          className="overflow-hidden rounded-2xl bg-slate-950"
+        >
+          <CarouselContent className="-ml-0">
+            {mediaItems.map((item, index) => {
+              const isVideo = item.type === "video";
+              return (
+                <CarouselItem
+                  key={itemKey(item, index)}
+                  aria-label={`${index + 1} / ${total}`}
+                  className="basis-full pl-0"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setLightboxIndex(index)}
+                    aria-label={`Phóng to ${isVideo ? "video" : "ảnh"} ${index + 1}`}
+                    tabIndex={index === current ? 0 : -1}
+                    className={`group relative block aspect-[16/10] w-full cursor-pointer overflow-hidden bg-slate-950 ${focusRing} focus-visible:ring-inset`}
+                  >
+                    {isVideo ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-slate-950">
+                        <video
+                          src={`${item.streamUrl || item.url}#t=0.5`}
+                          preload="metadata"
+                          muted
+                          playsInline
+                          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                        />
+                        <div className="pointer-events-none absolute inset-0 bg-black/40" />
+                        <span className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-lg transition-transform duration-200 group-hover:scale-105">
+                          <Play className="h-7 w-7 translate-x-0.5 fill-current" aria-hidden="true" />
+                        </span>
+                      </div>
+                    ) : (
+                      <GalleryImage
+                        src={item.url}
+                        alt={item.alt || `${title} - ảnh ${index + 1}`}
+                        sizes="(max-width: 1024px) 100vw, 60vw"
+                        priority={index === 0}
+                        contain
+                      />
+                    )}
+                  </button>
+                </CarouselItem>
+              );
+            })}
+          </CarouselContent>
+        </Carousel>
 
-      {/* Tablet & desktop: collage grid */}
-      <div className={`relative hidden sm:grid ${isWide ? "grid-cols-4" : "grid-cols-3"} grid-rows-2 gap-2 h-[340px] md:h-[400px] lg:h-[460px] overflow-hidden rounded-3xl`}>
-        {desktopItems.map((item, index) => {
-          const sizes = index === 0 ? "66vw" : "33vw";
-          if (index === shownCount - 1 && hiddenCount > 0) {
-            return (
-              <div key={item.id || `${item.url}-${index}`} className={`relative ${desktopSpan(index)}`}>
-                {renderMediaCell(item, index, "h-full", sizes)}
-                <span aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 font-heading text-2xl font-semibold text-white">
-                  +{hiddenCount}
-                </span>
-              </div>
-            );
-          }
-          return renderMediaCell(item, index, `h-full ${desktopSpan(index)}`, sizes);
-        })}
-        {total > 1 && (
-          <button
-            type="button"
-            onClick={() => handleOpen(0)}
-            className="absolute bottom-4 left-4 z-10 inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-white/60 bg-white/95 px-3 text-xs md:text-sm font-semibold text-slate-900 shadow-md backdrop-blur-md transition-colors hover:bg-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
-          >
-            <LayoutGrid className="h-4 w-4 text-primary" aria-hidden="true" />
-            {viewAllLabel}
-          </button>
+        {hasMany && (
+          <>
+            <button
+              type="button"
+              onClick={() => carouselApi?.scrollPrev()}
+              aria-label="Ảnh trước"
+              className={`${navButtonClass} left-3`}
+            >
+              <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => carouselApi?.scrollNext()}
+              aria-label="Ảnh tiếp theo"
+              className={`${navButtonClass} right-3`}
+            >
+              <ChevronRight className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </>
         )}
+
+        <span
+          aria-live="polite"
+          className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-full bg-black/65 px-3 py-1 text-xs font-semibold tabular-nums text-white"
+        >
+          {current + 1} / {total}
+        </span>
+        <button
+          type="button"
+          onClick={() => setLightboxIndex(current)}
+          className={`absolute bottom-3 right-3 z-10 inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full bg-white/95 px-3 text-xs font-semibold text-slate-900 shadow-md transition-colors hover:bg-white active:scale-[0.98] ${focusRing}`}
+        >
+          <Expand className="h-4 w-4" aria-hidden="true" />
+          Toàn màn hình
+        </button>
       </div>
 
-      {/* Lightbox Modal */}
+      {hasMany && (
+        <div className="relative mt-3 flex gap-2 overflow-x-auto p-1 no-scrollbar" role="group" aria-label="Danh sách ảnh thu nhỏ">
+          {mediaItems.map((item, index) => {
+            const isVideo = item.type === "video";
+            const isActive = index === current;
+            return (
+              <button
+                key={itemKey(item, index)}
+                ref={(el) => {
+                  thumbRefs.current[index] = el;
+                }}
+                type="button"
+                onClick={() => carouselApi?.scrollTo(index)}
+                aria-label={`Xem ${isVideo ? "video" : "ảnh"} ${index + 1}`}
+                aria-current={isActive ? "true" : undefined}
+                className={`relative h-16 w-24 shrink-0 cursor-pointer overflow-hidden rounded-lg bg-muted transition-[opacity,box-shadow] duration-200 ${focusRing} focus-visible:ring-offset-background ${isActive ? "opacity-100 ring-2 ring-primary ring-offset-2 ring-offset-background" : "opacity-60 hover:opacity-100"}`}
+              >
+                {isVideo ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-950">
+                    <video
+                      src={`${item.streamUrl || item.url}#t=0.5`}
+                      preload="metadata"
+                      muted
+                      playsInline
+                      className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                    />
+                    <Play className="relative h-5 w-5 fill-white text-white" aria-hidden="true" />
+                  </div>
+                ) : (
+                  <GalleryImage src={item.url} alt="" sizes="96px" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <MediaLightboxModal
-        isOpen={selectedIndex !== null}
-        onClose={handleClose}
+        isOpen={lightboxIndex !== null}
+        onClose={() => setLightboxIndex(null)}
         mediaItems={mediaItems}
-        initialIndex={selectedIndex ?? 0}
+        initialIndex={lightboxIndex ?? 0}
         title={title}
         alwaysShowThumbnails={false}
+        onIndexChange={handleLightboxIndex}
       />
     </section>
   );

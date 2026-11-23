@@ -1,114 +1,31 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
+import Breadcrumb from "@/components/common/Breadcrumb";
+import { BreadcrumbTitleProvider, useBreadcrumbTitleValue } from "@/components/common/BreadcrumbTitle";
+import { buildDashboardTrail } from "./dashboard-breadcrumb";
 import Header from "@/components/layout/Header";
 import DashboardSidebar from "./DashboardSidebar";
-
-interface BreadcrumbItem {
-  parent?: { title: string; path?: string };
-  title: string;
-}
-
-const BREADCRUMB_MAP: Record<string, BreadcrumbItem> = {
-  "/dashboard": { title: "Bảng điều khiển" },
-  "/dashboard/landlord": {
-    parent: { title: "Bảng điều khiển", path: "/dashboard/landlord" },
-    title: "Dashboard chủ nhà",
-  },
-  "/dashboard/tenant": {
-    parent: { title: "Bảng điều khiển", path: "/dashboard/tenant" },
-    title: "Dashboard người thuê",
-  },
-  "/dashboard/analytics": {
-    parent: { title: "Bảng điều khiển", path: "/dashboard/landlord" },
-    title: "Phân tích & Báo cáo",
-  },
-  "/dashboard/customers": {
-    parent: { title: "Quản lý", path: "/dashboard/properties" },
-    title: "Khách hàng",
-  },
-  "/dashboard/properties": {
-    parent: { title: "Quản lý", path: "/dashboard/properties" },
-    title: "Tin đăng",
-  },
-  "/dashboard/membership": {
-    parent: { title: "Quản lý", path: "/dashboard/membership" },
-    title: "Gói hội viên & Lượt đăng",
-  },
-  "/dashboard/membership/return": {
-    parent: { title: "Gói hội viên", path: "/dashboard/membership" },
-    title: "Kết quả thanh toán gói hội viên",
-  },
-  "/dashboard/viewing-schedules": {
-    parent: { title: "Quản lý", path: "/dashboard/viewing-schedules" },
-    title: "Lịch xem nhà",
-  },
-  "/dashboard/viewing-schedules/my-bookings": {
-    parent: { title: "Thuê nhà", path: "/dashboard/viewing-schedules/my-bookings" },
-    title: "Lịch đi xem",
-  },
-  "/dashboard/rental-requests": {
-    parent: { title: "Quản lý", path: "/dashboard/rental-requests" },
-    title: "Yêu cầu thuê",
-  },
-  "/dashboard/rental-requests/my-requests": {
-    parent: { title: "Thuê nhà", path: "/dashboard/rental-requests/my-requests" },
-    title: "Yêu cầu đã gửi",
-  },
-  "/dashboard/contracts": {
-    title: "Hợp đồng",
-  },
-  "/dashboard/landlord/contracts": {
-    parent: { title: "Quản lý", path: "/dashboard/landlord" },
-    title: "Hợp đồng cho thuê",
-  },
-  "/dashboard/tenant/contracts": {
-    parent: { title: "Thuê nhà", path: "/dashboard/tenant" },
-    title: "Hợp đồng đi thuê",
-  },
-  "/dashboard/invoices": {
-    title: "Hóa đơn",
-  },
-  "/dashboard/deposit": {
-    parent: { title: "Tài chính", path: "/dashboard/deposit" },
-    title: "Nạp tiền",
-  },
-  "/dashboard/withdraw": {
-    parent: { title: "Tài chính", path: "/dashboard/withdraw" },
-    title: "Rút tiền",
-  },
-  "/dashboard/transactions": {
-    parent: { title: "Tài chính", path: "/dashboard/transactions" },
-    title: "Lịch sử giao dịch",
-  },
-  "/dashboard/payments": {
-    parent: { title: "Tài chính", path: "/dashboard/payments" },
-    title: "Thanh toán",
-  },
-};
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  return (
+    <BreadcrumbTitleProvider>
+      <DashboardFrame>{children}</DashboardFrame>
+    </BreadcrumbTitleProvider>
+  );
+}
+
+function DashboardFrame({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-
-  const currentBreadcrumb =
-    BREADCRUMB_MAP[pathname] ||
-    (pathname.match(/^\/dashboard\/(landlord|tenant)\/contracts\/[^/]+$/)
-      ? {
-          parent: { title: pathname.startsWith("/dashboard/landlord") ? "Hợp đồng cho thuê" : "Hợp đồng đi thuê", path: pathname.startsWith("/dashboard/landlord") ? "/dashboard/landlord/contracts" : "/dashboard/tenant/contracts" },
-          title: "Chi tiết hợp đồng",
-        }
-      : pathname.match(/^\/dashboard\/invoices\/[^/]+$/)
-      ? { parent: { title: "Hóa đơn", path: "/dashboard/invoices" }, title: "Chi tiết hóa đơn" }
-      : { title: "Bảng điều khiển" });
+  const breadcrumbTitle = useBreadcrumbTitleValue();
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col transition-colors">
@@ -136,32 +53,7 @@ export default function DashboardLayout({
           <div className="flex-1 p-4 sm:p-6 lg:p-8 bg-slate-50/50 dark:bg-background overflow-x-hidden space-y-4">
             <button type="button" aria-expanded={mobileOpen} onClick={() => { setCollapsed(false); setMobileOpen(true); }} className="inline-flex h-10 items-center gap-2 rounded-xl border bg-card px-3 text-sm font-semibold md:hidden"><Menu className="size-4" />Menu quản lý</button>
             {/* Dynamic Breadcrumbs */}
-            <nav className="flex items-center gap-2 text-xs font-semibold select-none">
-              {currentBreadcrumb.parent ? (
-                <>
-                  {currentBreadcrumb.parent.path ? (
-                    <Link
-                      href={currentBreadcrumb.parent.path}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {currentBreadcrumb.parent.title}
-                    </Link>
-                  ) : (
-                    <span className="text-muted-foreground">
-                      {currentBreadcrumb.parent.title}
-                    </span>
-                  )}
-                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/60" />
-                  <span className="text-foreground font-bold">
-                    {currentBreadcrumb.title}
-                  </span>
-                </>
-              ) : (
-                <span className="text-foreground font-bold">
-                  {currentBreadcrumb.title}
-                </span>
-              )}
-            </nav>
+            <Breadcrumb items={buildDashboardTrail(pathname, breadcrumbTitle)} />
 
             {/* Page Body */}
             <main className="min-h-[70vh]">{children}</main>

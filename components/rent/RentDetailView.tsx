@@ -131,14 +131,10 @@ function DetailMetric({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
-        <Icon className="w-5 h-5" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs text-muted-foreground truncate">{label}</p>
-        <p className="font-heading text-base font-semibold text-foreground truncate">{value}</p>
-      </div>
+    <div className="flex min-w-0 flex-col items-center gap-1 rounded-xl bg-muted/40 px-2 py-3 text-center">
+      <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
+      <p className="font-heading text-sm font-semibold text-foreground break-words">{value}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -295,22 +291,26 @@ export default function RentDetailView({
       {/* Optional Alert Banner (e.g. Rejection reason, status reason) */}
       {alertBanner}
 
-      {/* Media Gallery (Adaptive non-blank grid + Lightbox + S3 Private Video) */}
-      <MediaGallery
-        title={property.title}
-        mediaItems={
-          property.mediaItems && property.mediaItems.length > 0
-            ? property.mediaItems
-            : property.images.map((img) => ({ type: "image", url: img }))
-        }
-      />
+      {/* Top grid: gallery | overview + actions | secondary card */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="min-w-0 lg:col-span-7 lg:row-start-1">
+          <MediaGallery
+            title={property.title}
+            mediaItems={
+              property.mediaItems && property.mediaItems.length > 0
+                ? property.mediaItems
+                : property.images.map((img) => ({ type: "image", url: img }))
+            }
+          />
+        </div>
 
-      {/* Main Details & Sidebar Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6 lg:gap-10">
-        {/* Left Column: Property Specs & Details */}
-        <div className="min-w-0 space-y-6">
+        {/* Right column: overview card (+ actions) */}
+        <div className="min-w-0 space-y-4 lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:row-span-2">
           {/* Overview */}
-          <section className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-xs">
+          <section
+            id={showVisitorCta ? "listing-contact" : undefined}
+            className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-xs scroll-mt-28"
+          >
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs font-semibold text-foreground">
                 {property.categoryLabel}
@@ -329,11 +329,11 @@ export default function RentDetailView({
               )}
             </div>
 
-            <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight leading-tight text-balance mb-3">
+            <h1 className="font-heading text-xl sm:text-2xl font-bold tracking-tight leading-snug text-balance">
               {property.title}
             </h1>
 
-            <div className="flex items-start gap-2 text-sm text-muted-foreground">
+            <div className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
               <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
               <span className="leading-relaxed break-words">{property.location}</span>
             </div>
@@ -375,7 +375,7 @@ export default function RentDetailView({
             </div>
 
             {/* Quick Metrics */}
-            <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-4 border-t border-border pt-5">
+            <div className="mt-5 grid grid-cols-3 gap-2">
               <DetailMetric icon={Maximize2} label="Diện tích" value={`${property.areaM2} m²`} />
               {showBedroomMetric ? (
                 <DetailMetric icon={BedDouble} label="Phòng ngủ" value={`${property.beds} PN`} />
@@ -408,223 +408,8 @@ export default function RentDetailView({
                 </span>
               ))}
             </div>}
-          </section>
-
-          {/* Categorized Detail Sections */}
-          {detailSections.map((section, idx) => (
-            <SectionCard key={idx} title={section.title} icon={Layers}>
-              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
-                {section.items.map((item, itemIdx) => (
-                  <DetailValue key={itemIdx} label={item.label} value={item.value} />
-                ))}
-              </dl>
-            </SectionCard>
-          ))}
-
-          <ListingPoliciesCard rows={Array.isArray(property.details?.policies) ? property.details.policies as ListingPolicyValue[] : undefined} />
-
-          {/* Amenities */}
-          {amenities.length > 0 && (
-            <SectionCard title="Tiện ích tòa nhà & dịch vụ" icon={CheckCircle2}>
-              <div className="flex flex-wrap gap-2">
-                {amenities.map((item, idx) => (
-                  <span key={idx} className={chipClass}>
-                    <CheckCircle2 className="w-4 h-4 text-primary" />
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </SectionCard>
-          )}
-
-          {/* Trang thiết bị / Nội thất bàn giao */}
-          {rawFurnishings.length > 0 ? (
-            <SectionCard title="Trang thiết bị / Nội thất bàn giao" icon={Home}>
-              <div className="overflow-x-auto rounded-xl border border-border">
-                <table className="w-full min-w-105 border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-muted/40 text-left font-semibold text-muted-foreground">
-                      <th scope="col" className="w-12 px-3 py-2.5">STT</th>
-                      <th scope="col" className="px-3 py-2.5">Tên tài sản / Trang thiết bị</th>
-                      <th scope="col" className="w-24 px-3 py-2.5">Số lượng</th>
-                      <th scope="col" className="px-3 py-2.5">Hiện trạng bàn giao</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rawFurnishings.map((item, idx) => (
-                      <tr key={idx} className="border-t border-border/60 hover:bg-muted/30">
-                        <td className="px-3 py-2.5 text-muted-foreground">{item.index ?? idx + 1}</td>
-                        <td className="px-3 py-2.5 font-medium text-foreground">{item.assetName}</td>
-                        <td className="px-3 py-2.5 text-foreground">{item.quantity ?? 1}</td>
-                        <td className="px-3 py-2.5 text-muted-foreground">
-                          {item.conditionText || item.handoverCondition || "Chưa ghi nhận"}
-                          {!item.conditionText && item.conditionNote ? ` (${item.conditionNote})` : ""}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </SectionCard>
-          ) : roomFeatures.length > 0 ? (
-            <SectionCard title="Trang thiết bị / Nội thất bàn giao" icon={Home}>
-              <div className="flex flex-wrap gap-2">
-                {roomFeatures.map((item, idx) => (
-                  <span key={idx} className={chipClass}>
-                    <CheckCircle2 className="w-4 h-4 text-primary" />
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </SectionCard>
-          ) : ["house", "apartment", "room"].includes(property.category) ? (
-            <SectionCard title="Trang thiết bị / Nội thất bàn giao" icon={Home}>
-              <p className="flex items-start gap-2 rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-                <Info className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>
-                  {property.details?.furnishingStatus === "UNFURNISHED"
-                    ? "Không có nội thất bàn giao kèm theo. Bài đăng được chủ nhà khai báo là không nội thất."
-                    : "Chủ nhà chưa cung cấp danh sách nội thất bàn giao. Vui lòng xác nhận khi xem nhà."}
-                </span>
-              </p>
-            </SectionCard>
-          ) : null}
-
-          {/* Viewing Schedule */}
-          {(viewingDays.length > 0 || viewingSlots.length > 0) && (
-            <SectionCard title="Lịch hẹn xem nhà" icon={Calendar}>
-              <div className="space-y-4">
-                {viewingDays.length > 0 && (
-                  <div>
-                    <span className="block mb-2 text-sm font-medium text-muted-foreground">Ngày tiếp khách trong tuần</span>
-                    <div className="flex flex-wrap gap-2">
-                      {viewingDays.map((d) => (
-                        <span key={d} className="rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium text-foreground">
-                          {VIEWING_DAY_LABELS[d] || d}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {viewingSlots.length > 0 && (
-                  <div>
-                    <span className="block mb-2 text-sm font-medium text-muted-foreground">Khung giờ tiếp khách</span>
-                    <div className="flex flex-wrap gap-2">
-                      {viewingSlots.map((s) => (
-                        <span key={s} className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
-                          {VIEWING_SLOT_LABELS[s] || s}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </SectionCard>
-          )}
-
-          {/* Description */}
-          {property.description && (
-            <SectionCard title="Mô tả chi tiết" icon={FileText}>
-              <div
-                className={`max-w-prose text-[15px] leading-7 text-foreground whitespace-pre-line ${
-                  property.description.length > 600 && !descExpanded ? "line-clamp-[10]" : ""
-                }`}
-              >
-                {property.description}
-              </div>
-              {property.description.length > 600 && (
-                <button
-                  type="button"
-                  aria-expanded={descExpanded}
-                  onClick={() => setDescExpanded((v) => !v)}
-                  className={`mt-3 rounded-md text-sm font-semibold text-primary hover:underline ${focusRing}`}
-                >
-                  {descExpanded ? "Thu gọn" : "Xem thêm"}
-                </button>
-              )}
-            </SectionCard>
-          )}
-
-          <NearbyPlacesPanel listingId={property.id}
-            latitude={listingAddress?.latitude}
-            longitude={listingAddress?.longitude} />
-        </div>
-
-        {/* Right Column: Landlord Card & Action Sidebar */}
-        <aside className="min-w-0">
-          <div className="space-y-4 lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto no-scrollbar">
-          {isOwner || !showLandlordContact ? (
-            /* Khi là bài đăng của bản thân: Bỏ card liên hệ, hiện thông tin chính chủ & nút quản lý */
-            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-xs space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="shrink-0">
-                  <UserAvatar
-                    src={property.landlord.avatar}
-                    name={property.landlord.name}
-                    sizeClassName="w-12 h-12 text-base font-bold"
-                  />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-heading font-bold text-foreground truncate">
-                    {property.landlord.name}
-                  </p>
-                  <p className="text-xs font-semibold text-primary">Chính chủ (Bài đăng của bạn)</p>
-                </div>
-              </div>
-
-              <div className="rounded-xl bg-card border border-border p-3.5 text-xs text-muted-foreground space-y-1">
-                <p className="text-sm font-bold text-foreground">Bạn đang xem bài đăng của chính mình</p>
-                <p className="text-xs leading-relaxed">
-                  Các nút liên hệ, đặt lịch xem nhà sẽ tự động ẩn với bạn và chỉ hiển thị đối với khách tìm thuê.
-                </p>
-              </div>
-
-              {sidebarActions}
-
-              <div className="pt-2 space-y-2">
-                {String(property.status || "").trim().toUpperCase() !== "RENTED_EXTERNALLY" &&
-                  String(property.status || "").trim().toUpperCase() !== "VIOLATION" && (
-                  <Link
-                    href={`/dashboard/properties/new?id=${property.id}`}
-                    className={`w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all active:scale-[0.98] ${focusRing}`}
-                  >
-                    <Edit className="w-4 h-4" />
-                    <span>Chỉnh sửa bài đăng</span>
-                  </Link>
-                )}
-                {String(property.status || "").trim().toUpperCase() !== "VIOLATION" && (
-                  <Link
-                    href={`/dashboard/properties/new?duplicateFrom=${property.id}`}
-                    className={`w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-sm font-bold text-foreground hover:bg-muted transition-all active:scale-[0.98] ${focusRing}`}
-                  >
-                    <Copy className="w-4 h-4" />
-                    <span>Nhân bản bài đăng</span>
-                  </Link>
-                )}
-                <Link
-                  href="/dashboard/properties"
-                  className={`w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-sm font-bold text-foreground hover:bg-muted transition-all active:scale-[0.98] ${focusRing}`}
-                >
-                  <Layers className="w-4 h-4" />
-                  <span>Quản lý tin đăng</span>
-                </Link>
-              </div>
-            </div>
-          ) : (
-            /* Khi là bài đăng của người khác */
-            <div className="space-y-4">
-              {/* Card 1: Bạn quan tâm đến căn này? */}
-              <div id="listing-contact" className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-3 scroll-mt-28">
-                <div className="pb-3 border-b border-border">
-                  <p className="font-heading text-2xl font-bold text-primary tabular-nums">
-                    {formatPrice(property.priceMillion)}
-                    <span className="ml-1 text-sm font-normal text-muted-foreground">/tháng</span>
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {property.areaM2} m²
-                    {showBedroomMetric ? ` · ${property.beds} PN` : ""}
-                  </p>
-                </div>
+            {showVisitorCta && (
+              <div className="mt-5 border-t border-border pt-5 space-y-3">
                 <h3 className="font-heading font-bold text-base text-foreground">
                   Bạn quan tâm đến căn này?
                 </h3>
@@ -804,7 +589,69 @@ export default function RentDetailView({
                   </button>
                 </div>
               </div>
+            )}
+          </section>
+          {!showVisitorCta && (
+            /* Khi là bài đăng của bản thân: Bỏ card liên hệ, hiện thông tin chính chủ & nút quản lý */
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-xs space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="shrink-0">
+                  <UserAvatar
+                    src={property.landlord.avatar}
+                    name={property.landlord.name}
+                    sizeClassName="w-12 h-12 text-base font-bold"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-heading font-bold text-foreground truncate">
+                    {property.landlord.name}
+                  </p>
+                  <p className="text-xs font-semibold text-primary">Chính chủ (Bài đăng của bạn)</p>
+                </div>
+              </div>
 
+              <div className="rounded-xl bg-card border border-border p-3.5 text-xs text-muted-foreground space-y-1">
+                <p className="text-sm font-bold text-foreground">Bạn đang xem bài đăng của chính mình</p>
+                <p className="text-xs leading-relaxed">
+                  Các nút liên hệ, đặt lịch xem nhà sẽ tự động ẩn với bạn và chỉ hiển thị đối với khách tìm thuê.
+                </p>
+              </div>
+
+              {sidebarActions}
+
+              <div className="pt-2 space-y-2">
+                {String(property.status || "").trim().toUpperCase() !== "RENTED_EXTERNALLY" &&
+                  String(property.status || "").trim().toUpperCase() !== "VIOLATION" && (
+                  <Link
+                    href={`/dashboard/properties/new?id=${property.id}`}
+                    className={`w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all active:scale-[0.98] ${focusRing}`}
+                  >
+                    <Edit className="w-4 h-4" />
+                    <span>Chỉnh sửa bài đăng</span>
+                  </Link>
+                )}
+                {String(property.status || "").trim().toUpperCase() !== "VIOLATION" && (
+                  <Link
+                    href={`/dashboard/properties/new?duplicateFrom=${property.id}`}
+                    className={`w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-sm font-bold text-foreground hover:bg-muted transition-all active:scale-[0.98] ${focusRing}`}
+                  >
+                    <Copy className="w-4 h-4" />
+                    <span>Nhân bản bài đăng</span>
+                  </Link>
+                )}
+                <Link
+                  href="/dashboard/properties"
+                  className={`w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-sm font-bold text-foreground hover:bg-muted transition-all active:scale-[0.98] ${focusRing}`}
+                >
+                  <Layers className="w-4 h-4" />
+                  <span>Quản lý tin đăng</span>
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+        {showVisitorCta && (
+          <div className="min-w-0 lg:col-span-7 lg:col-start-1 lg:row-start-2">
               {/* Card 2: Thẻ thông tin chủ nhà & Liên hệ nhanh */}
               <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-4">
                 {/* Profile Header */}
@@ -893,10 +740,148 @@ export default function RentDetailView({
                   </p>
                 </div>
               </div>
-            </div>
-          )}
           </div>
-        </aside>
+        )}
+      </div>
+      <div className="space-y-6">
+          {/* Categorized Detail Sections */}
+          {detailSections.map((section, idx) => (
+            <SectionCard key={idx} title={section.title} icon={Layers}>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
+                {section.items.map((item, itemIdx) => (
+                  <DetailValue key={itemIdx} label={item.label} value={item.value} />
+                ))}
+              </dl>
+            </SectionCard>
+          ))}
+
+          <ListingPoliciesCard rows={Array.isArray(property.details?.policies) ? property.details.policies as ListingPolicyValue[] : undefined} />
+
+          {/* Amenities */}
+          {amenities.length > 0 && (
+            <SectionCard title="Tiện ích tòa nhà & dịch vụ" icon={CheckCircle2}>
+              <div className="flex flex-wrap gap-2">
+                {amenities.map((item, idx) => (
+                  <span key={idx} className={chipClass}>
+                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </SectionCard>
+          )}
+
+          {/* Trang thiết bị / Nội thất bàn giao */}
+          {rawFurnishings.length > 0 ? (
+            <SectionCard title="Trang thiết bị / Nội thất bàn giao" icon={Home}>
+              <div className="overflow-x-auto rounded-xl border border-border">
+                <table className="w-full min-w-105 border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-muted/40 text-left font-semibold text-muted-foreground">
+                      <th scope="col" className="w-12 px-3 py-2.5">STT</th>
+                      <th scope="col" className="px-3 py-2.5">Tên tài sản / Trang thiết bị</th>
+                      <th scope="col" className="w-24 px-3 py-2.5">Số lượng</th>
+                      <th scope="col" className="px-3 py-2.5">Hiện trạng bàn giao</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rawFurnishings.map((item, idx) => (
+                      <tr key={idx} className="border-t border-border/60 hover:bg-muted/30">
+                        <td className="px-3 py-2.5 text-muted-foreground">{item.index ?? idx + 1}</td>
+                        <td className="px-3 py-2.5 font-medium text-foreground">{item.assetName}</td>
+                        <td className="px-3 py-2.5 text-foreground">{item.quantity ?? 1}</td>
+                        <td className="px-3 py-2.5 text-muted-foreground">
+                          {item.conditionText || item.handoverCondition || "Chưa ghi nhận"}
+                          {!item.conditionText && item.conditionNote ? ` (${item.conditionNote})` : ""}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SectionCard>
+          ) : roomFeatures.length > 0 ? (
+            <SectionCard title="Trang thiết bị / Nội thất bàn giao" icon={Home}>
+              <div className="flex flex-wrap gap-2">
+                {roomFeatures.map((item, idx) => (
+                  <span key={idx} className={chipClass}>
+                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </SectionCard>
+          ) : ["house", "apartment", "room"].includes(property.category) ? (
+            <SectionCard title="Trang thiết bị / Nội thất bàn giao" icon={Home}>
+              <p className="flex items-start gap-2 rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+                <Info className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>
+                  {property.details?.furnishingStatus === "UNFURNISHED"
+                    ? "Không có nội thất bàn giao kèm theo. Bài đăng được chủ nhà khai báo là không nội thất."
+                    : "Chủ nhà chưa cung cấp danh sách nội thất bàn giao. Vui lòng xác nhận khi xem nhà."}
+                </span>
+              </p>
+            </SectionCard>
+          ) : null}
+
+          {/* Viewing Schedule */}
+          {(viewingDays.length > 0 || viewingSlots.length > 0) && (
+            <SectionCard title="Lịch hẹn xem nhà" icon={Calendar}>
+              <div className="space-y-4">
+                {viewingDays.length > 0 && (
+                  <div>
+                    <span className="block mb-2 text-sm font-medium text-muted-foreground">Ngày tiếp khách trong tuần</span>
+                    <div className="flex flex-wrap gap-2">
+                      {viewingDays.map((d) => (
+                        <span key={d} className="rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium text-foreground">
+                          {VIEWING_DAY_LABELS[d] || d}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {viewingSlots.length > 0 && (
+                  <div>
+                    <span className="block mb-2 text-sm font-medium text-muted-foreground">Khung giờ tiếp khách</span>
+                    <div className="flex flex-wrap gap-2">
+                      {viewingSlots.map((s) => (
+                        <span key={s} className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
+                          {VIEWING_SLOT_LABELS[s] || s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </SectionCard>
+          )}
+
+          {/* Description */}
+          {property.description && (
+            <SectionCard title="Mô tả chi tiết" icon={FileText}>
+              <div
+                className={`max-w-prose text-[15px] leading-7 text-foreground whitespace-pre-line ${
+                  property.description.length > 600 && !descExpanded ? "line-clamp-[10]" : ""
+                }`}
+              >
+                {property.description}
+              </div>
+              {property.description.length > 600 && (
+                <button
+                  type="button"
+                  aria-expanded={descExpanded}
+                  onClick={() => setDescExpanded((v) => !v)}
+                  className={`mt-3 rounded-md text-sm font-semibold text-primary hover:underline ${focusRing}`}
+                >
+                  {descExpanded ? "Thu gọn" : "Xem thêm"}
+                </button>
+              )}
+            </SectionCard>
+          )}
+
+          <NearbyPlacesPanel listingId={property.id}
+            latitude={listingAddress?.latitude}
+            longitude={listingAddress?.longitude} />
       </div>
 
       {showVisitorCta && (

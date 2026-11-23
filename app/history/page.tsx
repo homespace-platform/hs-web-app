@@ -2,6 +2,7 @@
 
 import React, { useCallback, useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
+import Breadcrumb from "@/components/common/Breadcrumb";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import RentCollageCard from "@/components/rent/RentCollageCard";
@@ -19,7 +20,6 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Home,
   Trash2,
   Sparkles,
   ArrowUpDown,
@@ -162,8 +162,14 @@ export default function HistoryPage() {
     return (
       <div className="min-h-screen flex flex-col bg-background text-foreground">
         <Header />
-        <main className="flex-1 pt-32 pb-16 flex items-center justify-center">
-          <div className="max-w-md w-full mx-auto px-4 text-center space-y-4">
+        <main className="flex-1 pt-24 pb-16 flex flex-col px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto w-full">
+            <Breadcrumb
+              items={[{ label: "Trang chủ", href: "/" }, { label: "Lịch sử xem tin" }]}
+              className="mb-6"
+            />
+          </div>
+          <div className="max-w-md w-full mx-auto my-auto text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
               <History className="w-8 h-8" />
             </div>
@@ -199,17 +205,10 @@ export default function HistoryPage() {
           className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full"
         >
           {/* Breadcrumb Navigation */}
-          <nav className="flex items-center gap-2 text-xs text-muted-foreground mb-6">
-            <Link
-              href="/"
-              className="hover:text-primary transition-colors flex items-center gap-1"
-            >
-              <Home className="w-3.5 h-3.5" />
-              <span>Trang chủ</span>
-            </Link>
-            <span>/</span>
-            <span className="font-semibold text-foreground">Lịch sử xem tin</span>
-          </nav>
+          <Breadcrumb
+            items={[{ label: "Trang chủ", href: "/" }, { label: "Lịch sử xem tin" }]}
+            className="mb-6"
+          />
 
           {/* Page Title & Stats */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-border/80 mb-8">

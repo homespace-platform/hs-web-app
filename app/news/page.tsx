@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useRef } from "react";
-import Link from "next/link";
+import Breadcrumb from "@/components/common/Breadcrumb";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import NewsCard from "@/components/news/NewsCard";
@@ -12,7 +12,6 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Home,
   ArrowRight,
 } from "lucide-react";
 import { getVisiblePages } from "@/lib/pagination";
@@ -98,17 +97,10 @@ export default function NewsPage() {
       <main className="flex-1 pt-24 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           {/* Breadcrumb Navigation */}
-          <nav className="flex items-center gap-2 text-xs text-muted-foreground mb-6">
-            <Link
-              href="/"
-              className="hover:text-primary transition-colors flex items-center gap-1"
-            >
-              <Home className="w-3.5 h-3.5" />
-              <span>Trang chủ</span>
-            </Link>
-            <span>/</span>
-            <span className="font-semibold text-foreground">Tin tức</span>
-          </nav>
+          <Breadcrumb
+            items={[{ label: "Trang chủ", href: "/" }, { label: "Tin tức" }]}
+            className="mb-6"
+          />
 
           {/* Page Title & Stats (Đồng bộ chuẩn đẹp không dùng icon heading) */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-border/80 mb-8">

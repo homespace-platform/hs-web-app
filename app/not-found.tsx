@@ -4,6 +4,7 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
+import Breadcrumb from "@/components/common/Breadcrumb";
 import { Home, RotateCcw } from "lucide-react";
 
 export default function NotFound() {
@@ -17,8 +18,11 @@ export default function NotFound() {
     <div className="h-screen h-[100dvh] bg-background flex flex-col justify-between overflow-hidden select-none">
       <Header />
 
-      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 pt-16 pb-4">
-        <div className="max-w-xl w-full text-center flex flex-col items-center animate-in fade-in-50 zoom-in-95 duration-300">
+      <main className="flex-1 flex flex-col px-4 sm:px-6 lg:px-8 pt-24 pb-4">
+        <div className="max-w-7xl mx-auto w-full">
+          <Breadcrumb items={[{ label: "Trang chủ", href: "/" }, { label: "Không tìm thấy trang" }]} />
+        </div>
+        <div className="max-w-xl w-full mx-auto my-auto text-center flex flex-col items-center animate-in fade-in-50 zoom-in-95 duration-300">
           {/* 1. Fun Animated 404 GIF Container (Khung chữ nhật bo tròn ngang theo tỷ lệ ảnh) */}
           <div className="relative mb-6 w-full max-w-md sm:max-w-lg">
             <div className="w-full h-44 sm:h-56 md:h-60 rounded-3xl overflow-hidden border border-border bg-white shadow-2xl p-2 sm:p-2.5 hover:scale-[1.02] transition-transform duration-300">

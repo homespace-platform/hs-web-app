@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
+import Breadcrumb, { type BreadcrumbItem } from "@/components/common/Breadcrumb";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import RentDetailView from "@/components/rent/RentDetailView";
@@ -18,6 +19,11 @@ import { RENTAL_HOLD_DURATION_LABEL } from "@/config/rental-hold.config";
 
 import { getListingStatusConfig } from "@/config/listing-status.config";
 import { fetchListingBySlugForViewer, fetchListingForViewer } from "@/lib/listing-detail-access";
+
+const LIST_TRAIL: BreadcrumbItem[] = [
+  { label: "Trang chủ", href: "/" },
+  { label: "Nhà cho thuê", href: "/rent" },
+];
 
 type Props = {
   /** Bare slug (`.html` stripped) or legacy listing id, as resolved by the server page. */
@@ -103,8 +109,11 @@ export default function RentDetailClient({ id, mode, initialListing = null }: Pr
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col">
         <Header />
-        <main className="flex-1 pt-32 pb-16 flex items-center justify-center">
-          <div className="text-center space-y-3">
+        <main className="flex-1 pt-24 pb-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <Breadcrumb items={LIST_TRAIL} />
+          </div>
+          <div className="text-center space-y-3 pt-16">
             <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
             <p className="text-sm font-medium text-muted-foreground">Đang tải thông tin bài đăng...</p>
           </div>
@@ -118,8 +127,11 @@ export default function RentDetailClient({ id, mode, initialListing = null }: Pr
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col">
         <Header />
-        <main className="flex-1 flex items-center justify-center px-4 py-20">
-          <div className="max-w-md w-full text-center space-y-5 rounded-3xl border border-border bg-card p-8 sm:p-10 shadow-sm animate-in fade-in zoom-in-95 duration-300">
+        <main className="flex-1 pt-24 pb-16 px-4">
+          <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <Breadcrumb items={LIST_TRAIL} />
+          </div>
+          <div className="mx-auto mt-16 max-w-md w-full text-center space-y-5 rounded-3xl border border-border bg-card p-8 sm:p-10 shadow-sm animate-in fade-in zoom-in-95 duration-300">
             <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center text-muted-foreground/60 shadow-inner">
               <Building className="w-8 h-8" />
             </div>
@@ -157,7 +169,9 @@ export default function RentDetailClient({ id, mode, initialListing = null }: Pr
       <Header />
 
       <main className="flex-1 pt-24 pb-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Not inside space-y-12 with -mb-6: in Tailwind v4 that pulled the gallery over the trail. */}
+          <Breadcrumb items={[...LIST_TRAIL, { label: property.title }]} className="mb-6" />
           {/* Reusable Core Detail View */}
           <RentDetailView
             key={property.id}

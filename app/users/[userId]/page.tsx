@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, CalendarDays, Home, Loader2, MessageCircle } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import Breadcrumb from "@/components/common/Breadcrumb";
 import UserAvatar from "@/components/common/UserAvatar";
 import IdentityBadge from "@/components/settings/IdentityBadge";
 import RentCollageCard from "@/components/rent/RentCollageCard";
@@ -53,8 +54,11 @@ export default function PublicUserProfilePage() {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <Header />
-        <main className="flex flex-1 items-center justify-center pt-24">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Đang tải" />
+        <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-16 pt-28 sm:px-6">
+          <Breadcrumb items={[{ label: "Trang chủ", href: "/" }, { label: "Người dùng" }]} className="mb-4" />
+          <div className="flex flex-1 items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Đang tải" />
+          </div>
         </main>
         <Footer />
       </div>
@@ -65,12 +69,15 @@ export default function PublicUserProfilePage() {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <Header />
-        <main className="flex flex-1 flex-col items-center justify-center gap-4 px-4 pt-24 text-center">
-          <Home className="h-10 w-10 text-muted-foreground" />
-          <h1 className="text-xl font-bold">Không tìm thấy người dùng</h1>
-          <Link href="/chat" className="text-sm font-semibold text-primary hover:underline">
-            Quay lại trò chuyện
-          </Link>
+        <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-16 pt-28 sm:px-6">
+          <Breadcrumb items={[{ label: "Trang chủ", href: "/" }, { label: "Người dùng" }]} className="mb-4" />
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+            <Home className="h-10 w-10 text-muted-foreground" />
+            <h1 className="text-xl font-bold">Không tìm thấy người dùng</h1>
+            <Link href="/chat" className="text-sm font-semibold text-primary hover:underline">
+              Quay lại trò chuyện
+            </Link>
+          </div>
         </main>
         <Footer />
       </div>
@@ -105,6 +112,10 @@ export default function PublicUserProfilePage() {
     <div className="flex min-h-screen flex-col bg-muted/20 text-foreground">
       <Header />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-28 sm:px-6">
+        <Breadcrumb
+          items={[{ label: "Trang chủ", href: "/" }, { label: fullName }]}
+          className="mb-4"
+        />
         <Link
           href="/chat"
           className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground"

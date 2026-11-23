@@ -3,6 +3,7 @@
 import React, { use, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import Breadcrumb from "@/components/common/Breadcrumb";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import NewsCard from "@/components/news/NewsCard";
@@ -14,7 +15,6 @@ import {
   Calendar,
   Eye,
   Clock,
-  Home,
   ArrowLeft,
   Share2,
   Check,
@@ -60,7 +60,20 @@ export default function NewsDetailClient({ params }: NewsDetailProps) {
     }
   };
 
-  if (!article) return <div className="min-h-screen bg-background"><Header /><main className="mx-auto max-w-4xl px-4 pt-32 text-center text-muted-foreground">Đang tải bài viết hoặc bài viết không tồn tại.</main></div>;
+  if (!article) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        <main className="mx-auto w-full max-w-4xl flex-1 px-4 pb-16 pt-24 sm:px-6 lg:px-8">
+          <Breadcrumb
+            items={[{ label: "Trang chủ", href: "/" }, { label: "Tin tức", href: "/news" }, { label: "Bài viết" }]}
+            className="mb-6"
+          />
+          <p className="pt-8 text-center text-muted-foreground">Đang tải bài viết hoặc bài viết không tồn tại.</p>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -69,23 +82,14 @@ export default function NewsDetailClient({ params }: NewsDetailProps) {
       <main className="flex-1 pt-24 pb-16">
         <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           {/* Breadcrumbs */}
-          <nav className="flex items-center gap-2 text-xs text-muted-foreground mb-6">
-            <Link
-              href="/"
-              className="hover:text-primary transition-colors flex items-center gap-1"
-            >
-              <Home className="w-3.5 h-3.5" />
-              <span>Trang chủ</span>
-            </Link>
-            <span>/</span>
-            <Link href="/news" className="hover:text-primary transition-colors">
-              Tin tức
-            </Link>
-            <span>/</span>
-            <span className="font-semibold text-foreground truncate max-w-[200px] sm:max-w-xs">
-              {article.title}
-            </span>
-          </nav>
+          <Breadcrumb
+            items={[
+              { label: "Trang chủ", href: "/" },
+              { label: "Tin tức", href: "/news" },
+              { label: article.title },
+            ]}
+            className="mb-6"
+          />
 
           {/* Back button */}
           <Link

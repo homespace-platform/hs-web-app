@@ -1,4 +1,5 @@
 import React from "react";
+import Breadcrumb from "@/components/common/Breadcrumb";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import MembershipPricingWorkspace from "@/components/membership/MembershipPricingWorkspace";
@@ -13,6 +14,10 @@ export default function PublicMembershipPage() {
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
       <main className="flex-1 pt-28 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+        <Breadcrumb
+          items={[{ label: "Trang chủ", href: "/" }, { label: "Gói hội viên" }]}
+          className="mb-6"
+        />
         <MembershipPricingWorkspace />
       </main>
       <Footer />

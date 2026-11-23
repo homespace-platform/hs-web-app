@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Breadcrumb from "@/components/common/Breadcrumb";
 import NotificationIcon from "@/components/notification/NotificationIcon";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -27,7 +28,6 @@ import { toast } from "sonner";
 import {
   Bell,
   CheckCheck,
-  Home,
   Trash2,
   Search,
   Loader2,
@@ -347,8 +347,14 @@ export default function NotificationsPage() {
     return (
       <div className="min-h-screen flex flex-col bg-background text-foreground">
         <Header />
-        <main className="flex-1 pt-24 pb-16 flex items-center justify-center px-4">
-          <div className="max-w-md w-full text-center space-y-5 rounded-2xl border border-border bg-card p-8 shadow-sm">
+        <main className="flex-1 pt-24 pb-16 flex flex-col px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto w-full">
+            <Breadcrumb
+              items={[{ label: "Trang chủ", href: "/" }, { label: "Thông báo" }]}
+              className="mb-6"
+            />
+          </div>
+          <div className="max-w-md w-full mx-auto my-auto text-center space-y-5 rounded-2xl border border-border bg-card p-8 shadow-sm">
             <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
               <Bell className="w-7 h-7 text-primary" />
             </div>
@@ -384,17 +390,10 @@ export default function NotificationsPage() {
           className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 w-full"
         >
           {/* Breadcrumb Navigation */}
-          <nav className="flex items-center gap-2 text-xs text-muted-foreground mb-6">
-            <Link
-              href="/"
-              className="hover:text-primary transition-colors flex items-center gap-1"
-            >
-              <Home className="w-3.5 h-3.5" />
-              <span>Trang chủ</span>
-            </Link>
-            <span>/</span>
-            <span className="font-semibold text-foreground">Thông báo</span>
-          </nav>
+          <Breadcrumb
+            items={[{ label: "Trang chủ", href: "/" }, { label: "Thông báo" }]}
+            className="mb-6"
+          />
 
           {/* Page Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border mb-6">

@@ -305,7 +305,7 @@ export default function RentDetailView({
         </div>
 
         {/* Right column: overview card (+ actions) */}
-        <div className="min-w-0 space-y-4 lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:row-span-2">
+        <div className="min-w-0 space-y-4 lg:col-span-5 lg:col-start-8 lg:row-start-1">
           {/* Overview */}
           <section
             id={showVisitorCta ? "listing-contact" : undefined}
@@ -649,10 +649,9 @@ export default function RentDetailView({
               </div>
             </div>
           )}
-        </div>
-        {showVisitorCta && (
-          <div className="min-w-0 lg:col-span-7 lg:col-start-1 lg:row-start-2">
-              {/* Card 2: Thẻ thông tin chủ nhà & Liên hệ nhanh */}
+          {showVisitorCta && (
+            <>
+              {/* Card 2: Thẻ thông tin chủ nhà & Liên hệ nhanh (dưới card CTA, cột phải) */}
               <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-4">
                 {/* Profile Header */}
                 <div className="flex items-center gap-3">
@@ -740,8 +739,9 @@ export default function RentDetailView({
                   </p>
                 </div>
               </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
       <div className="space-y-6">
           {/* Categorized Detail Sections */}

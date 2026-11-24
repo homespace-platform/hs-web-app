@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -527,15 +528,16 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-16 animate-in fade-in-50 duration-200">
       {/* Trusted Verification Banner */}
-      <div className="rounded-2xl border border-blue-200/80 bg-blue-50/70 dark:border-blue-900/40 dark:bg-blue-950/30 p-4 text-xs text-blue-950 dark:text-blue-200 flex items-start gap-3">
-        <ShieldCheck className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
-        <div className="space-y-0.5 leading-relaxed">
-          <p className="font-bold">Xác thực trạng thái đơn hàng từ máy chủ HomeSpace</p>
-          <p className="text-blue-900/90 dark:text-blue-200/90">
-            Hệ thống không bao giờ xác nhận thanh toán chỉ dựa vào tham số trên thanh địa chỉ (URL). Trạng thái dưới đây được truy vấn trực tiếp từ máy chủ đơn hàng của HomeSpace sau khi đối soát kết quả thanh toán với {providerLabel}.
-          </p>
-        </div>
-      </div>
+      <PolicyNotice
+        tone="info"
+        icon={<ShieldCheck className="h-4 w-4" />}
+        title="Xác thực trạng thái đơn hàng từ máy chủ HomeSpace"
+        summary="Xác thực trạng thái đơn hàng từ máy chủ HomeSpace"
+      >
+        <p>
+          Hệ thống không bao giờ xác nhận thanh toán chỉ dựa vào tham số trên thanh địa chỉ (URL). Trạng thái dưới đây được truy vấn trực tiếp từ máy chủ đơn hàng của HomeSpace sau khi đối soát kết quả thanh toán với {providerLabel}.
+        </p>
+      </PolicyNotice>
 
       {/* Main Result Card */}
       <div className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-sm space-y-6">

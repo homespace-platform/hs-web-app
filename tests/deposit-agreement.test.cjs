@@ -63,6 +63,7 @@ const panelModule={exports:{}};
 vm.runInThisContext(`(function(require,module,exports){${panelOutput}\n})`)(name=>{
   if(name==="react")return panelReact;
   if(name==="sonner")return {toast:{error(){}}};
+  if(name==="@/components/common/PolicyDialog")return { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null };
   if(name==="@/services/deposit-agreement.service")return {depositAgreementService:{}};
   if(name==="@/services/contract.service")return {contractService:{}};
   if(name==="@/lib/deposit-agreement-loader")return mod.exports;

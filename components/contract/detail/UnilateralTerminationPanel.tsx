@@ -6,7 +6,7 @@ import { monthlyInvoiceService } from "@/services/monthly-invoice.service";
 import type { MonthlyInvoice } from "@/types/monthly-invoice.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 
-import { InfoDisclosure } from "@/components/common/InfoDisclosure";
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 const dateTime = (value: string) => new Date(value).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
 const statusLabel = { NOTICE: "Đã thông báo — chờ 24 giờ", REVIEW_REQUESTED: "Đang chờ chủ nhà xử lý khiếu nại",
   REPLACED: "Đã đổi phương án", WITHDRAWN: "Chủ nhà đã rút quyết định", CANCELLED_PAID: "Đã rút vì thanh toán được xác nhận", ENDED: "Hợp đồng đã chấm dứt" };
@@ -50,14 +50,14 @@ export default function UnilateralTerminationPanel({ invoice, isLandlord, isTena
         <p>Người thuê xin {notice.requestedOption === "ROLLOVER" ? "cộng nợ sang kỳ sau" : `dời hạn ${notice.requestedDays} ngày`} lúc {dateTime(notice.requestedAt)}.</p>
         <p className="whitespace-pre-wrap break-words">{notice.requestReason}</p>
       </div>}
-      {notice.status === "REVIEW_REQUESTED" && <p className="text-xs">Đã khiếu nại đúng hạn nên tạm dừng tự chấm dứt, chờ chủ nhà quyết định. Chủ nhà từ chối thì hợp đồng chấm dứt ngay.</p>}
+      {notice.status === "REVIEW_REQUESTED" && <PolicyNotice tone="neutral" title="Khiếu nại đúng hạn" summary="Đã khiếu nại đúng hạn nên tạm dừng tự chấm dứt, chờ chủ nhà quyết định."><p>Đã khiếu nại đúng hạn nên tạm dừng tự chấm dứt, chờ chủ nhà quyết định. Chủ nhà từ chối thì hợp đồng chấm dứt ngay.</p></PolicyNotice>}
       {notice.decisionReason && <p className="whitespace-pre-wrap break-words text-xs">Kết quả: {notice.decisionReason}</p>}
       {notice.endedAt && <p className="text-xs">Chấm dứt lúc {dateTime(notice.endedAt)}. Công nợ còn phải thanh toán. {notice.handoverAt ? `Đã xác nhận bàn giao lúc ${dateTime(notice.handoverAt)}.` : "Chưa xác nhận bàn giao; tin đăng chưa được mở lại."}</p>}
     </div>}
     {isLandlord && canIssue && <div className="space-y-2">
-      <InfoDisclosure tone="warning" summary="Khách có 24 giờ để khiếu nại; nếu không, hợp đồng tự chấm dứt.">
+      <PolicyNotice tone="warning" title="Đơn phương chấm dứt hợp đồng" summary="Khách có 24 giờ để khiếu nại; nếu không, hợp đồng tự chấm dứt.">
         <p>Gửi thông báo cho người thuê trên hồ sơ. Khách có 24 giờ để khiếu nại xin cộng nợ hoặc dời hạn. Nếu không khiếu nại, hợp đồng tự chấm dứt; không tự coi là đã bàn giao phòng.</p>
-      </InfoDisclosure>
+      </PolicyNotice>
       <textarea aria-label="Lý do đơn phương chấm dứt" value={reason} maxLength={1000} onChange={e => setReason(e.target.value)} className="w-full rounded-lg border p-2 text-xs" placeholder="Lý do (10–1000 ký tự)" />
       <button type="button" disabled={busy || !noteValid(reason)} onClick={() => void perform(() => monthlyInvoiceService.issueUnilateralTermination(invoice.id, reason.trim()), "Gửi quyết định đơn phương? Hết 24 giờ không khiếu nại, hợp đồng sẽ chấm dứt; công nợ vẫn còn.")}
         className="rounded-lg bg-rose-700 px-3 py-2 text-xs text-white disabled:opacity-50">Thông báo đơn phương chấm dứt</button>

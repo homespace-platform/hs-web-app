@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import { useState } from "react";
 import axios from "axios";
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
@@ -60,9 +61,7 @@ function AccountOnboarding() {
           <h2 className="text-xl font-extrabold text-foreground sm:text-2xl">
             Chào mừng bạn đến với HomeSpace
           </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Vui lòng tạo mật khẩu để tiếp tục. Các thông tin khác bạn có thể cập nhật sau trong phần Cài đặt.
-          </p>
+          <PolicyNotice tone="neutral" title="Tạo mật khẩu" summary="Vui lòng tạo mật khẩu để tiếp tục."><p>Vui lòng tạo mật khẩu để tiếp tục. Các thông tin khác bạn có thể cập nhật sau trong phần Cài đặt.</p></PolicyNotice>
         </header>
         <PasswordStep error={error} onSubmit={finishPassword} />
       </div>
@@ -109,9 +108,7 @@ function PasswordStep({
   return (
     <form onSubmit={submit} className="space-y-4">
       {(localError || error) && <ErrorBox message={localError || error || ""} />}
-      <p className="rounded-xl bg-blue-50 p-3 text-xs leading-5 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
-        Tài khoản đăng nhập mạng xã hội chưa có mật khẩu. Hãy tạo mật khẩu để có thể đăng nhập bằng email, username hoặc số điện thoại.
-      </p>
+      <PolicyNotice tone="info" title="Tạo mật khẩu" summary="Tài khoản đăng nhập mạng xã hội chưa có mật khẩu."><p>Tài khoản đăng nhập mạng xã hội chưa có mật khẩu. Hãy tạo mật khẩu để có thể đăng nhập bằng email, username hoặc số điện thoại.</p></PolicyNotice>
       <PasswordInput
         label="Mật khẩu mới"
         value={password}

@@ -2,7 +2,7 @@
 const {test}=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),vm=require("node:vm"),ts=require("typescript"),React=require("react"),{renderToStaticMarkup}=require("react-dom/server");
 const source=fs.readFileSync(path.join(__dirname,"../components/payment/DepositLedgerSummary.tsx"),"utf8");
 const loaded={exports:{}};
-vm.runInThisContext(`(function(require,module,exports){${ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS}}).outputText}\n})`)(require,loaded,loaded.exports);
+vm.runInThisContext(`(function(require,module,exports){${ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS}}).outputText}\n})`)(name=>name==="@/components/common/PolicyDialog"?{ PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null }:require(name),loaded,loaded.exports);
 const render=ledger=>renderToStaticMarkup(React.createElement(loaded.exports.default,{ledger}));
 test("missing ledger and unknown historical amounts are explicit rather than silently zero",()=>{
   assert.match(render(null),/Chưa có sổ cọc/);

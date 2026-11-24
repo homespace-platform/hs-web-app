@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -303,20 +304,18 @@ function PaymentsBody({ actorId, targetId, invalidTarget }: { actorId: string; t
       </div>
 
       {/* Direct Transfer Principles Card */}
-      <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4 text-xs text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200">
-        <div className="flex items-start gap-3">
-          <ShieldCheck className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
-          <div className="space-y-1">
-            <p className="font-bold text-blue-950 dark:text-blue-100">
-              Quy chế giao dịch tại HomeSpace
-            </p>
-            <p className="leading-relaxed text-blue-800/90 dark:text-blue-300/90">
-              HomeSpace <strong>KHÔNG</strong> phải ví điện tử và <strong>KHÔNG</strong> giữ tiền của các bên.
-              Tất cả các khoản tiền thuê và đặt cọc được chuyển khoản <strong>trực tiếp 100%</strong> vào tài khoản ngân hàng của đối tác qua VietQR.
-            </p>
-          </div>
-        </div>
-      </div>
+      <PolicyNotice
+        tone="info"
+        icon={<ShieldCheck className="h-4 w-4" />}
+        title="Quy chế giao dịch tại HomeSpace"
+        actionLabel="Xem quy chế"
+        summary="HomeSpace không phải ví điện tử và không giữ tiền của các bên."
+      >
+        <p>
+          HomeSpace <strong>KHÔNG</strong> phải ví điện tử và <strong>KHÔNG</strong> giữ tiền của các bên.
+          Tất cả các khoản tiền thuê và đặt cọc được chuyển khoản <strong>trực tiếp 100%</strong> vào tài khoản ngân hàng của đối tác qua VietQR.
+        </p>
+      </PolicyNotice>
 
       {(invalidTarget || (targetId && payments && !targetFound)) && (
         <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">

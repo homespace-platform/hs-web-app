@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import { Receipt } from "lucide-react";
 import { FieldRow, formatMoney, isZeroDeposit, str } from "./utils";
 import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
@@ -21,7 +22,7 @@ export default function ContractInitialPaymentSection({ initialPayment }: { init
   const noDepositPayment = "Không phát sinh thanh toán tiền cọc";
   return <section aria-label="Ghi nhận thanh toán ban đầu" className="space-y-3 rounded-2xl border bg-card p-4.5">
     <h3 className="flex items-center gap-2 text-sm font-bold"><Receipt className="h-4 w-4 text-primary"/>Ghi nhận thanh toán ban đầu</h3>
-    <p className="text-xs text-muted-foreground">Dữ liệu lịch sử tại thời điểm lập hợp đồng · Chỉ đọc. Phụ lục không sửa giao dịch đã xác nhận hoặc thu lại khoản này.</p>
+    <PolicyNotice tone="neutral" title="Ghi nhận thanh toán ban đầu" summary="Dữ liệu lịch sử tại thời điểm lập hợp đồng · Chỉ đọc."><p>Dữ liệu lịch sử tại thời điểm lập hợp đồng · Chỉ đọc. Phụ lục không sửa giao dịch đã xác nhận hoặc thu lại khoản này.</p></PolicyNotice>
     <div className="overflow-x-auto rounded-xl border"><table className="w-full text-left text-xs"><thead className="bg-muted/40"><tr><th className="p-3">Khoản thanh toán</th><th className="p-3">Số tiền</th><th className="p-3">Chi tiết ghi nhận</th></tr></thead>
       <tbody>{rows.length ? rows.map((row, i) => <tr className="border-t" key={i}>
         <td className="p-3">{str(row.itemName)}</td>

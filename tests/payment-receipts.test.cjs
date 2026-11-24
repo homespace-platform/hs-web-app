@@ -54,6 +54,6 @@ test("receipt service reconstructs the original PDF from authenticated JSON with
   }
 });
 test("the confirmed-receipts page explains the confirmation boundary",()=>{
-  const Component=load("components/dashboard/invoices/PaymentReceiptsPanel.tsx",name=>name==="@/services/payment-receipt.service"?{paymentReceiptService:{}}:name==="@/components/payment/PaymentReceiptActions"?{default:()=>null}:name==="@/utils/apiError"?{getApiErrorMessage:()=>"error"}:require(name)).default;
+  const Component=load("components/dashboard/invoices/PaymentReceiptsPanel.tsx",name=>name==="@/components/common/PolicyDialog"?{ PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null }:name==="@/services/payment-receipt.service"?{paymentReceiptService:{}}:name==="@/components/payment/PaymentReceiptActions"?{default:()=>null}:name==="@/utils/apiError"?{getApiErrorMessage:()=>"error"}:require(name)).default;
   const html=renderToStaticMarkup(React.createElement(Component,{role:"tenant"}));assert.match(html,/Mỗi khoản tiền đã được bên nhận xác nhận/);assert.match(html,/Chứng từ đã thanh toán/);
 });

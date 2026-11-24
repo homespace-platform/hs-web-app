@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -1193,7 +1194,9 @@ function CreatePropertyListingContent() {
         {/* Section 4: Chi phí hàng tháng */}
         <section id="section-policies" className="scroll-mt-24 rounded-2xl border border-border bg-card p-5 sm:p-6">
           <h2 className="text-lg font-bold">Chính sách & nội quy thuê</h2>
-          <p className="mb-5 mt-1 text-sm text-muted-foreground">Người thuê sẽ xem các quy định này trước khi gửi yêu cầu thuê. Phí phạt đóng trễ chỉ nhập khi soạn hợp đồng, không nhập ở đây.</p>
+          <PolicyNotice tone="neutral" className="mb-5 mt-2" title="Chính sách & nội quy thuê" summary="Người thuê sẽ xem các quy định này trước khi gửi yêu cầu thuê.">
+            <p>Người thuê sẽ xem các quy định này trước khi gửi yêu cầu thuê. Phí phạt đóng trễ chỉ nhập khi soạn hợp đồng, không nhập ở đây.</p>
+          </PolicyNotice>
           {policyCatalogError ? <p role="alert" className="text-sm text-amber-800">{policyCatalogError}</p> : <ListingPolicyFields definitions={listingOptions.policies ?? []} values={listingPolicies} onChange={setListingPolicies} />}
         </section>
         <MonthlyExpensesSection

@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileCheck2, RefreshCw, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -88,10 +89,8 @@ export default function PaymentReceiptsPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">Chứng từ đã thanh toán</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Mỗi khoản tiền đã được bên nhận xác nhận có một phiếu riêng. Dữ liệu
-            trên phiếu được giữ nguyên để đối chiếu.
-          </p>
+          <PolicyNotice tone="neutral" title="Chứng từ đã thanh toán" summary="Mỗi khoản tiền đã được bên nhận xác nhận có một phiếu riêng."><p>Mỗi khoản tiền đã được bên nhận xác nhận có một phiếu riêng. Dữ liệu
+            trên phiếu được giữ nguyên để đối chiếu.</p></PolicyNotice>
         </div>
         <button
           type="button"
@@ -120,10 +119,8 @@ export default function PaymentReceiptsPanel({
         <div className="rounded-2xl border border-dashed bg-card p-8 text-center">
           <FileCheck2 className="mx-auto size-9 text-muted-foreground" />
           <p className="mt-3 font-semibold">Chưa có chứng từ thanh toán</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Phiếu được tạo sau khi bên nhận xác nhận đã nhận đủ tiền. Báo chuyển
-            khoản chưa tạo phiếu.
-          </p>
+          <PolicyNotice tone="neutral" title="Chưa có chứng từ thanh toán" summary="Phiếu được tạo sau khi bên nhận xác nhận đã nhận đủ tiền."><p>Phiếu được tạo sau khi bên nhận xác nhận đã nhận đủ tiền. Báo chuyển
+            khoản chưa tạo phiếu.</p></PolicyNotice>
         </div>
       ) : (
         <div className="space-y-3">

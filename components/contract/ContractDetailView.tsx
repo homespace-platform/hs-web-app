@@ -56,7 +56,7 @@ import type { AmendmentTerms } from "@/types/contract-amendment.type";
 import { ContractDraftEditor, draftContentPatch, draftEditorValues } from "@/components/contract/detail/ContractDraftEditor";
 import ListingSyncControl from "@/components/contract/detail/ListingSyncControl";
 
-import { InfoDisclosure } from "@/components/common/InfoDisclosure";
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 const DRAFT_FORM_ID = "lease-draft-form";
 
 export default function ContractDetailView({ perspective }: { perspective: "landlord" | "tenant" }) {
@@ -556,7 +556,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       {reviewDraft && <>
         <section className="space-y-2 rounded-xl border bg-card p-4 text-sm">
           <h2 className="font-semibold">Rà soát bản nháp trước khi ký</h2>
-          <p>Kiểm tra và sửa trực tiếp các ô bên dưới. Bấm <strong>Lưu</strong> để lưu bản nháp và tự tạo PDF xem trước.</p>
+          <PolicyNotice tone="info" title="Soạn bản nháp hợp đồng" summary="Kiểm tra và sửa trực tiếp các ô bên dưới."><p>Kiểm tra và sửa trực tiếp các ô bên dưới. Bấm <strong>Lưu</strong> để lưu bản nháp và tự tạo PDF xem trước.</p></PolicyNotice>
           <div className="flex flex-wrap gap-4 text-xs font-semibold text-primary">
             <a href="#contract-handover">Chỉ số điện nước</a>
             <a href="#contract-parties">Thông tin hai bên</a>
@@ -582,18 +582,20 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       </>}
       {!reviewDraft && (prioritizeMeters ? handoverSection : missingFieldsNotice)}
 
-      {isLandlord && isDraft && !contract.parentContractId && <InfoDisclosure tone="neutral" summary="Các nội dung chính lấy từ hồ sơ thuê đã chấp thuận.">
+      {isLandlord && isDraft && !contract.parentContractId && <PolicyNotice tone="neutral" title="Nguồn nội dung hợp đồng nháp" summary="Các nội dung chính lấy từ hồ sơ thuê đã chấp thuận.">
         <p>Ngày thuê, thời hạn, tiền thuê, tiền cọc và số người/xe lấy từ hồ sơ đã chấp thuận. Đổi ngày nhận nhà dùng đề nghị nhận nhà sớm bên dưới. Các điều khoản sau ký được điều chỉnh qua phụ lục.</p>
-      </InfoDisclosure>}
+      </PolicyNotice>}
 
-      {isTenant && isDraft && <InfoDisclosure summary="Bản nháp để xem trước · Chưa có hiệu lực">
+      {isTenant && isDraft && <PolicyNotice title="Bản nháp hợp đồng" summary="Bản nháp để xem trước · Chưa có hiệu lực">
         <p>Chủ nhà vẫn có thể cập nhật nội dung. Bạn có thể xem văn bản và đề nghị nhận nhà, bắt đầu hợp đồng sớm trong phần bên dưới. Chấp nhận đề nghị sẽ đổi ngày thuê và các kỳ hóa đơn; không chỉ mở ký trước ngày thuê cũ.</p>
-      </InfoDisclosure>}
+      </PolicyNotice>}
       {!contract.parentContractId && !["ACTIVE","EXPIRED","CLOSED","TERMINATED"].includes(contract.status) && <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} onSnapshot={setOnboarding} onUpdated={refreshSignedState} />}
       {/* 3. SIGNATURE & CONFIRMATION PANEL (PROMINENT AT TOP / BOTTOM) */}
-      {contract.parentContractId && <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-        {isAmendment ? "Phụ lục này ghi nhận điều khoản đã thống nhất với ngày áp dụng riêng. Xem bảng thay đổi và PDF trước khi ký. Hợp đồng gốc và lịch sử thanh toán được giữ nguyên."
-          : "Đây là văn bản gia hạn liên kết hợp đồng gốc. Không thu lại cọc hoặc thanh toán INITIAL; giữ nguyên điều kiện đã chốt. Chỉ có hiệu lực sau đủ chữ ký hai bên."}
+      {contract.parentContractId && <div className="space-y-2">
+        <PolicyNotice tone="info" title={isAmendment ? "Phụ lục hợp đồng" : "Văn bản gia hạn hợp đồng"} summary={isAmendment ? "Phụ lục này ghi nhận điều khoản đã thống nhất với ngày áp dụng riêng." : "Đây là văn bản gia hạn liên kết hợp đồng gốc."}>
+          <p>{isAmendment ? "Phụ lục này ghi nhận điều khoản đã thống nhất với ngày áp dụng riêng. Xem bảng thay đổi và PDF trước khi ký. Hợp đồng gốc và lịch sử thanh toán được giữ nguyên."
+            : "Đây là văn bản gia hạn liên kết hợp đồng gốc. Không thu lại cọc hoặc thanh toán INITIAL; giữ nguyên điều kiện đã chốt. Chỉ có hiệu lực sau đủ chữ ký hai bên."}</p>
+        </PolicyNotice>
         <Link href={contractDetailPath(perspective, contract.parentContractId)} className="mt-2 block font-semibold underline">Mở hợp đồng gốc để theo dõi thời hạn, hóa đơn và cọc →</Link>
       </div>}
       {isAmendment && contract.parentContractId && <ContractAmendmentPanel contractId={contract.parentContractId} actorId={profile.id} perspective={perspective} agreementId={contract.id} />}
@@ -622,7 +624,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED"].includes(contract.status) && <>
         {contract.status === "ACTIVE" && <ContractLifecyclePanel key={`${profile.id}:${contract.id}`} contractId={contract.id} isLandlord={isLandlord} onUpdated={refreshSignedState} mode="renewal" />}
         <ContractAmendmentPanel contractId={contract.id} actorId={profile.id} perspective={perspective} />
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4"><div><p className="font-semibold">Hóa đơn & thanh toán</p><p className="mt-1 text-sm text-muted-foreground">Thanh toán ban đầu, hóa đơn theo kỳ và bàn giao / hoàn cọc được quản lý trong một hồ sơ riêng.</p></div><Link href={invoiceDetailPath(contract.id)} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Mở hồ sơ thanh toán →</Link></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4"><div><p className="font-semibold">Hóa đơn & thanh toán</p><PolicyNotice tone="neutral" className="mt-1" title="Hóa đơn & thanh toán" summary="Thanh toán, hóa đơn và hoàn cọc nằm trong một hồ sơ riêng."><p>Thanh toán ban đầu, hóa đơn theo kỳ và bàn giao / hoàn cọc được quản lý trong một hồ sơ riêng.</p></PolicyNotice></div><Link href={invoiceDetailPath(contract.id)} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Mở hồ sơ thanh toán →</Link></div>
       </>}
       {/* 4. MAIN CONTRACT SECTIONS */}
       {!contract.parentContractId && ["ACTIVE","EXPIRED","CLOSED","TERMINATED"].includes(contract.status) && <><RentalWorkflowPanel rentalRequestId={contract.rentalRequestId} kind="early-exit" onUpdated={refreshSignedState}/><ComplaintPanel rentalRequestId={contract.rentalRequestId} onUpdated={refreshSignedState}/></>}
@@ -654,9 +656,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
 
       {/* FOOTER NAVIGATION */}
       <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <span>
-          Hợp đồng gốc, các phụ lục và bản đã ký được giữ nguyên để cả hai bên xem lại. Nội dung điều chỉnh chỉ áp dụng sau khi hoàn tất ký và đến mốc hiệu lực.
-        </span>
+        <PolicyNotice tone="neutral" className="flex-1" title="Hợp đồng gốc, phụ lục và bản đã ký" summary="Hợp đồng gốc, các phụ lục và bản đã ký được giữ nguyên để cả hai bên xem lại."><p>Hợp đồng gốc, các phụ lục và bản đã ký được giữ nguyên để cả hai bên xem lại. Nội dung điều chỉnh chỉ áp dụng sau khi hoàn tất ký và đến mốc hiệu lực.</p></PolicyNotice>
         <Link
           href={
             isLandlord

@@ -41,7 +41,7 @@ import type { VietmapAddress } from "@/services/vietmap.service";
 import { PROPERTY_CATEGORIES } from "../properties/new/constants";
 import type { PropertyCategoryKey } from "../properties/new/types";
 
-import { InfoDisclosure } from "@/components/common/InfoDisclosure";
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 export function getChargeDisplay(c: BranchCharge) {
   if (c.billingMethod === "INCLUDED" || c.includedInRent)
     return "Đã bao gồm trong giá thuê";
@@ -953,11 +953,11 @@ export default function BranchesPage() {
                   </div>
                 </div>
 
-                <InfoDisclosure tone="warning" summary="Biểu phí dưới đây là nguồn dữ liệu chuẩn của chi nhánh.">
+                <PolicyNotice tone="warning" title="Biểu phí dịch vụ hàng tháng" summary="Biểu phí dưới đây là nguồn dữ liệu chuẩn của chi nhánh.">
                   <p>
                     Toàn bộ biểu phí được cấu hình dưới đây là <strong>nguồn dữ liệu chuẩn</strong>. Mọi tin đăng gán vào chi nhánh này sẽ tự động đọc biểu phí này và chỉ đọc (read-only) trên form đăng tin.
                   </p>
-                </InfoDisclosure>
+                </PolicyNotice>
 
                 {/* Tiền điện & Nước */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1473,11 +1473,11 @@ export default function BranchesPage() {
                 Đồng bộ tự động sang tất cả các tin đăng đang hoạt động.
               </p>
               <p className="text-[11px]">Biểu phí mới chỉ áp dụng cho khách thuê mới.</p>
-              <InfoDisclosure tone="neutral" summary="Hợp đồng và yêu cầu đã gửi giữ nguyên biểu phí cũ.">
+              <PolicyNotice tone="neutral" title="Phạm vi áp dụng biểu phí mới" summary="Hợp đồng và yêu cầu đã gửi giữ nguyên biểu phí cũ.">
                 <p className="text-[11px]">
                   Biểu phí mới sẽ có hiệu lực cho các khách thuê mới. Các hợp đồng đã ký hoặc yêu cầu thuê đã gửi trước đó vẫn giữ nguyên ảnh chụp (snapshot) lịch sử bất biến.
                 </p>
-              </InfoDisclosure>
+              </PolicyNotice>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">

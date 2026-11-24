@@ -48,6 +48,7 @@ function panel({total = 1, currentPage = 1, latitude = 11, longitude = 107, item
     // These assertions inspect the list view; map-default behavior is covered in nearby-map.test.cjs.
     react: {...React, useState: initial => [initial?.key === '' ? {key: JSON.stringify(['listing', latitude, longitude, 2000, '', currentPage, 0]), data: page, error: ''} : initial === 1 ? currentPage : initial === 'map' ? 'list' : initial, () => {}], useEffect: () => {}},
     'next/dynamic': () => () => null,
+    '@/components/common/PolicyDialog': { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null },
     '@/features/auth/useAuth': {useAuth: () => assert.fail('Nearby directions must work without an account or login')},
     '@/store/hooks': {useAppSelector: () => assert.fail('Nearby directions must not read an account address')},
     '@/lib/nearby-directions': directions,

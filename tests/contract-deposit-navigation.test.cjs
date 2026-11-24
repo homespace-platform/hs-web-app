@@ -11,6 +11,7 @@ function fixture(kind="LEASE",status="ACTIVE") {
   const source=fs.readFileSync(path.join(__dirname,"../components/contract/ContractListView.tsx"),"utf8");
   const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
   const dependencies={react:hooks,"next/navigation":{useRouter:()=>({replace:(...args)=>navigation.push(args),push(){}}),useSearchParams:()=>new URLSearchParams({kind})},
+    "@/components/common/PolicyDialog":{ PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null },
     "@/services/contract.service":{contractService:{listContracts:async query=>{calls.push(query);return {result:[contract],totalPages:1};}}},
     "@/utils/apiError":{getApiErrorMessage:e=>e.message},"@/lib/contract-routes":{contractDetailPath:(role,id)=>`/dashboard/${role}/contracts/${id}`,invoiceDetailPath:id=>`/dashboard/invoices/${id}`},
     "./AgreementDocumentActions":{__esModule:true,default:()=>null},"next/link":{__esModule:true,default:({children,...props})=>React.createElement("a",props,children)}};

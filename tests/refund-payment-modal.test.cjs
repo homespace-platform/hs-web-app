@@ -36,6 +36,7 @@ function fixture(options = {}) {
     useRef: initial => ({ current: initial === false ? true : initial }), useEffect() {}, useCallback: fn => fn };
   const Modal = compile("components/rental-request/RentalPaymentModal.tsx", {
     react: hooks,
+    "@/components/common/PolicyDialog": { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null },
     "@/hooks/useAgreementChangeSync": { useNotificationChangeSync() {} },
     "@/features/auth/useAuth": { useAuth: () => ({ profile: options.actor === null ? null : { id: options.actor ?? "owner" } }) },
     "@/lib/payment-transfer-presentation": { paymentTransferPresentation: presentation },

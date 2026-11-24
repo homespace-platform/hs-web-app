@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React from "react";
 import { User, Users, ShieldCheck, Lock } from "lucide-react";
 import { FieldRow } from "./utils";
@@ -29,9 +30,9 @@ export default function ContractPartiesSection({
     <div className="grid gap-4 md:grid-cols-2">{(["landlord","tenant"] as const).map(group=><section key={group} className="min-w-0 rounded-2xl border bg-card p-4.5 space-y-3">
       <h4 className="text-xs font-bold">{group==="landlord"?"Bên A — Bên cho thuê":"Bên B — Bên thuê"}</h4>
       <ContractTermFields group={group} fields={[["fullName","Họ và tên",true,"Theo KYC đã xác thực"],["idNumber","Số CCCD / Định danh",true],["birthDate","Ngày sinh",true],["gender","Giới tính",true],["permanentAddress","Nơi thường trú",true],["issueDate","Ngày cấp CCCD",true],["expirationDate","Ngày hết hạn CCCD",true],["issuePlace","Nơi cấp CCCD",true],["phone","Số điện thoại"],["email","Email liên hệ"],["bankName","Ngân hàng"],["bankAccountNumber","Số tài khoản"],["bankAccountHolder","Chủ tài khoản"]]}/>
-      <p className="text-xs text-muted-foreground">{draft
+      <PolicyNotice tone="neutral" title="Thông tin các bên" text={draft
         ? "Danh tính lấy từ KYC đã xác thực và không được nhập sửa. Thông tin liên hệ dùng trên văn bản không thay tài khoản thu/hoàn tiền trong Settings. Phí theo người/xe được tính lại khi lưu; khoản đã thanh toán giữ lịch sử."
-        : "Danh tính KYC giữ nguyên theo snapshot hợp đồng. Bạn có thể sửa thông tin liên hệ và điều khoản được phép. QR thanh toán dùng tài khoản ngân hàng đã đăng ký trong hồ sơ thanh toán."}</p>
+        : "Danh tính KYC giữ nguyên theo snapshot hợp đồng. Bạn có thể sửa thông tin liên hệ và điều khoản được phép. QR thanh toán dùng tài khoản ngân hàng đã đăng ký trong hồ sơ thanh toán."} />
       {group==="tenant" && (draft ? <ContractTermFields group="tenant" fields={[["occupantCount","Số người cư trú"],["motorbikeCount","Xe máy đăng ký"],["carCount","Ô tô đăng ký"]]}/>
         : <InlineAmendmentFields group="residents"/>)}
     </section>)}</div>

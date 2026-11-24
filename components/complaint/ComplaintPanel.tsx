@@ -1,4 +1,5 @@
 "use client";
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/useAuth";
@@ -100,7 +101,7 @@ export default function ComplaintPanel({rentalRequestId,initialComplaintId,atten
       {modalOpen&&<>
         <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-card p-4"><h2 id={actionGroup} className="font-bold">{creating?"Mở khiếu nại mới":"Khiếu nại & hỗ trợ"}</h2><button type="button" className={button} disabled={busy} onClick={close} aria-label="Đóng cửa sổ khiếu nại">Đóng</button></header>
         <div className="space-y-4 p-4 sm:p-5">
-          <p className="text-xs text-muted-foreground">Gửi thông tin, đính kèm chứng cứ và chuyển HomeSpace khi cần. Thay đổi hợp đồng hoặc xử lý tiền thực hiện ở chức năng tương ứng.</p>
+          <PolicyNotice tone="neutral" title="Hướng dẫn khiếu nại & hỗ trợ" summary="Gửi thông tin, đính kèm chứng cứ và chuyển HomeSpace khi cần."><p>Gửi thông tin, đính kèm chứng cứ và chuyển HomeSpace khi cần. Thay đổi hợp đồng hoặc xử lý tiền thực hiện ở chức năng tương ứng.</p></PolicyNotice>
           {error&&<p role="alert" className="rounded-lg border border-rose-200 p-3 text-rose-700">{error}</p>}
           <div className="flex flex-wrap justify-between gap-2"><button type="button" className={button} disabled={busy||loading} onClick={()=>{setLoading(true);void refresh();}}>Tải lại</button>{creating?<button type="button" className={button} disabled={busy} onClick={()=>{resetDraft();setCreating(false);}}>Xem hồ sơ đã có</button>:<button type="button" className={button} disabled={busy||loading||!createGate.allowed} title={createGate.title} onClick={openNew}>Mở khiếu nại mới</button>}</div>
           {loading&&!scoped.length&&!creating&&<p role="status">Đang tải hồ sơ…</p>}
@@ -110,7 +111,7 @@ export default function ComplaintPanel({rentalRequestId,initialComplaintId,atten
               <div className="flex flex-wrap justify-between gap-2"><h3 className="font-semibold">{complaintCategories[current.category]}</h3><span className="text-xs text-primary">{complaintStages[current.stage]??current.stage}</span></div>
               <p className="whitespace-pre-wrap break-words">{current.reason}</p>
               <p className="text-xs text-muted-foreground">Admin đã kết luận {current.adminReviewCount??0}/{current.adminReviewLimit??2} lần.</p>
-              {current.finalClosed?<p role="status" className="rounded-lg bg-muted p-3 text-xs">Admin đã kết luận lần 2 và đóng hồ sơ. Bạn có thể xem lại toàn bộ lịch sử.</p>:(current.adminReviewCount??0)===1&&current.status==="OPEN"&&<p className="rounded-lg bg-primary/5 p-3 text-xs">Hai bên tiếp tục trao đổi. Nếu đã giải quyết, chọn đóng hồ sơ; nếu chưa, yêu cầu admin xem xét lần 2. Kết luận lần 2 sẽ kết thúc hồ sơ.</p>}
+              {current.finalClosed?<PolicyNotice tone="neutral" title="Hồ sơ đã đóng" summary="Admin đã kết luận lần 2 và đóng hồ sơ."><p>Admin đã kết luận lần 2 và đóng hồ sơ. Bạn có thể xem lại toàn bộ lịch sử.</p></PolicyNotice>:(current.adminReviewCount??0)===1&&current.status==="OPEN"&&<PolicyNotice tone="info" title="Quy trình xem xét khiếu nại" summary="Hai bên tiếp tục trao đổi; chưa giải quyết thì yêu cầu admin xem xét lần 2."><p>Hai bên tiếp tục trao đổi. Nếu đã giải quyết, chọn đóng hồ sơ; nếu chưa, yêu cầu admin xem xét lần 2. Kết luận lần 2 sẽ kết thúc hồ sơ.</p></PolicyNotice>}
               {current.respondBy&&<p className="text-xs text-muted-foreground">{current.responseDueFor===profile.id?"Bạn":current.responseDueFor==="ADMIN"?"HomeSpace":"Bên còn lại"} cần phản hồi trước {date(current.respondBy)}{current.overdue?" · Đã quá hạn":""}. Quá hạn không tự đồng ý hay xử lý tiền.</p>}
               {!!current.evidenceIds.length&&<div className="flex flex-wrap gap-2">{current.evidenceIds.map((id,i)=><button type="button" className={button} key={id} onClick={()=>void proof(id)}>Xem chứng cứ {i+1}</button>)}</div>}
               {current.decision&&<div className="rounded-lg bg-primary/5 p-3"><p className="font-semibold">Kết luận HomeSpace · Lần {current.adminReviewCount??1}</p><p className="whitespace-pre-wrap break-words">{current.decision}</p></div>}
@@ -119,7 +120,7 @@ export default function ComplaintPanel({rentalRequestId,initialComplaintId,atten
             <ComplaintHistory complaint={current} expanded onProof={(id,document)=>void proof(id,document)}/>
           </>}
           {creating&&<label className="block space-y-2 text-xs"><span className="font-medium">Vấn đề cần hỗ trợ</span><select aria-label="Nhóm khiếu nại" disabled={busy} value={category} onChange={e=>{setCategory(e.target.value as ComplaintCategory);setUrgent(false);}} className="w-full rounded-lg border bg-background p-2">{Object.entries(complaintCategories).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>}
-          {creating&&category==="DEPOSIT_SETTLEMENT"&&<p className="text-xs text-muted-foreground">Hãy phản đối phiên bản tại mục quyết toán cọc trước. Hồ sơ khiếu nại chỉ dùng để trao đổi.</p>}
+          {creating&&category==="DEPOSIT_SETTLEMENT"&&<PolicyNotice tone="warning" title="Khiếu nại quyết toán cọc" summary="Hãy phản đối phiên bản tại mục quyết toán cọc trước."><p>Hãy phản đối phiên bản tại mục quyết toán cọc trước. Hồ sơ khiếu nại chỉ dùng để trao đổi.</p></PolicyNotice>}
           {creating&&["SAFETY","HANDOVER"].includes(category)&&<label className="flex gap-2 text-xs"><input type="checkbox" disabled={busy} checked={urgent} onChange={e=>setUrgent(e.target.checked)}/>Chuyển HomeSpace ngay do sự cố an toàn / bàn giao.</label>}
           {(creating||actions.length>0)&&<div className="space-y-3 border-t pt-4">
             <label className="block space-y-2"><span className="font-semibold">{creating?"Mô tả vấn đề":activeAction==="COMMENT"?"Gửi trao đổi":complaintActions[activeAction!]}</span><textarea disabled={busy} aria-label="Nội dung khiếu nại" value={reason} maxLength={500} onChange={e=>{editing.current=e.target.value.trim().length>0||files.length>0;setReason(e.target.value);}} placeholder="Nhập nội dung từ 10 đến 500 ký tự" className="min-h-24 w-full rounded-xl border bg-background p-3"/></label>

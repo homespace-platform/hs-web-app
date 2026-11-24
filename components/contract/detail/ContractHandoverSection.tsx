@@ -1,7 +1,8 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React from "react";
-import { Gauge, Info } from "lucide-react";
+import { Gauge } from "lucide-react";
 import { FieldRow } from "./utils";
 import { ContractEditField } from "./ContractFieldState";
 
@@ -131,12 +132,9 @@ export default function ContractHandoverSection({
         </div>
       )}
 
-      <div className="rounded-xl border border-border/70 bg-muted/20 p-2.5 flex items-start gap-2 text-xs text-muted-foreground">
-        <Info className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-        <span>
-          {isDraft && isLandlord ? "Kiểm tra chỉ số thực tế cùng người thuê. Các giá trị này được lưu cùng bản nháp khi bấm Lưu."
-            : "Chỉ số ban đầu dùng để đối chiếu với nội dung hợp đồng và kỳ tính phí đầu tiên."}
-        </span>
+      <div className="flex items-start gap-2 text-xs text-muted-foreground">
+        <PolicyNotice tone="neutral" title="Chỉ số công tơ ban đầu" text={isDraft && isLandlord ? "Kiểm tra chỉ số thực tế cùng người thuê. Các giá trị này được lưu cùng bản nháp khi bấm Lưu."
+            : "Chỉ số ban đầu dùng để đối chiếu với nội dung hợp đồng và kỳ tính phí đầu tiên."} className="flex-1" />
       </div>
     </section>
   );

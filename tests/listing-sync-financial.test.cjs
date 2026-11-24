@@ -43,6 +43,7 @@ function workspace() {
   }, useRef(initial) { const index = refIndex++; return refs[index] ??= { current: initial }; },
   useEffect() {}, useMemo: fn => fn(), useCallback: fn => fn };
   const Workspace = load("components/contract/detail/ContractAmendmentWorkspace.tsx", {
+    "@/components/common/PolicyDialog": { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null },
     react: fakeReact, sonner: { toast: { error() {} } },
     "@/services/contract-amendment.service": { contractAmendmentService: {} },
     "@/services/contract.service": { contractService: {} }, "@/utils/apiError": { getApiErrorMessage: String },
@@ -84,6 +85,7 @@ test("nonfinancial updates or protected money warnings do not falsely classify a
 
 function chargesMarkup(sync, editing = true) {
   const Component = load("components/contract/detail/ContractChargesSection.tsx", {
+    "@/components/common/PolicyDialog": { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null },
     "./ContractAmendmentWorkspace": { useAmendmentWorkspace: () => ({ editing, editingFinancial: false, listingSync: sync, data: { currentTerms } }) },
     "./InlineAmendmentFields": { __esModule: true, default: () => null },
     "./utils": { str: value => String(value ?? "") },
@@ -106,6 +108,7 @@ test("zero prices, changed billing methods and removed charges are not replaced 
 test("the amendment money summary renders staged approved money while retaining current signed terms outside editing", () => {
   const sync = source({ terms: { financial: { amountNumber: "6.000.000 đ", amountValue: 6000000, depositAmountNumber: "12.000.000 đ", depositAmountValue: 12000000, paymentCycle: "Hàng quý" } } });
   const Component = load("components/contract/detail/ContractFinancialSection.tsx", {
+    "@/components/common/PolicyDialog": { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null },
     "./ContractAmendmentWorkspace": { useAmendmentWorkspace: () => ({ editing: true, editingFinancial: false, listingSync: sync, data: { currentTerms } }) },
     "./utils": { isZeroDeposit: value => Number(value) === 0, FieldRow: ({ label, value }) => React.createElement("p", null, label, ": ", String(value ?? "")) },
     "./InlineAmendmentFields": {}, "@/components/ui/vnd-money-input": {}, "./ContractFieldState": {},

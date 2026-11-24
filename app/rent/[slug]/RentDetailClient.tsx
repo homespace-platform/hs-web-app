@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
@@ -192,9 +193,7 @@ export default function RentDetailClient({ id, mode, initialListing = null }: Pr
                   <Building className="w-5 h-5 text-blue-600 shrink-0" />
                   <div>
                     <p className="font-bold text-sm">{isOwnerView ? "Xem trước tin đăng" : "Tin đăng liên quan đến yêu cầu thuê của bạn"} ({statusCfg.label})</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {isOwnerView ? "Bạn có quyền xem với tư cách chủ tin đăng." : "Bạn có quyền xem vì có yêu cầu thuê liên quan. Quyền xem này không cấp quyền chỉnh sửa hoặc gửi yêu cầu thuê mới khi tin không còn nhận khách."} Tin hiện không hiển thị công khai.
-                    </p>
+                    <PolicyNotice tone="neutral" className="mt-1" title="Quyền xem tin đăng" text={`${isOwnerView ? "Bạn có quyền xem với tư cách chủ tin đăng." : "Bạn có quyền xem vì có yêu cầu thuê liên quan. Quyền xem này không cấp quyền chỉnh sửa hoặc gửi yêu cầu thuê mới khi tin không còn nhận khách."} Tin hiện không hiển thị công khai.`} />
                   </div>
                 </div>
               ) : undefined

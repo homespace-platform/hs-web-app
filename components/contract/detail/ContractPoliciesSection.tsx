@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React from "react";
 import { FileCheck } from "lucide-react";
 import { FieldRow, isZeroDeposit } from "./utils";
@@ -149,22 +150,21 @@ export default function ContractPoliciesSection({
               <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">{isDraft ? "Đã lưu trong bản nháp" : "Điều khoản đã chốt"}</span>
             </div>
             <p className="text-foreground">Trễ 1 ngày: {formatVnd(feeAfterDays(1))} · Trễ 5 ngày: {formatVnd(feeAfterDays(5))}.</p>
-            <p className="text-muted-foreground">Bắt đầu tính {savedGraceDays > 0
+            <PolicyNotice tone="neutral" title="Thời điểm bắt đầu tính phạt" summary="Sau 5 ngày quá hạn, hệ thống nhắc chủ nhà quyết định hướng xử lý."><p>Bắt đầu tính {savedGraceDays > 0
               ? `sau ${savedGraceDays} ngày ân hạn kể từ hạn thanh toán ghi trên hóa đơn`
-              : "từ ngày đầu tiên sau hạn thanh toán ghi trên hóa đơn"}. Sau 5 ngày quá hạn, hệ thống nhắc chủ nhà quyết định hướng xử lý.</p>
+              : "từ ngày đầu tiên sau hạn thanh toán ghi trên hóa đơn"}. Sau 5 ngày quá hạn, hệ thống nhắc chủ nhà quyết định hướng xử lý.</p></PolicyNotice>
             {savedFeeCap > 0 && <p className="text-muted-foreground">Tổng phí phạt tối đa áp dụng: {formatVnd(lateMode === "FIXED_PER_DAY" ? Math.min(savedFeeCap, savedFeeAmount * 5) : savedFeeCap)}.</p>}
-            {lateMode === "FIXED_PER_DAY" && <p className="text-muted-foreground">Hệ thống chỉ tính phạt tối đa 5 ngày trên mỗi hóa đơn; tổng tối đa bằng mức phí mỗi ngày nhân 5 và giữ trần tiền thấp hơn trong bản ký cũ nếu có. Không tự sửa phí đã chốt hoặc chứng từ lịch sử.</p>}
+            {lateMode === "FIXED_PER_DAY" && <PolicyNotice tone="neutral" title="Giới hạn tính phí phạt" summary="Hệ thống chỉ tính phạt tối đa 5 ngày trên mỗi hóa đơn."><p>Hệ thống chỉ tính phạt tối đa 5 ngày trên mỗi hóa đơn; tổng tối đa bằng mức phí mỗi ngày nhân 5 và giữ trần tiền thấp hơn trong bản ký cũ nếu có. Không tự sửa phí đã chốt hoặc chứng từ lịch sử.</p></PolicyNotice>}
           </div>
         )}
       </div>
 
-      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-        {p.overdueUnilateralTermination24h
+      <PolicyNotice tone="warning" title="Xử lý khi quá hạn 5 ngày" actionLabel="Xem quy tắc" text={
+        p.overdueUnilateralTermination24h
           ? "Sau đủ 5 ngày quá hạn, chủ nhà có thể chọn phương án xử lý. Nếu có quyết định đơn phương chấm dứt, người thuê có 24 giờ để khiếu nại theo điều khoản hệ thống."
           : p.overdueLandlordTerminationAfterFiveDays
           ? "Sau hơn 5 ngày quá hạn, chủ nhà có thể cho cộng nợ kỳ sau hoặc đề nghị chấm dứt. Nếu người thuê từ chối, chủ nhà có thể chọn chấm dứt theo điều khoản đã ký sau khi thông báo và thực tế nhận lại phòng; khi đó hệ thống ghi cọc cho chủ nhà và mở lại tin đăng. Hệ thống không tự chấm dứt."
-          : "Hợp đồng này không có điều khoản chấm dứt sau 5 ngày quá hạn theo cấu trúc hiện hành; hệ thống không tự chấm dứt hoặc thu cọc."}
-      </p>
+          : "Hợp đồng này không có điều khoản chấm dứt sau 5 ngày quá hạn theo cấu trúc hiện hành; hệ thống không tự chấm dứt hoặc thu cọc."} />
 
       {(w?.data?.currentTerms.systemTerms || draftSystemTerms) && <div className="rounded-xl border bg-muted/20 p-3.5 text-xs">
         <h4 className="font-semibold">Điều khoản hệ thống · Chỉ đọc</h4>

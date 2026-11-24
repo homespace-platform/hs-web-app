@@ -30,7 +30,7 @@ import type {
 import { getApiErrorMessage } from "@/utils/apiError";
 import { disablePush, enablePush, getPushStatus, isPushConfigured, isPushOptedIn, type PushStatus } from "@/services/notification-push.service";
 
-import { InfoDisclosure } from "@/components/common/InfoDisclosure";
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 export default function NotificationsSection() {
   const { authenticated, initialized, userId, login } = useAuth();
   const [items, setItems] = useState<NotificationPreferenceItem[]>([]);
@@ -205,11 +205,11 @@ export default function NotificationsSection() {
         <h3 className="text-base font-bold text-foreground">
           Tùy chọn kênh nhận thông báo
         </h3>
-        <InfoDisclosure tone="neutral" summary="Thông báo vẫn được lưu tại Trung tâm thông báo khi tắt các kênh này.">
+        <PolicyNotice tone="neutral" title="Tùy chọn kênh nhận thông báo" summary="Thông báo vẫn được lưu tại Trung tâm thông báo khi tắt các kênh này.">
           <p>
             Tùy chọn Push áp dụng cho cả popup trong trang và thông báo đẩy của trình duyệt. Bạn có thể chọn kênh nhận theo từng danh mục. Thông báo vẫn được lưu tại Trung tâm thông báo khi tắt các kênh này.
           </p>
-        </InfoDisclosure>
+        </PolicyNotice>
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">

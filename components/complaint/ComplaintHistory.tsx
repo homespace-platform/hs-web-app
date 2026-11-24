@@ -1,3 +1,4 @@
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import { complaintActions, complaintEventContext, type ComplaintCase, type ComplaintWorkflowSource } from "@/types/complaint.type";
 const actor=(role:string)=>({ADMIN:"HomeSpace",SYSTEM:"Hệ thống",TENANT:"Người thuê",LANDLORD:"Chủ nhà"} as Record<string,string>)[role]??"Người thực hiện";
 export default function ComplaintHistory({ complaint,onProof,expanded=false }: { complaint: ComplaintCase;expanded?:boolean;onProof?:(id:string,document?:NonNullable<ComplaintWorkflowSource["documents"]>[number])=>void }) {
@@ -15,7 +16,7 @@ export default function ComplaintHistory({ complaint,onProof,expanded=false }: {
 function ComplaintSources({complaint,onProof}:{complaint:ComplaintCase;onProof?:(id:string,document?:NonNullable<ComplaintWorkflowSource["documents"]>[number])=>void}){
   return <>{complaint.sources?.map((source,index)=>{const p=source.proposal;const title=({CANCELLATION:"Đề nghị xử lý trước thuê",EARLY_EXIT:"Thỏa thuận chấm dứt sớm"} as Record<string,string>)[source.kind]??"Hồ sơ nguồn";return <section key={`${source.workflowId}:${source.revision}:${index}`} className="space-y-2 rounded-xl border bg-muted/20 p-4 text-xs">
     <h3 className="font-semibold">Căn cứ: {title} · Bản {source.revision}</h3>
-    <p>Chụp lúc {new Date(source.capturedAt).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"})}. Nội dung này giữ nguyên khi hồ sơ nguồn được chỉnh sau đó.</p>
+    <PolicyNotice tone="neutral" title="Dữ liệu tại thời điểm chụp" summary="Nội dung này giữ nguyên khi hồ sơ nguồn được chỉnh sau đó."><p>Chụp lúc {new Date(source.capturedAt).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"})}. Nội dung này giữ nguyên khi hồ sơ nguồn được chỉnh sau đó.</p></PolicyNotice>
     <p className="whitespace-pre-wrap">{typeof p.reason==="string"?p.reason:""}</p>
     {typeof p.endExclusive==="string"&&<p>Ngày kết thúc (không tính ngày này): {p.endExclusive}</p>}{typeof p.handoverTerms==="string"&&<p>Bàn giao: {p.handoverTerms}</p>}
     {source.rentCalculation&&typeof source.rentCalculation.agreedFinalRent==="number"&&typeof source.rentCalculation.requiredRefund==="number"&&<p>Cách tính tiền thuê: {source.rentCalculation.policy==="DAILY_PRORATED"?"Theo ngày":"Trọn kỳ"} · {source.rentCalculation.usedDays}/{source.rentCalculation.periodDays} ngày · Tiền thuê kỳ cuối {source.rentCalculation.agreedFinalRent.toLocaleString("vi-VN")} đ · Khoản hoàn tối thiểu {source.rentCalculation.requiredRefund.toLocaleString("vi-VN")} đ</p>}

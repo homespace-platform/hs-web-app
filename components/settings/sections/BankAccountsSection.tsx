@@ -20,7 +20,7 @@ import {
 import bankAccountService from "@/services/bank-account.service";
 import type { Bank, BankAccount, BankAccountRequest } from "@/types/bank-account.type";
 import { useBanks } from "@/hooks/useBanks";
-import { InfoDisclosure } from "@/components/common/InfoDisclosure";
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import BankLogo from "@/components/settings/BankLogo";
 import BankPicker from "@/components/settings/BankPicker";
 import { toast } from "sonner";
@@ -306,8 +306,9 @@ export default function BankAccountsSection() {
       </div>
 
       {/* Direct Transfer Transparency Banner */}
-      <InfoDisclosure
-        toggleLabel="Xem nguyên tắc"
+      <PolicyNotice
+        title="Nguyên tắc thanh toán trực tiếp"
+        actionLabel="Xem nguyên tắc"
         summary="HomeSpace không giữ tiền: cọc và tiền thuê chuyển trực tiếp giữa người thuê và chủ nhà."
         icon={<ShieldCheck className="h-5 w-5" />}
       >
@@ -315,7 +316,7 @@ export default function BankAccountsSection() {
           HomeSpace <strong>KHÔNG</strong> phải ví điện tử hay cổng trung gian thanh toán, <strong>KHÔNG</strong> thu nhận hay giữ tiền của người dùng.
           Mọi khoản tiền cọc và tiền thuê được chuyển khoản <strong>trực tiếp</strong> giữa tài khoản ngân hàng của người thuê và chủ nhà thông qua VietQR / Mobile Banking.
         </p>
-      </InfoDisclosure>
+      </PolicyNotice>
 
       {loading ? (
         <div className="flex min-h-40 items-center justify-center rounded-2xl border border-border bg-card text-sm text-muted-foreground">

@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import RentalOnboardingPanel from "./RentalOnboardingPanel";
 import RentalContractFallbackButton from "./RentalContractFallbackButton";
 import type { RentalOnboarding } from "@/services/rental-onboarding.service";
@@ -704,9 +705,7 @@ export default function RentalRequestDetailModal({
                     <ShieldCheck className="w-4 h-4 text-primary" />
                     <span>Khoản thanh toán ban đầu</span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground leading-relaxed">
-                    Nghĩa vụ gồm cọc và tiền tháng đầu. Nếu nhận nhà trong tương lai, hai khoản được mở ở hai thời điểm riêng; xem tiến trình nhận nhà phía trên.
-                  </p>
+                  <PolicyNotice tone="neutral" title="Nghĩa vụ thanh toán" summary="Nghĩa vụ gồm cọc và tiền tháng đầu."><p>Nghĩa vụ gồm cọc và tiền tháng đầu. Nếu nhận nhà trong tương lai, hai khoản được mở ở hai thời điểm riêng; xem tiến trình nhận nhà phía trên.</p></PolicyNotice>
                 </div>
                 {/* Khoản phải trả trong luồng yêu cầu thuê */}
                 <div className="rounded-xl border-2 border-primary/40 bg-primary/5 dark:border-primary/50 dark:bg-primary/10 p-4 space-y-3">
@@ -747,9 +746,7 @@ export default function RentalRequestDetailModal({
                     )}
                   </div>
 
-                  <p className="text-[10px] text-muted-foreground italic pt-1 border-t border-primary/10">
-                    * Đây là tổng nghĩa vụ, không phải số tiền cần chuyển ngay. Xem từng khoản và hạn thanh toán trong tiến trình nhận nhà. HomeSpace không nhận tiền và không giữ tiền.
-                  </p>
+                  <PolicyNotice tone="neutral" title="Tổng nghĩa vụ thanh toán" summary="* Đây là tổng nghĩa vụ, không phải số tiền cần chuyển ngay."><p>* Đây là tổng nghĩa vụ, không phải số tiền cần chuyển ngay. Xem từng khoản và hạn thanh toán trong tiến trình nhận nhà. HomeSpace không nhận tiền và không giữ tiền.</p></PolicyNotice>
 
                   <div className="border-t border-primary/20 pt-2.5 flex items-baseline justify-between gap-2">
                     <div className="space-y-0.5 min-w-0">
@@ -808,7 +805,7 @@ export default function RentalRequestDetailModal({
                   )}
 
                   {/* Trạng thái thanh toán và giữ chỗ */}
-                  {detail.status === "PENDING" && detail.respondBy && <p className="text-sm">Hạn chủ nhà phản hồi: {new Date(detail.respondBy).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} (giờ Việt Nam). Quá hạn yêu cầu tự hết hiệu lực; phòng chưa bị khóa ở bước này.</p>}
+                  {detail.status === "PENDING" && detail.respondBy && <PolicyNotice tone="neutral" title="Hạn chủ nhà phản hồi" summary="Quá hạn yêu cầu tự hết hiệu lực; phòng chưa bị khóa ở bước này."><p>Hạn chủ nhà phản hồi: {new Date(detail.respondBy).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} (giờ Việt Nam). Quá hạn yêu cầu tự hết hiệu lực; phòng chưa bị khóa ở bước này.</p></PolicyNotice>}
 
 
                   {detail.status === "EXPIRED" && hasHoldExpired && (
@@ -905,13 +902,11 @@ export default function RentalRequestDetailModal({
                 ) : (
                   detail.status === "ACCEPTED" && (
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                      <p role="status" className="max-w-lg text-xs text-muted-foreground">
-                        {onboarding?.canPrepareContract
+                      <PolicyNotice tone="neutral" title="Hợp đồng cọc & hợp đồng thuê" text={onboarding?.canPrepareContract
                           ? onboarding.message
                           : onboarding?.depositAgreementRequired === false
                           ? "Không yêu cầu đặt cọc: bỏ qua hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày bắt đầu thuê và xác nhận đủ tiền thuê tháng đầu."
-                          : "Hợp đồng cọc được lập sau khi xác nhận nhận cọc; xem và ký trong mục Hợp đồng → Hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày vào và xác nhận đủ tiền tháng đầu."}
-                      </p>
+                          : "Hợp đồng cọc được lập sau khi xác nhận nhận cọc; xem và ký trong mục Hợp đồng → Hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày vào và xác nhận đủ tiền tháng đầu."} />
                       <RentalContractFallbackButton request={detail} mode={mode} contract={linkedContract} view={onboarding}
                         busy={creatingContract} disabled={isProcessingAction || !contractGate.allowed} onCreate={onCreateDraft} />
                     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Download, Eye, FileText, Loader2 } from "lucide-react";
@@ -143,7 +144,7 @@ export default function ContractDocumentSection({documents,contract}:{documents:
   const title=contract.agreementKind==="DEPOSIT"?"Hợp đồng cọc":contract.agreementKind==="AMENDMENT"?"Phụ lục đang xem":contract.agreementKind==="RENEWAL"||contract.parentContractId&&!contract.agreementKind?"Văn bản gia hạn đang xem":"Hợp đồng gốc";
   return <><section id="contract-document-history" className="scroll-mt-24 min-w-0 space-y-4 rounded-2xl border bg-card p-4 sm:p-5" aria-label="Hợp đồng và các lần điều chỉnh">
     <h2 className="flex items-center gap-2 text-sm font-bold"><FileText className="h-4 w-4 text-primary"/>Hợp đồng &amp; các lần điều chỉnh</h2>
-    {!contract.parentContractId&&w?.data&&<p className="rounded-xl bg-primary/5 p-3 text-xs text-muted-foreground">{earlyEnd?"Thời hạn thuê hiện tại theo phụ lục chấm dứt sớm đã ký; hợp đồng gốc và các điều chỉnh trước đó được giữ nguyên.":contract.status==="ACTIVE"?applied.length?"Điều khoản hiện tại theo hợp đồng gốc và "+applied.length+" lần điều chỉnh đã áp dụng. Các mục không thay đổi vẫn theo văn bản trước đó.":"Chưa có phụ lục nào được áp dụng; điều khoản hiện tại theo hợp đồng gốc.":"Hồ sơ lưu trữ: các mốc dưới đây ghi lại những điều chỉnh đã được áp dụng, không có nghĩa hợp đồng vẫn đang có hiệu lực."}</p>}
+    {!contract.parentContractId&&w?.data&&<PolicyNotice tone="neutral" title="Hợp đồng & các lần điều chỉnh" text={earlyEnd?"Thời hạn thuê hiện tại theo phụ lục chấm dứt sớm đã ký; hợp đồng gốc và các điều chỉnh trước đó được giữ nguyên.":contract.status==="ACTIVE"?applied.length?"Điều khoản hiện tại theo hợp đồng gốc và "+applied.length+" lần điều chỉnh đã áp dụng. Các mục không thay đổi vẫn theo văn bản trước đó.":"Chưa có phụ lục nào được áp dụng; điều khoản hiện tại theo hợp đồng gốc.":"Hồ sơ lưu trữ: các mốc dưới đây ghi lại những điều chỉnh đã được áp dụng, không có nghĩa hợp đồng vẫn đang có hiệu lực."} />}
     {contract.depositAgreementContractId && !contract.parentContractId && <>
       {depositError && <p role="alert" className="text-xs text-amber-800">Chưa tải được HĐ cọc liên kết. Hãy tải lại trang để xem đầy đủ nguồn gốc hồ sơ.</p>}
       {!deposit && !depositError && <p className="text-xs text-muted-foreground">Đang tải HĐ cọc liên kết…</p>}

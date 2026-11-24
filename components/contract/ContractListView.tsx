@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -125,7 +126,7 @@ function ContractListContent({ perspective }: { perspective: "landlord" | "tenan
           {kind==="DEPOSIT"?"Hợp đồng cọc":"Hợp đồng thuê"}
         </button>)}
       </div>
-      {agreementKind==="DEPOSIT" && <p className="text-sm text-muted-foreground">Xem và ký cọc, theo dõi hạn vào ở, thanh toán tháng đầu và xử lý hồ sơ giữ phòng tại đây. Sau khi ký cọc, bạn cần hoàn tất nghĩa vụ đúng hạn.</p>}
+      {agreementKind==="DEPOSIT" && <PolicyNotice tone="neutral" title="Hợp đồng cọc" summary="Xem và ký cọc, theo dõi hạn vào ở, thanh toán tháng đầu và xử lý hồ sơ giữ phòng tại đây."><p>Xem và ký cọc, theo dõi hạn vào ở, thanh toán tháng đầu và xử lý hồ sơ giữ phòng tại đây. Sau khi ký cọc, bạn cần hoàn tất nghĩa vụ đúng hạn.</p></PolicyNotice>}
       <div className="flex flex-wrap gap-2">
         {statusOptions.map((key) => (
           <button
@@ -154,14 +155,16 @@ function ContractListContent({ perspective }: { perspective: "landlord" | "tenan
       ) : items.length === 0 ? (
         <div className="bg-card rounded-2xl border border-dashed border-border p-10 text-center shadow-2xs space-y-2">
           <p className="text-sm font-semibold text-foreground">{agreementKind==="DEPOSIT"?"Chưa có hợp đồng cọc":"Chưa có hợp đồng thuê"}</p>
-          <p className="text-xs text-muted-foreground max-w-md mx-auto">
-            {perspective === "landlord"
-              ? "Với hồ sơ có cọc, hợp đồng cọc sẽ xuất hiện sau khi xác nhận nhận cọc. Hồ sơ không đặt cọc hoặc cọc 0 đồng bỏ qua hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày bắt đầu và xác nhận đủ tiền thuê. "
-              : "Với hồ sơ có cọc, bạn xem và ký hợp đồng cọc sau khi chủ nhà xác nhận nhận cọc. Không đặt cọc hoặc cọc 0 đồng thì bỏ qua bước này. Hợp đồng thuê xuất hiện khi đến ngày bắt đầu và xác nhận đủ tiền thuê. "}
+          <div className="max-w-md mx-auto text-left">
+            <PolicyNotice tone="neutral" title="Khi nào xuất hiện hợp đồng?" actionLabel="Xem quy tắc" summary={perspective === "landlord" ? "Hợp đồng cọc sẽ xuất hiện sau khi xác nhận nhận cọc." : "Bạn xem và ký hợp đồng cọc sau khi chủ nhà xác nhận nhận cọc."}>
+              <p>{perspective === "landlord"
+              ? "Với hồ sơ có cọc, hợp đồng cọc sẽ xuất hiện sau khi xác nhận nhận cọc. Hồ sơ không đặt cọc hoặc cọc 0 đồng bỏ qua hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày bắt đầu và xác nhận đủ tiền thuê."
+              : "Với hồ sơ có cọc, bạn xem và ký hợp đồng cọc sau khi chủ nhà xác nhận nhận cọc. Không đặt cọc hoặc cọc 0 đồng thì bỏ qua bước này. Hợp đồng thuê xuất hiện khi đến ngày bắt đầu và xác nhận đủ tiền thuê."}</p>
+            </PolicyNotice>
             <Link href={perspective === "landlord" ? "/dashboard/rental-requests" : "/dashboard/rental-requests/my-requests"} className="text-primary font-semibold hover:underline">
               Xem yêu cầu thuê
             </Link>
-          </p>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">

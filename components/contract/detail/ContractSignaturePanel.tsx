@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React, { useState } from "react";
 import {
   PenLine,
@@ -106,9 +107,7 @@ export default function ContractSignaturePanel({
             <h3 className="text-sm font-bold text-foreground">
               Xác nhận gửi bản hợp đồng cho người thuê
             </h3>
-            <p className="text-xs text-muted-foreground">
-              Vui lòng rà soát kỹ các điều khoản và bản xem trước trước khi gửi. Sau khi gửi, bản hợp đồng sẽ được chuyển sang trạng thái chờ người thuê xác nhận ký.
-            </p>
+            <PolicyNotice tone="neutral" title="Trước khi gửi hợp đồng" summary="Vui lòng rà soát kỹ các điều khoản và bản xem trước trước khi gửi."><p>Vui lòng rà soát kỹ các điều khoản và bản xem trước trước khi gửi. Sau khi gửi, bản hợp đồng sẽ được chuyển sang trạng thái chờ người thuê xác nhận ký.</p></PolicyNotice>
           </div>
         </div>
 
@@ -172,9 +171,7 @@ export default function ContractSignaturePanel({
                 Chế độ xác nhận hợp đồng nội bộ - chưa tích hợp chữ ký số.
               </span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Bạn đã hoàn tất thanh toán ban đầu. Vui lòng tải/xem lại văn bản hợp đồng trước khi xác nhận chấp thuận.
-            </p>
+            <PolicyNotice tone="neutral" title="Trước khi chấp thuận" summary="Bạn đã hoàn tất thanh toán ban đầu."><p>Bạn đã hoàn tất thanh toán ban đầu. Vui lòng tải/xem lại văn bản hợp đồng trước khi xác nhận chấp thuận.</p></PolicyNotice>
           </div>
         </div>
 

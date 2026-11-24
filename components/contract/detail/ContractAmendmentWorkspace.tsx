@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { contractAmendmentService as api } from "@/services/contract-amendment.service";
@@ -181,11 +182,10 @@ const Context = createContext<Workspace | null>(null);
 export const useAmendmentWorkspace = () => useContext(Context);
 export function ContractTermsNotice() {
   const workspace = useAmendmentWorkspace();
-  return <p className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground" role={workspace?.error ? "alert" : undefined}>
-    {workspace?.error ? "Chưa tải được điều khoản hiện tại. Các mục bên dưới tạm hiển thị bản hợp đồng gốc; tải lại mục Phụ lục trước khi đối chiếu."
+  return <PolicyNotice tone="neutral" title="Điều khoản đang áp dụng" text={
+    workspace?.error ? "Chưa tải được điều khoản hiện tại. Các mục bên dưới tạm hiển thị bản hợp đồng gốc; tải lại mục Phụ lục trước khi đối chiếu."
       : !workspace?.data ? "Đang kiểm tra phụ lục để hiển thị điều khoản hiện tại. Bản hợp đồng gốc đã ký được giữ nguyên trong hồ sơ."
-      : "Các mục bên dưới thể hiện điều khoản đang áp dụng, bao gồm phụ lục đã đủ chữ ký và đến ngày hiệu lực. Bản hợp đồng gốc đã ký được giữ nguyên tại Tài liệu hợp đồng."}
-  </p>;
+      : "Các mục bên dưới thể hiện điều khoản đang áp dụng, bao gồm phụ lục đã đủ chữ ký và đến ngày hiệu lực. Bản hợp đồng gốc đã ký được giữ nguyên tại Tài liệu hợp đồng."} />;
 }
 export default function ContractAmendmentWorkspace({ contractId, actorId, perspective, enabled = true, children }: {
   contractId: string; actorId: string; perspective: "landlord" | "tenant"; enabled?: boolean; children: ReactNode;

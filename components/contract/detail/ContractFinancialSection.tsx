@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React from "react";
 import { DollarSign, Lock } from "lucide-react";
 import { FieldRow, isZeroDeposit } from "./utils";
@@ -24,7 +25,7 @@ export default function ContractFinancialSection({
     <ContractTermFields group="financial" fields={[["paymentCycle","Kỳ hạn thanh toán",false,"Hàng tháng, Hàng quý, Hàng năm hoặc Mỗi N tháng (1–12). Phí điện/nước vẫn quyết toán hàng tháng."],["paymentMethod","Phương thức thanh toán"],["depositDescription","Điều kiện hoàn cọc"]]}/>
     <BillingSystemRuleLabels deadlineOnly />
     <ContractEditField group="financial" field="depositAmountValue"><VndMoneyInput label="Tiền đặt cọc bảo đảm (đ)" value={w.values.financial.depositAmountValue ?? String(financial.depositAmountNumber ?? "").replace(/\D/g, "")} onValueChange={depositAmountValue=>w.patch("financial",{...w.values.financial,depositAmountValue})}/></ContractEditField>
-    <p className="text-xs text-muted-foreground">Số tiền bằng chữ được tính lại. Đổi tiền cọc tạo khoản thu thêm hoặc hoàn phần chênh lệch sau khi phụ lục có hiệu lực; không sửa khoản cọc đã thanh toán.</p>
+    <PolicyNotice tone="neutral" title="Điều chỉnh tiền cọc" summary="Số tiền bằng chữ được tính lại."><p>Số tiền bằng chữ được tính lại. Đổi tiền cọc tạo khoản thu thêm hoặc hoàn phần chênh lệch sau khi phụ lục có hiệu lực; không sửa khoản cọc đã thanh toán.</p></PolicyNotice>
   </section>;
   return (
     <section id="amendment-rent" className="scroll-mt-24 rounded-2xl border border-border bg-card p-4.5 space-y-3 shadow-2xs">

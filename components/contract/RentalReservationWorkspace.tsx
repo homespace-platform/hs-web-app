@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import RentalOnboardingPanel from "@/components/rental-request/RentalOnboardingPanel";
@@ -11,7 +12,7 @@ export default function RentalReservationWorkspace({perspective}:{perspective:"t
   return <div className="mx-auto max-w-4xl space-y-4 pb-8">
     <Link href={`/dashboard/${perspective}/contracts?kind=DEPOSIT`} className="text-sm font-semibold text-primary">← Danh sách hợp đồng</Link>
     <div className="rounded-2xl border bg-card p-4"><h1 className="text-xl font-bold">Hồ sơ cọc & nhận nhà</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Theo dõi khoản cọc, ký hợp đồng và hoàn tất thanh toán trước khi nhận nhà. Hồ sơ không đặt cọc sẽ bỏ qua bước ký cọc.</p>
+      <PolicyNotice tone="neutral" className="mt-2" title="Hồ sơ cọc & nhận nhà" summary="Theo dõi khoản cọc, ký hợp đồng và hoàn tất thanh toán trước khi nhận nhà."><p>Theo dõi khoản cọc, ký hợp đồng và hoàn tất thanh toán trước khi nhận nhà. Hồ sơ không đặt cọc sẽ bỏ qua bước ký cọc.</p></PolicyNotice>
     </div>
     {rentalId && <RentalOnboardingPanel rentalRequestId={rentalId} isLandlord={perspective==="landlord"}/>}
   </div>;

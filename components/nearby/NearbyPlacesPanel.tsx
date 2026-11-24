@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import dynamic from "next/dynamic";
 import { MapPin, Map as MapIcon, List, ExternalLink, ChevronLeft, ChevronRight, RefreshCw, Navigation } from "lucide-react";
@@ -108,9 +109,9 @@ export default function NearbyPlacesPanel({ listingId, latitude, longitude }: { 
       {lastChecked && ` Cập nhật: ${new Date(lastChecked).toLocaleString("vi-VN")}.`}
     </p>
     <p className="text-xs text-muted-foreground">{hasListingCoordinates ? "Chỉ đường từ vị trí bài đăng đến tiện ích." : "Tin đăng chưa có tọa độ hợp lệ để chỉ đường."}</p>
-    {!complete && data && !syncing && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{limited
+    {!complete && data && !syncing && <PolicyNotice tone="warning" title="Dữ liệu địa điểm lân cận" text={limited
       ? "Mỗi bài đăng hiển thị tối đa 100 địa điểm đã thu thập trong 2 km. Nhóm chưa có kết quả có thể chưa nằm trong danh sách này."
-      : "Dữ liệu chưa phủ đủ phạm vi hoặc nhóm tiện ích đang chọn. Chỉ hiển thị các địa điểm đã có dữ liệu."}</p>}
+      : "Dữ liệu chưa phủ đủ phạm vi hoặc nhóm tiện ích đang chọn. Chỉ hiển thị các địa điểm đã có dữ liệu."} />}
     {error && <div role="alert" className="flex items-center gap-3 text-sm"><p>{error}</p><button type="button" onClick={() => setAttempt(n => n + 1)} className="inline-flex items-center gap-1 text-primary"><RefreshCw size={14} />Thử lại</button></div>}
     {loading && <p className="text-sm text-muted-foreground" role="status">Đang tải tiện ích...</p>}
     {syncing && <div role="status" className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground"><p>{result.watching ? "Đang cập nhật tiện ích theo vị trí mới. Kết quả sẽ tự hiển thị khi sẵn sàng." : "Tiện ích theo vị trí mới chưa sẵn sàng. Bạn có thể kiểm tra lại sau ít phút."}</p><button type="button" onClick={() => setAttempt(n => n + 1)} className="inline-flex items-center gap-1 text-primary"><RefreshCw size={14} />Kiểm tra lại</button></div>}

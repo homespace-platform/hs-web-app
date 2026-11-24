@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React from "react";
 import { AlertCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import type { RentalEstimateResponse } from "@/types/rental-request.type";
@@ -83,9 +84,9 @@ export function RentalCostSummary({
           <span>Mở thanh toán từ {dateLabel(plan.firstRentOpensOn)}</span>
           <strong className="shrink-0 text-sm">{formatVND(rent)}</strong>
         </div>
-        <p className="mt-2 text-muted-foreground">Đến ngày bắt đầu dọn vào {dateLabel(plan.moveInDate)}, hệ thống mới mở thanh toán tiền phòng tháng đầu. Không thu lại khoản cọc đã xác nhận. Ký hợp đồng mở sau khi đã xác nhận đủ tiền theo tiến trình nhận nhà.</p>
+        <PolicyNotice tone="neutral" title="Thanh toán tiền phòng tháng đầu" summary="Hệ thống mở thanh toán tiền phòng tháng đầu vào ngày bắt đầu dọn vào."><p>Đến ngày bắt đầu dọn vào {dateLabel(plan.moveInDate)}, hệ thống mới mở thanh toán tiền phòng tháng đầu. Không thu lại khoản cọc đã xác nhận. Ký hợp đồng mở sau khi đã xác nhận đủ tiền theo tiến trình nhận nhà.</p></PolicyNotice>
       </div>}
-      <p className="text-[11px] text-muted-foreground">Dự toán theo ngày {dateLabel(plan.businessDate)} của hệ thống. Khoản cần thanh toán được xác định lại khi chủ nhà chấp thuận; nếu thời điểm đó trùng ngày dọn vào thì thu cọc + tháng đầu. Ngày thuê có thể thay đổi nếu hai bên đồng ý bắt đầu sớm.</p>
+      <PolicyNotice tone="neutral" title="Về dự toán chi phí" summary="Khoản cần thanh toán được xác định lại khi chủ nhà chấp thuận."><p>Dự toán theo ngày {dateLabel(plan.businessDate)} của hệ thống. Khoản cần thanh toán được xác định lại khi chủ nhà chấp thuận; nếu thời điểm đó trùng ngày dọn vào thì thu cọc + tháng đầu. Ngày thuê có thể thay đổi nếu hai bên đồng ý bắt đầu sớm.</p></PolicyNotice>
 
       <EndOfPeriodCharges
         predictableCharges={estimate.predictableCharges}

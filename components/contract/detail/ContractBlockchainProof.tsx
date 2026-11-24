@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { ExternalLink, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
 import { contractBlockchainService } from "@/services/contract-blockchain.service";
@@ -134,7 +135,7 @@ function ProofForDocument({ document: doc }: { document: ContractDocumentRespons
       </div>
       <button type="button" onClick={() => { setVerification({ status: "idle" }); setRefresh(n => n + 1); }} disabled={loading || verifying || integrityLoading} className={buttonClass}><RefreshCw className="h-3.5 w-3.5"/>Kiểm tra lại</button>
     </div>
-    <p className="text-xs text-muted-foreground">Ghi nhận hash của đúng PDF đã ký đủ hai bên để đối chiếu về sau. Tệp PDF được giữ riêng tư.</p>
+    <PolicyNotice tone="neutral" title="Ghi nhận blockchain" summary="Ghi nhận hash của đúng PDF đã ký đủ hai bên để đối chiếu về sau."><p>Ghi nhận hash của đúng PDF đã ký đủ hai bên để đối chiếu về sau. Tệp PDF được giữ riêng tư.</p></PolicyNotice>
     {loadError && <p role="alert" className="text-xs text-amber-800 dark:text-amber-300">{loadError}</p>}
     <div className="space-y-1 border-t pt-3 text-xs" aria-label="Tính toàn vẹn của PDF đang lưu">
       <p className="font-semibold">PDF đang lưu</p>
@@ -159,10 +160,10 @@ function ProofForDocument({ document: doc }: { document: ContractDocumentRespons
       </dl></details>}
     </div>}
     {proof?.status === "CONFIRMED" && <details className="space-y-2 border-t pt-3"><summary className="cursor-pointer text-xs font-semibold">Đối chiếu PDF từ bên ngoài</summary>
-      <p className="text-xs text-muted-foreground">Dùng cho bản hợp đồng nhận qua email, Zalo hoặc lưu trên máy. PDF đang lưu trên hệ thống được kiểm tra tự động ở trên.</p>
+      <PolicyNotice tone="neutral" title="Đối chiếu PDF từ bên ngoài" summary="Dùng cho bản hợp đồng nhận qua email, Zalo hoặc lưu trên máy."><p>Dùng cho bản hợp đồng nhận qua email, Zalo hoặc lưu trên máy. PDF đang lưu trên hệ thống được kiểm tra tự động ở trên.</p></PolicyNotice>
       <input ref={input} type="file" accept="application/pdf,.pdf" aria-label="Chọn PDF để đối chiếu blockchain" className="hidden" onChange={event => void verifyFile(event)} disabled={verifying || loading || !!loadError}/>
       <button type="button" className={buttonClass} disabled={verifying || loading || !!loadError} onClick={() => input.current?.click()}>{verifying && <Loader2 className="h-3.5 w-3.5 animate-spin"/>}{verifying ? "Đang đối chiếu…" : "Chọn PDF để đối chiếu"}</button>
-      <p className="text-xs text-muted-foreground">Tính hash ngay trên máy bạn và chỉ gửi hash để đối chiếu, không upload PDF. Tối đa 20 MB.</p>
+      <PolicyNotice tone="neutral" title="Đối chiếu PDF" summary="Tính hash ngay trên máy bạn và chỉ gửi hash, không upload PDF."><p>Tính hash ngay trên máy bạn và chỉ gửi hash để đối chiếu, không upload PDF. Tối đa 20 MB.</p></PolicyNotice>
       {verification.fileName && <p className="break-all text-xs">Tệp: {verification.fileName}</p>}
       {verification.status === "match" && <p role="status" className="text-xs text-emerald-800 dark:text-emerald-300">Tệp khớp với hash đã ghi nhận trên blockchain.</p>}
       {verification.status === "mismatch" && <p role="status" className="text-xs text-amber-800 dark:text-amber-300">Tệp không khớp với hash đã ghi nhận. Hãy kiểm tra bạn đã chọn đúng PDF cuối đã ký.</p>}

@@ -9,7 +9,7 @@ import {useAgreementChangeSync} from "@/hooks/useAgreementChangeSync";
 import {getApiErrorMessage} from "@/utils/apiError";
 import type {ContractResponse,ContractDocumentResponse,SignatureStateResponse} from "@/types/contract.type";
 import type {RentalWorkflow,WorkflowDocument,WorkflowKind} from "@/types/rental-workflow.type";
-import { InfoDisclosure } from "@/components/common/InfoDisclosure";
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 const button="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50";
 // agreementId (from a signing notice) selects that exact document, validated only against the viewer's own authorized list.
 export default function WorkflowDocumentsPanel({rentalRequestId,kind,data,agreementId,onUpdated}:{rentalRequestId:string;kind:WorkflowKind;data:RentalWorkflow;agreementId?:string;onUpdated:()=>Promise<unknown>|void}){
@@ -59,9 +59,9 @@ export default function WorkflowDocumentsPanel({rentalRequestId,kind,data,agreem
   const signingAllowed=data.status==="APPROVED"&&!!current?.current&&!current.signedAt;
   const word=ready?.documents.find(d=>d.status==="READY"&&d.purpose==="OFFICIAL"&&d.documentType==="DOCX");
   return <section ref={box} tabIndex={-1} aria-label="Văn bản thỏa thuận và chữ ký" className="space-y-3 rounded-lg border p-3 text-xs"><h3 className="font-semibold">Phụ lục điều chỉnh thời hạn & chữ ký SmartCA</h3>
-    <InfoDisclosure tone="neutral" summary="Chỉ đủ hai chữ ký được kiểm chứng mới cập nhật hạn thuê.">
+    <PolicyNotice tone="neutral" title="Phụ lục điều chỉnh thời hạn" summary="Chỉ đủ hai chữ ký được kiểm chứng mới cập nhật hạn thuê.">
       <p>Phụ lục được điền từ mẫu Word và điều khoản hợp đồng đang áp dụng, ghi rõ thời hạn cũ và thời hạn mới. Chủ nhà ký trước, người thuê ký sau trên cùng PDF. Chỉ đủ hai chữ ký được kiểm chứng mới cập nhật hạn thuê; HĐ gốc giữ nguyên. Chữ ký không xác nhận đã bàn giao hoặc nhận tiền.</p>
-    </InfoDisclosure>
+    </PolicyNotice>
     {error&&<p role="alert" className="text-rose-700">{error}</p>}
     <div className="flex flex-wrap gap-2"><button type="button" className={button} onClick={()=>void load()}>Tải lại văn bản</button></div>
     {requestedMissing&&<p role="status">Không tìm thấy văn bản được chọn hoặc bạn không có quyền xem. Chưa có văn bản nào được tự chọn thay thế.</p>}

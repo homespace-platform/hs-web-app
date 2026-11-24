@@ -7,7 +7,7 @@ function load(file) {
   const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,"..",file),"utf8"),{fileName:file,
     compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
   const mod={exports:{}};
-  const resolve=name=>name==="./rental-request.helper"?load("components/rental-request/rental-request.helper.ts"):
+  const resolve=name=>name==="@/components/common/PolicyDialog"?{ PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null }:name==="./rental-request.helper"?load("components/rental-request/rental-request.helper.ts"):
     name==="./EndOfPeriodCharges"?load("components/rental-request/EndOfPeriodCharges.tsx"):require(name);
   vm.runInThisContext(`(function(require,module,exports){${code}\n})`)(resolve,mod,mod.exports);
   cache.set(file,mod.exports);return mod.exports;

@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React from "react";
 import Link from "next/link";
 import {
@@ -12,7 +13,6 @@ import {
   ArrowUpRight,
   Infinity as InfinityIcon,
   Layers,
-  Info,
   RefreshCw,
 } from "lucide-react";
 import {
@@ -149,11 +149,9 @@ export default function MembershipStatusCard({
                 )}
               </div>
 
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {unlimited
+              <PolicyNotice tone="neutral" title="Hạn mức đăng tin" text={unlimited
                   ? "Tài khoản Quản trị viên có hạn mức đăng tin không giới hạn để kiểm thử và vận hành. Lưu nháp và chỉnh sửa luôn miễn phí."
-                  : "Lưu tin nháp và chỉnh sửa nội dung miễn phí. Tạo mới gửi duyệt hoặc đăng lại tin cần 1 lượt. Tin đã hiển thị vẫn giữ nguyên tới hết hạn riêng của bài đăng ngay cả khi gói hết hạn."}
-              </p>
+                  : "Lưu tin nháp và chỉnh sửa nội dung miễn phí. Tạo mới gửi duyệt hoặc đăng lại tin cần 1 lượt. Tin đã hiển thị vẫn giữ nguyên tới hết hạn riêng của bài đăng ngay cả khi gói hết hạn."} />
             </div>
           </div>
 
@@ -303,11 +301,13 @@ export default function MembershipStatusCard({
       </div>
 
       {/* Key Policy Notes */}
-      <div className="rounded-2xl border border-blue-200/70 bg-blue-50/60 dark:border-blue-900/40 dark:bg-blue-950/25 p-4 text-xs text-blue-950 dark:text-blue-200 flex items-start gap-3">
-        <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
-        <div className="space-y-1 leading-relaxed">
-          <p className="font-bold">Quy tắc sử dụng lượt đăng & bảo toàn hiển thị bài đăng:</p>
-          <ul className="list-disc pl-4 space-y-0.5 text-blue-900/90 dark:text-blue-200/90">
+      <PolicyNotice
+        tone="info"
+        title="Quy tắc sử dụng lượt đăng & bảo toàn hiển thị bài đăng"
+        actionLabel="Xem quy tắc"
+        summary="Lưu nháp miễn phí; chỉ trừ lượt khi gửi duyệt hoặc đăng lại."
+      >
+        <ul>
             <li>
               <strong>Lưu tin nháp và chỉnh sửa tin đăng hoàn toàn miễn phí.</strong> Chỉ khi tạo tin mới gửi duyệt hoặc đăng lại tin mới cần 1 lượt đăng khả dụng.
             </li>
@@ -318,8 +318,7 @@ export default function MembershipStatusCard({
               <strong>Chính sách nâng cấp 24h:</strong> Trong vòng 24 giờ kể từ lần mua gói trả phí đầu tiên, nâng cấp lên gói cao hơn chỉ thanh toán phần chênh lệch giá và nhận số lượt của gói mới trừ đi số lượt đã dùng. Sau 24 giờ, mua gói mới sẽ tính nguyên giá và thay thế gói cũ (lượt cũ chưa dùng sẽ kết thúc).
             </li>
           </ul>
-        </div>
-      </div>
+      </PolicyNotice>
     </div>
   );
 }

@@ -28,6 +28,7 @@ function fixture(getEffectiveDocument, agreedEarlyEndExclusive = "2026-12-17") {
   };
   const section = load("components/contract/detail/ContractDocumentSection.tsx", name => {
     if (name === "react") return react;
+    if (name === "@/components/common/PolicyDialog") return { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null };
     if (name === "@/services/contract.service") return { contractService: { getEffectiveDocument: id => { calls++; return getEffectiveDocument(id); } } };
     if (name === "@/lib/contract-document-history") return history;
     if (name === "@/lib/contract-routes") return { contractDetailPath: () => "/contracts" };

@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { depositAgreementService, type DepositAgreementView } from "@/services/deposit-agreement.service";
@@ -110,7 +111,7 @@ export default function DepositAgreementPanel({ rentalRequestId, isLandlord, onU
       <h4 className="font-semibold">Hợp đồng đặt cọc</h4>
       <button type="button" disabled={loading || busy} className="rounded-lg border px-3 py-2 text-xs disabled:opacity-50" onClick={() => void load()}>{loading ? "Đang tải…" : "Làm mới"}</button>
     </div>
-    <p className="text-xs text-muted-foreground">Hợp đồng cọc được lập sau khi chủ nhà xác nhận nhận cọc, có thể xem và ký trước ngày vào ở. Hai bên ký cọc trước, ký hợp đồng thuê sau.</p>
+    <PolicyNotice tone="neutral" title="Hợp đồng cọc" summary="Hợp đồng cọc được lập sau khi chủ nhà xác nhận nhận cọc, có thể xem và ký trước ngày vào ở."><p>Hợp đồng cọc được lập sau khi chủ nhà xác nhận nhận cọc, có thể xem và ký trước ngày vào ở. Hai bên ký cọc trước, ký hợp đồng thuê sau.</p></PolicyNotice>
     {error && <div role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
       <p>{error}</p>
       <p className="mt-1">{view ? "Dữ liệu đang hiển thị là lần tải gần nhất; trạng thái ký cần được kiểm tra lại." : "Chưa xác định được trạng thái tài liệu. Lỗi tải không có nghĩa hợp đồng chưa được tạo."} Không cần chuyển tiền lại.</p>
@@ -119,7 +120,7 @@ export default function DepositAgreementPanel({ rentalRequestId, isLandlord, onU
     {!view && loading && !error && <p className="text-sm" role="status">Đang tải hợp đồng cọc và tài liệu…</p>}
     {contract && <p className="text-sm"><strong>{contract.contractNumber}</strong> · {labels[contract.status] || contract.status}</p>}
     {contract && ["CLOSED","TERMINATED"].includes(contract.status) && view?.blockedReason && <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">{view.blockedReason}</p>}
-    {view && !contract && !error && <p className="text-sm">Chưa có hồ sơ hợp đồng cọc. Sau khi chủ nhà xác nhận nhận tiền, hệ thống sẽ tự chuẩn bị tài liệu; bạn có thể kiểm tra mẫu hoặc dữ liệu còn thiếu bên dưới.</p>}
+    {view && !contract && !error && <PolicyNotice tone="neutral" title="Hợp đồng cọc" summary="Chưa có hồ sơ hợp đồng cọc."><p>Chưa có hồ sơ hợp đồng cọc. Sau khi chủ nhà xác nhận nhận tiền, hệ thống sẽ tự chuẩn bị tài liệu; bạn có thể kiểm tra mẫu hoặc dữ liệu còn thiếu bên dưới.</p></PolicyNotice>}
     {pdf && <button type="button" className="rounded-lg border px-3 py-2 text-sm" onClick={() => void open(pdf.id)}>{pdf.purpose === "SIGNED_FINAL" ? "Xem / tải hợp đồng cọc đã ký" : "Xem PDF hợp đồng cọc"}</button>}
     {pdf?.purpose === "SIGNED_FINAL" && pdf.contractId === contract?.id && <ContractBlockchainProof document={pdf}/>}
     {contract && !pdf && !error && <p className="text-sm text-muted-foreground">Hồ sơ cọc đã được lập, nhưng PDF chưa sẵn sàng. Hệ thống có thể đang kết xuất hoặc cần thử lại; không thu cọc lần nữa.</p>}

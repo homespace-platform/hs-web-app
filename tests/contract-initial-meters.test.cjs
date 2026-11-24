@@ -18,6 +18,7 @@ const meters=load('lib/contract-initial-meters.ts');
 const draftEditor=load('components/contract/detail/ContractDraftEditor.tsx');
 const utils={FieldRow:({label,value})=>React.createElement('p',null,label,': ',value),ContractSnapshotReadOnly:React.createContext(false)};
 const sectionDeps=name=>{
+  if(name==='@/components/common/PolicyDialog')return { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null };
   if(name==='./ContractFieldState')return {ContractEditField:props=>props.children};
   if(name==='./utils')return utils;
   if(name==='./ContractDraftEditor')return draftEditor;
@@ -33,6 +34,7 @@ const MissingFieldsNotice=load('components/contract/detail/ContractMissingFields
   return require(name);
 }).default;
 const Handover=load('components/contract/detail/ContractHandoverSection.tsx',name=>{
+  if(name==='@/components/common/PolicyDialog')return { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null };
   if(name==='./ContractFieldState')return {ContractEditField:props=>props.children};
   if(name==='./utils')return {FieldRow:({label,value})=>React.createElement('p',null,label,': ',value)};
   return require(name);
@@ -73,6 +75,7 @@ function harness({status='DRAFT',parentContractId=null,role='landlord',saved={},
     getCompleteness:async()=>({revisionId:'revision-2',complete:remainingFields.length===0,missingFields:remainingFields,filledFields:50-remainingFields.length,totalFields:50}),getDocuments:async()=>[],
   };
   const View=load('components/contract/ContractDetailView.tsx',name=>{
+    if(name==='@/components/common/PolicyDialog')return { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null };
     if(name==='react')return fakeReact;
     if(name==='next/navigation')return {useParams:()=>({id:'contract'}),useRouter:()=>({replace(){},push(){}})};
     if(name==='next/link')return props=>React.createElement('a',props);

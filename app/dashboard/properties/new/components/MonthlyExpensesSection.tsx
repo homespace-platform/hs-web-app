@@ -1,9 +1,9 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React from "react";
 import Link from "next/link";
 import {
-  Info,
   Plus,
   Trash2,
   Zap,
@@ -97,9 +97,14 @@ export default function MonthlyExpensesSection({
                   <h4 className="text-xs sm:text-sm font-bold text-sky-950 dark:text-sky-100 flex items-center gap-2">
                     Biểu phí cố định theo chi nhánh: {selectedBranch.name}
                   </h4>
-                  <p className="mt-0.5 text-[11px] text-sky-800 dark:text-sky-200">
-                    Toàn bộ chi phí hàng tháng được quản lý tập trung từ Chi nhánh / Tòa nhà. Để điều chỉnh các mức phí này, vui lòng chỉnh sửa trực tiếp tại Chi nhánh.
-                  </p>
+                  <PolicyNotice
+                    tone="info"
+                    className="mt-1.5"
+                    title="Biểu phí cố định theo chi nhánh"
+                    summary="Chi phí hàng tháng được quản lý tại Chi nhánh / Tòa nhà."
+                  >
+                    <p>Toàn bộ chi phí hàng tháng được quản lý tập trung từ Chi nhánh / Tòa nhà. Để điều chỉnh các mức phí này, vui lòng chỉnh sửa trực tiếp tại Chi nhánh.</p>
+                  </PolicyNotice>
                 </div>
               </div>
 

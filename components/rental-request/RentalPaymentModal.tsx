@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import {
   CreditCard,
@@ -538,9 +539,7 @@ function ScopedPaymentModal({
                     <p className="font-bold text-sm sm:text-base text-blue-950 dark:text-blue-100">
                       Chuyển khoản trực tiếp đến tài khoản {presentation.recipient}
                     </p>
-                    <p className="text-xs sm:text-sm text-blue-800/90 dark:text-blue-300/90">
-                      HomeSpace không nhận, giữ hoặc xử lý tiền. Khoản tiền được chuyển trực tiếp đến tài khoản của {presentation.recipient}. Vui lòng kiểm tra đúng tên chủ tài khoản trước khi chuyển.
-                    </p>
+                    <PolicyNotice tone="info" title="Chuyển khoản trực tiếp" summary="HomeSpace không nhận, giữ hoặc xử lý tiền."><p>HomeSpace không nhận, giữ hoặc xử lý tiền. Khoản tiền được chuyển trực tiếp đến tài khoản của {presentation.recipient}. Vui lòng kiểm tra đúng tên chủ tài khoản trước khi chuyển.</p></PolicyNotice>
                   </div>
                 </div>
               </div>
@@ -608,11 +607,9 @@ function ScopedPaymentModal({
                     ))}
                 </div>
 
-                <p className="text-xs text-muted-foreground italic pt-1.5 border-t border-border/40">
-                  {!presentation.detailed ? "Chưa có đủ chi tiết phân bổ. Số tiền cần chuyển theo tổng trên yêu cầu này." : presentation.refund
+                <PolicyNotice tone="neutral" title="Ghi chú khoản thanh toán" text={!presentation.detailed ? "Chưa có đủ chi tiết phân bổ. Số tiền cần chuyển theo tổng trên yêu cầu này." : presentation.refund
                     ? "Khoản hoàn căn cứ tiền thực nhận đã được xác nhận. Hoàn tất khi người thuê xác nhận đã nhận đủ tiền."
-                    : "* Phí dịch vụ cố định, điện/nước theo thực tế và khoản phát sinh được quyết toán vào cuối kỳ thuê, không thu trong khoản ban đầu."}
-                </p>
+                    : "* Phí dịch vụ cố định, điện/nước theo thực tế và khoản phát sinh được quyết toán vào cuối kỳ thuê, không thu trong khoản ban đầu."} />
 
                 <div className="pt-3 border-t border-border/70 flex items-baseline justify-between">
                   <div>

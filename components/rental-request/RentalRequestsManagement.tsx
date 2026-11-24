@@ -1,6 +1,7 @@
 "use client";
 
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -848,7 +849,7 @@ function RentalRequestsManagementView({ mode }: RentalRequestsManagementProps) {
                   </div>
                 </div>
 
-                {req.status === "ACCEPTED" && <p className="rounded-xl border bg-muted/30 p-3 text-xs text-muted-foreground">{req.depositAmount === 0 ? "Không yêu cầu đặt cọc: bỏ qua hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày bắt đầu thuê và xác nhận đủ tiền thuê tháng đầu." : "Hợp đồng cọc có thể xem và ký ngay sau khi xác nhận nhận tiền. Khi hợp đồng thuê được tạo, nút xem sẽ ưu tiên hợp đồng thuê; HĐ cọc vẫn được lưu riêng trong hồ sơ."}</p>}
+                {req.status === "ACCEPTED" && <PolicyNotice tone="neutral" title="Hợp đồng cọc & hợp đồng thuê" text={req.depositAmount === 0 ? "Không yêu cầu đặt cọc: bỏ qua hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày bắt đầu thuê và xác nhận đủ tiền thuê tháng đầu." : "Hợp đồng cọc có thể xem và ký ngay sau khi xác nhận nhận tiền. Khi hợp đồng thuê được tạo, nút xem sẽ ưu tiên hợp đồng thuê; HĐ cọc vẫn được lưu riêng trong hồ sơ."} />}
                 {/* Khối giữ chỗ cũ được thay bằng tiến trình nhận nhà ở trên. */}
 
 

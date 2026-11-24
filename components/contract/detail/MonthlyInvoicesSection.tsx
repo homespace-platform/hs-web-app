@@ -23,7 +23,8 @@ import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
 import PaymentReceiptActions from "@/components/payment/PaymentReceiptActions";
 import ComplaintPanel from "@/components/complaint/ComplaintPanel";
 
-import { InfoDisclosure } from "@/components/common/InfoDisclosure";
+import { splitSentences } from "@/lib/split-sentences";
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 type Extra = { description: string; amount: string };
 type Props = {
   contractId: string;
@@ -282,9 +283,11 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
     {refreshError && !loadError && <div role="status" className="flex items-center justify-between gap-2 rounded-xl border border-border bg-muted/50 p-3 text-xs text-muted-foreground"><span>Chưa cập nhật được dữ liệu mới nhất.</span><button type="button" onClick={() => void refresh()} className="font-semibold text-primary hover:underline">Tải lại</button></div>}
     {loadError ? <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{loadError} <button type="button" onClick={() => void refresh()} className="font-semibold underline">Thử lại</button></div>
       : loading ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Đang tải hóa đơn…</div>
-      : shown.length === 0 ? <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-        {isTenant ? "Chưa có hóa đơn được phát hành. Sau khi chủ nhà chốt chỉ số và phát hành, bạn sẽ thấy số tiền và QR thanh toán tại đây."
-          : "Chưa đến ngày cuối của kỳ thuê đầu tiên. Hóa đơn nháp sẽ xuất hiện để chủ nhà chốt chỉ số."}
+      : shown.length === 0 ? <div className="rounded-xl border border-dashed border-border p-3 text-sm text-muted-foreground">
+        <PolicyNotice tone="neutral" title="Hóa đơn tháng" summary={isTenant ? "Chưa có hóa đơn được phát hành." : "Chưa đến ngày cuối của kỳ thuê đầu tiên."}>
+          <p>{isTenant ? "Chưa có hóa đơn được phát hành. Sau khi chủ nhà chốt chỉ số và phát hành, bạn sẽ thấy số tiền và QR thanh toán tại đây."
+            : "Chưa đến ngày cuối của kỳ thuê đầu tiên. Hóa đơn nháp sẽ xuất hiện để chủ nhà chốt chỉ số."}</p>
+        </PolicyNotice>
       </div> : <div className="grid items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
         <label className="text-sm font-semibold lg:hidden">Chọn kỳ hóa đơn<select value={selected || ""} disabled={busy !== null} onChange={event => {
           setSelectedInvoiceId(event.target.value);
@@ -339,22 +342,27 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
               {invoicePeriodSecondaryLabel(invoice) && <p className="text-xs text-muted-foreground">{invoicePeriodSecondaryLabel(invoice)}</p>}
               <p className="text-xs text-muted-foreground">{firstRent ? "Tiền thuê tháng 1" : invoice.finalCostSupplement ? "Chi phí bổ sung" : `Chi phí tháng ${invoice.periodIndex + 1}`}: {date(invoice.periodStart)} – trước {date(invoice.periodEndExclusive)}</p>
               {invoice.billingPeriod?.kind === "RECURRING" && <p className="text-xs text-muted-foreground">Tiền phòng tháng {invoice.billingPeriod.paymentPeriodNumber}: {date(invoice.billingPeriod.rentPeriodStart || undefined)} – trước {date(invoice.billingPeriod.rentPeriodEndExclusive || undefined)}</p>}
-              {invoice.billingPeriod?.kind === "FINAL_SETTLEMENT" && <p className="text-xs font-semibold text-primary">Chỉ thu chi phí kỳ cuối và công nợ (nếu có), không thu tiền phòng tháng kế tiếp. Thanh toán đủ trước khi hoàn cọc.</p>}
+              {invoice.billingPeriod?.kind === "FINAL_SETTLEMENT" && <PolicyNotice tone="neutral" title="Hóa đơn kỳ cuối" summary="Chỉ thu chi phí kỳ cuối và công nợ (nếu có), không thu tiền phòng tháng kế tiếp."><p>Chỉ thu chi phí kỳ cuối và công nợ (nếu có), không thu tiền phòng tháng kế tiếp. Thanh toán đủ trước khi hoàn cọc.</p></PolicyNotice>}
               <p className="text-xs text-muted-foreground">{invoice.status === "DRAFT" ? "Chỉ chủ nhà thấy bản nháp; người thuê sẽ thấy sau khi phát hành" : `Hạn thanh toán: ${dateTime(invoice.dueAt)}`}</p></div>
             <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${presentation.className}`}>
               {presentation.label}
             </span>
           </div>
-          <p className={`rounded-lg px-3 py-2 text-xs ${["OVERDUE", "OVERDUE_ACTION_REQUIRED", "METER_DEADLINE_MISSED"].includes(invoice.workflowState) ? "bg-amber-50 text-amber-900" : "bg-blue-50 text-blue-800"}`}>
-            {firstRent ? invoice.status === "PAID" ? "Đã xác nhận tiền thuê tháng 1. Không thu lại trong các kỳ sau; cọc theo dõi riêng." : invoice.status === "CANCELLED" ? workflowMessage.CANCELLED : "Tiền thuê tháng đầu được mở theo tiến trình nhận nhà. Quá hạn cần đối soát, không áp dụng cộng dồn nợ hay phạt của kỳ thuê đang có hiệu lực." : workflowMessage[invoice.workflowState]}
-          </p>
-          {!firstRent && ["UNPAID", "PAYMENT_REMINDER", "OVERDUE", "OVERDUE_ACTION_REQUIRED"].includes(invoice.workflowState) && <InfoDisclosure tone="neutral" summary="Phạt chậm thanh toán tối đa 5 ngày theo mức trần của hợp đồng.">
+          {(() => {
+            const msg = String(firstRent ? invoice.status === "PAID" ? "Đã xác nhận tiền thuê tháng 1. Không thu lại trong các kỳ sau; cọc theo dõi riêng." : invoice.status === "CANCELLED" ? workflowMessage.CANCELLED : "Tiền thuê tháng đầu được mở theo tiến trình nhận nhà. Quá hạn cần đối soát, không áp dụng cộng dồn nợ hay phạt của kỳ thuê đang có hiệu lực." : workflowMessage[invoice.workflowState]);
+            const warn = ["OVERDUE", "OVERDUE_ACTION_REQUIRED", "METER_DEADLINE_MISSED"].includes(invoice.workflowState);
+            const sentences = splitSentences(msg);
+            return sentences.length > 1 || msg.length > 120
+              ? <PolicyNotice tone={warn ? "warning" : "info"} title="Trạng thái hóa đơn" summary={sentences[0]}><p>{msg}</p></PolicyNotice>
+              : <p className={`rounded-lg px-3 py-2 text-xs ${warn ? "bg-amber-50 text-amber-900" : "bg-blue-50 text-blue-800"}`}>{msg}</p>;
+          })()}
+          {!firstRent && ["UNPAID", "PAYMENT_REMINDER", "OVERDUE", "OVERDUE_ACTION_REQUIRED"].includes(invoice.workflowState) && <PolicyNotice tone="neutral" title="Phạt chậm thanh toán" summary="Phạt chậm thanh toán tối đa 5 ngày theo mức trần của hợp đồng.">
             <p>Phạt chậm thanh toán tối đa 5 ngày theo đơn giá và mức trần của hợp đồng. Hết 10 ngày quá hạn chưa có phương án xử lý, hệ thống tự chốt nợ để cộng dồn nếu còn kỳ sau chưa phát hành; kỳ cuối giữ hóa đơn riêng để quyết toán.</p>
-          </InfoDisclosure>}
+          </PolicyNotice>}
           {invoice.status === "DRAFT" && isLandlord && <div className="space-y-3 rounded-xl bg-muted/40 p-3">
-            <InfoDisclosure tone="neutral" summary="Chủ nhà có 24 giờ từ đầu ngày cuối kỳ để nhập chỉ số cuối kỳ.">
+            <PolicyNotice tone="neutral" title="Nhập chỉ số cuối kỳ" summary="Chủ nhà có 24 giờ từ đầu ngày cuối kỳ để nhập chỉ số cuối kỳ.">
               <p>Chủ nhà có 24 giờ từ đầu ngày cuối kỳ để nhập chỉ số cuối kỳ. Có thể chốt và phát hành ngay; nếu chỉ lưu bản nháp, hệ thống tự phát hành từ {dateTime(invoice.meterDeadlineAt)} và tạm dùng chỉ số đầu kỳ cho phần chưa nhập. Đơn giá lấy từ hợp đồng đã ký.</p>
-            </InfoDisclosure>
+            </PolicyNotice>
             {unsupportedWaterRate && <p className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">Biểu phí nước theo giá nhà nước chưa có đơn giá số cố định trong hợp đồng. Chưa thể phát hành tự động để tránh tính sai; vui lòng liên hệ quản trị viên.</p>}
             <div className="grid gap-3 sm:grid-cols-2">
               {electricityRequired && <MeterReadingInput name="điện" unit="kWh"
@@ -402,7 +410,7 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
             {invoice.lateFeeAmount > 0 && invoice.status !== "ROLLED_OVER" && <p className="text-xs text-rose-700">Trong tổng trên có {money(invoice.lateFeeAmount)} phí chậm thanh toán. {invoice.lateFeeExempt ? "Phí đã chốt, không tăng thêm cho hóa đơn này." : "Nếu đã chuyển tiền, hãy gửi chứng từ để tạm dừng tăng phí."}</p>}
             {!firstRent && <PaymentExtensionPanel invoice={invoice} isLandlord={isLandlord} isTenant={isTenant} refresh={refresh} />}
             {!firstRent && <OverdueActionsPanel invoice={invoice} contractActive={contractActive} isLandlord={isLandlord} isTenant={isTenant} refresh={async () => { await refresh(); await onUpdated?.(); }} />}
-            {firstRent && payment && payment.totalAmount !== invoice.totalAmount && <p className="rounded-lg bg-muted p-3 text-sm">Khoản chuyển gốc {money(payment.totalAmount)} bao gồm tiền thuê {money(invoice.totalAmount)} và cọc theo bảng kê. Chỉ chuyển một lần theo QR gốc; không cộng cọc vào tổng hóa đơn tiền thuê.</p>}
+            {firstRent && payment && payment.totalAmount !== invoice.totalAmount && <PolicyNotice tone="neutral" title="Khoản chuyển gốc" summary="Chỉ chuyển một lần theo QR gốc; không cộng cọc vào tổng hóa đơn tiền thuê."><p>Khoản chuyển gốc {money(payment.totalAmount)} bao gồm tiền thuê {money(invoice.totalAmount)} và cọc theo bảng kê. Chỉ chuyển một lần theo QR gốc; không cộng cọc vào tổng hóa đơn tiền thuê.</p></PolicyNotice>}
             {firstRent && payment && invoice.status === "PAID" && <div className="space-y-2 rounded-xl border p-3 text-sm"><p>Khoản chuyển gốc: <strong>{payment.transferReference}</strong> · Đã xác nhận: {dateTime(payment.confirmedAt)}</p>{payment.evidences?.map((e,index)=><button type="button" key={e.id} className="block text-primary underline" onClick={()=>void viewProof(e.storageObjectId)}>Xem chứng từ {index+1}</button>)}</div>}
             {payment && !["PAID","ROLLED_OVER","CANCELLED"].includes(invoice.status) && <div className="rounded-xl border border-border p-3 space-y-3 text-sm">
               <p className="font-semibold">Chuyển khoản trực tiếp cho chủ nhà</p>

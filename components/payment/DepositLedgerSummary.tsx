@@ -1,3 +1,4 @@
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import type { DepositLedger } from "@/types/deposit-ledger.type";
 
 const money = (value?: number | null) => value == null ? "Chưa có dữ liệu" : value.toLocaleString("vi-VN") + " đ";
@@ -10,7 +11,7 @@ const labels: Record<string, string> = {
 export default function DepositLedgerSummary({ ledger }: { ledger?: DepositLedger | null }) {
   if (!ledger) return <p className="text-sm text-muted-foreground">Chưa có sổ cọc để đối chiếu.</p>;
   if (ledger.status === "HELD" && ledger.originalAmount === 0 && ledger.confirmedReceivedAmount === 0 && ledger.heldAmount === 0 && (ledger.retainedAmount == null || ledger.retainedAmount === 0)) {
-    return <section aria-label="Sổ cọc" className="space-y-2 rounded-xl border p-3 text-sm"><p className="font-semibold">Không đặt cọc · Không có tiền cọc cần hoàn</p><p className="text-xs text-muted-foreground">Khi kết thúc thuê, hai bên vẫn cần xác nhận trả nhà và thanh toán các nghĩa vụ còn lại. Đây là ghi nhận miễn cọc, không phải chứng từ đã chuyển hoặc hoàn tiền.</p></section>;
+    return <section aria-label="Sổ cọc" className="space-y-2 rounded-xl border p-3 text-sm"><p className="font-semibold">Không đặt cọc · Không có tiền cọc cần hoàn</p><PolicyNotice tone="neutral" title="Không đặt cọc" summary="Khi kết thúc thuê, hai bên vẫn cần xác nhận trả nhà và thanh toán các nghĩa vụ còn lại."><p>Khi kết thúc thuê, hai bên vẫn cần xác nhận trả nhà và thanh toán các nghĩa vụ còn lại. Đây là ghi nhận miễn cọc, không phải chứng từ đã chuyển hoặc hoàn tiền.</p></PolicyNotice></section>;
   }
   const rows = [
     ["Cọc thực nhận đã xác nhận", ledger.confirmedReceivedAmount],
@@ -24,6 +25,6 @@ export default function DepositLedgerSummary({ ledger }: { ledger?: DepositLedge
     <dl className="grid gap-2 sm:grid-cols-2">{rows.map(([label, value]) => <div key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="font-medium">{money(value)}</dd></div>)}</dl>
     {ledger.retainedReason && <p>Căn cứ giữ lại: {ledger.retainedReason}</p>}
     {ledger.retainedAt && <p className="text-xs text-muted-foreground">Chốt giữ lúc {new Date(ledger.retainedAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}</p>}
-    <p className="text-xs text-muted-foreground">Đã thống nhất quyết toán hoặc đã báo chuyển chưa phải đã nhận tiền hoàn. Khoản phải trả thêm vượt cọc được theo dõi riêng.</p>
+    <PolicyNotice tone="neutral" title="Sổ cọc" summary="Đã thống nhất quyết toán hoặc đã báo chuyển chưa phải đã nhận tiền hoàn."><p>Đã thống nhất quyết toán hoặc đã báo chuyển chưa phải đã nhận tiền hoàn. Khoản phải trả thêm vượt cọc được theo dõi riêng.</p></PolicyNotice>
   </section>;
 }

@@ -284,6 +284,7 @@ function panelFixture({key='browser-test-key',latitude=10.82,longitude=106.68}={
     react:hooks,'next/dynamic':()=>MapComponent,
     '@/types/nearby.type':nearbyTypes,'@/lib/nearby-directions':directions,'@/lib/nearby-presentation':presentation,
     '@/lib/nearby-sync':load('lib/nearby-sync.ts', {}, {setTimeout,clearTimeout}),
+    '@/components/common/PolicyDialog': { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null },
     '@/features/auth/useAuth':{useAuth:()=>assert.fail('Nearby map must not depend on account authentication')},
     '@/store/hooks':{useAppSelector:()=>assert.fail('Nearby map must not read account coordinates')},
     '@/services/nearby.service':{getNearbyPlaces:(listing,group,page,signal)=>new Promise((resolve,reject)=>requests.push({listing,group,page,signal,resolve,reject}))},

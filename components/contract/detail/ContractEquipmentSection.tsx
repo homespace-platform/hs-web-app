@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React from "react";
 import { Package, ShieldCheck } from "lucide-react";
 import { str } from "./utils";
@@ -167,12 +168,7 @@ export default function ContractEquipmentSection({
         </p>
       )}
 
-      <div className="rounded-xl border border-border/70 bg-muted/25 px-3 py-2 flex items-center gap-2 text-xs text-muted-foreground">
-        <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-        <span>
-          Bên B có trách nhiệm kiểm tra chi tiết tình trạng hoạt động và ký xác nhận tại Biên bản bàn giao khi nhận bàn giao thực tế.
-        </span>
-      </div>
+      <PolicyNotice tone="neutral" icon={<ShieldCheck className="w-4 h-4" />} title="Trách nhiệm kiểm tra thiết bị" summary="Bên B kiểm tra tình trạng và ký xác nhận tại Biên bản bàn giao."><p>Bên B có trách nhiệm kiểm tra chi tiết tình trạng hoạt động và ký xác nhận tại Biên bản bàn giao khi nhận bàn giao thực tế.</p></PolicyNotice>
     </section>
   );
 }

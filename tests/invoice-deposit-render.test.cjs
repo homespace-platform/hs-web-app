@@ -13,6 +13,7 @@ test("deposit panels have unique sibling keys across invoice refreshes",()=>{
     "@/components/rental-request/RentalOnboardingPanel":{__esModule:true,default:onboarding},
     "@/components/contract/detail/ContractLifecyclePanel":{__esModule:true,default:lifecycle},
     "@/components/contract/detail/SettlementPaymentPanel":{DepositAdjustmentPayments:deposit},
+    "@/components/common/PolicyDialog":{ PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null },
     "@/features/auth/useAuth":{useAuth:()=>({})},"@/hooks/useAgreementChangeSync":{useAgreementChangeSync:()=>{}},
     "@/services/contract.service":{contractService:{}},"@/lib/contract-routes":{contractDetailPath:()=>"/contract"},
     "@/lib/payment-module":{contractStateLabels:{ACTIVE:"Active"},paymentSections:[],paymentSection:()=>"deposit",paymentModulePath:()=>"/invoices"},

@@ -1,4 +1,5 @@
 "use client";
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import PaymentReceiptActions from "@/components/payment/PaymentReceiptActions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
@@ -90,6 +91,6 @@ export function DepositAdjustmentPayments({ contractId, isLandlord }: { contract
   useNotificationChangeSync(event=>event.type==="payment-changed"||event.type==="agreement-changed"&&(!event.agreementId||event.agreementId===contractId),refresh);
   return <section className="space-y-3" aria-label="Điều chỉnh tiền cọc">
     <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">Chênh lệch cọc theo phụ lục</h3><button type="button" onClick={()=>void refresh()} className="text-sm text-primary">Làm mới khoản cọc</button></div>
-    {error ? <p role="alert" className="text-sm text-rose-700">{error}</p> : !rows.length ? <p className="text-sm text-muted-foreground">Chưa có khoản điều chỉnh cọc. Khi phụ lục đủ chữ ký và đến ngày hiệu lực, phần cọc cần bổ sung hoặc hoàn được quản lý tại đây.</p> : rows.map(payment=><SettlementPaymentPanel key={payment.id} payment={payment} isLandlord={isLandlord} refresh={refresh}/>)}
+    {error ? <p role="alert" className="text-sm text-rose-700">{error}</p> : !rows.length ? <PolicyNotice tone="neutral" title="Chênh lệch cọc theo phụ lục" summary="Chưa có khoản điều chỉnh cọc."><p>Chưa có khoản điều chỉnh cọc. Khi phụ lục đủ chữ ký và đến ngày hiệu lực, phần cọc cần bổ sung hoặc hoàn được quản lý tại đây.</p></PolicyNotice> : rows.map(payment=><SettlementPaymentPanel key={payment.id} payment={payment} isLandlord={isLandlord} refresh={refresh}/>)}
   </section>;
 }

@@ -43,6 +43,7 @@ function fixture(service, visible = true) {
   };
   const component = load("components/contract/detail/ContractBlockchainProof.tsx", name => {
     if (name === "react") return react;
+    if (name === "@/components/common/PolicyDialog") return { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null };
     if (name === "@/services/contract-blockchain.service") return { contractBlockchainService: service };
     if (name === "@/lib/contract-blockchain-proof") return helper;
     if (name === "@/lib/contract-document-history") return history;
@@ -147,6 +148,7 @@ test("actual PDF verification sends only SHA-256 and distinguishes mismatch, mis
 
 test("the dossier places proof next to signed root leases and child documents", () => {
   const section = load("components/contract/detail/ContractDocumentSection.tsx", name => {
+    if (name === "@/components/common/PolicyDialog") return { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null };
     if (name === "@/lib/contract-blockchain-proof") return helper;
     if (name === "@/lib/contract-document-history") return history;
     if (name === "@/lib/contract-routes") return { contractDetailPath: () => "/contracts" };

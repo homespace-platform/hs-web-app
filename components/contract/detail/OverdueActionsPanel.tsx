@@ -7,7 +7,7 @@ import type { MonthlyInvoice, OverdueActionType } from "@/types/monthly-invoice.
 import { getApiErrorMessage } from "@/utils/apiError";
 import UnilateralTerminationPanel from "./UnilateralTerminationPanel";
 
-import { InfoDisclosure } from "@/components/common/InfoDisclosure";
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 const labels: Record<OverdueActionType, string> = {
   PAYMENT_REQUEST: "Yêu cầu thanh toán và liên hệ người thuê",
   EXTENSION_PROPOSAL: "Đề xuất gia hạn thanh toán",
@@ -99,10 +99,10 @@ export default function OverdueActionsPanel({ invoice, contractActive, isLandlor
   return <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-3 text-sm">
     <div>
       <h4 className="font-semibold text-amber-950">Hồ sơ xử lý quá hạn</h4>
-      <InfoDisclosure tone="warning" className="mt-1" summary="Sau 5 ngày quá hạn, chọn một phương án xử lý (không áp dụng hai phương án cùng lúc).">
+      <PolicyNotice tone="warning" className="mt-1" title="Quy tắc xử lý hóa đơn quá hạn" actionLabel="Xem quy tắc" summary="Sau 5 ngày quá hạn, chọn một phương án xử lý (không áp dụng hai phương án cùng lúc).">
         <p>Sau khi hết 5 ngày quá hạn, chọn một phương án: cộng nợ kỳ sau, đơn phương chấm dứt hoặc dời hạn thanh toán ở mục gia hạn. Chọn cộng nợ/chấm dứt sẽ từ chối yêu cầu gia hạn đang chờ và tính bù phí. Không áp dụng hai phương án cùng lúc.</p>
         <p>Phạt tối đa 5 ngày trên mỗi hóa đơn. Hết 10 ngày quá hạn, nếu chưa chọn phương án và còn kỳ sau chưa phát hành, hệ thống tự chốt nợ để cộng dồn. Không tự cộng dồn khi đang chờ duyệt gia hạn, đối soát hoặc xử lý chấm dứt.</p>
-      </InfoDisclosure>
+      </PolicyNotice>
     </div>
     {canRecord && invoice.canDeferToNextPeriod && <div className="rounded-lg border border-amber-200 bg-white p-3 space-y-2">
       <p className="font-semibold">Cho phép thanh toán trễ vào kỳ sau</p>
@@ -110,7 +110,7 @@ export default function OverdueActionsPanel({ invoice, contractActive, isLandlor
       <button type="button" disabled={busy} onClick={() => void defer()}
         className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">Cộng dồn sang kỳ sau</button>
     </div>}
-    {canRecord && !invoice.canDeferToNextPeriod && <p className="rounded-lg bg-white p-3 text-xs text-amber-900">Không còn kỳ thuê kế tiếp chưa phát hành để chuyển nợ. Cần thanh toán hóa đơn này hoặc xử lý chấm dứt theo thỏa thuận.</p>}
+    {canRecord && !invoice.canDeferToNextPeriod && <PolicyNotice tone="warning" title="Không thể chuyển nợ sang kỳ sau" summary="Không còn kỳ thuê kế tiếp chưa phát hành để chuyển nợ."><p>Không còn kỳ thuê kế tiếp chưa phát hành để chuyển nợ. Cần thanh toán hóa đơn này hoặc xử lý chấm dứt theo thỏa thuận.</p></PolicyNotice>}
     <UnilateralTerminationPanel key={`${invoice.id}:${invoice.unilateralTermination?.id ?? "new"}`} invoice={invoice} isLandlord={isLandlord} isTenant={isTenant} canIssue={canPropose} refresh={refresh} />
     {isTerminationInvoice && invoice.terminationProposedAt && !invoice.terminationCompletedAt && <div className="rounded-lg border border-rose-200 bg-white p-3 space-y-2">
       <p className="font-semibold">Đề nghị chấm dứt sớm đã gửi</p>
@@ -129,7 +129,7 @@ export default function OverdueActionsPanel({ invoice, contractActive, isLandlor
       {contractActive && isLandlord && invoice.terminationDeclinedAt && !invoice.terminationCancelledAt && !invoice.deferredAt && <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 space-y-2">
         <p className="font-semibold text-rose-900">Buộc chấm dứt do quá hạn</p>
         {!invoice.landlordTerminationClauseSigned ? <p className="text-xs text-rose-800">Bản hợp đồng đã ký không có điều khoản 5 ngày theo cấu trúc hiện hành; không thể áp dụng nhánh này cho hợp đồng cũ.</p> : <>
-          <p className="text-xs text-rose-800">Chỉ thực hiện khi đã thông báo cho người thuê và thực tế lấy lại phòng. Không mở lại tin đăng nếu người thuê chưa bàn giao.</p>
+          <PolicyNotice tone="warning" title="Điều kiện đơn phương chấm dứt" summary="Chỉ thực hiện khi đã thông báo cho người thuê và thực tế lấy lại phòng."><p>Chỉ thực hiện khi đã thông báo cho người thuê và thực tế lấy lại phòng. Không mở lại tin đăng nếu người thuê chưa bàn giao.</p></PolicyNotice>
           <label className="flex gap-2 text-xs"><input type="checkbox" checked={forceAcknowledged} onChange={(e) => setForceAcknowledged(e.target.checked)} />Tôi xác nhận bản hợp đồng đã ký có điều khoản chấm dứt do quá hạn.</label>
           <label className="flex gap-2 text-xs"><input type="checkbox" checked={tenantNotified} onChange={(e) => setTenantNotified(e.target.checked)} />Tôi đã thông báo quyết định chấm dứt cho người thuê.</label>
           <label className="flex gap-2 text-xs"><input type="checkbox" checked={handoverConfirmed} onChange={(e) => setHandoverConfirmed(e.target.checked)} />Tôi đã nhận lại phòng trống, chìa khóa và toàn bộ tài sản cho thuê.</label>

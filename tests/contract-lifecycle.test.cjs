@@ -19,7 +19,7 @@ function load(source, lifecycle, namespace = false) {
     target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX,
   } }).outputText;
   const mod = { exports: {} };
-  const imports = name => name === "@/components/common/InfoDisclosure" ? { InfoDisclosure: ({ summary, children }) => require("react").createElement("div", null, summary, children) }
+  const imports = name => name === "@/components/common/PolicyDialog" ? { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null }
     : name === "react" ? (lifecycle ? mockReact : React)
     : name === "next/link" ? { default: ({ children, ...props }) => React.createElement("a", props, children) }
     : name === "next/image" ? { default: ({ unoptimized, ...props }) => React.createElement("img", props) }

@@ -1,7 +1,8 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React from "react";
-import { Receipt, Zap, Droplet, Info } from "lucide-react";
+import { Receipt, Zap, Droplet } from "lucide-react";
 import { str } from "./utils";
 import { useAmendmentWorkspace } from "./ContractAmendmentWorkspace";
 import InlineAmendmentFields from "./InlineAmendmentFields";
@@ -112,17 +113,10 @@ export default function ContractChargesSection({
           </table>
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground italic py-2">
-          Chưa có khoản phí dịch vụ được ghi nhận trong hợp đồng. Không tự suy ra các dịch vụ đã miễn phí hoặc bao gồm trong giá thuê.
-        </p>
+        <PolicyNotice tone="neutral" title="Phí dịch vụ trong hợp đồng" summary="Chưa có khoản phí dịch vụ được ghi nhận trong hợp đồng."><p>Chưa có khoản phí dịch vụ được ghi nhận trong hợp đồng. Không tự suy ra các dịch vụ đã miễn phí hoặc bao gồm trong giá thuê.</p></PolicyNotice>
       )}
 
-      <div className="flex items-start gap-2 text-[11px] text-muted-foreground bg-muted/20 p-2.5 rounded-xl border border-border/60">
-        <Info className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-        <span>
-          Các chi phí tính theo công tơ (điện, nước sinh hoạt) sẽ được chốt chỉ số định kỳ hàng tháng theo đúng đơn giá ghi trong bảng này.
-        </span>
-      </div>
+      <PolicyNotice tone="neutral" title="Chi phí tính theo công tơ" summary="Điện, nước sinh hoạt được chốt chỉ số định kỳ hàng tháng."><p>Các chi phí tính theo công tơ (điện, nước sinh hoạt) sẽ được chốt chỉ số định kỳ hàng tháng theo đúng đơn giá ghi trong bảng này.</p></PolicyNotice>
     </section>
   );
 }

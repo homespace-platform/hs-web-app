@@ -61,7 +61,7 @@ const testReact = { ...React, useState(initial) {
   const index = stateIndex++;
   return React.useState(index < initialStates.length ? initialStates[index] : initial);
 } };
-const Detail = load(detailSource, name => name === "@/components/common/InfoDisclosure" ? { InfoDisclosure: ({ summary, children }) => require("react").createElement("div", null, summary, children) }
+const Detail = load(detailSource, name => name === "@/components/common/PolicyDialog" ? { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null }
   : name === "react" ? testReact
   : ["@/components/payment/PaymentDisputePanel","@/components/payment/PaymentReceiptActions"].includes(name) ? { default: () => null }
   : ["@/components/complaint/ComplaintPanel","@/components/rental-request/RentalWorkflowPanel"].includes(name) ? { default: () => null }

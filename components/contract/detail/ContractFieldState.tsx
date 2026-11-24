@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import type { ReactNode } from "react";
 import type { AmendmentTerms } from "@/types/contract-amendment.type";
 import { amendmentFieldChanged, fieldStateClass, fieldStateText } from "@/lib/contract-field-state";
@@ -23,6 +24,6 @@ export function ContractFieldLegend({ draft = false }: { draft?: boolean }) {
     <span className={fieldStateClass.editable}>{draft ? "● Có thể sửa trên bản nháp" : "● Có thể điều chỉnh qua phụ lục"}</span>
     <span className={fieldStateClass.readonly}>● Chỉ đọc / Hệ thống tự tính</span>
     <span className={fieldStateClass.changed}>● Đã sửa trong bản đang soạn</span>
-    <p className="w-full text-muted-foreground">Xanh lá là nội dung đã sửa, chưa có nghĩa là đã áp dụng. Sửa lại đúng giá trị ban đầu sẽ trở về xanh dương; xóa dòng không làm đổi màu các dòng còn lại.</p>
+    <PolicyNotice tone="neutral" title="Chú thích màu sắc" summary="Xanh lá là nội dung đã sửa, chưa có nghĩa là đã áp dụng."><p>Xanh lá là nội dung đã sửa, chưa có nghĩa là đã áp dụng. Sửa lại đúng giá trị ban đầu sẽ trở về xanh dương; xóa dòng không làm đổi màu các dòng còn lại.</p></PolicyNotice>
   </aside>;
 }

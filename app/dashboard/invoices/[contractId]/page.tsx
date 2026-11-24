@@ -1,4 +1,5 @@
 "use client";
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
@@ -115,7 +116,7 @@ function InvoicesBody({ actorId, contractId, section, requestedInvoiceId, invali
     {section === "deposit" && <DepositAdjustmentPayments contractId={contract.id} isLandlord={isLandlord}/>}
     {section === "deposit" && <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} showComplaints={false} onUpdated={async()=>{await refresh();}} />}
     {section === "deposit" && (contract.status === "TERMINATED"
-      ? <div className="rounded-xl border bg-card p-5 text-sm">Hợp đồng đã chấm dứt theo phương án xử lý riêng. Kiểm tra điều khoản và kết quả xử lý tiền cọc trong <Link href={contractDetailPath(side, contract.id)} className="text-primary underline">hồ sơ hợp đồng</Link>.</div>
+      ? <div className="space-y-2 rounded-xl border bg-card p-5 text-sm"><PolicyNotice tone="neutral" title="Hợp đồng đã chấm dứt" summary="Hợp đồng đã chấm dứt theo phương án xử lý riêng."><p>Hợp đồng đã chấm dứt theo phương án xử lý riêng. Kiểm tra điều khoản và kết quả xử lý tiền cọc trong hồ sơ hợp đồng.</p></PolicyNotice><Link href={contractDetailPath(side, contract.id)} className="text-primary underline">Mở hồ sơ hợp đồng</Link></div>
       : ["ACTIVE","EXPIRED","CLOSED"].includes(contract.status) ? <ContractLifecyclePanel contractId={contract.id} isLandlord={isLandlord} mode="settlement" onUpdated={refresh} /> : null)}
   </div>;
 }

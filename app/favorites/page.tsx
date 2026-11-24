@@ -1,5 +1,6 @@
 "use client";
 
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React, { useCallback, useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import Breadcrumb from "@/components/common/Breadcrumb";
@@ -228,9 +229,7 @@ export default function FavoritesPage() {
                   {favorites.length} tin
                 </span>
               </div>
-              <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
-                Quản lý các không gian sống bạn đang quan tâm. Dễ dàng so sánh giá, vị trí và liên hệ trực tiếp chủ nhà.
-              </p>
+              <PolicyNotice tone="neutral" title="Danh sách yêu thích" actionLabel="Xem thêm" summary="Quản lý các không gian sống bạn đang quan tâm."><p>Quản lý các không gian sống bạn đang quan tâm. Dễ dàng so sánh giá, vị trí và liên hệ trực tiếp chủ nhà.</p></PolicyNotice>
             </div>
 
             {/* Quick Actions (Clear all) */}

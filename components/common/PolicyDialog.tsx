@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Check, FileText, Info, TriangleAlert, X } from "lucide-react";
+import { BookOpenText, Check, FileText, Info, TriangleAlert, X } from "lucide-react";
 import { splitSentences } from "@/lib/split-sentences";
 
 /** Policy codes like "RESERVATION_DEFAULT_V3" are internal; users only see "Phiên bản 3". */
@@ -154,7 +154,7 @@ const TILES = {
   neutral: "bg-primary/10 text-primary",
 } as const;
 
-/** Page-level replacement for wordy text: one short line + a button that opens the full content in a PolicyDialog. */
+/** Page-level replacement for wordy text: one short line + an icon button that opens the full content in a PolicyDialog. */
 export function PolicyNotice({
   summary,
   title,
@@ -162,7 +162,7 @@ export function PolicyNotice({
   text,
   tone = "info",
   icon,
-  actionLabel = "Xem chi tiết",
+  actionLabel = "Xem nội dung đầy đủ",
   subtitle,
   version,
   className = "",
@@ -175,6 +175,7 @@ export function PolicyNotice({
   text?: string;
   tone?: keyof typeof TONES;
   icon?: ReactNode;
+  /** Never rendered: only the aria-label ("{actionLabel}: {title}") and tooltip. The trigger is an icon so it is not read as a feature. */
   actionLabel?: string;
   subtitle?: string;
   version?: string;
@@ -183,7 +184,9 @@ export function PolicyNotice({
   const [open, setOpen] = useState(false);
   const ToneIcon = tone === "warning" ? TriangleAlert : Info;
   return (
-    <div className={`flex items-start gap-2 rounded-2xl border px-3 py-2.5 text-xs sm:text-sm ${TONES[tone]} ${className}`}>
+    <>
+    {/* Row click is a mouse convenience; the icon <button> stays the only tab stop. */}
+    <div onClick={() => setOpen(true)} className={`flex cursor-pointer items-start gap-2 rounded-2xl border px-3 py-2.5 text-xs sm:text-sm ${TONES[tone]} ${className}`}>
       <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${TILES[tone]}`} aria-hidden>
         {icon ?? <ToneIcon className="h-4 w-4" />}
       </span>
@@ -191,15 +194,22 @@ export function PolicyNotice({
       <button
         type="button"
         aria-haspopup="dialog"
-        onClick={() => setOpen(true)}
-        className="shrink-0 self-center rounded-md font-semibold underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 cursor-pointer"
+        aria-label={`${actionLabel}: ${title}`}
+        title={actionLabel}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(true);
+        }}
+        className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center self-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-8 sm:w-8"
       >
-        {actionLabel}
+        <BookOpenText className="h-4 w-4" aria-hidden />
       </button>
-      <PolicyDialog open={open} onClose={() => setOpen(false)} title={title} subtitle={subtitle} version={version} icon={icon ?? <ToneIcon className="h-5 w-5" />} text={text}>
-        {children}
-      </PolicyDialog>
     </div>
+    {/* Sibling, not child: portal events bubble through React and would re-trigger the row onClick. */}
+    <PolicyDialog open={open} onClose={() => setOpen(false)} title={title} subtitle={subtitle} version={version} icon={icon ?? <ToneIcon className="h-5 w-5" />} text={text}>
+      {children}
+    </PolicyDialog>
+    </>
   );
 }
 

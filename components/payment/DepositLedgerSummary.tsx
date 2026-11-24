@@ -5,7 +5,7 @@ const money = (value?: number | null) => value == null ? "Chưa có dữ liệu"
 const labels: Record<string, string> = {
   PENDING: "Chưa xác nhận nhận cọc", HELD: "Đang giữ cọc", SETTLEMENT_PENDING: "Chờ thống nhất quyết toán",
   RETAINED_BY_LANDLORD: "Đã chốt giữ cọc", REFUND_DUE: "Chờ hoàn cọc", REFUND_REPORTED: "Đã báo hoàn · Chờ bên nhận xác nhận",
-  REFUNDED: "Đã xác nhận hoàn cọc", DISPUTED: "Đang đối soát cọc",
+  REFUNDED: "Đã xác nhận hoàn cọc",
 };
 
 export default function DepositLedgerSummary({ ledger }: { ledger?: DepositLedger | null }) {

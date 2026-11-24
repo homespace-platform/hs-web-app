@@ -42,7 +42,6 @@ export function invoiceNeedsAction(
   if (role === "landlord") {
     if (invoice.status === "DRAFT") return true;
     if (paymentStatus === "TRANSFER_REPORTED") return true;
-    if (paymentStatus === "DISPUTED") return true;
     if (hasPendingExtension) return true;
     if (!paymentStatus && invoice.workflowState === "UNDER_REVIEW") return true;
     return false;
@@ -50,7 +49,6 @@ export function invoiceNeedsAction(
 
   if (paymentStatus === "TRANSFER_REPORTED") return false;
   if (paymentStatus === "REJECTED") return true;
-  if (paymentStatus === "DISPUTED") return true;
   if (invoice.status === "UNPAID" || invoice.status === "OVERDUE") return true;
   if (invoice.workflowState === "EXTENSION_PENDING") return true;
   return false;
@@ -204,7 +202,6 @@ export function invoiceListAction(
     if (presentation.kind === "draft") return { label: "Chốt chỉ số", href };
     if (presentation.kind === "awaiting_confirm") return { label: "Xác nhận thanh toán", href };
     if (presentation.kind === "overdue") return { label: "Xem xử lý quá hạn", href };
-    if (presentation.kind === "disputed") return { label: "Xem đối soát", href };
     return { label: "Xem hóa đơn", href };
   }
 

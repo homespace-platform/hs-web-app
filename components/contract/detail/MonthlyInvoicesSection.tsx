@@ -19,7 +19,6 @@ import { MeterReadingInput, MeterReadingSummary } from "./MeterReading";
 import InvoiceLineCalculation from "./InvoiceLineCalculation";
 import { chooseInvoice, paymentModulePath } from "@/lib/payment-module";
 import { findInvoicePayment } from "@/lib/invoice-list";
-import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
 import PaymentReceiptActions from "@/components/payment/PaymentReceiptActions";
 import ComplaintPanel from "@/components/complaint/ComplaintPanel";
 
@@ -331,7 +330,7 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
                 : "Đã quá hạn 5 ngày: chủ nhà cần ghi nhận phương án xử lý bên dưới.",
           UNDER_REVIEW: payment?.status === "TRANSFER_REPORTED"
             ? "Đã báo chuyển và gửi chứng từ, đang chờ chủ nhà xác nhận nhận tiền. Phí phạt tạm dừng tăng trong lúc chờ xử lý."
-            : "Khoản thanh toán đang chờ xác nhận hoặc đối soát; phí phạt tạm dừng tăng trong lúc chờ xử lý.",
+            : "Khoản thanh toán đang chờ xác nhận; phí phạt tạm dừng tăng trong lúc chờ xử lý.",
           PAID: "Đã xác nhận thanh toán.",
           DEFERRED: `${invoice.overdueActions.some((action) => action.type === "AUTOMATIC_ROLLOVER") ? "Hệ thống đã tự chốt công nợ sau 10 ngày quá hạn" : "Chủ nhà đã cho phép cộng dồn khoản nợ này"} để cộng vào hóa đơn kỳ kế tiếp. Phí phạt đã dừng tăng; bạn vẫn có thể thanh toán hóa đơn này trước khi chuyển nợ.`,
           ROLLED_OVER: "Khoản nợ đã được cộng vào hóa đơn kỳ kế tiếp. QR của hóa đơn này đã hủy; vui lòng thanh toán theo hóa đơn mới.",
@@ -448,7 +447,6 @@ export default function MonthlyInvoicesSection({ contractId, rentalRequestId, co
             </div>}
           </>}
           {payment?.status==="CONFIRMED" && payment.totalAmount>0 && <PaymentReceiptActions paymentId={payment.id}/>}
-          {payment && !["ROLLED_OVER", "CANCELLED"].includes(invoice.status) && <PaymentDisputePanel payment={payment} onUpdated={refresh} />}
         </article>;
       })}</div></div>}
     {rentalRequestId && <ComplaintPanel rentalRequestId={rentalRequestId} onUpdated={refresh}/>}

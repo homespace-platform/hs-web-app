@@ -38,7 +38,7 @@ test('owner fallback appears only for an accepted rental with first rent confirm
   for(const status of ['PENDING','COMPLETED','CANCELLED_BY_OWNER','EXPIRED'])
     assert.equal(canOfferContractFallback({...request,status},'RECEIVED'),false);
   for(const initialPayment of [null,{type:'RESERVATION_DEPOSIT',status:'CONFIRMED'},
-    {type:'INITIAL',status:'TRANSFER_REPORTED'},{type:'INITIAL',status:'DISPUTED'},{status:'CONFIRMED'}])
+    {type:'INITIAL',status:'TRANSFER_REPORTED'},{status:'CONFIRMED'}])
     assert.equal(canOfferContractFallback({...request,initialPayment},'RECEIVED'),false);
   assert.equal(canOfferContractFallback(request,'RECEIVED',null,{...view,cancellationRequestedAt:view.serverNow}),false);
 });

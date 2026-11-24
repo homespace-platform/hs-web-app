@@ -87,9 +87,6 @@ export function invoiceStatusPresentation(
   if (paymentStatus === "TRANSFER_REPORTED") {
     return { label: "Đã báo chuyển · Chờ xác nhận", className: styles.pending, kind: "awaiting_confirm" as const };
   }
-  if (paymentStatus === "DISPUTED") {
-    return { label: "Đang đối soát", className: styles.overdue, kind: "disputed" as const };
-  }
   if (paymentStatus === "REJECTED") {
     return { label: "Chứng từ bị từ chối", className: styles.overdue, kind: "rejected" as const };
   }
@@ -97,7 +94,7 @@ export function invoiceStatusPresentation(
     if (options?.paymentLoadFailed) {
       return { label: "Chưa xác định trạng thái thanh toán", className: styles.unknown, kind: "unknown" as const };
     }
-    return { label: "Chờ xác nhận / đối soát", className: styles.pending, kind: "awaiting_confirm" as const };
+    return { label: "Chờ xác nhận", className: styles.pending, kind: "awaiting_confirm" as const };
   }
   if (invoice.status === "OVERDUE") {
     return { label: "Quá hạn", className: styles.overdue, kind: "overdue" as const };

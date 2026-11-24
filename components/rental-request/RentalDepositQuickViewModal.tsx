@@ -69,7 +69,7 @@ export function ReservationReceipt({payment,actorId,isLandlord,busy=false,onConf
         <button type="button" disabled={busy} className={button} onClick={onReject}>Chưa nhận đủ / Từ chối chứng từ</button>
       </div>
     </div>}
-    {["DISPUTED","REJECTED","EXPIRED","OVERDUE"].includes(payment.status) && <p className="text-sm text-muted-foreground">Cần đối soát thêm? Mở chi tiết yêu cầu để xử lý theo tiến trình nhận nhà.</p>}
+    {["REJECTED","EXPIRED","OVERDUE"].includes(payment.status) && <p className="text-sm text-muted-foreground">Cần xem thêm? Mở chi tiết yêu cầu để xử lý theo tiến trình nhận nhà.</p>}
   </div>;
 }
 

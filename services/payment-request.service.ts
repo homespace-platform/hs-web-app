@@ -5,7 +5,6 @@ import type {
   PaymentRequest,
   ReportTransferPayload,
   RejectReceiptPayload,
-  DisputePaymentPayload,
 } from "@/types/payment-request.type";
 
 function normalizePaymentRequest(data: unknown): PaymentRequest {
@@ -99,20 +98,6 @@ export const paymentRequestService = {
   ): Promise<PaymentRequest> {
     const response = await axiosClient.post<ApiResponse<PaymentRequest>>(
       `/api/v1/payment-requests/${id}/reject-receipt`,
-      payload
-    );
-    return normalizePaymentRequest(response.data.result);
-  },
-
-  /**
-   * Khởi tạo khiếu nại đối soát
-   */
-  async dispute(
-    id: string,
-    payload: DisputePaymentPayload
-  ): Promise<PaymentRequest> {
-    const response = await axiosClient.post<ApiResponse<PaymentRequest>>(
-      `/api/v1/payment-requests/${id}/dispute`,
       payload
     );
     return normalizePaymentRequest(response.data.result);

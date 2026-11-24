@@ -3,7 +3,6 @@ export type PaymentStatus =
   | "TRANSFER_REPORTED"
   | "CONFIRMED"
   | "REJECTED"
-  | "DISPUTED"
   | "CANCELLED"
   | "OVERDUE"
   | "EXPIRED";
@@ -140,9 +139,5 @@ export interface ProofUploadSessionStatusResponse {
 }
 
 export interface RejectReceiptPayload {
-  reason: string;
-}
-
-export interface DisputePaymentPayload {
   reason: string;
 }

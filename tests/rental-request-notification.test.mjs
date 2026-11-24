@@ -348,7 +348,7 @@ function onboardingFixture() {
     '@/services/rental-onboarding.service': { rentalOnboardingService: { refresh(id) { const call = { ...deferred(), id }; calls.push(call); return call.promise; } } },
     '@/services/payment-request.service': {}, '@/services/storage.service': {},
     '@/utils/apiError': { getApiErrorMessage: (_error, fallback) => fallback }, './useRentalRequestSync': sync };
-  for (const name of ['./RentalPaymentModal', './DepositAgreementPanel', '@/components/payment/PaymentDisputePanel',
+  for (const name of ['./RentalPaymentModal', './DepositAgreementPanel',
     '@/components/payment/PaymentReceiptActions', '@/components/payment/DepositLedgerSummary',
     '@/components/complaint/ComplaintPanel', './RentalWorkflowPanel']) mocks[name] = nullComponent;
   const Component = load('components/rental-request/RentalOnboardingPanel.tsx', mocks, { ...timers.globals, document }).default;

@@ -45,7 +45,7 @@ export default function UnilateralTerminationPanel({ invoice, isLandlord, isTena
       <p className="font-medium">{statusLabel[notice.status]}</p>
       <p className="whitespace-pre-wrap break-words">Lý do: {notice.reason}</p>
       <p className="text-xs">Thông báo: {dateTime(notice.notifiedAt)}. Hạn khiếu nại xin đổi phương án: {dateTime(notice.respondBy)}.</p>
-      {notice.status === "NOTICE" && <p className="text-xs">Không cần người thuê xác nhận đồng ý. Hết 24 giờ mà không khiếu nại, hợp đồng tự chấm dứt. Đang đối soát tiền thì tạm dừng; đã xác nhận thanh toán thì rút quyết định.</p>}
+      {notice.status === "NOTICE" && <p className="text-xs">Không cần người thuê xác nhận đồng ý. Hết 24 giờ mà không khiếu nại, hợp đồng tự chấm dứt. Khách đã báo chuyển tiền thì tạm dừng chờ chủ nhà xác nhận; đã xác nhận thanh toán thì rút quyết định.</p>}
       {notice.requestedAt && <div className="rounded-lg bg-amber-50 p-2 text-xs">
         <p>Người thuê xin {notice.requestedOption === "ROLLOVER" ? "cộng nợ sang kỳ sau" : `dời hạn ${notice.requestedDays} ngày`} lúc {dateTime(notice.requestedAt)}.</p>
         <p className="whitespace-pre-wrap break-words">{notice.requestReason}</p>

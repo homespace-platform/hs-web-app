@@ -37,8 +37,7 @@ test("submitted proof takes priority over unpaid/overdue badge without marking i
     assert.equal(invoice.status, status);
   }
 });
-test("disputed and rejected proof are not described as awaiting confirmation", () => {
-  assert.equal(presentation(state(), "DISPUTED").label, "Đang đối soát");
+test("rejected proof are not described as awaiting confirmation", () => {
   assert.equal(presentation(state(), "REJECTED").label, "Chứng từ bị từ chối");
 });
 test("confirmed payment and paid invoices retain green completed badge", () => {
@@ -50,7 +49,7 @@ test("draft and transferred debt do not inherit a stale pending payment label", 
   assert.equal(presentation(state("ROLLED_OVER", "ROLLED_OVER"), "TRANSFER_REPORTED").label, "Đã chuyển nợ");
 });
 test("missing review payment data does not falsely call it unpaid or confirmed", () => {
-  assert.equal(presentation(state()).label, "Chờ xác nhận / đối soát");
+  assert.equal(presentation(state()).label, "Chờ xác nhận");
   assert.equal(presentation(state("UNPAID", "UNPAID"), "AWAITING_TRANSFER").label, "Chưa thanh toán");
   assert.equal(presentation(state("OVERDUE", "OVERDUE"), "OVERDUE").label, "Quá hạn");
 });
@@ -63,7 +62,7 @@ const testReact = { ...React, useState(initial) {
 } };
 const Detail = load(detailSource, name => name === "@/components/common/PolicyDialog" ? { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null }
   : name === "react" ? testReact
-  : ["@/components/payment/PaymentDisputePanel","@/components/payment/PaymentReceiptActions"].includes(name) ? { default: () => null }
+  : ["@/components/payment/PaymentReceiptActions"].includes(name) ? { default: () => null }
   : ["@/components/complaint/ComplaintPanel","@/components/rental-request/RentalWorkflowPanel"].includes(name) ? { default: () => null }
   : name === "@/lib/invoice-status" ? { invoiceStatusPresentation: presentation, invoicePeriodLabel, invoicePeriodSecondaryLabel }
   : name.startsWith("@/lib/") ? moduleImports(name)

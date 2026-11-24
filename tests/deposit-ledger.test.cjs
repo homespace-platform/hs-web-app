@@ -13,10 +13,9 @@ test("partial retention remains visible after the real refund, with its reason a
   const html=render({status:"REFUNDED",heldAmount:0,retainedAmount:100000,refundableAmount:0,confirmedReceivedAmount:20000000,confirmedRefundedAmount:19900000,retainedAt:"2026-11-03T03:00:00Z",retainedReason:"Vỡ kính cửa theo biên bản"});
   for(const expected of [/100.000 đ/,/19.900.000 đ/,/20.000.000 đ/,/Vỡ kính cửa/,/Chốt giữ lúc/])assert.match(html,expected);
 });
-test("reported or disputed refund never claims that money was actually received",()=>{
+test("reported refund never claims that money was actually received",()=>{
   const html=render({status:"REFUND_REPORTED",heldAmount:19900000,retainedAmount:100000,refundableAmount:19900000,confirmedRefundedAmount:0});
   assert.match(html,/Chờ bên nhận xác nhận/);assert.match(html,/chưa phải đã nhận tiền hoàn/);
-  assert.match(render({status:"DISPUTED"}),/Đang đối soát cọc/);
 });
 test("admin and renter/landlord views render the same ledger definition",()=>{
   assert.equal(source,fs.readFileSync(path.join(__dirname,"../../hs-admin-portal/src/pages/contracts/DepositLedgerSummary.tsx"),"utf8"));

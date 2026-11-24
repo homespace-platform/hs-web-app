@@ -186,7 +186,7 @@ function adjustment() {
   const f = environment(), reads = [];
   const Component = load('components/contract/detail/SettlementPaymentPanel.tsx', {
     react: f.runtime.hooks, 'next/image': nullComponent, sonner: { toast: { success() {}, error() {} } },
-    '@/components/payment/PaymentReceiptActions': nullComponent, '@/components/payment/PaymentDisputePanel': nullComponent,
+    '@/components/payment/PaymentReceiptActions': nullComponent,
     '@/services/payment-request.service': { getContractPayments(id) { const call = deferred(); reads.push({ id, ...call }); return call.promise; } },
     '@/services/storage.service': {}, '@/utils/apiError': { getApiErrorMessage: () => 'Offline' }, '@/hooks/useAgreementChangeSync': f.hooks,
   }, f.globals).DepositAdjustmentPayments;
@@ -221,7 +221,7 @@ function modal(actor = 'owner') {
       createProofUploadSession(id) { sessions.push(id); return Promise.resolve({ sessionId: 'session-1', uploadPageUrl: 'https://proof.test/session', expiresAt: '2099-01-01T00:00:00Z' }); },
       getProofUploadSessionStatus: async () => ({ status: 'AWAITING_UPLOAD' }) },
     '@/services/storage.service': { uploadPaymentProof: async () => 'proof-id' }, '@/utils/apiError': { getApiErrorMessage: error => error.message },
-    '@/components/payment/PaymentDisputePanel': nullComponent, '@/components/complaint/ComplaintPanel': nullComponent,
+    '@/components/complaint/ComplaintPanel': nullComponent,
     '@/lib/payment-transfer-presentation': load('lib/payment-transfer-presentation.ts'), '@/hooks/useAgreementChangeSync': f.hooks,
   }, f.globals, '\nexports.Scoped=ScopedPaymentModal;');
   const props = { request: { id: 'rental-1' }, paymentId: 'refund-1', isOpen: true, onClose() {}, onPaymentSuccess: value => updates.push(value) };
@@ -277,7 +277,7 @@ function settlementPayment(over = {}, isLandlord = true) {
   const f = environment(), reads = [], uploads = [], reports = [], parents = [], errors = [];
   const Component = load('components/contract/detail/SettlementPaymentPanel.tsx', {
     react: f.runtime.hooks, 'next/image': nullComponent, sonner: { toast: { success() {}, error: error => errors.push(error) } },
-    '@/components/payment/PaymentReceiptActions': nullComponent, '@/components/payment/PaymentDisputePanel': nullComponent,
+    '@/components/payment/PaymentReceiptActions': nullComponent,
     '@/hooks/useAgreementChangeSync': f.hooks, '@/utils/apiError': { getApiErrorMessage: error => error.message },
     '@/services/storage.service': { uploadPaymentProof(file, id) { uploads.push({ file, id }); return Promise.resolve('proof-id'); } },
     '@/services/payment-request.service': { getPaymentRequest(id) { const call = deferred(); reads.push({ id, ...call }); return call.promise; },

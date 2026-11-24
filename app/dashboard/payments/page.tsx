@@ -23,7 +23,6 @@ import type { PaymentRequest, PaymentStatus } from "@/types/payment-request.type
 import { toast } from "sonner";
 import { format } from "date-fns";
 import Link from "next/link";
-import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
 import SettlementPaymentPanel from "@/components/contract/detail/SettlementPaymentPanel";
 
 function formatVND(amount: number): string {
@@ -56,11 +55,6 @@ const STATUS_BADGES: Record<
     label: "Từ chối xác nhận",
     className: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800",
     icon: Ban,
-  },
-  DISPUTED: {
-    label: "Đang đối soát",
-    className: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800",
-    icon: AlertCircle,
   },
   CANCELLED: {
     label: "Đã hủy",
@@ -425,7 +419,6 @@ function PaymentsBody({ actorId, targetId, invalidTarget }: { actorId: string; t
                   </div>
                 </div>
 
-                {!(openRefund?.id === p.id && openRefund.selection === targetId) && <PaymentDisputePanel payment={p} onUpdated={requestList} />}
                 {p.type === "INITIAL_PAYMENT_REFUND" && (actorId === p.payerId || actorId === p.payeeId) && <>
                   <button type="button" className="text-xs font-semibold text-primary underline" onClick={() => setOpenRefund({ id: p.id, selection: targetId })}>Mở thao tác hoàn tiền</button>
                   {openRefund?.id === p.id && openRefund.selection === targetId && <SettlementPaymentPanel key={`${actorId}:${p.id}`} payment={p}

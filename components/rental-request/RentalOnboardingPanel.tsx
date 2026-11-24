@@ -9,24 +9,21 @@ import storageService from "@/services/storage.service";
 import { getApiErrorMessage } from "@/utils/apiError";
 import RentalPaymentModal from "./RentalPaymentModal";
 import DepositAgreementPanel from "./DepositAgreementPanel";
-import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
 import PaymentReceiptActions from "@/components/payment/PaymentReceiptActions";
 import DepositLedgerSummary from "@/components/payment/DepositLedgerSummary";
-import ComplaintPanel from "@/components/complaint/ComplaintPanel";
 import RentalWorkflowPanel from "./RentalWorkflowPanel";
 import { useRentalRequestSync } from "./useRentalRequestSync";
 
 const date = (s: string) => s.split("T")[0].split("-").reverse().join("/");
 const instant = (s?: string) => s ? new Date(s).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 const money = (n: number) => n.toLocaleString("vi-VN") + " đ";
-const statuses: Record<string, string> = { CONFIRMED: "Đã xác nhận", TRANSFER_REPORTED: "Đã báo chuyển · Chờ xác nhận", AWAITING_TRANSFER: "Chưa thanh toán", DISPUTED: "Cần đối soát", REJECTED: "Chứng từ chưa được chấp nhận", EXPIRED: "Đã hết hạn", CANCELLED: "Đã hủy" };
+const statuses: Record<string, string> = { CONFIRMED: "Đã xác nhận", TRANSFER_REPORTED: "Đã báo chuyển · Chờ xác nhận", AWAITING_TRANSFER: "Chưa thanh toán", REJECTED: "Chứng từ chưa được chấp nhận", EXPIRED: "Đã hết hạn", CANCELLED: "Đã hủy" };
 const decisions: Record<string, string> = { REQUESTED: "Chờ chủ nhà duyệt", APPROVED: "Đã đồng ý", REJECTED: "Không đồng ý", EXPIRED: "Đã hết hạn", WITHDRAWN: "Đã rút" };
 const button = "rounded-lg border px-3 py-2 text-sm disabled:opacity-50";
 
-export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onUpdated, onSnapshot, showComplaints=true, showDepositAgreement=true, compact=false }: {
+export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onUpdated, onSnapshot, showDepositAgreement=true, compact=false }: {
   rentalRequestId: string; isLandlord?: boolean; onUpdated?: (view: RentalOnboarding) => void | Promise<void>;
   onSnapshot?: (view: RentalOnboarding) => void;
-  showComplaints?: boolean;
   showDepositAgreement?: boolean;
   compact?: boolean;
 }) {
@@ -40,6 +37,8 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
   const [showForm, setShowForm] = useState(false);
   const isOwner = view ? view.askerRole === "LANDLORD" : isLandlord;
   const noticeOpen=!!view && !["CANCELLATION_REFUND_PENDING","COMPLETED","CANCELLED_BY_SYSTEM","CANCELLED_BY_RENTER","CANCELLED_BY_OWNER","EXPIRED","REJECTED"].includes(view.stage);
+  // Fully signed deposit agreement: cancelling forfeits the deposit (server enforces; this is display only).
+  const depositForfeit=!!view&&["ACTIVE","EXPIRED","CLOSED","TERMINATED"].includes(view.depositAgreementStatus??"");
   useEffect(() => { if (view) onSnapshot?.(view); }, [view, onSnapshot]);
   // The refresh endpoint is a POST that also syncs stages and expiries, so share one in-flight call
   // between the poll, notifications, manual refresh and post-action reloads.
@@ -132,19 +131,17 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
             <button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm(`Xác nhận bạn đã nhận đủ ${money(p.totalAmount)} vào tài khoản?`)) void action(() => paymentService.confirmReceipt(p.id)); }}>Xác nhận đã nhận đủ tiền</button>
             <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Lý do chưa xác nhận nhận tiền:"); if (note?.trim()) void action(() => paymentService.rejectReceipt(p.id, { reason: note.trim() })); }}>Chưa nhận đủ / Từ chối chứng từ</button>
           </>}
-          {!isOwner && ["REJECTED", "TRANSFER_REPORTED", "AWAITING_TRANSFER"].includes(p.status) && p.direction === "TENANT_TO_LANDLORD" && <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Nội dung cần đối soát (tối thiểu 10 ký tự):"); if (note && note.trim().length >= 10) void action(() => paymentService.dispute(p.id, { reason: note.trim() })); }}>Tôi đã chuyển / Cần đối soát</button>}
           {isOwner && (p.status === "REJECTED" || p.status === "AWAITING_TRANSFER" && p.dueAt && new Date(view.serverNow) >= new Date(p.dueAt)) && p.direction === "TENANT_TO_LANDLORD" && <>
-            <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Ghi nhận đối soát đã nhận đủ tiền (tối thiểu 10 ký tự):"); if (note && note.trim().length >= 10) void action(() => service.review(rentalRequestId, p.id, true, note.trim())); }}>Đối soát: đã nhận đủ</button>
+            <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Ghi chú xác nhận đã nhận đủ tiền (tối thiểu 10 ký tự):"); if (note && note.trim().length >= 10) void action(() => service.review(rentalRequestId, p.id, true, note.trim())); }}>Xác nhận đã nhận đủ</button>
             <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Ghi rõ chưa nhận tiền và mở lại hạn thanh toán (tối thiểu 10 ký tự):"); if (note && note.trim().length >= 10) void action(() => service.review(rentalRequestId, p.id, false, note.trim())); }}>Chưa nhận: mở lại thanh toán</button>
           </>}
         </div>
-        <PaymentDisputePanel payment={p} onUpdated={load} />
         {p.status==="CONFIRMED" && p.totalAmount>0 && <PaymentReceiptActions paymentId={p.id}/>}
       </article>)}</div>
       {!isOwner && view.canRequestEarlierStart && <button type="button" className={button} onClick={() => setShowForm(!showForm)}>Đề nghị nhận nhà và bắt đầu hợp đồng sớm</button>}
-      {view.depositAgreementTenantSigned && noticeOpen && <PolicyNotice tone="info" title="Sau khi ký hợp đồng cọc" summary="Bạn đã ký HĐ cọc: không còn thao tác hủy tự nguyện để yêu cầu hoàn cọc."><p>Bạn đã ký HĐ cọc: không còn thao tác hủy tự nguyện để yêu cầu hoàn cọc. Hãy thanh toán tháng đầu và ký HĐ thuê đúng hạn. Nếu có lỗi hoặc tranh chấp, bạn vẫn có thể gửi khiếu nại.</p></PolicyNotice>}
-      {!isOwner && !view.depositAgreementTenantSigned && view.canRequestCancellation && !view.cancellationRequestedAt && view.stage !== "COMPLETED" && <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt("Lý do đề nghị hủy và hoàn tiền (tối thiểu 10 ký tự):"); if (note && note.trim().length >= 10) void action(() => service.cancel(rentalRequestId, note.trim())); }}>Đề nghị hủy và hoàn tiền</button>}
-      {view.cancellationRequestedAt && view.stage === "CANCELLATION_REQUESTED" && <div className="rounded-xl border p-3 text-sm"><p>{view.cancellationReason}</p>{isOwner && <div className="mt-2 flex gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm("Đồng ý hủy và tạo nghĩa vụ hoàn toàn bộ khoản đã xác nhận? Bạn cần chuyển khoản hoàn và người thuê xác nhận nhận tiền.")) void action(() => service.decideCancel(rentalRequestId, true)); }}>Đồng ý hủy, hoàn tiền</button><button type="button" className={button} disabled={busy} onClick={() => void action(() => service.decideCancel(rentalRequestId, false))}>Không đồng ý hủy</button></div>}</div>}
+      {depositForfeit && noticeOpen && view.canRequestCancellation && <PolicyNotice tone="warning" title="HĐ cọc đã đủ chữ ký" summary="Nếu hủy, tiền cọc không được hoàn."><p>HĐ cọc đã đủ chữ ký: tiền cọc không được hoàn, chỉ hoàn tiền thuê tháng đầu nếu đã nhận. Nếu có lỗi hoặc tranh chấp, bạn vẫn có thể gửi khiếu nại.</p></PolicyNotice>}
+      {!isOwner && view.canRequestCancellation && !view.cancellationRequestedAt && view.stage !== "COMPLETED" && <button type="button" className={button} disabled={busy} onClick={() => { const note = window.prompt((depositForfeit ? "HĐ cọc đã đủ chữ ký: tiền cọc không được hoàn, chỉ hoàn tiền thuê tháng đầu nếu đã nhận.\n" : "") + "Lý do đề nghị hủy (tối thiểu 10 ký tự):"); if (note && note.trim().length >= 10) void action(() => service.cancel(rentalRequestId, note.trim())); }}>{depositForfeit ? "Đề nghị hủy (mất cọc)" : "Đề nghị hủy và hoàn tiền"}</button>}
+      {view.cancellationRequestedAt && view.stage === "CANCELLATION_REQUESTED" && <div className="rounded-xl border p-3 text-sm"><p>{view.cancellationReason}</p>{isOwner && <div className="mt-2 flex gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm(depositForfeit ? "Đồng ý hủy? HĐ cọc đã đủ chữ ký: tiền cọc không được hoàn, bạn giữ khoản cọc; chỉ hoàn tiền thuê tháng đầu nếu đã nhận (bạn chuyển khoản hoàn và người thuê xác nhận)." : "Đồng ý hủy và tạo nghĩa vụ hoàn toàn bộ khoản đã xác nhận? Bạn cần chuyển khoản hoàn và người thuê xác nhận nhận tiền.")) void action(() => service.decideCancel(rentalRequestId, true)); }}>{depositForfeit ? "Đồng ý hủy (giữ cọc)" : "Đồng ý hủy, hoàn tiền"}</button><button type="button" className={button} disabled={busy} onClick={() => void action(() => service.decideCancel(rentalRequestId, false))}>Không đồng ý hủy</button></div>}</div>}
       {showForm && <form className="space-y-3 rounded-xl border p-3" onSubmit={e => { e.preventDefault(); void action(() => service.request(rentalRequestId, startsOn, reason)); }}>
         <label className="block text-sm">Ngày bắt đầu thuê mới<input required type="date" min={new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(view.serverNow))} max={view.startsOn} value={startsOn} onChange={e => setStartsOn(e.target.value)} className="mt-1 block rounded-lg border p-2" /></label>
         <label className="block text-sm">Lý do<textarea required minLength={10} maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label>
@@ -159,7 +156,6 @@ export default function RentalOnboardingPanel({ rentalRequestId, isLandlord, onU
       {!!view.history?.length && <details className="rounded-xl border p-3"><summary className="cursor-pointer text-sm font-medium">Lịch sử xử lý hồ sơ</summary>{view.history.map(e => <p key={e.id} className="mt-2 text-sm">{instant(e.occurredAt)} · {({ CANCELLATION_REQUESTED: "Đề nghị hủy và hoàn tiền", CANCELLATION_APPROVED: "Đồng ý hủy và hoàn tiền", CANCELLATION_REJECTED: "Không đồng ý hủy", PAYMENT_RECEIPT_VERIFIED: "Đã đối soát nhận đủ tiền", PAYMENT_REOPENED: "Mở lại thanh toán", SIGNING_REOPENED: "Mở lại thời hạn ký", DEPOSIT_AGREEMENT_CREATED: "Đã lập hợp đồng cọc", DEPOSIT_LANDLORD_SIGNED: "Chủ nhà đã ký cọc", DEPOSIT_BOTH_SIGNED: "Đã ký đủ hợp đồng cọc", DEPOSIT_SIGNING_REOPENED: "Mở lại hạn ký cọc" } as Record<string, string>)[e.action] ?? "Cập nhật hồ sơ"} · {e.note}</p>)}</details>}
     </>}
     <RentalWorkflowPanel rentalRequestId={rentalRequestId} kind="cancellation" onUpdated={load}/>
-    {showComplaints && <ComplaintPanel rentalRequestId={rentalRequestId} onUpdated={load}/>}
     {paymentId && <RentalPaymentModal request={{ id: rentalRequestId }} paymentId={paymentId} isOpen onClose={() => { setPaymentId(null); void load(); }} onPaymentSuccess={() => { setPaymentId(null); void load(); }} />}
   </section>;
 }

@@ -36,8 +36,6 @@ import type {
 } from "@/types/payment-request.type";
 import type { RentalRequestResponse } from "@/types/rental-request.type";
 import { getApiErrorMessage } from "@/utils/apiError";
-import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
-import ComplaintPanel from "@/components/complaint/ComplaintPanel";
 import { useAuth } from "@/features/auth/useAuth";
 import { paymentTransferPresentation } from "@/lib/payment-transfer-presentation";
 import { useNotificationChangeSync } from "@/hooks/useAgreementChangeSync";
@@ -649,7 +647,7 @@ function ScopedPaymentModal({
                     {/* VietQR Box - Enlarge QR to 240px-260px */}
                     <div className="flex flex-col items-center shrink-0 w-full md:w-auto">
                       <div className="relative p-3.5 rounded-3xl bg-white border border-border/90 shadow-md flex items-center justify-center">
-                        {payment.status !== "DISPUTED" && payment.qrImageUrl && !qrError ? (
+                        {payment.qrImageUrl && !qrError ? (
                           <>
                             {qrLoading && (
                               <div className="absolute inset-0 flex items-center justify-center bg-white/90 rounded-3xl z-10">
@@ -672,13 +670,13 @@ function ScopedPaymentModal({
                           <div className="w-56 h-56 sm:w-64 sm:h-64 flex flex-col items-center justify-center p-4 text-center bg-muted/30 rounded-2xl border border-dashed border-border text-muted-foreground">
                             <AlertTriangle className="w-8 h-8 text-amber-500 mb-2" />
                             <span className="text-xs font-medium leading-relaxed">
-                              {payment.status === "DISPUTED" ? "Khoản tiền đang đối soát. Hãy xử lý hồ sơ bên dưới trước khi gửi lại chứng từ." : "Không tải được mã QR. Vui lòng chuyển khoản thủ công theo thông tin bên cạnh."}
+                              Không tải được mã QR. Vui lòng chuyển khoản thủ công theo thông tin bên cạnh.
                             </span>
                           </div>
                         )}
                       </div>
 
-                      {payment.status !== "DISPUTED" && payment.qrImageUrl && !qrError && (
+                      {payment.qrImageUrl && !qrError && (
                         <div className="flex items-center gap-2 mt-3">
                           <button
                             type="button"
@@ -777,7 +775,7 @@ function ScopedPaymentModal({
                   <div className="p-3 sm:p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 text-xs sm:text-sm flex items-center gap-2.5">
                     <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
                     <span>
-                      ⚠️ <strong>Lưu ý quan trọng:</strong> Vui lòng nhập đúng <strong>nội dung chuyển khoản ({payment.transferReference})</strong> để bên nhận dễ dàng đối soát và xác nhận nhanh chóng.
+                      ⚠️ <strong>Lưu ý quan trọng:</strong> Vui lòng nhập đúng <strong>nội dung chuyển khoản ({payment.transferReference})</strong> để bên nhận dễ dàng kiểm tra và xác nhận nhanh chóng.
                     </span>
                   </div>
                 </div>
@@ -797,7 +795,7 @@ function ScopedPaymentModal({
                       <span>Khai báo chứng từ chuyển khoản</span>
                     </h4>
                     <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                      Chứng từ của bạn sẽ được gửi trực tiếp cho {presentation.recipient} để đối soát với tài khoản ngân hàng.
+                      Chứng từ của bạn sẽ được gửi trực tiếp cho {presentation.recipient} để kiểm tra với tài khoản ngân hàng.
                     </p>
                   </div>
 
@@ -1175,8 +1173,6 @@ function ScopedPaymentModal({
                   </div>
                 </form>
               )}
-              <PaymentDisputePanel payment={payment} onUpdated={async () => setPayment(await paymentRequestService.getPaymentRequest(payment.id))} />
-              <ComplaintPanel rentalRequestId={request.id}/>
             </>
           )}
         </div>

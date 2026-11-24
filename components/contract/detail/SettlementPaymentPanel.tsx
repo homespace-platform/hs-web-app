@@ -8,7 +8,6 @@ import paymentService from "@/services/payment-request.service";
 import storageService from "@/services/storage.service";
 import type { PaymentRequest } from "@/types/payment-request.type";
 import { getApiErrorMessage } from "@/utils/apiError";
-import PaymentDisputePanel from "@/components/payment/PaymentDisputePanel";
 import { useNotificationChangeSync } from "@/hooks/useAgreementChangeSync";
 const money = (n: number) => n.toLocaleString("vi-VN") + " đ";
 export default function SettlementPaymentPanel({ payment, isLandlord, refresh }: {
@@ -49,7 +48,7 @@ export default function SettlementPaymentPanel({ payment, isLandlord, refresh }:
   }
   return <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/30 p-4 text-sm">
     <h4 className="font-semibold">{payment.type === "INITIAL_PAYMENT_REFUND" ? refund ? "Hoàn tiền · Chủ nhà → Người thuê" : "Hoàn tiền · Người thuê → Chủ nhà" : payment.type === "DEPOSIT_ADJUSTMENT" ? refund ? "Hoàn chênh lệch cọc · Chủ nhà → Người thuê" : "Bổ sung cọc · Người thuê → Chủ nhà" : refund ? "Hoàn cọc · Chủ nhà → Người thuê" : "Quyết toán còn thiếu · Người thuê → Chủ nhà"}</h4>
-    <p>Số tiền: <strong>{money(payment.totalAmount)}</strong> · Trạng thái: {payment.status === "DISPUTED" ? "Đang đối soát" : payment.status === "CONFIRMED" ? "Đã nhận tiền" : payment.status === "TRANSFER_REPORTED" ? "Chờ bên nhận xác nhận" : payment.status === "OVERDUE" ? "Quá hạn, vẫn phải thanh toán" : payment.status === "REJECTED" ? "Chứng từ bị từ chối" : payment.status === "CANCELLED" ? "Đã hủy" : payment.status === "EXPIRED" ? "Đã hết hạn" : "Chờ chuyển khoản"}</p>
+    <p>Số tiền: <strong>{money(payment.totalAmount)}</strong> · Trạng thái: {payment.status === "CONFIRMED" ? "Đã nhận tiền" : payment.status === "TRANSFER_REPORTED" ? "Chờ bên nhận xác nhận" : payment.status === "OVERDUE" ? "Quá hạn, vẫn phải thanh toán" : payment.status === "REJECTED" ? "Chứng từ bị từ chối" : payment.status === "CANCELLED" ? "Đã hủy" : payment.status === "EXPIRED" ? "Đã hết hạn" : "Chờ chuyển khoản"}</p>
     {payment.status === "CONFIRMED" && <p className="text-emerald-700">Đã xác nhận nhận đủ tiền{(payment.payeeConfirmedAt || payment.confirmedAt) ? ` · ${new Date((payment.payeeConfirmedAt || payment.confirmedAt)!).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}` : ""}.</p>}
     <details open={payment.status !== "CONFIRMED"} className="space-y-3"><summary className="cursor-pointer font-medium">Thông tin chuyển khoản & chứng từ</summary>
     {payment.status !== "CONFIRMED" && <p className="text-xs">Hạn thanh toán: {payment.dueAt ? new Date(payment.dueAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—"}. Bên nhận cần kiểm tra tài khoản và xác nhận nhận tiền.</p>}
@@ -67,9 +66,7 @@ export default function SettlementPaymentPanel({ payment, isLandlord, refresh }:
       <button type="button" disabled={busy || reason.trim().length < 10} onClick={() => void perform(() => paymentService.rejectReceipt(payment.id, { reason }))} className="rounded-lg border border-rose-200 px-3 py-2 text-xs text-rose-700 disabled:opacity-50">Từ chối chứng từ</button>
     </div>}
     {payment.rejectedReason && <p className="text-xs text-rose-700">Lý do từ chối: {payment.rejectedReason}</p>}
-    {payment.status === "DISPUTED" && <p className="text-xs text-rose-700">Đang tranh chấp; cần đối soát, không tự đóng hồ sơ.</p>}
     </details>
-    <PaymentDisputePanel payment={payment} onUpdated={refresh} />
     {payment.status==="CONFIRMED" && payment.totalAmount>0 && <PaymentReceiptActions paymentId={payment.id}/>}
   </div>;
 }

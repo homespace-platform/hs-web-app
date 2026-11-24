@@ -41,7 +41,7 @@ export const contractStateLabels: Record<ContractStatus, string> = {
 export function initialSummary(payment?: PaymentRequest): PaymentSummary {
   if (!payment) return { label: "Chưa tải được", detail: "Mở để tải lại thanh toán ban đầu", tone: "muted" };
   const labels: Record<PaymentStatus, string> = { CONFIRMED: "Đã xác nhận thanh toán", TRANSFER_REPORTED: "Chờ xác nhận nhận tiền",
-    AWAITING_TRANSFER: "Chờ thanh toán", OVERDUE: "Quá hạn", REJECTED: "Chứng từ bị từ chối", DISPUTED: "Đang đối soát", EXPIRED: "Đã hết hạn", CANCELLED: "Đã hủy" };
+    AWAITING_TRANSFER: "Chờ thanh toán", OVERDUE: "Quá hạn", REJECTED: "Chứng từ bị từ chối", EXPIRED: "Đã hết hạn", CANCELLED: "Đã hủy" };
   return { label: labels[payment.status], detail: "Cọc + tiền phòng tháng 1", amount: payment.totalAmount,
     tone: payment.status === "CONFIRMED" ? "success" : payment.status === "TRANSFER_REPORTED" ? "info" : "warning" };
 }
@@ -59,7 +59,7 @@ export function monthlySummary(bills?: MonthlyInvoice[], payments?: PaymentReque
     else due += bill.totalAmount;
   }
   if (due > 0) return { label: "Còn khoản cần thanh toán", amount: due, detail: pending > 0 ? "Có thêm khoản đang chờ xác nhận" : `${bills.length} hóa đơn trong hợp đồng`, tone: "warning" };
-  if (pending > 0) return { label: "Chờ xác nhận / đối soát", amount: pending, detail: "Đã báo chuyển khoản hoặc đang đối soát", tone: "info" };
+  if (pending > 0) return { label: "Chờ xác nhận", amount: pending, detail: "Đã báo chuyển khoản, chờ xác nhận", tone: "info" };
   if (drafts) return { label: "Cần chốt chỉ số", detail: `${drafts} hóa đơn nháp`, tone: "warning" };
   if (unresolved) return { label: "Cần kiểm tra", detail: "Mở hóa đơn để xem trạng thái mới nhất", tone: "warning" };
   return { label: "Đã thanh toán đủ", detail: `${bills.length} hóa đơn đã hoàn tất / chuyển nợ`, tone: "success" };
@@ -77,7 +77,7 @@ export function depositSummary(data?: ContractLifecycle, onboarding?: RentalOnbo
   if (closure.status === "WAITING_HANDOVER") return { label: "Chờ bàn giao & lập đề xuất", detail: data.billing.allPaid ? data.canProposeClosure ? "Đã đủ hóa đơn, chủ nhà có thể lập đề xuất cọc" : "Đã đủ hóa đơn; theo dõi đề xuất quyết toán và xác nhận bàn giao" : "Hoàn tất hóa đơn trước khi xử lý cọc", tone: "warning" };
   if (closure.status === "PROPOSED") return { label: "Chờ người thuê đồng ý", amount, detail: "Đề xuất khấu trừ và số tiền hoàn", tone: "info" };
   if (closure.status === "DISPUTED") return { label: "Cần đối soát khấu trừ", amount, detail: "Người thuê chưa đồng ý đề xuất", tone: "warning" };
-  return { label: payment?.status === "TRANSFER_REPORTED" ? "Chờ bên nhận xác nhận" : payment?.status === "DISPUTED" ? "Đang đối soát chuyển khoản" : closure.status === "BALANCE_PENDING" ? "Người thuê cần trả thêm" : "Chủ nhà cần chuyển cọc",
+  return { label: payment?.status === "TRANSFER_REPORTED" ? "Chờ bên nhận xác nhận" : closure.status === "BALANCE_PENDING" ? "Người thuê cần trả thêm" : "Chủ nhà cần chuyển cọc",
     detail: closure.status === "BALANCE_PENDING" ? "Người thuê → Chủ nhà" : "Chủ nhà → Người thuê", amount, tone: "info" };
 }
 export function chooseInvoice(bills: MonthlyInvoice[], payments: PaymentRequest[], role: DashboardRole, requested?: string | null) {

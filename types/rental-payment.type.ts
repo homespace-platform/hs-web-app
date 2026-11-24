@@ -6,7 +6,6 @@ export type RentalPaymentStatus =
   | "TRANSFER_REPORTED"
   | "CONFIRMED"
   | "REJECTED"
-  | "DISPUTED"
   | "PAID_MOCK"
   | "PAID"
   | "FAILED"

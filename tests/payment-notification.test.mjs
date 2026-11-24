@@ -5,11 +5,9 @@ import { load, hookRuntime, clock, events, service, deferred, nullComponent, ico
 
 const ID = 'cb856b21-5fbf-4d33-b7f7-fd54d5ce7867';
 const OTHER = '82a1fb41-2882-4dc3-b6e7-eb5fbb9f9d2e';
-const types = ['PAYMENT_REQUEST_CREATED', 'PAYMENT_OBLIGATION_OVERDUE', 'PAYMENT_TRANSFER_REPORTED', 'PAYMENT_RECEIPT_CONFIRMED', 'PAYMENT_RECEIPT_REJECTED',
-  'PAYMENT_DISPUTE_OPENED', 'PAYMENT_DISPUTE_EVIDENCE_ADDED', 'PAYMENT_DISPUTE_PROPOSED', 'PAYMENT_DISPUTE_PROPOSAL_DECLINED',
-  'PAYMENT_DISPUTE_ESCALATED', 'PAYMENT_DISPUTE_REVIEW_TRANSFER', 'PAYMENT_DISPUTE_REOPENED'];
+const types = ['PAYMENT_REQUEST_CREATED', 'PAYMENT_OBLIGATION_OVERDUE', 'PAYMENT_TRANSFER_REPORTED', 'PAYMENT_RECEIPT_CONFIRMED', 'PAYMENT_RECEIPT_REJECTED'];
 const flatten = node => node == null || typeof node !== 'object' ? [] : [node, ...React.Children.toArray(node.props?.children).flatMap(flatten)];
-const row = (id = ID, status = 'DISPUTED') => ({ id, status, type: 'INITIAL_PAYMENT_REFUND', payerId: 'owner', payeeId: 'tenant',
+const row = (id = ID, status = 'REJECTED') => ({ id, status, type: 'INITIAL_PAYMENT_REFUND', payerId: 'owner', payeeId: 'tenant',
   totalAmount: 3000000, transferReference: 'TESTREF', lineItems: [], direction: 'LANDLORD_TO_TENANT' });
 const Panel = () => null;
 
@@ -22,7 +20,7 @@ function fixture() {
   const window = { location: { pathname: '/dashboard/payments', search: `?${search}`, hash: '#detail' }, ...timers.globals };
   const mocks = { react: runtime.hooks, 'next/link': Link, 'next/navigation': { useSearchParams: () => new URLSearchParams(search) },
     'lucide-react': icons, sonner: { toast: { success() {} } }, '@/hooks/usePermission': { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, '@/lib/permissions': { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, '@/features/auth/useAuth': { useAuth: () => auth },
-    '@/services/notification.service': notifications, '@/components/payment/PaymentDisputePanel': Panel,
+    '@/services/notification.service': notifications,
     '@/components/contract/detail/SettlementPaymentPanel': Panel,
     '@/lib/contract-routes': load('lib/contract-routes.ts'), '@/lib/payment-transfer-presentation': load('lib/payment-transfer-presentation.ts'),
     '@/services/payment-request.service': { getMyPaymentRequests() { const call = deferred(); requests.push(call); return call.promise; } } };
@@ -36,7 +34,7 @@ function fixture() {
     resolve(i, rows = [row()]) { requests[i].resolve(rows); } };
 }
 
-test('all 12 routed payment tags are distinct, while legacy and prototype names keep fallback', () => {
+test('all 5 routed payment tags are distinct, while legacy and prototype names keep fallback', () => {
   const api = service();
   for (const type of types) {
     assert.equal(api.isRoutedPaymentType(type), true);
@@ -103,34 +101,6 @@ test('silent action refresh keeps stable card keys and panel mounted; late old-a
   assert.deepEqual(flatten(f.runtime.tree).filter(n => n.props?.['data-payment-id']).map(n => n.key), keys);
   f.notifications.notifyPaymentChanged(); await f.timers.advance(250); f.runtime.unmount();
   f.resolve(2); await f.runtime.settle(); assert.equal(f.requests.length, 3); assert.equal(f.timers.size, 0);
-});
-
-test('same-status realtime refresh updates open dispute actions immediately while retaining reason and evidence draft', async () => {
-  const runtime = hookRuntime(), timers = clock(), calls = [], actions = [], uploads = [], payment = row(), pendingAction = deferred();
-  const list = () => { const call = deferred(); calls.push(call); return call.promise; };
-  const mocks = { react: runtime.hooks, sonner: { toast: { success() {}, error() {} } },
-    '@/hooks/usePermission': { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, '@/lib/permissions': { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, '@/features/auth/useAuth': { useAuth: () => ({ profile: { id: 'owner' } }) },
-    '@/services/payment-request.service': {}, '@/services/payment-dispute.service': { paymentDisputeService: { list,
-      act(...args) { actions.push(args); return pendingAction.promise; } } },
-    '@/services/storage.service': { async uploadPaymentProof(file) { uploads.push(file); return 'draft-proof'; } },
-    '@/utils/apiError': { getApiErrorMessage: () => 'Failed' },
-    '@/types/payment-dispute.type': { disputeActionLabels: {}, disputeResolutionLabels: {}, disputeEventResolution: () => null } };
-  const PanelView = load('components/payment/PaymentDisputePanel.tsx', mocks, { window: timers.globals }).default;
-  const view = revision => [{ id: 'case', paymentId: ID, status: 'OPEN', revision, allowedActions: ['COMMENT', 'PROPOSE'],
-    evidences: [], events: [], amount: 3000000, currency: 'VND' }];
-  runtime.mount(PanelView, { payment, onUpdated() {} }); calls[0].resolve(view(1)); await runtime.settle();
-  let nodes = flatten(runtime.tree);
-  nodes.find(n => n.type === 'textarea').props.onChange({ target: { value: 'Bản nháp chưa được gửi' } });
-  const file = { name: 'draft.png', size: 20 };
-  nodes.find(n => n.type === 'input' && n.props.type === 'file').props.onChange({ target: { files: [file] } }); await runtime.settle();
-  runtime.update({ payment: { ...payment }, onUpdated() {} }); assert.equal(calls.length, 2);
-  assert.doesNotMatch(html(runtime), /Đang tải hồ sơ/); calls[1].resolve(view(2)); await runtime.settle();
-  assert.equal(flatten(runtime.tree).find(n => n.type === 'textarea').props.value, 'Bản nháp chưa được gửi');
-  flatten(runtime.tree).find(n => n.type === 'button' && n.props.children === 'Gửi phản hồi / chứng cứ').props.onClick();
-  await runtime.settle(); assert.equal(uploads[0], file);
-  assert.equal(actions[0][2].expectedRevision, 2); assert.equal(actions[0][2].evidenceStorageId, 'draft-proof');
-  const before = calls.length; await timers.advance(100); assert.equal(calls.length, before);
-  runtime.unmount(); assert.equal(timers.size, 0);
 });
 
 test('payment landing routes each stored party to its actual rental, invoice or contract action flow including reversed refunds', async () => {

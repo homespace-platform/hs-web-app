@@ -24,7 +24,7 @@ function load(source, lifecycle, namespace = false) {
     : name === "next/link" ? { default: ({ children, ...props }) => React.createElement("a", props, children) }
     : name === "next/image" ? { default: ({ unoptimized, ...props }) => React.createElement("img", props) }
     : name === "./SettlementPaymentPanel" ? { default: () => null }
-    : ["@/components/payment/PaymentReceiptActions","@/components/payment/PaymentDisputePanel"].includes(name) ? { default: () => null }
+    : ["@/components/payment/PaymentReceiptActions"].includes(name) ? { default: () => null }
     : ["@/components/complaint/ComplaintPanel","@/components/rental-request/RentalWorkflowPanel"].includes(name) ? { default: () => React.createElement("div", null, "CONTRACT_ONLY_WORKFLOW") }
     : name === "@/components/payment/DepositLedgerSummary" ? { default: load(fs.readFileSync(path.join(__dirname, "../components/payment/DepositLedgerSummary.tsx"), "utf8"), false) }
     : name === "./MeterReading" ? MeterComponents
@@ -144,14 +144,12 @@ test("actual refund stays visible even if the current held balance becomes zero"
   assert.match(html,/Đã hoàn 3\.000\.000/);assert.doesNotMatch(html,/không phát sinh chuyển khoản hoàn cọc/);
   assert.doesNotMatch(renderLifecycle({heldDeposit:null},false,"settlement"),/Không có tiền cọc cần hoàn/);
 });
-test("zero-deposit ledger is an exemption, while later received money and disputes retain their history",()=>{
+test("zero-deposit ledger is an exemption, while later received money retains its history",()=>{
   const ledger={status:"HELD",originalAmount:0,heldAmount:0,retainedAmount:0,refundableAmount:0,confirmedReceivedAmount:0,confirmedRefundedAmount:0};
   const html=renderLifecycle({heldDeposit:0,deposit:ledger},false,"settlement");
   assert.match(html,/Không đặt cọc/);assert.match(html,/không phải chứng từ đã chuyển hoặc hoàn tiền/);assert.doesNotMatch(html,/Đang giữ cọc/);
   const adjusted=renderLifecycle({heldDeposit:3000000,deposit:{...ledger,heldAmount:3000000,confirmedReceivedAmount:3000000}},false,"settlement");
   assert.match(adjusted,/3\.000\.000/);assert.doesNotMatch(adjusted,/Không đặt cọc/);
-  const disputed=renderLifecycle({heldDeposit:0,deposit:{...ledger,status:"DISPUTED"}},false,"settlement");
-  assert.match(disputed,/Đang đối soát cọc/);assert.doesNotMatch(disputed,/Không đặt cọc/);
 });
 test("refund QR belongs to landlord while actual receipt belongs to tenant", () => {
   assert.match(renderPayment("AWAITING_TRANSFER", true), /Tôi đã chuyển khoản/);

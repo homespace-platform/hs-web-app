@@ -43,7 +43,6 @@ function fixture(options = {}) {
     "@/services/payment-request.service": { __esModule: true, default: { reportTransfer: async (...args) => { calls.push(args); return { ...payment, status: "TRANSFER_REPORTED" }; } } },
     "@/services/storage.service": { __esModule: true, default: {} },
     "@/utils/apiError": { getApiErrorMessage: error => error.message },
-    "@/components/payment/PaymentDisputePanel": { __esModule: true, default: () => null },
     "@/components/complaint/ComplaintPanel": { __esModule: true, default: () => null },
     sonner: { toast: { success() {}, error() {} } }, qrcode: { __esModule: true, default: {} },
   }).default;

@@ -131,7 +131,7 @@ function section(initial = {}) {
     '@/utils/apiError': { getApiErrorMessage: () => 'Lỗi tải' }, '@/lib/invoice-status': load('lib/invoice-status.ts'), '@/lib/invoice-list': invoiceList,
     '@/lib/payment-module': load('lib/payment-module.ts', { '@/lib/invoice-list': invoiceList, '@/lib/contract-routes': load('lib/contract-routes.ts') }),
     './OverdueActionsPanel': OverduePanel, './PaymentExtensionPanel': ExtensionPanel, './MeterReading': { MeterReadingInput: MeterInput, MeterReadingSummary: nullComponent },
-    './InvoiceLineCalculation': nullComponent, '@/components/payment/PaymentDisputePanel': Panel, '@/components/payment/PaymentReceiptActions': Panel,
+    './InvoiceLineCalculation': nullComponent, '@/components/payment/PaymentReceiptActions': Panel,
     '@/components/complaint/ComplaintPanel': Panel };
   const Component = load('components/contract/detail/MonthlyInvoicesSection.tsx', mocks, { ...timers.globals, document, window }).default;
   const props = (over = {}) => ({ contractId: CONTRACT, rentalRequestId: '', contractActive: true, isLandlord: true, isTenant: false,

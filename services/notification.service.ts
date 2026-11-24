@@ -240,13 +240,6 @@ const PAYMENT_TYPE_TAGS: Record<string, string> = {
   PAYMENT_TRANSFER_REPORTED: "Đã báo chuyển khoản",
   PAYMENT_RECEIPT_CONFIRMED: "Đã xác nhận nhận",
   PAYMENT_RECEIPT_REJECTED: "Chưa xác nhận",
-  PAYMENT_DISPUTE_OPENED: "Mở đối soát",
-  PAYMENT_DISPUTE_EVIDENCE_ADDED: "Bổ sung chứng cứ",
-  PAYMENT_DISPUTE_PROPOSED: "Đề xuất đối soát",
-  PAYMENT_DISPUTE_PROPOSAL_DECLINED: "Từ chối đề xuất",
-  PAYMENT_DISPUTE_ESCALATED: "Chuyển cấp đối soát",
-  PAYMENT_DISPUTE_REVIEW_TRANSFER: "Xem lại chuyển khoản",
-  PAYMENT_DISPUTE_REOPENED: "Mở lại thanh toán",
 };
 
 // Invoice lifecycle notices (PAYMENT category). They open /dashboard/invoices/<contractId>?section=monthly&invoice=<id>
@@ -342,13 +335,6 @@ const ROUTED_PAYMENT_TYPES: ReadonlySet<string> = new Set([
   "PAYMENT_TRANSFER_REPORTED",
   "PAYMENT_RECEIPT_CONFIRMED",
   "PAYMENT_RECEIPT_REJECTED",
-  "PAYMENT_DISPUTE_OPENED",
-  "PAYMENT_DISPUTE_EVIDENCE_ADDED",
-  "PAYMENT_DISPUTE_PROPOSED",
-  "PAYMENT_DISPUTE_PROPOSAL_DECLINED",
-  "PAYMENT_DISPUTE_ESCALATED",
-  "PAYMENT_DISPUTE_REVIEW_TRANSFER",
-  "PAYMENT_DISPUTE_REOPENED",
 ]);
 
 export function isRoutedPaymentType(type: unknown): boolean {

@@ -62,7 +62,7 @@ test("only the actual landlord payee may review a reported incoming deposit or c
   assert.equal(canReviewReservationReceipt({...deposit,type:"INITIAL"},"owner",true),true);
   for(const actor of [null,"tenant","stranger"])assert.equal(canReviewReservationReceipt(deposit,actor,true),false);
   assert.equal(canReviewReservationReceipt(deposit,"owner",false),false);
-  for(const status of ["AWAITING_TRANSFER","CONFIRMED","REJECTED","DISPUTED","CANCELLED","EXPIRED","OVERDUE"])
+  for(const status of ["AWAITING_TRANSFER","CONFIRMED","REJECTED","CANCELLED","EXPIRED","OVERDUE"])
     assert.equal(canReviewReservationReceipt({...deposit,status},"owner",true),false);
   assert.equal(canReviewReservationReceipt({...deposit,direction:"LANDLORD_TO_TENANT"},"owner",true),false);
   assert.equal(canReviewReservationReceipt({...deposit,type:"DEPOSIT_ADJUSTMENT"},"owner",true),false);

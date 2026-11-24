@@ -23,7 +23,7 @@ test("deposit panels have unique sibling keys across invoice refreshes",()=>{
   const children=loaded.exports.InvoicesBody({actorId:"tenant",contractId:"root",section:"deposit",requestedInvoiceId:null}).props.children.filter(Boolean);
   assert.equal(children.filter(child=>child.type===deposit).length,1);
   assert.equal(children.filter(child=>child.type===lifecycle).length,1);
-  assert.equal(children.find(child=>child.type===onboarding).props.showComplaints,false);
+  assert.ok(children.some(child=>child.type===onboarding));
   const keys=children.map(child=>child.key).filter(key=>key!==null);
   assert.equal(keys.length,new Set(keys).size);
 });

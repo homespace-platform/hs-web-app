@@ -7,7 +7,7 @@ const testReact={...React,useState(initial){return React.useState(index++===0?sn
 const source=fs.readFileSync(path.join(__dirname,"../components/rental-request/RentalOnboardingPanel.tsx"),"utf8");
 const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 const mod={exports:{}};
-vm.runInThisContext(`(function(require,module,exports){${output}\n})`)(name=>name==="react"?testReact:name==="@/components/common/PolicyDialog"?{ PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null }:name==="./useRentalRequestSync"?{useRentalRequestSync:()=>{}}:name.startsWith("@/services/")?{rentalOnboardingService:{},default:{}}:name==="@/utils/apiError"?{getApiErrorMessage:()=>"error"}:["./RentalPaymentModal","./RentalWorkflowPanel","./DepositAgreementPanel","@/components/payment/PaymentReceiptActions","@/components/payment/PaymentDisputePanel","@/components/payment/DepositLedgerSummary","@/components/complaint/ComplaintPanel"].includes(name)?{default:()=>null}:require(name),mod,mod.exports);
+vm.runInThisContext(`(function(require,module,exports){${output}\n})`)(name=>name==="react"?testReact:name==="@/components/common/PolicyDialog"?{ PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null }:name==="./useRentalRequestSync"?{useRentalRequestSync:()=>{}}:name.startsWith("@/services/")?{rentalOnboardingService:{},default:{}}:name==="@/utils/apiError"?{getApiErrorMessage:()=>"error"}:["./RentalPaymentModal","./RentalWorkflowPanel","./DepositAgreementPanel","@/components/payment/PaymentReceiptActions","@/components/payment/DepositLedgerSummary","@/components/complaint/ComplaintPanel"].includes(name)?{default:()=>null}:require(name),mod,mod.exports);
 function render(role,defaultCase={},stage="REQUIRES_REVIEW",extra={},props={}) {
   snapshot={stage,askerRole:role,serverNow:"2026-11-03T03:00:00Z",startsOn:"2026-11-01",endExclusive:"2027-02-01",payments:[],startChanges:[],history:[],canRequestCancellation:true,
     defaultCase:{eligibleKind:"FIRST_RENT",canComplete:false,...defaultCase},...extra};index=0;
@@ -39,9 +39,13 @@ test("unchanged dates and legacy responses never invent an invalidated deposit t
   assert.doesNotMatch(legacy,/Thời hạn cũ trên HĐ cọc đã được thay thế/);
 });
 
-test("a tenant deposit signature removes voluntary cancellation even if a stale response offers it",()=>{
-  const html=render("TENANT",{},"WAITING_START",{depositAgreementTenantSigned:true,canRequestCancellation:true});
-  assert.doesNotMatch(html,/Đề nghị hủy và hoàn tiền/);assert.match(html,/không còn thao tác hủy tự nguyện/);
+test("a tenant-only deposit signature still offers cancellation with a full refund",()=>{
+  const html=render("TENANT",{},"WAITING_START",{depositAgreementTenantSigned:true,depositAgreementStatus:"LANDLORD_SIGNATURE_PENDING",canRequestCancellation:true});
+  assert.match(html,/Đề nghị hủy và hoàn tiền/);assert.doesNotMatch(html,/tiền cọc không được hoàn/);
+});
+test("a fully signed deposit agreement warns that cancelling forfeits the deposit",()=>{
+  const html=render("TENANT",{},"WAITING_START",{depositAgreementTenantSigned:true,depositAgreementStatus:"ACTIVE",canRequestCancellation:true});
+  assert.match(html,/Đề nghị hủy \(mất cọc\)/);assert.match(html,/tiền cọc không được hoàn, chỉ hoàn tiền thuê tháng đầu nếu đã nhận/);
 });
 test("automatic default explains the deadline and does not ask the owner to finalize manually",()=>{
   const html=render("LANDLORD",{automatic:true,canComplete:true,notifiedAt:"2026-11-02T03:00:00Z"});
@@ -103,7 +107,7 @@ test("exempt rentals keep first-rent payment and receipt actions visible",()=>{
 });
 test("an unresolved zero-valued deposit record stays visible for reconciliation",()=>{
   const html=render("TENANT",{eligibleKind:null},"REQUIRES_REVIEW",{depositAgreementRequired:false,payments:[
-    {id:"legacy",type:"RESERVATION_DEPOSIT",totalAmount:0,status:"DISPUTED",direction:"TENANT_TO_LANDLORD",lineItems:[]},
+    {id:"legacy",type:"RESERVATION_DEPOSIT",totalAmount:0,status:"REJECTED",direction:"TENANT_TO_LANDLORD",lineItems:[]},
   ]});
-  assert.match(html,/Cần đối soát/);assert.match(html,/Tiền cọc giữ chỗ/);
+  assert.match(html,/Chứng từ chưa được/);assert.match(html,/Tiền cọc giữ chỗ/);
 });

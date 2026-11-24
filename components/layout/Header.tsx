@@ -66,7 +66,7 @@ export default function Header() {
     requireKyc(profile, {
       router,
       redirect: true,
-      onAllowed: () => router.push("/dashboard/properties/upsert"),
+      onAllowed: () => router.push("/dashboard/properties/new"),
     });
   };
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

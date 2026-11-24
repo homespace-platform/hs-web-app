@@ -196,7 +196,7 @@ function DashboardPropertyViewContent() {
         {/* Edit Button */}
         {canEdit && (
           <Link
-            href={`/dashboard/properties/upsert?id=${rawListing.id}`}
+            href={`/dashboard/properties/${rawListing.id}/edit`}
             className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-sm transition-all"
           >
             <Edit className="h-3.5 w-3.5" />

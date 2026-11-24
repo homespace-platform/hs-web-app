@@ -97,8 +97,8 @@ export default function CommercialDetailsSection({
           error={errors.facadeWidthM}
           hint={
             isFacadeRequired
-              ? "Bắt buộc đối với Cửa hàng, Showroom, Shophouse"
-              : "Chiều ngang phía trước mặt bằng"
+              ? "Bắt buộc với Cửa hàng, Showroom, Shophouse."
+              : "Chiều ngang mặt bằng."
           }
         >
           <input
@@ -286,7 +286,7 @@ export default function CommercialDetailsSection({
 
         {/* Tiêu chuẩn kỹ thuật bổ sung */}
         <div className="sm:col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-xs font-medium text-foreground cursor-pointer hover:bg-muted/50">
+          <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-sm font-medium text-foreground cursor-pointer hover:bg-muted/50">
             <input
               type="checkbox"
               checked={data.hasThreePhasePower ?? false}
@@ -296,7 +296,7 @@ export default function CommercialDetailsSection({
             Có điện 3 pha công nghiệp
           </label>
 
-          <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-xs font-medium text-foreground cursor-pointer hover:bg-muted/50">
+          <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-sm font-medium text-foreground cursor-pointer hover:bg-muted/50">
             <input
               type="checkbox"
               checked={data.hasFireSafety ?? true}
@@ -306,7 +306,7 @@ export default function CommercialDetailsSection({
             Hệ thống PCCC đạt chuẩn
           </label>
 
-          <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-xs font-medium text-foreground cursor-pointer hover:bg-muted/50">
+          <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-sm font-medium text-foreground cursor-pointer hover:bg-muted/50">
             <input
               type="checkbox"
               checked={data.hasLoft ?? false}

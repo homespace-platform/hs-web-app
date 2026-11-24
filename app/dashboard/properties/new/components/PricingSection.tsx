@@ -56,7 +56,7 @@ export default function PricingSection({
       id="section-pricing"
       stepNumber={5}
       title="Giá &amp; Điều kiện thuê"
-      description="Thiết lập mức giá cho thuê, tiền cọc, chu kỳ thanh toán và điều kiện hợp đồng"
+      description="Giá thuê, tiền cọc và điều kiện hợp đồng."
     >
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         {/* Giá thuê */}
@@ -68,7 +68,7 @@ export default function PricingSection({
           hint={
             formattedPriceHint
               ? `Bằng chữ số: ${formattedPriceHint}`
-              : "Nhập số tiền thuê bằng VNĐ (VD: 15000000)"
+              : "Nhập số tiền bằng VNĐ."
           }
         >
           <div className="relative">
@@ -83,7 +83,7 @@ export default function PricingSection({
                 errors.priceMonthly ? "border-destructive focus:border-destructive" : ""
               }`}
             />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
               VNĐ
             </span>
           </div>
@@ -156,7 +156,7 @@ export default function PricingSection({
                   errors.depositAmount ? "border-destructive focus:border-destructive" : ""
                 }`}
               />
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
                 VNĐ
               </span>
             </div>
@@ -182,7 +182,7 @@ export default function PricingSection({
                   errors.depositMonths ? "border-destructive focus:border-destructive" : ""
                 }`}
               />
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
                 tháng
               </span>
             </div>
@@ -230,7 +230,7 @@ export default function PricingSection({
                 errors.minimumLeaseMonths ? "border-destructive focus:border-destructive" : ""
               }`}
             />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
               tháng
             </span>
           </div>
@@ -238,7 +238,7 @@ export default function PricingSection({
 
         {/* Checkbox tùy chọn thương lượng */}
         <div className="sm:col-span-2">
-          <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-xs font-medium text-foreground cursor-pointer hover:bg-muted/50">
+          <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-sm font-medium text-foreground cursor-pointer hover:bg-muted/50">
             <input
               type="checkbox"
               checked={data.isNegotiable}

@@ -34,7 +34,7 @@ export default function CategoryChangeConfirmModal({
               <h3 className="text-sm font-bold text-foreground">
                 Xác nhận đổi loại hình
               </h3>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Chuyển sang: <span className="font-semibold text-foreground">{targetCategoryLabel}</span>?
               </p>
             </div>
@@ -52,14 +52,14 @@ export default function CategoryChangeConfirmModal({
           <button
             type="button"
             onClick={onCancel}
-            className="h-9 rounded-xl border border-border px-4 text-xs font-bold text-foreground hover:bg-muted"
+            className="h-11 rounded-xl border border-border px-4 text-sm font-bold text-foreground hover:bg-muted"
           >
             Giữ nguyên
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="h-9 rounded-xl bg-primary px-4 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-2xs"
+            className="h-11 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground hover:bg-primary/90 shadow-2xs"
           >
             Đồng ý đổi
           </button>

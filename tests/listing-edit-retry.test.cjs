@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const ts=require('typescript');
 function harness(error) {
-  const source=fs.readFileSync(require.resolve('../app/dashboard/properties/new/page.tsx'),'utf8');
+  const source=fs.readFileSync(require.resolve('../app/dashboard/properties/new/ListingEditor.tsx'),'utf8');
   const ast=ts.createSourceFile('page.tsx',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
   const membership=ts.createSourceFile('membership.ts',fs.readFileSync(require.resolve('../lib/membership.ts'),'utf8'),ts.ScriptTarget.Latest,true);
   const quotaCheck=membership.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='isListingQuotaExhaustedError');
@@ -15,7 +15,7 @@ function harness(error) {
   const requests=[],messages=[],routes=[];let rejected=true;
   const noop=()=>{};
   const context={isSubmitting:false,isEditMode:true,isDuplicateMode:false,loadedListingStatus:'RESERVED',rentedLockListing:null,
-    profile:{id:'owner'},router:{push:path=>routes.push(path)},requireKyc:()=>true,validateAllFields:()=>true,
+    profile:{id:'owner'},router:{push:path=>routes.push(path)},requireKyc:()=>true,validateFields:()=>true,validatePolicies:()=>true,setPreviewOpen:noop,MISSING_EDIT_ID_ERROR:'missing',buildParams:(action,media)=>({id:'listing',basicInfo:{title:'Nội dung đang sửa',images:[{storageObjectId:'existing-photo'}],videos:[]},roomDetails:{roomCode:'P0200'},uploadedMediaList:media,submissionAction:action}),
     listingOptions:{amenities:[],policies:[{code:'petPolicy',valueType:'TEXT',required:true}]},policyCatalogError:null,
     listingPolicies:[{code:'petPolicy',value:'Giữ vệ sinh'}],selectedBranch:null,
     basicInfo:{title:'Nội dung đang sửa',images:[{storageObjectId:'existing-photo'}],videos:[]},

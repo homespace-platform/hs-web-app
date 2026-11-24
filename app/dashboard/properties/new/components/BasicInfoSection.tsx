@@ -4,6 +4,7 @@ import { ImagePlus, Video as VideoIcon, X, Lock } from "lucide-react";
 import { toast } from "sonner";
 import FormField, { inputClass, selectClass } from "./FormField";
 import FormSectionWrapper from "./FormSectionWrapper";
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import {
   PROPERTY_CATEGORIES,
   MAX_IMAGES,
@@ -142,14 +143,14 @@ export default function BasicInfoSection({
       id="section-basic-info"
       stepNumber={1}
       title="Thông tin cơ bản"
-      description="Cung cấp các thông tin tổng quan, hình ảnh và loại hình cho thuê"
+      description="Thông tin chung, hình ảnh và loại hình cho thuê."
     >
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         {/* Chọn Chi nhánh / Tòa nhà */}
         <FormField
           id="field-branch"
           label="Chi nhánh / Tòa nhà"
-          hint="Nếu bất động sản này thuộc chi nhánh/tòa nhà của bạn, chọn chi nhánh để gán tự động"
+          hint="Chọn chi nhánh để tự động gán thông tin."
           className="sm:col-span-2"
         >
           <select
@@ -176,7 +177,7 @@ export default function BasicInfoSection({
           label="Tiêu đề tin đăng"
           required
           error={errors.title}
-          hint="Tiêu đề hấp dẫn, rõ ràng (tối thiểu 10 ký tự)"
+          hint="Rõ ràng, hấp dẫn (tối thiểu 10 ký tự)."
           className="sm:col-span-2"
         >
           <input
@@ -195,14 +196,14 @@ export default function BasicInfoSection({
           label={`Hình ảnh (${data.images.length}/${MAX_IMAGES})`}
           required
           error={errors.images}
-          hint={`Tối thiểu 1 ảnh và tối đa ${MAX_IMAGES} ảnh chất lượng rõ nét. Ảnh đầu tiên sẽ làm ảnh bìa.`}
+          hint={`Tối thiểu 1, tối đa ${MAX_IMAGES} ảnh. Ảnh đầu là ảnh bìa.`}
           className="sm:col-span-2"
         >
           <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4">
             <div className="flex flex-wrap items-center gap-3">
               <label
                 htmlFor="upload-listing-images"
-                className={`inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-2xs transition-colors hover:bg-primary/90 ${
+                className={`inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-3.5 py-2.5 min-h-10 text-sm font-semibold text-primary-foreground shadow-2xs transition-colors hover:bg-primary/90 ${
                   data.images.length >= MAX_IMAGES ? "pointer-events-none opacity-50" : ""
                 }`}
               >
@@ -218,13 +219,13 @@ export default function BasicInfoSection({
                 onChange={handleImageUpload}
                 className="sr-only"
               />
-              <span className="text-xs text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 Hỗ trợ JPG, PNG, WEBP (tối đa 10MB/ảnh)
               </span>
             </div>
 
             {data.images.length > 0 && (
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                 {data.images.map((img, idx) => (
                   <div
                     key={`${img.name}-${idx}`}
@@ -238,7 +239,7 @@ export default function BasicInfoSection({
                       className="object-cover"
                     />
                     {idx === 0 && (
-                      <span className="absolute left-1.5 top-1.5 rounded-md bg-primary/90 px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground backdrop-blur-xs">
+                      <span className="absolute left-1.5 top-1.5 rounded-md bg-primary/90 px-1.5 py-0.5 text-xs font-bold text-primary-foreground backdrop-blur-xs">
                         Ảnh bìa
                       </span>
                     )}
@@ -262,14 +263,14 @@ export default function BasicInfoSection({
           id="field-videos"
           label={`Video (${data.videos.length}/${MAX_VIDEOS})`}
           error={errors.videos}
-          hint={`Không bắt buộc. Tối đa ${MAX_VIDEOS} video quay cận cảnh không gian.`}
+          hint={`Không bắt buộc, tối đa ${MAX_VIDEOS} video.`}
           className="sm:col-span-2"
         >
           <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4">
             <div className="flex flex-wrap items-center gap-3">
               <label
                 htmlFor="upload-listing-videos"
-                className={`inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground shadow-2xs transition-colors hover:bg-muted ${
+                className={`inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2.5 min-h-10 text-sm font-semibold text-foreground shadow-2xs transition-colors hover:bg-muted ${
                   data.videos.length >= MAX_VIDEOS ? "pointer-events-none opacity-50" : ""
                 }`}
               >
@@ -285,7 +286,7 @@ export default function BasicInfoSection({
                 onChange={handleVideoUpload}
                 className="sr-only"
               />
-              <span className="text-xs text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 Hỗ trợ MP4, WebM, MOV (tối đa 500MB và 2 phút/video)
               </span>
             </div>
@@ -295,7 +296,7 @@ export default function BasicInfoSection({
                 {data.videos.map((vid, idx) => (
                   <div
                     key={`${vid.name}-${idx}`}
-                    className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2 text-xs"
+                    className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2 text-sm"
                   >
                     <div className="flex items-center gap-2 truncate">
                       <VideoIcon className="h-4 w-4 shrink-0 text-primary" />
@@ -319,7 +320,7 @@ export default function BasicInfoSection({
 
         {/* 5 Loại hình chính */}
         <div className="sm:col-span-2 space-y-2">
-          <label className="flex items-center justify-between text-xs font-semibold text-foreground">
+          <label className="flex items-center justify-between text-sm font-semibold text-foreground">
             <span>
               Loại hình <span className="text-destructive">*</span>
             </span>
@@ -344,7 +345,7 @@ export default function BasicInfoSection({
                 >
                   <div className="flex w-full items-center justify-between gap-1">
                     <span
-                      className={`text-xs font-bold ${
+                      className={`text-sm font-bold ${
                         disabled && !active
                           ? "text-muted-foreground"
                           : active
@@ -359,7 +360,7 @@ export default function BasicInfoSection({
                     )}
                   </div>
                   {isBranchSelected && active && (
-                    <span className="mt-1.5 rounded bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-sky-600 dark:text-sky-400">
+                    <span className="mt-1.5 rounded bg-sky-500/10 px-1.5 py-0.5 text-sm font-semibold text-sky-600 dark:text-sky-400">
                       Theo chi nhánh
                     </span>
                   )}
@@ -367,12 +368,20 @@ export default function BasicInfoSection({
               );
             })}
           </div>
-          {isEditing ? <p className="pt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-            Loại hình được cố định sau khi tạo bài đăng.
-          </p> : isBranchSelected && (
-            <p className="pt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-              ⓘ Loại hình bất động sản được chọn tự động và cố định từ chi nhánh đã chọn.
-            </p>
+          {isEditing ? (
+            <PolicyNotice
+              tone="warning"
+              title="Loại hình bị khóa"
+              summary="Loại hình được cố định sau khi tạo bài đăng."
+              text="Loại hình được cố định sau khi tạo bài đăng."
+            />
+          ) : isBranchSelected && (
+            <PolicyNotice
+              tone="warning"
+              title="Loại hình theo chi nhánh"
+              summary="Loại hình được lấy từ chi nhánh đã chọn."
+              text="Loại hình bất động sản được chọn tự động và cố định từ chi nhánh đã chọn."
+            />
           )}
         </div>
 
@@ -386,7 +395,7 @@ export default function BasicInfoSection({
               label="Ngày có thể vào thuê / bàn giao"
               required
               error={errors.availableDate}
-              hint="Thời điểm người thuê có thể nhận nhà/phòng/mặt bằng (từ hôm nay trở đi)"
+              hint="Từ hôm nay trở đi."
             >
               <div className="relative">
                 <input

@@ -1,0 +1,1516 @@
+"use client";
+
+import { PolicyNotice } from "@/components/common/PolicyDialog";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import axios from "axios";
+import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+import { Loader2, Copy, AlertTriangle, X } from "lucide-react";
+import { useAuth } from "@/features/auth/useAuth";
+import type { VietmapAddress } from "@/services/vietmap.service";
+import listingService from "@/services/listing.service";
+import membershipService from "@/services/membership.service";
+import storageService from "@/services/storage.service";
+import branchService, { type PropertyBranch } from "@/services/branch.service";
+import type { ListingOptionsResponse, ListingSubmissionAction, ListingDetailResponse } from "@/types/listing.type";
+import type { MembershipView } from "@/types/membership.type";
+import { getApiErrorMessage } from "@/utils/apiError";
+import { isKycSatisfied, requireKyc } from "@/lib/kyc-gate";
+import { useFeatureGate } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
+import { FEATURE_LOCKED_MESSAGE } from "@/lib/permissions";
+import { isListingQuotaExhaustedError } from "@/lib/membership";
+import MembershipStatusCard from "@/components/membership/MembershipStatusCard";
+import InsufficientQuotaModal from "@/components/membership/InsufficientQuotaModal";
+import {
+  buildCreateListingPayload,
+  type BuildPayloadParams,
+  furnishingStatusToFormValue,
+} from "./utils/buildListingPayload";
+import { mapListingDetailToFormState } from "./utils/mapListingDetailToFormState";
+
+import BasicInfoSection from "./components/BasicInfoSection";
+import ApartmentDetailsSection from "./components/details/ApartmentDetailsSection";
+import HouseDetailsSection from "./components/details/HouseDetailsSection";
+
+import RoomDetailsSection from "./components/details/RoomDetailsSection";
+import FurnishingAssetsSection from "./components/details/FurnishingAssetsSection";
+import AmenitiesSection from "./components/AmenitiesSection";
+import ListingPolicyFields from "@/components/listing/ListingPolicyFields";
+import { policyInputs, type ListingPolicyInput } from "@/types/listing-policy.type";
+import MonthlyExpensesSection from "./components/MonthlyExpensesSection";
+import PricingSection from "./components/PricingSection";
+import LocationSection, { type AddressMode } from "./components/LocationSection";
+import ViewingScheduleSection from "./components/ViewingScheduleSection";
+import DescriptionSection from "./components/DescriptionSection";
+import FormActions, { WizardActions } from "./components/FormActions";
+import ListingFormPreview from "@/components/listing/ListingFormPreview";
+import ListingWizardStepper from "./ListingWizardStepper";
+import EditSectionNav from "./EditSectionNav";
+import { scrollToFirstInvalid } from "./utils/scrollToFirstInvalid";
+import CategoryChangeConfirmModal from "./components/CategoryChangeConfirmModal";
+
+import {
+  PRICE_UNITS_BY_CATEGORY,
+} from "./constants";
+import type {
+  PropertyCategoryKey,
+  BasicInfoData,
+  ApartmentDetailsData,
+  HouseDetailsData,
+  RoomDetailsData,
+  FurnishingAssetRow,
+  MonthlyExpensesData,
+  PricingData,
+  FormErrors,
+  SelectedMediaImage,
+  SelectedMediaVideo,
+} from "./types";
+
+function getTodayDateString(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+const WIZARD_STEPS = [
+  { id: 1, label: "Thông tin cơ bản" },
+  { id: 2, label: "Chi tiết & tiện ích" },
+  { id: 3, label: "Giá & chi phí" },
+  { id: 4, label: "Chính sách & lịch xem" },
+  { id: 5, label: "Vị trí & mô tả" },
+  { id: 6, label: "Xem trước & gửi" },
+];
+
+const EDIT_SECTIONS = [
+  { id: "section-basic-info", label: "Thông tin cơ bản" },
+  { id: "section-details", label: "Chi tiết" },
+  { id: "section-amenities", label: "Tiện ích" },
+  { id: "section-policies", label: "Chính sách" },
+  { id: "section-monthly-expenses", label: "Chi phí hàng tháng" },
+  { id: "section-pricing", label: "Giá & điều kiện" },
+  { id: "section-location", label: "Vị trí" },
+  { id: "section-viewing-schedule", label: "Lịch xem nhà" },
+  { id: "section-description", label: "Mô tả" },
+];
+
+const MISSING_EDIT_ID_ERROR = "Không tìm thấy tin đăng cần chỉnh sửa.";
+
+interface FieldError {
+  step: number;
+  id: string;
+  key: string;
+  msg: string;
+}
+
+// Mode comes from the route, never from the query string: edit can never fall back to create.
+export default function ListingEditor({
+  mode,
+  listingId,
+}: {
+  mode: "create" | "edit";
+  listingId?: string | null;
+}) {
+  const router = useRouter();
+  const postGate = useFeatureGate(PERMISSIONS.LISTING_POST);
+  const searchParams = useSearchParams();
+  const isEditMode = mode === "edit";
+  const editId = isEditMode ? listingId || null : null;
+  const duplicateFrom = isEditMode ? null : searchParams.get("duplicateFrom");
+  const branchIdParam = isEditMode ? null : searchParams.get("branchId");
+  const isDuplicateMode = Boolean(duplicateFrom);
+  const targetListingId = isEditMode ? editId : duplicateFrom;
+
+  const { profile } = useAuth();
+
+  const [sourceListingTitle, setSourceListingTitle] = useState<string>("");
+  const [loadError, setLoadError] = useState<string | null>(isEditMode && !editId ? MISSING_EDIT_ID_ERROR : null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(Boolean(targetListingId));
+  const [branches, setBranches] = useState<PropertyBranch[]>([]);
+  const [rentedLockListing, setRentedLockListing] = useState<{ id: string; title: string; isExternal?: boolean } | null>(null);
+  const [loadedPendingEdit, setLoadedPendingEdit] = useState(false);
+  const [loadedListingStatus, setLoadedListingStatus] = useState<string | null>(null);
+  const [vehicleLimits, setVehicleLimits] = useState<{ maxMotorbikeCount: number | null; maxCarCount: number | null } | null>(null);
+  const [chargeBaseline, setChargeBaseline] = useState<{ charges: ListingDetailResponse["charges"]; expenses: MonthlyExpensesData } | null>(null);
+  const [membership, setMembership] = useState<MembershipView | null>(null);
+  const [loadingMembership, setLoadingMembership] = useState(false);
+  const [quotaExhaustedModalOpen, setQuotaExhaustedModalOpen] = useState(false);
+  const [quotaExhaustedBanner, setQuotaExhaustedBanner] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingMembership(true);
+    membershipService
+      .getMyMembership()
+      .then((me) => {
+        if (!cancelled) setMembership(me);
+      })
+      .catch(() => {
+        // Ignore if membership endpoint is temporarily unreachable
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingMembership(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Section 1: Basic Info
+  const [basicInfo, setBasicInfo] = useState<BasicInfoData>({
+    title: "",
+    images: [],
+    videos: [],
+    category: "apartment",
+    availableDate: getTodayDateString(),
+    description: "",
+  });
+
+  // Section 2: Details per Category
+  const [apartmentDetails, setApartmentDetails] = useState<ApartmentDetailsData>({
+    projectName: "",
+    buildingBlock: "",
+    unitNumber: "",
+    areaM2: "",
+    bedrooms: "2",
+    bathrooms: "2",
+    livingRooms: "1",
+    kitchens: "1",
+    floor: "",
+    totalFloors: "",
+    furnishing: "FULL",
+    doorOrientation: "",
+    balconyOrientation: "",
+    view: "",
+    maxOccupants: "4",
+    legalStatus: "PINK_BOOK",
+  });
+
+  const [houseDetails, setHouseDetails] = useState<HouseDetailsData>({
+    landAreaM2: "",
+    totalUsableAreaM2: "",
+    facadeWidthM: "",
+    lengthM: "",
+    streetWidthM: "",
+    frontageCount: "1",
+    bedrooms: "3",
+    bathrooms: "3",
+    livingRooms: "1",
+    kitchens: "1",
+    totalFloors: "2",
+    hasRooftopTerrace: false,
+    privateEntrance: "PRIVATE",
+    hasGarage: false,
+    maxOccupants: "6",
+    maxVehicles: "4",
+    furnishing: "BASIC",
+    legalStatus: "PINK_BOOK",
+  });
+
+  const [roomDetails, setRoomDetails] = useState<RoomDetailsData>({
+    roomCode: "",
+    areaM2: "",
+    roomFloor: "2",
+    toiletType: "PRIVATE",
+    kitchenType: "PRIVATE",
+    hasWindow: "YES",
+    hasBalcony: "PRIVATE",
+    hasLoft: false,
+    furnishing: "FULL",
+    entranceType: "PRIVATE",
+    curfewType: "FREE",
+    electricityMeter: "PRIVATE",
+    waterMeter: "PRIVATE",
+    maxOccupants: "2",
+    maxVehicles: "2",
+    parkingPolicy: "FREE",
+  });
+
+  // Section 2 (dùng chung 5 loại hình): bảng kiểm kê trang thiết bị bàn giao
+  const [furnishingAssets, setFurnishingAssets] = useState<FurnishingAssetRow[]>([]);
+
+  // Section 3: Amenities
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [listingPolicies, setListingPolicies] = useState<ListingPolicyInput[]>([]);
+  const [policyCatalogError, setPolicyCatalogError] = useState("");
+  const [listingOptions, setListingOptions] = useState<ListingOptionsResponse>({
+    category: "APARTMENT",
+    amenities: [],
+    furnishings: [],
+  });
+
+  // Section 4: Monthly Expenses
+  const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpensesData>({
+    electricityType: "KWH",
+    electricityPrice: "3500",
+    waterType: "M3",
+    waterPrice: "25000",
+    managementFeeType: "NONE",
+    managementFee: "",
+    internetType: "SELF_PAY",
+    internetFee: "",
+    garbageFeeType: "INCLUDED",
+    garbageFee: "",
+    motorbikeParkingType: "NONE",
+    motorbikeParkingFee: "",
+    carParkingType: "NONE",
+    carParkingFee: "",
+    customFees: [],
+  });
+
+  // Section 5: Pricing
+  const [pricing, setPricing] = useState<PricingData>({
+    priceMonthly: "",
+    priceUnit: "VND_MONTH",
+    isNegotiable: false,
+    depositType: "MONTHS",
+    depositAmount: "",
+    depositMonths: "1",
+    paymentCycle: "MONTHLY",
+    minimumLeaseMonths: "6",
+    includeManagementFee: false,
+  });
+
+  // Section 6: Location
+  const savedUserAddress = profile?.address ?? null;
+  const [addressMode, setAddressMode] = useState<AddressMode>(savedUserAddress ? "saved" : "new");
+  const [selectedAddress, setSelectedAddress] = useState<VietmapAddress | null>(null);
+
+  // Section 7: Viewing Schedule (Không tự check mặc định)
+  const [selectedViewingDays, setSelectedViewingDays] = useState<string[]>([]);
+  const [selectedViewingSlots, setSelectedViewingSlots] = useState<string[]>([]);
+
+  // Modal confirm category switch
+  const [pendingCategory, setPendingCategory] = useState<PropertyCategoryKey | null>(null);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+
+  // Errors state
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  // Block unverified users from the listing form (Admin / verified pass)
+  useEffect(() => {
+    if (!profile) return;
+    if (isKycSatisfied(profile)) return;
+    requireKyc(profile, { router, redirect: true });
+  }, [profile, router]);
+
+  function handleSelectBranch(branchId: string, branchList = branches) {
+    if (!branchId) {
+      setBasicInfo((prev) => ({ ...prev, branchId: "" }));
+      if (!isEditMode && !isDuplicateMode) setMonthlyExpenses({
+        electricityType: "KWH",
+        electricityPrice: "3500",
+        waterType: "M3",
+        waterPrice: "25000",
+        managementFeeType: "NONE",
+        managementFee: "",
+        internetType: "SELF_PAY",
+        internetFee: "",
+        garbageFeeType: "INCLUDED",
+        garbageFee: "",
+        motorbikeParkingType: "NONE",
+        motorbikeParkingFee: "",
+        carParkingType: "NONE",
+        carParkingFee: "",
+        customFees: [],
+      });
+      toast.info("Đã chuyển sang Bất động sản độc lập (bạn có thể tự nhập thủ công tất cả thông tin).");
+      return;
+    }
+
+    const branch = branchList.find((b) => b.id === branchId);
+    if (!branch) return;
+    if (isEditMode && branch.category && branch.category.toLowerCase() !== basicInfo.category) {
+      toast.error("Không thể chọn chi nhánh khác loại hình của bài đăng.");
+      return;
+    }
+
+    if (branch.category) {
+      const mappedCategory = branch.category.toLowerCase() as PropertyCategoryKey;
+      const defaultPriceUnit = PRICE_UNITS_BY_CATEGORY[mappedCategory]?.[0]?.value ?? "VND_MONTH";
+      setBasicInfo((prev) => ({
+        ...prev,
+        branchId,
+        category: mappedCategory,
+      }));
+      if (!isEditMode && !isDuplicateMode) setPricing((prev) => ({
+        ...prev,
+        priceUnit: defaultPriceUnit,
+      }));
+    } else {
+      setBasicInfo((prev) => ({ ...prev, branchId }));
+    }
+
+    if (branch.refId) {
+      setAddressMode("new");
+      setSelectedAddress(branch);
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.province;
+        delete next.ward;
+        delete next.streetLine;
+        return next;
+      });
+    }
+
+    // Branch rates only prefill a new listing. Existing listings keep their own approved rates.
+    if (!isEditMode && !isDuplicateMode) {
+    const isApartment = (branch.category ? branch.category.toLowerCase() : basicInfo.category) === "apartment";
+    const newExpenses: MonthlyExpensesData = {
+      electricityType: "KWH",
+      electricityPrice: "3500",
+      waterType: "M3",
+      waterPrice: "25000",
+      managementFeeType: "NONE",
+      managementFee: "",
+      internetType: "SELF_PAY",
+      internetFee: "",
+      garbageFeeType: "INCLUDED",
+      garbageFee: "",
+      motorbikeParkingType: "NONE",
+      motorbikeParkingFee: "",
+      carParkingType: "NONE",
+      carParkingFee: "",
+      customFees: [],
+    };
+
+    if (branch.defaultCharges && branch.defaultCharges.length > 0) {
+      const elec = branch.defaultCharges.find((c) => c.chargeType === "ELECTRICITY");
+      if (elec) {
+        newExpenses.electricityPrice = elec.amount ? String(elec.amount) : "";
+        if (elec.includedInRent || elec.billingMethod === "INCLUDED") newExpenses.electricityType = "INCLUDED";
+        else newExpenses.electricityType = "KWH";
+      }
+
+      const water = branch.defaultCharges.find((c) => c.chargeType === "WATER");
+      if (water) {
+        newExpenses.waterPrice = water.amount ? String(water.amount) : "";
+        if (water.billingMethod === "PER_PERSON_MONTH") newExpenses.waterType = "PER_PERSON";
+        else if (water.billingMethod === "PER_MONTH") newExpenses.waterType = "FLAT_ROOM";
+        else if (water.includedInRent || water.billingMethod === "INCLUDED") newExpenses.waterType = "INCLUDED";
+        else newExpenses.waterType = "M3";
+      }
+
+      const mgmt = branch.defaultCharges.find((c) => c.chargeType === "MANAGEMENT");
+      if (isApartment && mgmt) {
+        newExpenses.managementFee = mgmt.amount ? String(mgmt.amount) : "";
+        if (mgmt.includedInRent || mgmt.billingMethod === "INCLUDED") newExpenses.managementFeeType = "INCLUDED";
+        else if (mgmt.billingMethod === "PER_M2_MONTH") newExpenses.managementFeeType = "PER_M2";
+        else if (mgmt.billingMethod === "NOT_APPLICABLE" || mgmt.billingMethod === "FREE") newExpenses.managementFeeType = "NONE";
+        else newExpenses.managementFeeType = "MONTHLY";
+      } else {
+        newExpenses.managementFeeType = "NONE";
+        newExpenses.managementFee = "";
+      }
+
+      const net = branch.defaultCharges.find((c) => c.chargeType === "INTERNET");
+      if (net) {
+        newExpenses.internetFee = net.amount ? String(net.amount) : "";
+        if (net.includedInRent || net.billingMethod === "INCLUDED") newExpenses.internetType = "INCLUDED";
+        else if (net.billingMethod === "NOT_APPLICABLE") newExpenses.internetType = "SELF_PAY";
+        else newExpenses.internetType = "MONTHLY";
+      }
+
+      const garb = branch.defaultCharges.find(
+        (c) => c.chargeType === "SERVICE_OR_GARBAGE" || c.chargeType === "GARBAGE" || c.chargeType === "CLEANING"
+      );
+      if (garb) {
+        newExpenses.garbageFee = garb.amount ? String(garb.amount) : "";
+        if (garb.includedInRent || garb.billingMethod === "INCLUDED") newExpenses.garbageFeeType = "INCLUDED";
+        else if (garb.billingMethod === "NOT_APPLICABLE") newExpenses.garbageFeeType = "NONE";
+        else if (garb.billingMethod === "PER_PERSON_MONTH") newExpenses.garbageFeeType = "PER_PERSON";
+        else newExpenses.garbageFeeType = "MONTHLY";
+      }
+
+      const moto = branch.defaultCharges.find((c) => c.chargeType === "MOTORBIKE_PARKING");
+      if (moto) {
+        newExpenses.motorbikeParkingFee = moto.amount ? String(moto.amount) : "";
+        if (moto.billingMethod === "FREE" || moto.includedInRent || moto.billingMethod === "INCLUDED")
+          newExpenses.motorbikeParkingType = "INCLUDED";
+        else if (moto.billingMethod === "NOT_APPLICABLE") newExpenses.motorbikeParkingType = "NONE";
+        else newExpenses.motorbikeParkingType = "PER_VEHICLE";
+      }
+
+      const car = branch.defaultCharges.find((c) => c.chargeType === "CAR_PARKING");
+      if (car) {
+        newExpenses.carParkingFee = car.amount ? String(car.amount) : "";
+        if (car.billingMethod === "FREE" || car.includedInRent || car.billingMethod === "INCLUDED")
+          newExpenses.carParkingType = "INCLUDED";
+        else if (car.billingMethod === "NOT_APPLICABLE") newExpenses.carParkingType = "NONE";
+        else newExpenses.carParkingType = "PER_VEHICLE";
+      }
+
+      const customOthers = branch.defaultCharges
+        .filter((c) => c.chargeType === "OTHER")
+        .map((c, idx) => ({
+          id: c.id || `branch-fee-${idx}`,
+          name: c.customName || "Phí dịch vụ khác",
+          amount: c.amount ? String(c.amount) : "",
+          unit: c.unit || "tháng",
+        }));
+      newExpenses.customFees = customOthers;
+    }
+
+    setMonthlyExpenses(newExpenses);
+    }
+
+    if (branch.buildingRules && !basicInfo.description) {
+      setBasicInfo((prev) => ({
+        ...prev,
+        description: `Nội quy & Quy định chung tòa nhà ${branch.name}:\n${branch.buildingRules}`,
+      }));
+    }
+
+    if (branch.isComplete === false || (branch.missingCharges && branch.missingCharges.length > 0)) {
+      toast.warning(
+        `Chi nhánh "${branch.name}" chưa hoàn thiện biểu phí (${branch.missingCharges?.join(", ")}). Vui lòng cập nhật biểu phí chi nhánh trước khi đăng tin.`
+      );
+    } else {
+      toast.info(`Đã áp dụng thông tin địa chỉ & biểu phí từ chi nhánh "${branch.name}"`);
+    }
+  }
+
+  // Fetch public listing options catalog
+  useEffect(() => {
+    let cancelled = false;
+    const catEnum =
+      basicInfo.category === "house"
+        ? "HOUSE"
+        : basicInfo.category === "room"
+        ? "ROOM"
+        : "APARTMENT";
+
+    setListingOptions({category:catEnum,amenities:[],furnishings:[],policies:[]});
+    setPolicyCatalogError("Đang tải chính sách theo loại hình…");
+    listingService
+      .getPublicOptions(catEnum)
+      .then((res) => {
+        if (!cancelled && res) {
+          setListingOptions(res);
+          setPolicyCatalogError(res.policies?.length ? "" : "Danh mục chính sách chưa có dữ liệu. Vui lòng khởi động backend và tải lại.");
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not fetch options catalog:", err);
+        if (!cancelled) setPolicyCatalogError("Không tải được chính sách theo loại hình. Vui lòng tải lại trang trước khi gửi duyệt.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [basicInfo.category]);
+
+  // Load existing listing data (for edit or duplicate mode) or branch
+  useEffect(() => {
+    let active = true;
+
+    async function loadData() {
+      setIsLoadingDetail(Boolean(targetListingId));
+      setLoadError(null);
+      setRentedLockListing(null);
+      setLoadedPendingEdit(false);
+      setChargeBaseline(null);
+      setVehicleLimits(null);
+      setLoadedListingStatus(null);
+
+      if (isEditMode && !editId) {
+        setLoadError(MISSING_EDIT_ID_ERROR);
+        setIsLoadingDetail(false);
+        return;
+      }
+
+      try {
+        let branchList: PropertyBranch[] = [];
+        try {
+          branchList = await branchService.getMyBranches();
+          if (active) setBranches(branchList);
+        } catch (e) {
+          console.warn("Could not load branches:", e);
+        }
+
+        if (targetListingId) {
+          let detail: ListingDetailResponse;
+          if (isDuplicateMode) {
+            // Strictly fetch owner's listing - DO NOT fallback to public getById!
+            detail = await listingService.getMyListingById(duplicateFrom!);
+          } else {
+            // Strictly fetch owner's listing for edit mode - DO NOT fallback to public getById!
+              detail = await listingService.getMyListingById(editId!);
+            // (no fallback)
+            // public fallback removed
+            // (end)
+          }
+
+          if (!active) return;
+
+          setLoadedListingStatus(detail.status);
+          setLoadedPendingEdit(Boolean(detail.pendingEditId));
+          setVehicleLimits({ maxMotorbikeCount: detail.maxMotorbikeCount ?? null, maxCarCount: detail.maxCarCount ?? null });
+
+          const normalizedStatus = String(detail.status || "").trim().toUpperCase();
+          if (isEditMode && normalizedStatus === "RENTED_EXTERNALLY") {
+            setRentedLockListing({
+              id: detail.id,
+              title: detail.title,
+              isExternal: normalizedStatus === "RENTED_EXTERNALLY",
+            });
+            setIsLoadingDetail(false);
+            return;
+          }
+          // old check removed
+            // (removed)
+            // (removed)
+            // (removed)
+          // (end)
+
+          if (isDuplicateMode) {
+            setSourceListingTitle(detail.title || "Tin gốc");
+          }
+
+          const formState = mapListingDetailToFormState(
+            detail,
+            isDuplicateMode ? "duplicate" : "edit",
+            branchList,
+            getTodayDateString()
+          );
+
+          setBasicInfo(formState.basicInfo);
+          setApartmentDetails(formState.apartmentDetails);
+          setHouseDetails(formState.houseDetails);
+          setRoomDetails(formState.roomDetails);
+          setFurnishingAssets(formState.furnishingAssets);
+          setSelectedAmenities(formState.selectedAmenities);
+          setListingPolicies((detail.policies ?? []).map(p => ({code:p.code,value:p.value,note:p.note ?? ""})));
+          setMonthlyExpenses(formState.monthlyExpenses);
+          setChargeBaseline({ charges: detail.charges ?? [], expenses: formState.monthlyExpenses });
+          setPricing(formState.pricing);
+          setAddressMode(formState.addressMode);
+          setSelectedAddress(branchList.find(branch => branch.id === formState.basicInfo.branchId) ?? detail.address ?? null);
+          setSelectedViewingDays(formState.selectedViewingDays);
+          setSelectedViewingSlots(formState.selectedViewingSlots);
+
+          if (formState.notice) {
+            if (formState.notice.type === "warning") toast.warning(formState.notice.message);
+            else if (formState.notice.type === "error") toast.error(formState.notice.message);
+            else toast.info(formState.notice.message);
+          }
+        } else if (branchIdParam) {
+          handleSelectBranch(branchIdParam, branchList);
+        }
+      } catch (err) {
+        if (!active) return;
+        console.error("Failed to load listing for new/edit/duplicate:", err);
+        if (isDuplicateMode) {
+          setLoadError(
+            "Không thể nhân bản tin đăng này. Tin đăng không tồn tại hoặc bạn không có quyền sở hữu."
+          );
+        } else {
+          setLoadError("Không tìm thấy tin đăng hoặc bạn không có quyền chỉnh sửa.");
+        }
+      } finally {
+        if (active) setIsLoadingDetail(false);
+      }
+    }
+
+    loadData();
+
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetListingId, isDuplicateMode, editId, duplicateFrom, branchIdParam]);
+
+  // Bàn giao thô được phép bỏ trống bảng thiết bị; mọi mức có nội thất đều phải
+  // kê khai để dùng làm biên bản bàn giao trong hợp đồng.
+  const isFurnishingRequired = useMemo(() => {
+    switch (basicInfo.category) {
+      case "apartment":
+        return apartmentDetails.furnishing !== "RAW";
+      case "house":
+        return houseDetails.furnishing !== "RAW";
+      case "room":
+        return roomDetails.furnishing !== "RAW";
+      default:
+        return false;
+    }
+  }, [
+    basicInfo.category,
+    apartmentDetails.furnishing,
+    houseDetails.furnishing,
+    roomDetails.furnishing,
+  ]);
+
+  // Category change handler with confirmation
+  function requestCategoryChange(newCategory: PropertyCategoryKey) {
+    if (isEditMode) return;
+    if (newCategory === basicInfo.category) return;
+    setPendingCategory(newCategory);
+    setIsCategoryModalOpen(true);
+  }
+
+  function applyCategoryChange(newCategory: PropertyCategoryKey) {
+    if (isEditMode) return;
+    const defaultPriceUnit = PRICE_UNITS_BY_CATEGORY[newCategory]?.[0]?.value ?? "VND_MONTH";
+
+    setBasicInfo((prev) => ({
+      ...prev,
+      category: newCategory,
+    }));
+
+    setPricing((prev) => ({
+      ...prev,
+      priceUnit: defaultPriceUnit,
+    }));
+
+    // Catalog tiện ích và trang thiết bị khác nhau theo loại hình
+    setSelectedAmenities([]);
+    setFurnishingAssets([]);
+    if (newCategory !== "apartment") {
+      setMonthlyExpenses((prev) => ({
+        ...prev,
+        managementFeeType: "NONE",
+        managementFee: "",
+      }));
+    }
+    setErrors({});
+    setIsCategoryModalOpen(false);
+    setPendingCategory(null);
+  }
+
+
+
+  const [currentStep, setCurrentStep] = useState(1);
+  const pendingFocusIds = useRef<string[] | null>(null);
+  const topRef = useRef<HTMLDivElement>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  // After a step change: scroll to the first invalid field if we jumped for an error, else to the top.
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      const ids = pendingFocusIds.current;
+      pendingFocusIds.current = null;
+      if (ids) scrollToFirstInvalid(ids);
+      else topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [currentStep]);
+
+  function goToStep(step: number, focusIds?: string[]) {
+    pendingFocusIds.current = focusIds ?? null;
+    setCurrentStep(step);
+  }
+
+  // Pure: lists every invalid field with the wizard step that owns it (code order = step order).
+  function collectErrors(skipDescription = false): FieldError[] {
+    const list: FieldError[] = [];
+    let step = 1;
+    const addError = (id: string, key: string, msg: string) => {
+      list.push({ step, id, key, msg });
+    };
+
+    // 1. Basic Info
+    if (!basicInfo.title.trim()) {
+      addError("field-title", "title", "Vui lòng nhập tiêu đề bài đăng.");
+    } else if (basicInfo.title.trim().length < 15) {
+      addError("field-title", "title", "Tiêu đề quá ngắn (tối thiểu 15 ký tự).");
+    }
+
+    if (basicInfo.images.length === 0) {
+      addError("field-images", "images", "Vui lòng tải lên ít nhất 1 hình ảnh thực tế.");
+    }
+
+    const todayStr = getTodayDateString();
+    if (!basicInfo.availableDate) {
+      addError(
+        "field-available-date",
+        "availableDate",
+        "Vui lòng chọn ngày có thể vào thuê / bàn giao."
+      );
+    } else if (basicInfo.availableDate < todayStr) {
+      addError(
+        "field-available-date",
+        "availableDate",
+        "Ngày có thể vào thuê / bàn giao không được ở trong quá khứ."
+      );
+    }
+
+    step = 2;
+    // 2. Category specific
+    if (basicInfo.category === "apartment") {
+      if (!apartmentDetails.projectName.trim()) {
+        addError("field-project-name", "projectName", "Vui lòng nhập tên dự án / tòa nhà.");
+      }
+      if (!apartmentDetails.areaM2 || Number(apartmentDetails.areaM2) <= 0) {
+        addError("field-area-m2", "areaM2", "Diện tích căn hộ phải lớn hơn 0.");
+      }
+      if (!apartmentDetails.floor) {
+        addError("field-floor", "floor", "Vui lòng nhập số tầng của căn hộ.");
+      }
+    } else if (basicInfo.category === "house") {
+      if (!houseDetails.totalUsableAreaM2 || Number(houseDetails.totalUsableAreaM2) <= 0) {
+        addError("field-total-usable-area", "totalUsableAreaM2", "Tổng diện tích sử dụng phải lớn hơn 0.");
+      }
+      if (!houseDetails.totalFloors || Number(houseDetails.totalFloors) <= 0) {
+        addError("field-total-floors", "totalFloors", "Số tầng phải lớn hơn 0.");
+      }
+    } else if (basicInfo.category === "room") {
+      if (!roomDetails.areaM2 || Number(roomDetails.areaM2) <= 0) {
+        addError("field-room-area", "areaM2", "Diện tích phòng phải lớn hơn 0.");
+      }
+      if (!roomDetails.roomCode?.trim()) {
+        addError("field-room-code", "roomCode", "Vui lòng nhập mã phòng / tên phòng.");
+      }
+      if (!roomDetails.maxOccupants || Number(roomDetails.maxOccupants) <= 0) {
+        addError("field-room-occupants", "maxOccupants", "Số người ở tối đa phải lớn hơn 0.");
+      }
+    }
+
+    // 2b. Bảng trang thiết bị bàn giao (dùng chung cho cả 5 loại hình)
+    if (isFurnishingRequired && furnishingAssets.length === 0) {
+      addError(
+        "field-furnishing-assets",
+        "furnishingAssets",
+        "Vui lòng kê khai ít nhất một tài sản / trang thiết bị bàn giao."
+      );
+    }
+    furnishingAssets.forEach((row, index) => {
+      if (!row.assetName.trim()) {
+        addError(
+          "field-furnishing-assets",
+          `furnishingAssets.${index}.assetName`,
+          "Vui lòng nhập tên tài sản."
+        );
+      }
+      if (!row.quantity || Number(row.quantity) < 1) {
+        addError(
+          "field-furnishing-assets",
+          `furnishingAssets.${index}.quantity`,
+          "Số lượng phải từ 1 trở lên."
+        );
+      }
+    });
+
+    step = 3;
+    // 3. Pricing
+    if (!pricing.priceMonthly || Number(pricing.priceMonthly) <= 0) {
+      addError("field-price-monthly", "priceMonthly", "Vui lòng nhập giá cho thuê hợp lệ.");
+    }
+    if (pricing.depositType === "AMOUNT" && (!pricing.depositAmount || Number(pricing.depositAmount) <= 0)) {
+      addError("field-deposit-amount", "depositAmount", "Vui lòng nhập số tiền đặt cọc.");
+    }
+    if (pricing.depositType === "MONTHS" && !Number.isSafeInteger(Number(pricing.depositMonths))) {
+      addError("field-deposit-months", "depositMonths", "Số tháng đặt cọc phải là số nguyên dương.");
+    } else if (pricing.depositType === "MONTHS" && Number(pricing.depositMonths) <= 0) {
+      addError("field-deposit-months", "depositMonths", "Số tháng đặt cọc phải là số nguyên dương.");
+    }
+
+    step = 4;
+    // 5. Viewing Schedule
+    if (selectedViewingDays.length === 0) {
+      addError("field-viewing-days", "viewingDays", "Vui lòng chọn ít nhất một ngày trong tuần.");
+    }
+    if (selectedViewingSlots.length === 0) {
+      addError("field-viewing-slots", "viewingSlots", "Vui lòng chọn ít nhất một buổi có thể xem.");
+    }
+
+    step = 5;
+    // 4. A selected and server-resolvable Vietmap address is required.
+    if (addressMode === "saved" ? !savedUserAddress?.refId : !selectedAddress?.refId) {
+      addError("field-street-line", "streetLine", "Vui lòng chọn địa chỉ từ kết quả Vietmap.");
+    }
+    // 6. Description (only if not skipping)
+    if (!skipDescription) {
+      if (!basicInfo.description.trim()) {
+        addError("field-description", "description", "Vui lòng nhập mô tả chi tiết bài đăng.");
+      } else if (basicInfo.description.trim().length < 30) {
+        addError("field-description", "description", "Mô tả chi tiết quá ngắn (tối thiểu 30 ký tự).");
+      }
+    }
+
+    return list;
+  }
+
+  function revealErrors(list: FieldError[]) {
+    const first = list[0];
+    const ids = list.filter((e) => e.step === first.step).map((e) => e.id);
+    if (!isEditMode && first.step !== currentStep) goToStep(first.step, ids);
+    else scrollToFirstInvalid(ids);
+    toast.error(first.msg || "Vui lòng kiểm tra lại các trường thông tin bị lỗi.");
+  }
+
+  function validateFields(opts?: { skipDescription?: boolean; step?: number }): boolean {
+    let list = collectErrors(opts?.skipDescription);
+    if (opts?.step) list = list.filter((e) => e.step === opts.step);
+    setErrors(Object.fromEntries(list.map((e) => [e.key, e.msg])));
+    if (list.length) {
+      revealErrors(list);
+      return false;
+    }
+    return true;
+  }
+
+  function validatePolicies(action: ListingSubmissionAction): boolean {
+    const definitions = listingOptions.policies ?? [];
+    const fail = (message: string) => {
+      toast.error(message);
+      if (!isEditMode && currentStep !== 4) goToStep(4, ["section-policies"]);
+      else scrollToFirstInvalid(["section-policies"]);
+      return false;
+    };
+    if (action === "SUBMIT_FOR_REVIEW" && (policyCatalogError || !definitions.length)) {
+      return fail(policyCatalogError || "Chưa tải danh mục chính sách.");
+    }
+    for (const d of definitions) {
+      const p = listingPolicies.find((p) => p.code === d.code);
+      if (p?.value && d.valueType === "INTEGER" && (!Number.isInteger(Number(p.value)) || (d.minimumValue != null && Number(p.value) < d.minimumValue) || (d.maximumValue != null && Number(p.value) > d.maximumValue))) {
+        return fail(`${d.label}: nhập số nguyên từ ${d.minimumValue ?? 0} đến ${d.maximumValue ?? "giới hạn quy định"}.`);
+      }
+    }
+    if (action === "SUBMIT_FOR_REVIEW") {
+      const missing = definitions.find((d) => d.required && !listingPolicies.some((p) => p.code === d.code && p.value.trim()));
+      if (missing) return fail(`Cần nhập chính sách: ${missing.label}`);
+    }
+    return true;
+  }
+
+  function handleNext() {
+    if (!validateFields({ step: currentStep })) return;
+    if (currentStep === 4 && !validatePolicies("SUBMIT_FOR_REVIEW")) return;
+    setErrors({});
+    goToStep(currentStep + 1);
+  }
+
+  // Edit mode: full validation first, then the preview modal; the modal confirm submits.
+  function handleEditSubmitClick() {
+    if (isSubmitting) return;
+    if (!validateFields() || !validatePolicies("SUBMIT_FOR_REVIEW")) return;
+    setPreviewOpen(true);
+  }
+
+  // First step with an error; wizard steps up to it are reachable from the stepper.
+  const firstInvalidStep = !isEditMode ? (collectErrors()[0]?.step ?? WIZARD_STEPS.length) : 0;
+
+  function buildParams(
+    action: ListingSubmissionAction,
+    uploadedMediaList: BuildPayloadParams["uploadedMediaList"],
+  ): BuildPayloadParams {
+    return {
+      id: isEditMode ? editId : null,
+      duplicateSourceListingId: isDuplicateMode ? duplicateFrom : null,
+      submissionAction: action,
+      basicInfo,
+      apartmentDetails,
+      houseDetails,
+      roomDetails,
+      furnishingAssets,
+      selectedAmenities,
+      catalogAmenityCodes: listingOptions.amenities.map((item) => item.code),
+      policies: policyInputs(listingPolicies, listingOptions.policies ?? []),
+      monthlyExpenses,
+      vehicleLimits,
+      originalCharges: chargeBaseline?.charges,
+      originalMonthlyExpenses: chargeBaseline?.expenses,
+      pricing,
+      addressMode,
+      savedAddressId: savedUserAddress?.id,
+      refId: selectedAddress?.refId,
+      addressNote: selectedAddress?.addressNote ?? undefined,
+      uploadedMediaList,
+      selectedViewingDays,
+      selectedViewingSlots,
+    };
+  }
+
+  // Preview only: media already stored/linked; not-yet-uploaded files are shown from basicInfo.
+  function previewMedia(): BuildPayloadParams["uploadedMediaList"] {
+    const out: BuildPayloadParams["uploadedMediaList"] = [];
+    const add = (m: { sourceMediaId?: string; storageObjectId?: string }, mediaType: "IMAGE" | "VIDEO") => {
+      if (m.sourceMediaId) out.push({ sourceMediaId: m.sourceMediaId, mediaType });
+      else if (m.storageObjectId) out.push({ storageObjectId: m.storageObjectId, mediaType });
+    };
+    basicInfo.images.forEach((m) => add(m, "IMAGE"));
+    basicInfo.videos.forEach((m) => add(m, "VIDEO"));
+    return out;
+  }
+
+  const previewExtras = {
+    address: (addressMode === "saved" ? savedUserAddress : selectedAddress) as ListingDetailResponse["address"] | undefined,
+    amenityLabels: Object.fromEntries(listingOptions.amenities.map((a) => [a.code, a.name])),
+    policyDefinitions: listingOptions.policies,
+    owner: profile as unknown as ListingDetailResponse["owner"] | undefined,
+  };
+  const previewBranchName = branches.find((b) => b.id === basicInfo.branchId)?.name ?? null;
+
+  function handleGenerateAiDescription() {
+    const isValid = validateFields({ skipDescription: true });
+    if (!isValid) {
+      toast.error("Vui lòng hoàn thành các thông tin ở các bước trên để AI có đủ dữ liệu tạo mô tả.");
+      return;
+    }
+
+    toast.info("Tính năng đang phát triển");
+  }
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<ListingSubmissionAction | null>(null);
+
+  async function handleSaveListing(
+    action: ListingSubmissionAction,
+    options?: { redirectTo?: string },
+  ) {
+    if (isSubmitting) return;
+    if (isEditMode && !editId) {
+      toast.error(MISSING_EDIT_ID_ERROR);
+      return;
+    }
+    if (!requireKyc(profile, { router, redirect: true })) return;
+    if (
+      isEditMode &&
+      (String(loadedListingStatus || "").trim().toUpperCase() === "RENTED_EXTERNALLY" || rentedLockListing)
+    ) {
+      const isExt = rentedLockListing?.isExternal || String(loadedListingStatus || "").trim().toUpperCase() === "RENTED_EXTERNALLY";
+      toast.error(isExt ? "Tin đã cho thuê ngoài hệ thống, không thể chỉnh sửa hoặc gửi duyệt lại." : "Tin đã cho thuê qua HomeSpace, không thể chỉnh sửa hoặc gửi duyệt lại.");
+      return;
+    }
+
+    if (!validateFields()) return;
+    if (!validatePolicies(action)) return;
+    setPreviewOpen(false);
+
+    try {
+      setIsSubmitting(true);
+      setSubmittingAction(action);
+      const loadingText =
+        action === "SAVE_DRAFT"
+          ? (isDuplicateMode ? "Đang lưu bản sao dưới dạng nháp..." : "Đang lưu tin nháp...")
+          : isDuplicateMode
+          ? "Đang nhân bản tin và gửi duyệt..."
+          : isEditMode
+          ? "Đang cập nhật và gửi duyệt..."
+          : "Đang xử lý tải hình ảnh và gửi duyệt...";
+      toast.loading(loadingText, { id: "submit-listing" });
+
+      // 1. Upload media files if new
+      const uploadedMediaList: {
+        storageObjectId?: string;
+        sourceMediaId?: string;
+        mediaType: "IMAGE" | "VIDEO";
+      }[] = [];
+
+      for (const [index, img] of basicInfo.images.entries()) {
+        if (img.sourceMediaId) {
+          // Keep source media reference for duplicate mode
+          uploadedMediaList.push({ sourceMediaId: img.sourceMediaId, mediaType: "IMAGE" });
+        } else if (img.storageObjectId) {
+          uploadedMediaList.push({ storageObjectId: img.storageObjectId, mediaType: "IMAGE" });
+        } else if (img.file) {
+          const storageId = await storageService.uploadListingMedia(img.file);
+          uploadedMediaList.push({ storageObjectId: storageId, mediaType: "IMAGE" });
+          setBasicInfo((current) => ({
+            ...current,
+            images: current.images.map((item, itemIndex) =>
+              itemIndex === index ? { ...item, storageObjectId: storageId } : item,
+            ),
+          }));
+        }
+      }
+
+      for (const [index, vid] of basicInfo.videos.entries()) {
+        if (vid.sourceMediaId) {
+          // Keep source media reference for duplicate mode
+          uploadedMediaList.push({ sourceMediaId: vid.sourceMediaId, mediaType: "VIDEO" });
+        } else if (vid.storageObjectId) {
+          uploadedMediaList.push({ storageObjectId: vid.storageObjectId, mediaType: "VIDEO" });
+        } else if (vid.file) {
+          const storageId = await storageService.uploadListingMedia(vid.file);
+          uploadedMediaList.push({ storageObjectId: storageId, mediaType: "VIDEO" });
+          setBasicInfo((current) => ({
+            ...current,
+            videos: current.videos.map((item, itemIndex) =>
+              itemIndex === index ? { ...item, storageObjectId: storageId } : item,
+            ),
+          }));
+        }
+      }
+
+      // 2. Build payload (upsert with id if editing; duplicate mode ALWAYS has id = null)
+      const payload = buildCreateListingPayload(buildParams(action, uploadedMediaList));
+
+      // 3. Call backend upsert API
+      const saved = await listingService.upsert(payload);
+
+      setQuotaExhaustedModalOpen(false);
+      setQuotaExhaustedBanner(false);
+
+      const successMessage =
+        saved.pendingEditId
+          ? "Bản sửa đã gửi quản trị viên. Tin vẫn giữ trạng thái hiện tại."
+          : action === "SAVE_DRAFT"
+          ? (isDuplicateMode ? "Đã lưu bản sao dưới dạng tin nháp" : "Đã lưu tin nháp")
+          : isDuplicateMode
+          ? "Bản sao tin đăng đã được tạo và gửi chờ duyệt"
+          : isEditMode
+          ? "Tin đăng đã được cập nhật và gửi duyệt"
+          : "Tin đã được gửi chờ duyệt";
+      toast.success(successMessage, { id: "submit-listing" });
+      router.push(options?.redirectTo || "/dashboard/properties");
+    } catch (error: unknown) {
+      console.error("Submit listing error:", error);
+      if (isListingQuotaExhaustedError(error)) {
+        setQuotaExhaustedBanner(true);
+        setQuotaExhaustedModalOpen(true);
+        toast.error(
+          "Không đủ lượt đăng tin khả dụng (409 LISTING_QUOTA_EXHAUSTED). Dữ liệu bài đăng được giữ nguyên — bạn có thể Lưu tin nháp miễn phí ngay!",
+          { id: "submit-listing" },
+        );
+        membershipService
+          .getMyMembership()
+          .then((me) => setMembership(me))
+          .catch(() => {});
+      } else {
+        const serverMessage = getApiErrorMessage(
+          error,
+          "Thao tác thất bại. Vui lòng kiểm tra lại kết nối và thử lại."
+        );
+        toast.error(serverMessage, { id: "submit-listing" });
+      }
+
+      // A conflict can concern a field, catalog or stale edit. It does not mean the listing is rented.
+      if (isEditMode && axios.isAxiosError(error) && error.response?.data?.code === 4012) {
+        setLoadedListingStatus("RENTED_EXTERNALLY");
+        setRentedLockListing({ id: editId!, title: basicInfo.title || "Tin đăng", isExternal: true });
+      }
+    } finally {
+      setIsSubmitting(false);
+      setSubmittingAction(null);
+    }
+  }
+
+  // Render Category Details Subcomponent cleanly
+  function renderDetailsSection() {
+    const furnishingSlot = (
+      <div id="field-furnishing-assets" className="sm:col-span-2">
+        <FurnishingAssetsSection
+          rows={furnishingAssets}
+          errors={errors}
+          required={isFurnishingRequired}
+          furnishingOptions={listingOptions.furnishings}
+          onChange={setFurnishingAssets}
+        />
+      </div>
+    );
+
+    switch (basicInfo.category) {
+      case "apartment":
+        return (
+          <ApartmentDetailsSection
+            data={apartmentDetails}
+            errors={errors}
+            onChange={(updates) =>
+              setApartmentDetails((prev) => ({ ...prev, ...updates }))
+            }
+            furnishingSlot={furnishingSlot}
+          />
+        );
+      case "house":
+        return (
+          <HouseDetailsSection
+            data={houseDetails}
+            errors={errors}
+            onChange={(updates) =>
+              setHouseDetails((prev) => ({ ...prev, ...updates }))
+            }
+            furnishingSlot={furnishingSlot}
+          />
+        );
+
+      case "room":
+        return (
+          <RoomDetailsSection
+            data={roomDetails}
+            errors={errors}
+            onChange={(updates) =>
+              setRoomDetails((prev) => ({ ...prev, ...updates }))
+            }
+            furnishingSlot={furnishingSlot}
+          />
+        );
+      default:
+        return null;
+    }
+  }
+
+  if (rentedLockListing) {
+    return (
+      <div className="mx-auto max-w-xl py-16 text-center space-y-5 animate-in fade-in-50 duration-200">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
+          <AlertTriangle className="h-8 w-8" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold text-foreground">
+            {rentedLockListing.isExternal
+              ? "Tin đăng đã cho thuê ngoài hệ thống"
+              : "Tin đăng đã cho thuê qua HomeSpace"}
+          </h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {rentedLockListing.isExternal ? (
+              <>
+                Tin đăng <span className="font-semibold text-foreground">&quot;{rentedLockListing.title}&quot;</span> đã được đánh dấu là cho thuê ngoài hệ thống nên không thể chỉnh sửa nội dung, lưu nháp hoặc gửi duyệt lại.
+              </>
+            ) : (
+              <>
+                Tin đăng <span className="font-semibold text-foreground">&quot;{rentedLockListing.title}&quot;</span> đã cho thuê và đang gắn liền với hợp đồng thuê trên hệ thống HomeSpace nên không thể chỉnh sửa nội dung, lưu nháp hoặc gửi duyệt lại.
+              </>
+            )}
+          </p>
+        </div>
+        <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/properties")}
+            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-foreground shadow-2xs hover:bg-muted transition-all"
+          >
+            Quay lại danh sách tin
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push(`/dashboard/properties/view?id=${rentedLockListing.id}`)}
+            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-foreground shadow-2xs hover:bg-muted transition-all"
+          >
+            Xem chi tiết tin
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push(`/dashboard/properties/new?duplicateFrom=${rentedLockListing.id}`)}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all"
+          >
+            <Copy className="h-4 w-4" />
+            Nhân bản thành tin mới
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!postGate.allowed) {
+    return (
+      <div className="mx-auto max-w-xl py-16 text-center space-y-4">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400">
+          <AlertTriangle className="h-7 w-7" />
+        </div>
+        <p className="text-sm text-muted-foreground">{FEATURE_LOCKED_MESSAGE}</p>
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard/properties")}
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-xs hover:bg-primary/90"
+        >
+          Quay lại danh sách tin đăng
+        </button>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-xl py-16 text-center space-y-4">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400">
+          <AlertTriangle className="h-7 w-7" />
+        </div>
+        <h2 className="text-lg font-bold text-foreground">Không thể tải dữ liệu tin đăng</h2>
+        <p className="text-sm text-muted-foreground">{loadError}</p>
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/properties")}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-xs hover:bg-primary/90"
+          >
+            Quay lại danh sách tin đăng
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoadingDetail) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+        <Loader2 className="h-9 w-9 animate-spin text-primary mb-3" />
+        <p className="text-sm font-medium">
+          {isDuplicateMode
+            ? "Đang nạp dữ liệu từ tin đăng gốc để nhân bản..."
+            : "Đang tải thông tin tin đăng để chỉnh sửa..."}
+        </p>
+      </div>
+    );
+  }
+
+  const basicSection = (
+    <BasicInfoSection
+      data={basicInfo}
+      branches={branches}
+      errors={errors}
+      isBranchSelected={Boolean(basicInfo.branchId)}
+      isEditing={isEditMode}
+      onChange={(updates) => setBasicInfo((prev) => ({ ...prev, ...updates }))}
+      onSelectBranch={handleSelectBranch}
+      onRequestCategoryChange={requestCategoryChange}
+    />
+  );
+  const detailsSection = renderDetailsSection();
+  const amenitiesSection = (
+    <AmenitiesSection
+      selectedAmenities={selectedAmenities}
+      options={listingOptions.amenities}
+      errors={errors}
+      onChange={setSelectedAmenities}
+    />
+  );
+  const policiesSection = (
+    <section id="section-policies" className="scroll-mt-24 rounded-2xl border border-border bg-card p-5 sm:p-6">
+      <h2 className="text-lg font-bold">Chính sách & nội quy thuê</h2>
+      <PolicyNotice tone="neutral" className="mb-5 mt-2" title="Chính sách & nội quy thuê" summary="Người thuê sẽ xem các quy định này trước khi gửi yêu cầu thuê.">
+        <p>Người thuê sẽ xem các quy định này trước khi gửi yêu cầu thuê. Phí phạt đóng trễ chỉ nhập khi soạn hợp đồng, không nhập ở đây.</p>
+      </PolicyNotice>
+      {policyCatalogError ? <p role="alert" className="text-sm text-amber-800">{policyCatalogError}</p> : <ListingPolicyFields definitions={listingOptions.policies ?? []} values={listingPolicies} onChange={setListingPolicies} />}
+    </section>
+  );
+  const expensesSection = (
+    <MonthlyExpensesSection
+      category={basicInfo.category}
+      data={monthlyExpenses}
+      errors={errors}
+      onChange={(updates) => setMonthlyExpenses((prev) => ({ ...prev, ...updates }))}
+    />
+  );
+  const pricingSection = (
+    <PricingSection
+      category={basicInfo.category}
+      data={pricing}
+      errors={errors}
+      onChange={(updates) => setPricing((prev) => ({ ...prev, ...updates }))}
+    />
+  );
+  const locationSection = (
+    <LocationSection addressMode={addressMode} savedUserAddress={savedUserAddress}
+      value={selectedAddress} errors={errors} isBranchSelected={Boolean(basicInfo.branchId)}
+      onAddressModeChange={setAddressMode} onChange={setSelectedAddress} />
+  );
+  const viewingSection = (
+    <ViewingScheduleSection
+      selectedDays={selectedViewingDays}
+      selectedSlots={selectedViewingSlots}
+      errors={errors}
+      onChangeDays={setSelectedViewingDays}
+      onChangeSlots={setSelectedViewingSlots}
+    />
+  );
+  const descriptionSection = (
+    <div id="section-description">
+      <DescriptionSection
+        value={basicInfo.description}
+        errors={errors}
+        onChange={(val) => setBasicInfo((prev) => ({ ...prev, description: val }))}
+        onGenerateAiDescription={handleGenerateAiDescription}
+      />
+    </div>
+  );
+
+  return (
+    <div ref={topRef} className={`mx-auto space-y-6 pb-12 animate-in fade-in-50 duration-200 ${isEditMode || currentStep === 6 ? "max-w-6xl" : "max-w-4xl"}`}>
+      {/* Page Header */}
+      <div className="space-y-1">
+        <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+          {isDuplicateMode
+            ? "Nhân bản tin đăng"
+            : isEditMode
+            ? "Chỉnh sửa tin đăng"
+            : "Đăng tin cho thuê"}
+        </h1>
+        <p className="text-xs text-muted-foreground sm:text-sm">
+          {isDuplicateMode
+            ? "Xem lại và điều chỉnh thông tin cần thiết (mã phòng, tầng, giá, ảnh...) để tạo tin mới nhanh chóng."
+            : isEditMode
+            ? "Cập nhật lại các thông tin của tin đăng để đảm bảo tính chính xác và thu hút khách thuê."
+            : "Nhập đầy đủ thông tin để tạo tin đăng cho thuê chuyên nghiệp và tiếp cận hàng ngàn khách hàng tiềm năng."}
+        </p>
+      </div>
+
+      {/* Membership & Quota Banner */}
+      <MembershipStatusCard
+        compact
+        membership={membership}
+        profile={profile}
+        loading={loadingMembership}
+      />
+
+      {/* Duplicate Mode Banner */}
+      {isDuplicateMode && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 text-blue-900 shadow-2xs dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl bg-blue-100 p-2 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 shrink-0">
+              <Copy className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold">
+                Đang tạo tin mới từ &quot;{sourceListingTitle || "Tin gốc"}&quot;
+              </h3>
+              <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                Tin gốc sẽ không thay đổi. Tin mới chỉ được tạo khi bạn bấm &quot;Lưu nháp&quot; hoặc &quot;Gửi duyệt&quot;.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isEditMode && (
+        <ListingWizardStepper
+          steps={WIZARD_STEPS}
+          current={currentStep}
+          isReachable={(id) => id <= firstInvalidStep}
+          onSelect={(id) => goToStep(id)}
+        />
+      )}
+
+      <form onSubmit={(e) => e.preventDefault()} noValidate className="space-y-6">
+        {isEditMode ? (
+          <div className="gap-6 space-y-4 lg:grid lg:grid-cols-[180px_minmax(0,1fr)] lg:space-y-0">
+            <EditSectionNav items={EDIT_SECTIONS} />
+            <div className="space-y-6">
+              {basicSection}
+              {detailsSection}
+              {amenitiesSection}
+              {policiesSection}
+              {expensesSection}
+              {pricingSection}
+              {locationSection}
+              {viewingSection}
+              {descriptionSection}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {currentStep === 1 && basicSection}
+            {currentStep === 2 && (<>{detailsSection}{amenitiesSection}</>)}
+            {currentStep === 3 && (<>{pricingSection}{expensesSection}</>)}
+            {currentStep === 4 && (<>{policiesSection}{viewingSection}</>)}
+            {currentStep === 5 && (<>{locationSection}{descriptionSection}</>)}
+            {currentStep === 6 && (
+              <ListingFormPreview
+                params={buildParams("SUBMIT_FOR_REVIEW", previewMedia())}
+                branchName={previewBranchName}
+                {...previewExtras}
+                mode="create"
+              />
+            )}
+          </div>
+        )}
+
+        {/* Cảnh báo hết lượt ngay trên thanh hành động nếu gửi duyệt bị từ chối vì hết quota */}
+        {quotaExhaustedBanner && (
+          <div
+            role="alert"
+            className="rounded-2xl border border-amber-300 bg-amber-50/90 dark:border-amber-800/70 dark:bg-amber-950/40 p-4 text-xs text-amber-950 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          >
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+              <div className="space-y-0.5 leading-relaxed">
+                <p className="font-bold">
+                  Bạn đã hết lượt đăng tin khả dụng — Nội dung bài đăng vẫn được giữ nguyên!
+                </p>
+                <p>
+                  Hãy bấm <strong>&quot;Lưu nháp&quot;</strong> (miễn phí) để không mất dữ liệu vừa nhập, sau đó mua hoặc nâng cấp gói hội viên để gửi duyệt.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setQuotaExhaustedModalOpen(true)}
+              className="shrink-0 rounded-xl bg-amber-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-amber-700 transition-colors cursor-pointer"
+            >
+              Xem tùy chọn lưu nháp & mua gói
+            </button>
+          </div>
+        )}
+
+        {isEditMode ? (
+          <FormActions
+            onCancel={() => router.back()}
+            onSaveDraft={() => handleSaveListing("SAVE_DRAFT")}
+            onSubmitForReview={handleEditSubmitClick}
+            isSubmitting={isSubmitting}
+            submittingAction={submittingAction}
+            isEditing
+            requiresEditReview={loadedPendingEdit || ["PUBLISHED", "RESERVED", "RENTED", "HIDDEN", "EXPIRED"].includes(String(loadedListingStatus))}
+          />
+        ) : (
+          <WizardActions
+            step={currentStep}
+            lastStep={WIZARD_STEPS.length}
+            onBack={() => goToStep(currentStep - 1)}
+            onNext={handleNext}
+            onSaveDraft={() => handleSaveListing("SAVE_DRAFT")}
+            onSubmitForReview={() => handleSaveListing("SUBMIT_FOR_REVIEW")}
+            isSubmitting={isSubmitting}
+            submittingAction={submittingAction}
+          />
+        )}
+      </form>
+
+      {previewOpen && (
+        <div role="dialog" aria-modal="true" aria-label="Xem trước tin đăng" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-6">
+          <div className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-5 py-3">
+              <h2 className="text-base font-bold">Xem trước trước khi gửi</h2>
+              <button type="button" aria-label="Đóng" onClick={() => setPreviewOpen(false)} disabled={isSubmitting} className="rounded-lg p-1.5 hover:bg-muted disabled:opacity-50">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <ListingFormPreview params={buildParams("SUBMIT_FOR_REVIEW", previewMedia())} branchName={previewBranchName}
+                {...previewExtras} mode="edit" />
+            </div>
+            <div className="flex justify-end gap-2.5 border-t border-border px-5 py-3">
+              <button type="button" onClick={() => setPreviewOpen(false)} disabled={isSubmitting} className="h-10 rounded-xl border border-border px-4 text-xs font-bold hover:bg-muted disabled:opacity-50">
+                Quay lại chỉnh sửa
+              </button>
+              <button type="button" onClick={() => handleSaveListing("SUBMIT_FOR_REVIEW")} disabled={isSubmitting} className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-6 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-70">
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                Xác nhận gửi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Insufficient Quota Modal without losing draft */}
+      <InsufficientQuotaModal
+        isOpen={quotaExhaustedModalOpen}
+        membership={membership}
+        context="editor"
+        isSavingDraft={isSubmitting && submittingAction === "SAVE_DRAFT"}
+        onSaveDraftOnly={() => handleSaveListing("SAVE_DRAFT")}
+        onSaveDraftAndBuyPlan={() =>
+          handleSaveListing("SAVE_DRAFT", { redirectTo: "/dashboard/membership" })
+        }
+        onClose={() => setQuotaExhaustedModalOpen(false)}
+      />
+
+      {/* Confirmation Modal when switching categories */}
+      <CategoryChangeConfirmModal
+        isOpen={isCategoryModalOpen}
+        targetCategory={pendingCategory}
+        onConfirm={() => {
+          if (pendingCategory) {
+            applyCategoryChange(pendingCategory);
+          }
+        }}
+        onCancel={() => {
+          setIsCategoryModalOpen(false);
+          setPendingCategory(null);
+        }}
+      />
+    </div>
+  );
+}

@@ -261,7 +261,7 @@ export default function MyPropertiesPage() {
   }
 
   function handleEditListing(id: string) {
-    router.push(`/dashboard/properties/upsert?id=${id}`);
+    router.push(`/dashboard/properties/${id}/edit`);
   }
 
   // Generate Smart Pagination page numbers

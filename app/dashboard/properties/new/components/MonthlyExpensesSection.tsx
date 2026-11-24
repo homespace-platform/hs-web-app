@@ -85,7 +85,7 @@ export default function MonthlyExpensesSection({
         id="section-monthly-expenses"
         stepNumber={4}
         title="Chi phí hàng tháng"
-        description="Biểu phí dịch vụ định kỳ áp dụng cho người thuê"
+        description="Phí dịch vụ định kỳ của người thuê."
       >
         <div className="space-y-4">
           {/* Informative Header Banner */}
@@ -94,7 +94,7 @@ export default function MonthlyExpensesSection({
               <div className="flex items-start gap-2.5">
                 <Lock className="mt-0.5 h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
                 <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-sky-950 dark:text-sky-100 flex items-center gap-2">
+                  <h4 className="text-sm sm:text-sm font-bold text-sky-950 dark:text-sky-100 flex items-center gap-2">
                     Biểu phí cố định theo chi nhánh: {selectedBranch.name}
                   </h4>
                   <PolicyNotice
@@ -111,7 +111,7 @@ export default function MonthlyExpensesSection({
               <Link
                 href={`/dashboard/branches/${selectedBranch.id}`}
                 target="_blank"
-                className="inline-flex items-center gap-1.5 self-start sm:self-center shrink-0 rounded-xl bg-sky-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-sky-700 transition-colors"
+                className="inline-flex items-center gap-1.5 self-start sm:self-center shrink-0 rounded-xl bg-sky-600 px-3 py-2.5 min-h-10 text-sm font-bold text-white shadow-xs hover:bg-sky-700 transition-colors"
               >
                 <span>Chỉnh sửa biểu phí chi nhánh</span>
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -125,8 +125,8 @@ export default function MonthlyExpensesSection({
               <div className="flex items-start gap-2.5">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                 <div className="space-y-1">
-                  <h5 className="text-xs font-bold">Biểu phí chi nhánh chưa hoàn thiện!</h5>
-                  <p className="text-[11px]">
+                  <h5 className="text-sm font-bold">Biểu phí chi nhánh chưa hoàn thiện!</h5>
+                  <p className="text-sm">
                     Chi nhánh &quot;{selectedBranch.name}&quot; còn thiếu các biểu phí bắt buộc:{" "}
                     <strong>{selectedBranch.missingCharges?.join(", ")}</strong>. Bạn cần bổ sung biểu phí tại chi nhánh trước khi gửi duyệt hoặc lưu tin đăng.
                   </p>
@@ -136,7 +136,7 @@ export default function MonthlyExpensesSection({
           )}
 
           {/* High-contrast Read-only Charges Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             {selectedBranch.defaultCharges && selectedBranch.defaultCharges.length > 0 ? (
               selectedBranch.defaultCharges.map((c, i) => {
                 const meta = getChargeMeta(c.chargeType);
@@ -147,11 +147,11 @@ export default function MonthlyExpensesSection({
                     className="rounded-xl border border-border bg-card p-3.5 space-y-1 shadow-2xs"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                      <span className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
                         <IconComp className={`h-4 w-4 ${meta.color}`} />
                         {c.chargeType === "OTHER" ? (c.customName || "Phí khác") : meta.label}
                       </span>
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground">
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-sm font-bold text-muted-foreground">
                         Chi nhánh
                       </span>
                     </div>
@@ -162,14 +162,14 @@ export default function MonthlyExpensesSection({
                 );
               })
             ) : (
-              <p className="text-xs text-muted-foreground italic col-span-full">
+              <p className="text-sm text-muted-foreground italic col-span-full">
                 Chi nhánh chưa có thông tin biểu phí.
               </p>
             )}
           </div>
 
           {/* Parking Policy Note */}
-          <div className="rounded-xl border border-border/80 bg-muted/20 px-3.5 py-2.5 text-xs flex flex-wrap items-center justify-between gap-2">
+          <div className="rounded-xl border border-border/80 bg-muted/20 px-3.5 py-2.5 text-sm flex flex-wrap items-center justify-between gap-2">
             <span className="text-muted-foreground">
               Sức chứa bãi xe chi nhánh:
             </span>
@@ -190,12 +190,12 @@ export default function MonthlyExpensesSection({
       id="section-monthly-expenses"
       stepNumber={4}
       title="Chi phí hàng tháng"
-      description="Minh bạch chi phí điện, nước và các dịch vụ đi kèm giúp người thuê dễ dàng tính toán"
+      description="Điện, nước và các phí dịch vụ đi kèm."
     >
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         {/* Tiền điện */}
         <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3.5">
-          <label className="block text-xs font-bold text-foreground flex items-center gap-1.5">
+          <label className="block text-sm font-bold text-foreground flex items-center gap-1.5">
             <Zap className="h-4 w-4 text-amber-500" /> Tiền điện
           </label>
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -223,12 +223,12 @@ export default function MonthlyExpensesSection({
                   placeholder="3500"
                   className={`${inputClass} pr-16`}
                 />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
                   đ/kWh
                 </span>
               </div>
             ) : (
-              <div className="flex h-10 items-center rounded-xl bg-muted/50 px-3 text-xs text-muted-foreground">
+              <div className="flex min-h-11 items-center rounded-xl bg-muted/50 px-3 text-sm text-muted-foreground">
                 Miễn phí tiền điện
               </div>
             )}
@@ -237,7 +237,7 @@ export default function MonthlyExpensesSection({
 
         {/* Tiền nước */}
         <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3.5">
-          <label className="block text-xs font-bold text-foreground flex items-center gap-1.5">
+          <label className="block text-sm font-bold text-foreground flex items-center gap-1.5">
             <Droplet className="h-4 w-4 text-blue-500" /> Tiền nước sinh hoạt
           </label>
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -267,7 +267,7 @@ export default function MonthlyExpensesSection({
                   placeholder="25000"
                   className={`${inputClass} pr-24`}
                 />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
                   {data.waterType === "M3"
                     ? "đ/m³"
                     : data.waterType === "PER_PERSON"
@@ -276,7 +276,7 @@ export default function MonthlyExpensesSection({
                 </span>
               </div>
             ) : (
-              <div className="flex h-10 items-center rounded-xl bg-muted/50 px-3 text-xs text-muted-foreground">
+              <div className="flex min-h-11 items-center rounded-xl bg-muted/50 px-3 text-sm text-muted-foreground">
                 Miễn phí tiền nước
               </div>
             )}
@@ -286,7 +286,7 @@ export default function MonthlyExpensesSection({
         {/* Phí quản lý (Chỉ với căn hộ) */}
         {showManagementFee && (
           <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3.5">
-            <label className="block text-xs font-bold text-foreground flex items-center gap-1.5">
+            <label className="block text-sm font-bold text-foreground flex items-center gap-1.5">
               <Shield className="h-4 w-4 text-emerald-500" /> Phí quản lý tòa nhà
             </label>
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -317,12 +317,12 @@ export default function MonthlyExpensesSection({
                     placeholder="150000"
                     className={`${inputClass} pr-20`}
                   />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
                     {data.managementFeeType === "PER_M2" ? "đ/mét vuông" : "đ/tháng"}
                   </span>
                 </div>
               ) : (
-                <div className="flex h-10 items-center rounded-xl bg-muted/50 px-3 text-xs text-muted-foreground">
+                <div className="flex min-h-11 items-center rounded-xl bg-muted/50 px-3 text-sm text-muted-foreground">
                   {data.managementFeeType === "INCLUDED"
                     ? "Đã bao gồm trong giá"
                     : "Không áp dụng"}
@@ -334,7 +334,7 @@ export default function MonthlyExpensesSection({
 
         {/* Internet / Wifi */}
         <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3.5">
-          <label className="block text-xs font-bold text-foreground flex items-center gap-1.5">
+          <label className="block text-sm font-bold text-foreground flex items-center gap-1.5">
             <Wifi className="h-4 w-4 text-purple-500" /> Internet / Wifi
           </label>
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -363,12 +363,12 @@ export default function MonthlyExpensesSection({
                   placeholder="100000"
                   className={`${inputClass} pr-20`}
                 />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
                   đ/tháng
                 </span>
               </div>
             ) : (
-              <div className="flex h-10 items-center rounded-xl bg-muted/50 px-3 text-xs text-muted-foreground">
+              <div className="flex min-h-11 items-center rounded-xl bg-muted/50 px-3 text-sm text-muted-foreground">
                 {data.internetType === "INCLUDED" ? "Miễn phí Wifi" : "Tự đăng ký"}
               </div>
             )}
@@ -377,7 +377,7 @@ export default function MonthlyExpensesSection({
 
         {/* Phí vệ sinh / Rác */}
         <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3.5">
-          <label className="block text-xs font-bold text-foreground flex items-center gap-1.5">
+          <label className="block text-sm font-bold text-foreground flex items-center gap-1.5">
             <Sparkles className="h-4 w-4 text-indigo-500" /> Phí vệ sinh &amp; Rác
           </label>
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -407,12 +407,12 @@ export default function MonthlyExpensesSection({
                   placeholder="50000"
                   className={`${inputClass} pr-20`}
                 />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
                   {data.garbageFeeType === "PER_PERSON" ? "đ/người/tháng" : "đ/tháng"}
                 </span>
               </div>
             ) : (
-              <div className="flex h-10 items-center rounded-xl bg-muted/50 px-3 text-xs text-muted-foreground">
+              <div className="flex min-h-11 items-center rounded-xl bg-muted/50 px-3 text-sm text-muted-foreground">
                 {data.garbageFeeType === "INCLUDED" ? "Đã bao gồm" : "Không áp dụng"}
               </div>
             )}
@@ -421,7 +421,7 @@ export default function MonthlyExpensesSection({
 
         {/* Phí gửi xe máy */}
         <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3.5">
-          <label className="block text-xs font-bold text-foreground flex items-center gap-1.5">
+          <label className="block text-sm font-bold text-foreground flex items-center gap-1.5">
             <Bike className="h-4 w-4 text-orange-500" /> Phí giữ xe máy
           </label>
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -453,12 +453,12 @@ export default function MonthlyExpensesSection({
                   placeholder="120000"
                   className={`${inputClass} pr-24`}
                 />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
                   đ/xe/tháng
                 </span>
               </div>
             ) : (
-              <div className="flex h-10 items-center rounded-xl bg-muted/50 px-3 text-xs text-muted-foreground">
+              <div className="flex min-h-11 items-center rounded-xl bg-muted/50 px-3 text-sm text-muted-foreground">
                 {data.motorbikeParkingType === "INCLUDED"
                   ? "Miễn phí"
                   : "Không giữ xe"}
@@ -469,7 +469,7 @@ export default function MonthlyExpensesSection({
 
         {/* Phí gửi ô tô */}
         <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3.5">
-          <label className="block text-xs font-bold text-foreground flex items-center gap-1.5">
+          <label className="block text-sm font-bold text-foreground flex items-center gap-1.5">
             <Car className="h-4 w-4 text-sky-500" /> Phí giữ ô tô
           </label>
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -499,12 +499,12 @@ export default function MonthlyExpensesSection({
                   placeholder="1200000"
                   className={`${inputClass} pr-24`}
                 />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
                   đ/xe/tháng
                 </span>
               </div>
             ) : (
-              <div className="flex h-10 items-center rounded-xl bg-muted/50 px-3 text-xs text-muted-foreground">
+              <div className="flex min-h-11 items-center rounded-xl bg-muted/50 px-3 text-sm text-muted-foreground">
                 {data.carParkingType === "INCLUDED"
                   ? "Miễn phí"
                   : "Không giữ ô tô"}
@@ -517,17 +517,17 @@ export default function MonthlyExpensesSection({
         <div className="sm:col-span-2 space-y-3 rounded-xl border border-border/80 bg-muted/20 p-3.5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
                 <Layers className="h-4 w-4 text-slate-500" /> Các khoản phí tùy chỉnh khác
               </p>
-              <p className="text-[11px] text-muted-foreground">
-                Thêm các khoản phí thu hằng tháng như thang máy, hồ bơi, giặt ủi... nếu có
+              <p className="text-sm text-muted-foreground">
+                Thang máy, hồ bơi, giặt ủi... (nếu có)
               </p>
             </div>
             <button
               type="button"
               onClick={handleAddCustomFee}
-              className="inline-flex items-center gap-1 rounded-xl border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary transition-colors hover:bg-primary/20"
+              className="inline-flex items-center gap-1 rounded-xl border border-primary/40 bg-primary/10 px-3 py-2.5 min-h-10 text-sm font-bold text-primary transition-colors hover:bg-primary/20"
             >
               <Plus className="h-3.5 w-3.5" /> Thêm khoản phí
             </button>
@@ -560,7 +560,7 @@ export default function MonthlyExpensesSection({
                     placeholder="Số tiền (đ)"
                     className={`${inputClass} sm:w-36`}
                   />
-                  <span className="flex h-10 items-center rounded-xl bg-muted/50 px-3 text-sm text-muted-foreground sm:w-32">
+                  <span className="flex min-h-11 items-center rounded-xl bg-muted/50 px-3 text-sm text-muted-foreground sm:w-32">
                     đ/tháng
                   </span>
                   <button

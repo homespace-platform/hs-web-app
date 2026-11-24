@@ -175,7 +175,7 @@ export default function RoomDetailsSection({
 
         {/* Gác lửng */}
         <div className="sm:col-span-2">
-          <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-xs font-medium text-foreground cursor-pointer hover:bg-muted/50">
+          <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-sm font-medium text-foreground cursor-pointer hover:bg-muted/50">
             <input
               type="checkbox"
               checked={data.hasLoft ?? false}

@@ -29,14 +29,14 @@ export default function LandlordCta() {
 
   const goPostListing = () => {
     if (!authenticated) {
-      login("/dashboard/properties/upsert");
+      login("/dashboard/properties/new");
       return;
     }
     if (!postGate.guard()) return;
     requireKyc(profile, {
       router,
       redirect: true,
-      onAllowed: () => router.push("/dashboard/properties/upsert"),
+      onAllowed: () => router.push("/dashboard/properties/new"),
     });
   };
 

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-const source = fs.readFileSync(require.resolve('../app/dashboard/properties/new/page.tsx'), 'utf8');
+const source = fs.readFileSync(require.resolve('../app/dashboard/properties/new/ListingEditor.tsx'), 'utf8');
 const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const checks = [];
 function visit(node) {

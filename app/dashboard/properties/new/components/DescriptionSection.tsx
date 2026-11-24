@@ -21,7 +21,7 @@ export default function DescriptionSection({
     <FormSectionWrapper
       stepNumber={8}
       title="Mô tả chi tiết"
-      description="Cung cấp mô tả chi tiết về không gian cho thuê để người thuê nắm bắt thông tin rõ ràng."
+      description="Giúp người thuê hiểu rõ không gian."
     >
       <div className="space-y-3">
         <FormField
@@ -29,12 +29,12 @@ export default function DescriptionSection({
           label="Nội dung mô tả chi tiết bài đăng"
           required
           error={errors.description}
-          hint="Mô tả càng chi tiết và rõ ràng sẽ giúp người thuê nhanh chóng đưa ra quyết định đặt lịch xem phòng."
+          hint="Mô tả rõ ràng giúp người thuê đặt lịch xem nhanh hơn."
           action={
             <button
               type="button"
               onClick={onGenerateAiDescription}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2.5 min-h-10 text-sm font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-95 cursor-pointer"
             >
               <Sparkles className="h-3.5 w-3.5" />
               <span>Tạo mô tả AI</span>
@@ -51,7 +51,7 @@ export default function DescriptionSection({
                 errors.description ? "border-destructive focus:border-destructive" : ""
               }`}
             />
-            <div className="flex items-center justify-between pt-1 px-1 text-[11px] text-muted-foreground">
+            <div className="flex items-center justify-between pt-1 px-1 text-sm text-muted-foreground">
               <span>Độ dài khuyến nghị: 100 - 1000 từ</span>
               <span className={value.length < 30 ? "text-amber-500 font-medium" : "text-emerald-600 font-medium"}>
                 {value.length} ký tự {value.length < 30 ? "(tối thiểu 30 ký tự)" : ""}

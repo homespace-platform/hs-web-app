@@ -36,6 +36,7 @@ const ROUTES: Record<string, { label: string; parent?: string }> = {
 
 // Dynamic segments get generic labels; checked after the static table.
 const DYNAMIC: { pattern: RegExp; label: string; parent: string }[] = [
+  { pattern: /^\/dashboard\/properties\/[^/]+\/edit$/, label: "Chỉnh sửa tin đăng", parent: "/dashboard/properties" },
   { pattern: /^\/dashboard\/branches\/[^/]+$/, label: "Chi tiết chi nhánh", parent: "/dashboard/branches" },
   { pattern: /^\/dashboard\/contracts\/[^/]+$/, label: "Chi tiết hợp đồng", parent: "/dashboard/contracts" },
   { pattern: /^\/dashboard\/landlord\/contracts\/[^/]+$/, label: "Chi tiết hợp đồng", parent: "/dashboard/landlord/contracts" },

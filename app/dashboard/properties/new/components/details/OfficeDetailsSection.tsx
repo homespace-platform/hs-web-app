@@ -50,8 +50,8 @@ export default function OfficeDetailsSection({
           error={errors.buildingName}
           hint={
             isTraditionalOffice
-              ? "Bắt buộc đối với văn phòng truyền thống"
-              : "Tùy chọn đối với Coworking / Văn phòng chia sẻ"
+              ? "Bắt buộc với văn phòng truyền thống."
+              : "Tùy chọn với Coworking."
           }
           className="sm:col-span-2"
         >
@@ -232,10 +232,10 @@ export default function OfficeDetailsSection({
         {/* Giờ hoạt động của tòa nhà (Bộ chọn ngày và giờ) */}
         <div className="sm:col-span-2 space-y-3 rounded-xl border border-border bg-muted/20 p-4">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <label className="text-xs font-bold text-foreground">
+            <label className="text-sm font-bold text-foreground">
               Giờ hoạt động của tòa nhà
             </label>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-sm text-muted-foreground">
               Chọn khung giờ và các ngày làm việc cho phép trong tuần
             </span>
           </div>
@@ -246,7 +246,7 @@ export default function OfficeDetailsSection({
           />
 
           {errors.operatingHours && (
-            <p className="text-[11px] font-medium text-destructive">
+            <p className="text-sm font-medium text-destructive">
               {errors.operatingHours}
             </p>
           )}
@@ -322,7 +322,7 @@ function OfficeOperatingHoursPicker({
         <button
           type="button"
           onClick={() => handleSelectPreset("24/7 (Tự do ra vào)")}
-          className={`flex items-center justify-between rounded-xl border p-2.5 text-left text-xs font-semibold transition-all ${
+          className={`flex items-center justify-between rounded-xl border p-2.5 text-left text-sm font-semibold transition-all ${
             value.includes("24/7") && mode === "preset"
               ? "border-primary bg-primary/10 text-primary ring-1 ring-primary"
               : "border-border bg-card text-foreground hover:border-primary/40"
@@ -335,7 +335,7 @@ function OfficeOperatingHoursPicker({
         <button
           type="button"
           onClick={() => handleSelectPreset("08:00 – 17:30 (Thứ 2 – Thứ 6)")}
-          className={`flex items-center justify-between rounded-xl border p-2.5 text-left text-xs font-semibold transition-all ${
+          className={`flex items-center justify-between rounded-xl border p-2.5 text-left text-sm font-semibold transition-all ${
             value.includes("Thứ 6") && mode === "preset"
               ? "border-primary bg-primary/10 text-primary ring-1 ring-primary"
               : "border-border bg-card text-foreground hover:border-primary/40"
@@ -348,7 +348,7 @@ function OfficeOperatingHoursPicker({
         <button
           type="button"
           onClick={() => handleSelectPreset("07:30 – 18:30 (Thứ 2 – Thứ 7)")}
-          className={`flex items-center justify-between rounded-xl border p-2.5 text-left text-xs font-semibold transition-all ${
+          className={`flex items-center justify-between rounded-xl border p-2.5 text-left text-sm font-semibold transition-all ${
             value.includes("Thứ 7") && mode === "preset"
               ? "border-primary bg-primary/10 text-primary ring-1 ring-primary"
               : "border-border bg-card text-foreground hover:border-primary/40"
@@ -367,7 +367,7 @@ function OfficeOperatingHoursPicker({
             setMode("custom");
             handleCustomTimeChange(startTime, endTime, daysRange);
           }}
-          className={`text-xs font-semibold transition-colors ${
+          className={`text-sm font-semibold transition-colors ${
             mode === "custom" ? "text-primary underline" : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -375,7 +375,7 @@ function OfficeOperatingHoursPicker({
         </button>
 
         {value && (
-          <div className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
+          <div className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1 text-sm font-bold text-primary">
             <Clock className="h-3.5 w-3.5" />
             <span>Đang chọn: {value}</span>
           </div>
@@ -387,7 +387,7 @@ function OfficeOperatingHoursPicker({
         <div className="rounded-xl border border-primary/20 bg-background/80 p-3.5 space-y-3 animate-in fade-in-50 duration-150">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+              <label className="mb-1 block text-sm font-semibold text-muted-foreground">
                 Giờ mở cửa
               </label>
               <input
@@ -401,7 +401,7 @@ function OfficeOperatingHoursPicker({
             </div>
 
             <div>
-              <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+              <label className="mb-1 block text-sm font-semibold text-muted-foreground">
                 Giờ đóng cửa
               </label>
               <input
@@ -416,7 +416,7 @@ function OfficeOperatingHoursPicker({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-[11px] font-semibold text-muted-foreground">
+            <label className="mb-1.5 block text-sm font-semibold text-muted-foreground">
               Ngày làm việc trong tuần
             </label>
             <div className="flex flex-wrap gap-2">
@@ -428,7 +428,7 @@ function OfficeOperatingHoursPicker({
                       key={d}
                       type="button"
                       onClick={() => handleCustomTimeChange(startTime, endTime, d)}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                      className={`rounded-lg border px-3.5 py-2 min-h-10 text-sm font-medium transition-all ${
                         selected
                           ? "border-primary bg-primary text-primary-foreground font-bold shadow-2xs"
                           : "border-border bg-muted/40 text-foreground hover:bg-muted"

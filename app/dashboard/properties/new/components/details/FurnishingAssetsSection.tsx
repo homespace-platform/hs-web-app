@@ -1,3 +1,4 @@
+import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React from "react";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { inputClass, selectClass } from "../FormField";
@@ -50,11 +51,11 @@ export default function FurnishingAssetsSection({
   return (
     <div className="space-y-3 sm:col-span-2">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-semibold text-foreground">
+        <label className="text-sm font-semibold text-foreground">
           Nội thất & trang thiết bị bàn giao{" "}
           {required && <span className="text-destructive">*</span>}
         </label>
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-sm text-muted-foreground">
           {rows.length} tài sản
         </span>
       </div>
@@ -67,7 +68,7 @@ export default function FurnishingAssetsSection({
               key={item.code}
               type="button"
               onClick={() => toggleCatalogItem(item)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 min-h-10 text-sm font-semibold transition-all ${
                 selected
                   ? "border-primary bg-primary text-primary-foreground shadow-2xs"
                   : "border-border bg-muted/30 text-muted-foreground hover:border-primary/40 hover:text-primary"
@@ -84,7 +85,7 @@ export default function FurnishingAssetsSection({
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full min-w-[720px] border-collapse text-sm">
             <thead>
-              <tr className="bg-muted/50 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <tr className="bg-muted/50 text-left text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                 <th className="w-12 px-3 py-2">STT</th>
                 <th className="px-3 py-2">Tên tài sản / Trang thiết bị *</th>
                 <th className="w-24 px-3 py-2">Số lượng *</th>
@@ -102,7 +103,7 @@ export default function FurnishingAssetsSection({
                     key={`${row.itemCode ?? "custom"}-${index}`}
                     className="border-t border-border align-top"
                   >
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                    <td className="px-3 py-2 text-sm text-muted-foreground">
                       {index + 1}
                     </td>
                     <td className="px-3 py-2">
@@ -116,7 +117,7 @@ export default function FurnishingAssetsSection({
                         }`}
                       />
                       {nameError && (
-                        <p className="mt-1 text-[11px] font-medium text-destructive">
+                        <p className="mt-1 text-sm font-medium text-destructive">
                           {nameError}
                         </p>
                       )}
@@ -133,7 +134,7 @@ export default function FurnishingAssetsSection({
                         }`}
                       />
                       {quantityError && (
-                        <p className="mt-1 text-[11px] font-medium text-destructive">
+                        <p className="mt-1 text-sm font-medium text-destructive">
                           {quantityError}
                         </p>
                       )}
@@ -167,7 +168,7 @@ export default function FurnishingAssetsSection({
                         type="button"
                         onClick={() => removeRow(index)}
                         aria-label={`Xóa tài sản dòng ${index + 1}`}
-                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+                        className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -183,20 +184,22 @@ export default function FurnishingAssetsSection({
       <button
         type="button"
         onClick={() => onChange([...rows, emptyRow()])}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+        className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-2.5 min-h-10 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
       >
         <Plus className="h-3.5 w-3.5" />
         Thêm tài sản khác
       </button>
 
       {errors.furnishingAssets ? (
-        <p className="text-[11px] font-medium text-destructive">
+        <p className="text-sm font-medium text-destructive">
           {errors.furnishingAssets}
         </p>
       ) : (
-        <p className="text-[11px] text-muted-foreground">
-          Danh mục này được dùng làm biên bản bàn giao trong hợp đồng thuê.
-        </p>
+        <PolicyNotice
+          title="Biên bản bàn giao"
+          summary="Danh mục dùng làm biên bản bàn giao."
+          text="Danh mục này được dùng làm biên bản bàn giao trong hợp đồng thuê."
+        />
       )}
     </div>
   );

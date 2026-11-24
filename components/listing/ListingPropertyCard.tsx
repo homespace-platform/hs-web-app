@@ -82,7 +82,7 @@ export default function ListingPropertyCard({
   };
 
   const handleEditListing = () => {
-    router.push(`/dashboard/properties/new?id=${item.id}`);
+    router.push(`/dashboard/properties/${item.id}/edit`);
   };
 
   const handleDuplicateListing = () => {

@@ -256,7 +256,7 @@ export default function HouseDetailsSection({
 
         {/* Tiện ích kết cấu bổ sung */}
         <div className="sm:col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-xs font-medium text-foreground cursor-pointer hover:bg-muted/50">
+          <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-sm font-medium text-foreground cursor-pointer hover:bg-muted/50">
             <input
               type="checkbox"
               checked={data.hasRooftopTerrace ?? false}
@@ -266,7 +266,7 @@ export default function HouseDetailsSection({
             Có sân thượng
           </label>
 
-          <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-xs font-medium text-foreground cursor-pointer hover:bg-muted/50">
+          <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 text-sm font-medium text-foreground cursor-pointer hover:bg-muted/50">
             <input
               type="checkbox"
               checked={data.hasGarage ?? false}
@@ -277,11 +277,11 @@ export default function HouseDetailsSection({
           </label>
 
           <div className="flex h-11 items-center gap-2 rounded-xl border border-border bg-muted/30 px-3">
-            <span className="text-xs text-muted-foreground">Lối đi:</span>
+            <span className="text-sm text-muted-foreground">Lối đi:</span>
             <select
               value={data.privateEntrance ?? "PRIVATE"}
               onChange={(e) => onChange({ privateEntrance: e.target.value })}
-              className="bg-transparent text-xs font-semibold text-foreground outline-none cursor-pointer"
+              className="bg-transparent text-sm font-semibold text-foreground outline-none cursor-pointer"
             >
               <option value="PRIVATE">Lối đi riêng biệt</option>
               <option value="SHARED">Lối đi chung</option>

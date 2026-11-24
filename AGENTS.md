@@ -46,19 +46,14 @@ Next.js 16 (App Router in `app/`), React 19, TypeScript, Redux Toolkit (`store/`
 - Keep accessibility (labels, focus, keyboard, contrast) and responsive layouts consistent with existing pages.
 - Do not refactor unrelated components or add dependencies without need.
 
-## Verification
+## Git and verification
 
-Check `package.json` scripts before choosing a command. Existing scripts: `npm run lint` (ESLint), `npm run test:data` (Node test runner for address data), `npm run build`. Component and logic tests in `tests/*.test.cjs` run with Node's test runner.
-
-- Run focused tests for the touched area, for example `node --test tests/<file>.test.cjs`.
-- Lint the changed files, for example `npx eslint <changed files>`.
-- Typecheck with `npx tsc --noEmit` when types or props change.
-- A full `npm run build` is not required for small edits. Use it for routing, configuration, `next.config.ts` or broad type changes.
-- Do not start the dev server, Gateway or backend services for ordinary changes.
-- A simple UI change (copy, styling, small component fix) is L1/L2: one agent, inspect the change, and at most a targeted lint or test of the touched files. No full build and no review skill unless requested.
-- Never rerun a passing lint or test whose inputs are unchanged. After a failure, diagnose, then rerun only the affected check.
-- Do not repeat `git status` / `git diff` without intervening edits; run `git diff --check` once after the final edit.
-- Risk: auth, payment, contract signing, deposit and notification-registration UI are L3 (verify the API contract with the service in `services/`). Component logic is L2. Text and styling are L1.
+- Use `git status --short` once at the start if needed to protect existing edits and once at the end only if needed for reporting. Review the edit or use one path-scoped `git diff -- <paths>` when needed. Reuse that evidence while the files are unchanged. Use `git diff --stat` only when a scope summary is needed and `git diff --check` at most once after the final edit when useful. Reinspect affected paths only for new edits, conflicts or a concrete risk. Protect user changes. Commit, push, reset, clean, checkout or discard only when requested.
+- **Start with the remaining risk.** For prose, comments, or cosmetic changes with no behavior impact, inspect the affected change and skip application builds and tests unless required. For routine behavior changes, validate once after editing with the smallest relevant test or static check. Add another check only when it covers a distinct risk. Run full builds or suites only when requested, required, or focused checks cannot cover a concrete risk.
+- Reuse relevant passing results for unchanged inputs, including results supplied by the user or CI. Acknowledge their source in the report. After a failure, diagnose the cause and rerun only the affected check after correcting it. Let a running check finish before considering a retry. Report blocked checks and unverified risks. Preserve required security, business invariant and integration checks.
+- Use relevant existing commands, such as `node --test tests/<file>.test.cjs` for behavior, `npx eslint <changed files>` for lint, and `npx tsc --noEmit` for changed type or prop contracts. Use a full build when necessary to verify routing, build configuration or cross-module changes.
+- Start the dev server, Gateway or backend services only when a relevant check requires them. Use review skills when requested.
+- Auth, payment, contract signing, deposit and notification registration are L3. Verify the affected API contract in `services/`. Component logic is L2. Static copy and cosmetic styling are L1.
 
 ## Skills
 

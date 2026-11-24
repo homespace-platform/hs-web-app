@@ -41,6 +41,7 @@ import type { VietmapAddress } from "@/services/vietmap.service";
 import { PROPERTY_CATEGORIES } from "../properties/new/constants";
 import type { PropertyCategoryKey } from "../properties/new/types";
 
+import { InfoDisclosure } from "@/components/common/InfoDisclosure";
 export function getChargeDisplay(c: BranchCharge) {
   if (c.billingMethod === "INCLUDED" || c.includedInRent)
     return "Đã bao gồm trong giá thuê";
@@ -952,12 +953,11 @@ export default function BranchesPage() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
-                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <InfoDisclosure tone="warning" summary="Biểu phí dưới đây là nguồn dữ liệu chuẩn của chi nhánh.">
                   <p>
                     Toàn bộ biểu phí được cấu hình dưới đây là <strong>nguồn dữ liệu chuẩn</strong>. Mọi tin đăng gán vào chi nhánh này sẽ tự động đọc biểu phí này và chỉ đọc (read-only) trên form đăng tin.
                   </p>
-                </div>
+                </InfoDisclosure>
 
                 {/* Tiền điện & Nước */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1472,9 +1472,12 @@ export default function BranchesPage() {
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                 Đồng bộ tự động sang tất cả các tin đăng đang hoạt động.
               </p>
-              <p className="text-[11px]">
-                Biểu phí mới sẽ có hiệu lực cho các khách thuê mới. Các hợp đồng đã ký hoặc yêu cầu thuê đã gửi trước đó vẫn giữ nguyên ảnh chụp (snapshot) lịch sử bất biến.
-              </p>
+              <p className="text-[11px]">Biểu phí mới chỉ áp dụng cho khách thuê mới.</p>
+              <InfoDisclosure tone="neutral" summary="Hợp đồng và yêu cầu đã gửi giữ nguyên biểu phí cũ.">
+                <p className="text-[11px]">
+                  Biểu phí mới sẽ có hiệu lực cho các khách thuê mới. Các hợp đồng đã ký hoặc yêu cầu thuê đã gửi trước đó vẫn giữ nguyên ảnh chụp (snapshot) lịch sử bất biến.
+                </p>
+              </InfoDisclosure>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">

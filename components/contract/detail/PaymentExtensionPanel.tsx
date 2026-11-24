@@ -6,6 +6,7 @@ import { monthlyInvoiceService } from "@/services/monthly-invoice.service";
 import type { MonthlyInvoice } from "@/types/monthly-invoice.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 
+import { InfoDisclosure } from "@/components/common/InfoDisclosure";
 const dateTime = (s: string) => new Date(s).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
 const money = (n: number) => `${n.toLocaleString("vi-VN")} đ`;
 const statuses = { PENDING: "Chờ chủ nhà duyệt", APPROVED: "Đã đồng ý", REJECTED: "Đã từ chối", EXPIRED: "Hết hạn phản hồi", CLOSED: "Đã đóng" };
@@ -69,8 +70,10 @@ export default function PaymentExtensionPanel({ invoice, isLandlord, isTenant, r
     </div>}
     {(canRequest || canDirect) && <div className="space-y-2">
       <p className="text-xs">{canRequest ? "Bạn có thể xin thêm thời gian trả hóa đơn. Đây không phải gia hạn thời gian thuê." : "Phương án thứ ba: dời hạn trả chính hóa đơn này, không chuyển công nợ sang kỳ sau."}</p>
-      <p className="text-xs text-muted-foreground">Nếu được duyệt trước hạn, số ngày được cộng vào hạn hiện tại; nếu đã quá hạn, tính từ lúc chủ nhà đồng ý.</p>
-      <p className="text-xs text-muted-foreground">Trong thời gian được gia hạn không tăng phí. Nếu vẫn trả trễ hạn mới, phí tiếp tục cộng theo hợp đồng; phí một lần không thu lần hai, phí theo ngày giữ trần tổng 5 ngày/hóa đơn.</p>
+      <InfoDisclosure tone="neutral" summary="Trong thời gian được gia hạn không tăng phí.">
+        <p>Nếu được duyệt trước hạn, số ngày được cộng vào hạn hiện tại; nếu đã quá hạn, tính từ lúc chủ nhà đồng ý.</p>
+        <p>Trong thời gian được gia hạn không tăng phí. Nếu vẫn trả trễ hạn mới, phí tiếp tục cộng theo hợp đồng; phí một lần không thu lần hai, phí theo ngày giữ trần tổng 5 ngày/hóa đơn.</p>
+      </InfoDisclosure>
       <label className="block text-xs font-medium">Số ngày (1–30)
         <input aria-label="Số ngày gia hạn thanh toán" type="number" min={1} max={30} step={1} value={days}
           onChange={e => setDays(Number(e.target.value))} className="mt-1 block w-28 rounded-lg border bg-background px-3 py-2" />

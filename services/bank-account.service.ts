@@ -48,6 +48,14 @@ export const bankAccountService = {
     return response.data.result!;
   },
 
+  /** Owner-only: returns the full (unmasked) account number. Never cache or log the result. */
+  async revealBankAccount(id: string): Promise<BankAccount> {
+    const response = await axiosClient.get<ApiResponse<BankAccount>>(
+      `/api/v1/bank-accounts/${encodeURIComponent(id)}/reveal`
+    );
+    return response.data.result!;
+  },
+
   async updateDefaults(
     id: string,
     data: UpdateBankAccountDefaultsRequest

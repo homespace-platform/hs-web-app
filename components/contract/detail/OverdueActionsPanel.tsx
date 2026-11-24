@@ -7,6 +7,7 @@ import type { MonthlyInvoice, OverdueActionType } from "@/types/monthly-invoice.
 import { getApiErrorMessage } from "@/utils/apiError";
 import UnilateralTerminationPanel from "./UnilateralTerminationPanel";
 
+import { InfoDisclosure } from "@/components/common/InfoDisclosure";
 const labels: Record<OverdueActionType, string> = {
   PAYMENT_REQUEST: "Yêu cầu thanh toán và liên hệ người thuê",
   EXTENSION_PROPOSAL: "Đề xuất gia hạn thanh toán",
@@ -98,8 +99,10 @@ export default function OverdueActionsPanel({ invoice, contractActive, isLandlor
   return <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-3 text-sm">
     <div>
       <h4 className="font-semibold text-amber-950">Hồ sơ xử lý quá hạn</h4>
-      <p className="mt-1 text-xs text-amber-900">Sau khi hết 5 ngày quá hạn, chọn một phương án: cộng nợ kỳ sau, đơn phương chấm dứt hoặc dời hạn thanh toán ở mục gia hạn. Chọn cộng nợ/chấm dứt sẽ từ chối yêu cầu gia hạn đang chờ và tính bù phí. Không áp dụng hai phương án cùng lúc.</p>
-      <p className="mt-1 text-xs text-amber-900">Phạt tối đa 5 ngày trên mỗi hóa đơn. Hết 10 ngày quá hạn, nếu chưa chọn phương án và còn kỳ sau chưa phát hành, hệ thống tự chốt nợ để cộng dồn. Không tự cộng dồn khi đang chờ duyệt gia hạn, đối soát hoặc xử lý chấm dứt.</p>
+      <InfoDisclosure tone="warning" className="mt-1" summary="Sau 5 ngày quá hạn, chọn một phương án xử lý (không áp dụng hai phương án cùng lúc).">
+        <p>Sau khi hết 5 ngày quá hạn, chọn một phương án: cộng nợ kỳ sau, đơn phương chấm dứt hoặc dời hạn thanh toán ở mục gia hạn. Chọn cộng nợ/chấm dứt sẽ từ chối yêu cầu gia hạn đang chờ và tính bù phí. Không áp dụng hai phương án cùng lúc.</p>
+        <p>Phạt tối đa 5 ngày trên mỗi hóa đơn. Hết 10 ngày quá hạn, nếu chưa chọn phương án và còn kỳ sau chưa phát hành, hệ thống tự chốt nợ để cộng dồn. Không tự cộng dồn khi đang chờ duyệt gia hạn, đối soát hoặc xử lý chấm dứt.</p>
+      </InfoDisclosure>
     </div>
     {canRecord && invoice.canDeferToNextPeriod && <div className="rounded-lg border border-amber-200 bg-white p-3 space-y-2">
       <p className="font-semibold">Cho phép thanh toán trễ vào kỳ sau</p>

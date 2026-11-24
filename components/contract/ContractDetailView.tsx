@@ -56,6 +56,7 @@ import type { AmendmentTerms } from "@/types/contract-amendment.type";
 import { ContractDraftEditor, draftContentPatch, draftEditorValues } from "@/components/contract/detail/ContractDraftEditor";
 import ListingSyncControl from "@/components/contract/detail/ListingSyncControl";
 
+import { InfoDisclosure } from "@/components/common/InfoDisclosure";
 const DRAFT_FORM_ID = "lease-draft-form";
 
 export default function ContractDetailView({ perspective }: { perspective: "landlord" | "tenant" }) {
@@ -581,14 +582,13 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       </>}
       {!reviewDraft && (prioritizeMeters ? handoverSection : missingFieldsNotice)}
 
-      {isLandlord && isDraft && !contract.parentContractId && <p className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
-        Ngày thuê, thời hạn, tiền thuê, tiền cọc và số người/xe lấy từ hồ sơ đã chấp thuận. Đổi ngày nhận nhà dùng đề nghị nhận nhà sớm bên dưới. Các điều khoản sau ký được điều chỉnh qua phụ lục.
-      </p>}
+      {isLandlord && isDraft && !contract.parentContractId && <InfoDisclosure tone="neutral" summary="Các nội dung chính lấy từ hồ sơ thuê đã chấp thuận.">
+        <p>Ngày thuê, thời hạn, tiền thuê, tiền cọc và số người/xe lấy từ hồ sơ đã chấp thuận. Đổi ngày nhận nhà dùng đề nghị nhận nhà sớm bên dưới. Các điều khoản sau ký được điều chỉnh qua phụ lục.</p>
+      </InfoDisclosure>}
 
-      {isTenant && isDraft && <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
-        <p className="font-semibold">Bản nháp để xem trước · Chưa có hiệu lực</p>
-        <p className="mt-1">Chủ nhà vẫn có thể cập nhật nội dung. Bạn có thể xem văn bản và đề nghị nhận nhà, bắt đầu hợp đồng sớm trong phần bên dưới. Chấp nhận đề nghị sẽ đổi ngày thuê và các kỳ hóa đơn; không chỉ mở ký trước ngày thuê cũ.</p>
-      </div>}
+      {isTenant && isDraft && <InfoDisclosure summary="Bản nháp để xem trước · Chưa có hiệu lực">
+        <p>Chủ nhà vẫn có thể cập nhật nội dung. Bạn có thể xem văn bản và đề nghị nhận nhà, bắt đầu hợp đồng sớm trong phần bên dưới. Chấp nhận đề nghị sẽ đổi ngày thuê và các kỳ hóa đơn; không chỉ mở ký trước ngày thuê cũ.</p>
+      </InfoDisclosure>}
       {!contract.parentContractId && !["ACTIVE","EXPIRED","CLOSED","TERMINATED"].includes(contract.status) && <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} onSnapshot={setOnboarding} onUpdated={refreshSignedState} />}
       {/* 3. SIGNATURE & CONFIRMATION PANEL (PROMINENT AT TOP / BOTTOM) */}
       {contract.parentContractId && <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">

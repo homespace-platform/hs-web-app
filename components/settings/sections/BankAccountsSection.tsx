@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowDownToLine,
   CheckCircle2,
+  Copy,
+  Eye,
+  EyeOff,
   Landmark,
   LoaderCircle,
+  Pencil,
   Plus,
   ShieldCheck,
   Trash2,
@@ -14,8 +18,9 @@ import {
   X,
 } from "lucide-react";
 import bankAccountService from "@/services/bank-account.service";
-import type { BankAccount, BankAccountRequest } from "@/types/bank-account.type";
+import type { Bank, BankAccount, BankAccountRequest } from "@/types/bank-account.type";
 import { useBanks } from "@/hooks/useBanks";
+import { InfoDisclosure } from "@/components/common/InfoDisclosure";
 import BankLogo from "@/components/settings/BankLogo";
 import BankPicker from "@/components/settings/BankPicker";
 import { toast } from "sonner";
@@ -47,8 +52,98 @@ export default function BankAccountsSection() {
   const [defaultRefund, setDefaultRefund] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  // Edit mode: lock* = default already on (backend can only set defaults to true).
+  const [editing, setEditing] = useState<{ id: string; lockIncoming: boolean; lockRefund: boolean } | null>(null);
+  const [loadingEdit, setLoadingEdit] = useState(false);
+  const [extraBank, setExtraBank] = useState<Bank | null>(null);
+  const editReq = useRef(0);
+  // Full number lives only in this state; re-masked after 30s or on unmount.
+  const [revealed, setRevealed] = useState<{ id: string; number: string } | null>(null);
+  const [revealingId, setRevealingId] = useState<string | null>(null);
+  const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const selectedBank = banks.find((b) => b.bin === selectedBin) ?? banks[0];
+  const bankList = extraBank && !banks.some((b) => b.bin === extraBank.bin) ? [extraBank, ...banks] : banks;
+  const selectedBank = bankList.find((b) => b.bin === selectedBin) ?? bankList[0];
+
+  const hideNumber = useCallback(() => {
+    if (revealTimer.current) clearTimeout(revealTimer.current);
+    revealTimer.current = null;
+    setRevealed(null);
+  }, []);
+  useEffect(() => hideNumber, [hideNumber]);
+
+  const closeModal = useCallback(() => {
+    editReq.current++;
+    setShowAddModal(false);
+    setEditing(null);
+    setLoadingEdit(false);
+  }, []);
+
+  function resetForm() {
+    setSelectedBin("");
+    setExtraBank(null);
+    setAccountNumber("");
+    setAccountHolderName("");
+    setDefaultIncoming(true);
+    setDefaultRefund(true);
+  }
+
+  function openAdd() {
+    editReq.current++;
+    resetForm();
+    setEditing(null);
+    setLoadingEdit(false);
+    setShowAddModal(true);
+  }
+
+  async function openEdit(acc: BankAccount) {
+    const token = ++editReq.current;
+    resetForm();
+    setEditing({ id: acc.id, lockIncoming: acc.defaultForIncomingPayments, lockRefund: acc.defaultForRefunds });
+    setLoadingEdit(true);
+    setShowAddModal(true);
+    try {
+      const full = await bankAccountService.revealBankAccount(acc.id);
+      if (token !== editReq.current) return;
+      setExtraBank({ bin: full.bankBin, code: full.bankCode, name: full.bankName, shortName: full.bankCode, logo: null });
+      setSelectedBin(full.bankBin);
+      setAccountNumber(full.accountNumber);
+      setAccountHolderName(full.accountHolderName);
+      setDefaultIncoming(full.defaultForIncomingPayments);
+      setDefaultRefund(full.defaultForRefunds);
+      setLoadingEdit(false);
+    } catch (err) {
+      if (token !== editReq.current) return;
+      toast.error(getErrorMessage(err, "Không thể tải thông tin tài khoản."));
+      closeModal();
+    }
+  }
+
+  async function toggleReveal(id: string) {
+    if (revealed?.id === id) {
+      hideNumber();
+      return;
+    }
+    setRevealingId(id);
+    try {
+      const full = await bankAccountService.revealBankAccount(id);
+      hideNumber();
+      setRevealed({ id, number: full.accountNumber });
+      revealTimer.current = setTimeout(hideNumber, 30000);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Không thể hiển thị số tài khoản."));
+    } finally {
+      setRevealingId(null);
+    }
+  }
+
+  function copyNumber() {
+    if (!revealed) return;
+    navigator.clipboard
+      .writeText(revealed.number)
+      .then(() => toast.success("Đã sao chép số tài khoản"))
+      .catch(() => toast.error("Không thể sao chép số tài khoản."));
+  }
 
   async function loadAccounts() {
     setLoading(true);
@@ -67,11 +162,11 @@ export default function BankAccountsSection() {
   useEffect(() => {
     if (!showAddModal) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShowAddModal(false);
+      if (e.key === "Escape") closeModal();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showAddModal]);
+  }, [showAddModal, closeModal]);
 
   useEffect(() => {
     let active = true;
@@ -90,7 +185,7 @@ export default function BankAccountsSection() {
     }
 
     const bank = selectedBank;
-    if (!bank) {
+    if (loadingEdit || !bank) {
       toast.error("Vui lòng chọn ngân hàng.");
       return;
     }
@@ -106,15 +201,19 @@ export default function BankAccountsSection() {
         defaultForIncomingPayments: defaultIncoming,
         defaultForRefunds: defaultRefund,
       };
-      await bankAccountService.createBankAccount(payload);
+      if (editing) {
+        await bankAccountService.updateBankAccount(editing.id, payload);
+        hideNumber();
+      } else {
+        await bankAccountService.createBankAccount(payload);
+      }
       void dispatch(fetchOnboardingStatus());
-      toast.success("Thêm tài khoản ngân hàng thành công.");
-      setShowAddModal(false);
-      setAccountNumber("");
-      setAccountHolderName("");
+      toast.success(editing ? "Đã cập nhật tài khoản ngân hàng." : "Thêm tài khoản ngân hàng thành công.");
+      closeModal();
+      resetForm();
       await loadAccounts();
     } catch (err) {
-      toast.error(getErrorMessage(err, "Thêm tài khoản thất bại."));
+      toast.error(getErrorMessage(err, editing ? "Cập nhật tài khoản thất bại." : "Thêm tài khoản thất bại."));
     } finally {
       setSubmitting(false);
     }
@@ -168,7 +267,7 @@ export default function BankAccountsSection() {
     const addButton = (
     <button
       type="button"
-      onClick={() => setShowAddModal(true)}
+      onClick={openAdd}
       className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
     >
       <Plus className="h-4 w-4" />
@@ -180,17 +279,19 @@ export default function BankAccountsSection() {
     onChange: (v: boolean) => void,
     title: string,
     help: string,
+    locked = false,
   ) => (
-    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-muted/50 has-[:checked]:border-primary/40 has-[:checked]:bg-primary/5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40">
+    <label className={`flex items-start gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-muted/50 has-[:checked]:border-primary/40 has-[:checked]:bg-primary/5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40 ${locked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}>
       <input
         type="checkbox"
         checked={checked}
+        disabled={locked}
         onChange={(e) => onChange(e.target.checked)}
         className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-primary"
       />
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-foreground">{title}</span>
-        <span className="block text-xs text-muted-foreground">{help}</span>
+        <span className="block text-xs text-muted-foreground">{locked ? "Đang là mặc định — chọn tài khoản khác làm mặc định để thay đổi" : help}</span>
       </span>
     </label>
   );
@@ -205,20 +306,16 @@ export default function BankAccountsSection() {
       </div>
 
       {/* Direct Transfer Transparency Banner */}
-      <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4 text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200">
-        <div className="flex items-start gap-3">
-          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
-          <div className="space-y-1 text-xs sm:text-sm">
-            <p className="font-bold text-blue-950 dark:text-blue-100">
-              Nguyên tắc thanh toán trực tiếp tại HomeSpace
-            </p>
-            <p className="leading-relaxed text-blue-800/90 dark:text-blue-300/90">
-              HomeSpace <strong>KHÔNG</strong> phải ví điện tử hay cổng trung gian thanh toán, <strong>KHÔNG</strong> thu nhận hay giữ tiền của người dùng.
-              Mọi khoản tiền cọc và tiền thuê được chuyển khoản <strong>trực tiếp</strong> giữa tài khoản ngân hàng của người thuê và chủ nhà thông qua VietQR / Mobile Banking.
-            </p>
-          </div>
-        </div>
-      </div>
+      <InfoDisclosure
+        toggleLabel="Xem nguyên tắc"
+        summary="HomeSpace không giữ tiền: cọc và tiền thuê chuyển trực tiếp giữa người thuê và chủ nhà."
+        icon={<ShieldCheck className="h-5 w-5" />}
+      >
+        <p>
+          HomeSpace <strong>KHÔNG</strong> phải ví điện tử hay cổng trung gian thanh toán, <strong>KHÔNG</strong> thu nhận hay giữ tiền của người dùng.
+          Mọi khoản tiền cọc và tiền thuê được chuyển khoản <strong>trực tiếp</strong> giữa tài khoản ngân hàng của người thuê và chủ nhà thông qua VietQR / Mobile Banking.
+        </p>
+      </InfoDisclosure>
 
       {loading ? (
         <div className="flex min-h-40 items-center justify-center rounded-2xl border border-border bg-card text-sm text-muted-foreground">
@@ -262,20 +359,43 @@ export default function BankAccountsSection() {
                 <div className="flex items-center gap-3">
                   <BankLogo src={bank?.logo} code={acc.bankCode} />
                   <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-sm font-bold text-foreground">{bank?.shortName ?? acc.bankCode}</h3>
-                    <p className="truncate text-xs text-muted-foreground" title={acc.bankName}>{acc.bankName}</p>
+                    <h3 className="line-clamp-2 break-words text-sm font-bold text-foreground" title={bank?.shortName ?? acc.bankCode}>{bank?.shortName ?? acc.bankCode}</h3>
+                    <p className="line-clamp-2 break-words text-xs text-muted-foreground" title={acc.bankName}>{acc.bankName}</p>
+                    {acc.status === "ACTIVE" && (
+                      <span className="mt-1 inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        <CheckCircle2 className="h-3 w-3" /> Hoạt động
+                      </span>
+                    )}
                   </div>
-                  {acc.status === "ACTIVE" && (
-                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                      <CheckCircle2 className="h-3 w-3" /> Hoạt động
-                    </span>
-                  )}
                 </div>
 
                 <dl className="my-3 space-y-1.5 border-y border-border/60 py-3 text-xs">
                   <div className="flex items-baseline justify-between gap-3">
                     <dt className="shrink-0 text-muted-foreground">Số tài khoản</dt>
-                    <dd className="truncate font-mono text-sm font-bold tracking-wider text-foreground">{acc.accountNumber}</dd>
+                    <dd className="flex min-w-0 items-center gap-1">
+                      <span className="truncate font-mono text-sm font-bold tracking-wider text-foreground">
+                        {revealed?.id === acc.id ? revealed.number : acc.accountNumber}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void toggleReveal(acc.id)}
+                        disabled={revealingId === acc.id}
+                        aria-label={revealed?.id === acc.id ? "Ẩn số tài khoản" : "Hiện số tài khoản"}
+                        className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
+                      >
+                        {revealingId === acc.id ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : revealed?.id === acc.id ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      </button>
+                      {revealed?.id === acc.id && (
+                        <button
+                          type="button"
+                          onClick={copyNumber}
+                          aria-label="Sao chép số tài khoản"
+                          className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-3">
                     <dt className="shrink-0 text-muted-foreground">Chủ tài khoản</dt>
@@ -298,6 +418,9 @@ export default function BankAccountsSection() {
 
                 <div className="mt-auto flex items-center justify-between gap-2 pt-3">
                   <div className="flex flex-wrap items-center gap-1.5">
+                    <button type="button" disabled={busy} onClick={() => void openEdit(acc)} className={actionBtn} aria-label="Sửa tài khoản" title="Sửa tài khoản">
+                      <Pencil className="h-3.5 w-3.5" /> Sửa
+                    </button>
                     {!acc.defaultForIncomingPayments && (
                       <button type="button" disabled={busy} onClick={() => handleSetIncomingDefault(acc.id)} className={actionBtn} title="Đặt làm tài khoản mặc định nhận thanh toán">
                         <ArrowDownToLine className="h-3.5 w-3.5" /> Đặt nhận tiền
@@ -337,14 +460,14 @@ export default function BankAccountsSection() {
             <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-2xl sm:rounded-3xl">
               <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
                 <div>
-                  <h3 id="add-bank-title" className="text-lg font-bold text-foreground">Thêm tài khoản ngân hàng</h3>
+                  <h3 id="add-bank-title" className="text-lg font-bold text-foreground">{editing ? "Sửa tài khoản ngân hàng" : "Thêm tài khoản ngân hàng"}</h3>
                   <p className="text-xs text-muted-foreground">
                     Hỗ trợ tạo mã VietQR chuyển khoản nhanh trực tiếp 24/7.
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={closeModal}
                   aria-label="Đóng"
                   className="rounded-full p-2 text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 >
@@ -354,11 +477,18 @@ export default function BankAccountsSection() {
 
               <form onSubmit={handleAddAccount} className="flex min-h-0 flex-1 flex-col">
                 <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+                  {loadingEdit ? (
+                    <div className="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
+                      <LoaderCircle className="mr-2 h-5 w-5 animate-spin text-primary" />
+                      Đang tải thông tin tài khoản...
+                    </div>
+                  ) : (
+                    <>
                   <div className="space-y-1.5">
                     <span className="text-xs font-semibold text-foreground">
                       Ngân hàng thụ hưởng <span className="text-red-500">*</span>
                     </span>
-                    <BankPicker banks={banks} value={selectedBin} onChange={setSelectedBin} loading={banksLoading} error={banksError} onRetry={retryBanks} />
+                    <BankPicker banks={bankList} value={selectedBin} onChange={setSelectedBin} loading={banksLoading} error={banksError} onRetry={retryBanks} />
                   </div>
 
                   <label className="block space-y-1.5">
@@ -389,8 +519,8 @@ export default function BankAccountsSection() {
                   </label>
 
                   <div className="space-y-2">
-                    {toggleRow(defaultIncoming, setDefaultIncoming, "Nhận thanh toán tiền thuê", "Đặt làm tài khoản mặc định nhận thanh toán tiền thuê.")}
-                    {toggleRow(defaultRefund, setDefaultRefund, "Nhận hoàn tiền cọc", "Đặt làm tài khoản mặc định nhận hoàn tiền cọc.")}
+                    {toggleRow(defaultIncoming, setDefaultIncoming, "Nhận thanh toán tiền thuê", "Đặt làm tài khoản mặc định nhận thanh toán tiền thuê.", !!editing?.lockIncoming)}
+                    {toggleRow(defaultRefund, setDefaultRefund, "Nhận hoàn tiền cọc", "Đặt làm tài khoản mặc định nhận hoàn tiền cọc.", !!editing?.lockRefund)}
                   </div>
 
                   <div aria-label="Xem trước" className="flex items-center gap-3 rounded-2xl border border-dashed border-border bg-muted/40 p-3">
@@ -405,23 +535,25 @@ export default function BankAccountsSection() {
                       </p>
                     </div>
                   </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-end gap-3 border-t border-border px-5 py-3">
                   <button
                     type="button"
-                    onClick={() => setShowAddModal(false)}
+                    onClick={closeModal}
                     className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   >
                     Hủy
                   </button>
                   <button
                     type="submit"
-                    disabled={submitting || !selectedBank}
+                    disabled={submitting || loadingEdit || !selectedBank}
                     className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 disabled:opacity-60"
                   >
                     {submitting && <LoaderCircle className="h-4 w-4 animate-spin" />}
-                    {submitting ? "Đang lưu..." : "Lưu tài khoản"}
+                    {submitting ? "Đang lưu..." : editing ? "Lưu thay đổi" : "Lưu tài khoản"}
                   </button>
                 </div>
               </form>

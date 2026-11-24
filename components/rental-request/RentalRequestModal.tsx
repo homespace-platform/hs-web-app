@@ -1152,9 +1152,7 @@ export default function RentalRequestModal({
             <span>
               <strong>Tôi đã đọc và đồng ý </strong>
               {reservationPolicy ? (
-                <TermsDialog label="điều kiện giữ chỗ" title="Điều kiện giữ chỗ" version={reservationPolicy.version} onAgree={() => setReservationPolicyAccepted(true)}>
-                  {reservationPolicy.text.replace(/^./, letter => letter.toUpperCase())}
-                </TermsDialog>
+                <TermsDialog label="điều kiện giữ chỗ" title="Điều kiện giữ chỗ" version={reservationPolicy.version} text={(reservationPolicy.text ?? "").replace(/^./, letter => letter.toUpperCase())} onAgree={() => setReservationPolicyAccepted(true)} />
               ) : "điều kiện giữ chỗ (đang tải…)"}
               <strong> (bắt buộc)</strong>
             </span>

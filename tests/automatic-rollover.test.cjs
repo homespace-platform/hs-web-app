@@ -11,7 +11,8 @@ const compiled = ts.transpileModule(source, { compilerOptions: {
   target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX,
 } }).outputText;
 const mod = { exports: {} };
-const imports = name => name === "@/services/monthly-invoice.service" ? { monthlyInvoiceService: {} }
+const imports = name => name === "@/components/common/InfoDisclosure" ? { InfoDisclosure: ({ summary, children }) => require("react").createElement("div", null, summary, children) }
+  : name === "@/services/monthly-invoice.service" ? { monthlyInvoiceService: {} }
   : name === "@/utils/apiError" ? { getApiErrorMessage: () => "test error" }
   : name === "./UnilateralTerminationPanel" ? (() => {
     const child = { exports: {} };

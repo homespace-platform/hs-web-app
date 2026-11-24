@@ -37,6 +37,7 @@ function modal(initial={}) {
   const helpers=load('components/rental-request/rental-request.helper.ts');
   const es=val=>({__esModule:true,default:val});
   const resolve=name=>{
+    if(name==='@/components/common/InfoDisclosure')return { InfoDisclosure: ({ summary, children }) => require("react").createElement("div", null, summary, children) };
     if(name==='react')return {...hooks,__esModule:true,default:hooks};
     if(name==='@/lib/rental-occupant-limit')return limits;
     if(name==='@/features/auth/useAuth')return {useAuth:()=>({profile:null,username:'test'})};

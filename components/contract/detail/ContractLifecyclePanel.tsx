@@ -14,6 +14,7 @@ import DepositLedgerSummary from "@/components/payment/DepositLedgerSummary";
 import { useNotificationChangeSync } from "@/hooks/useAgreementChangeSync";
 import { MeterReadingInput } from "./MeterReading";
 import { invoicePeriodLabel } from "@/lib/invoice-status";
+import { InfoDisclosure } from "@/components/common/InfoDisclosure";
 const dt = (value?: string) => value ? new Date(value).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 const money = (value?: number | null) => value == null ? "Chưa có dữ liệu" : value.toLocaleString("vi-VN") + " đ";
 const renewalLabels = { REQUESTED: "Chờ chủ nhà duyệt", APPROVED: "Chờ ký văn bản gia hạn", APPLIED: "Đã ký đủ · Đã áp dụng", REJECTED: "Chủ nhà từ chối", EXPIRED: "Đã hết hạn duyệt/ký" };
@@ -164,7 +165,9 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
         <p>Mở yêu cầu trước 30 ngày<br /><strong>{dt(data.renewalOpensAt)}</strong></p>
         <p>Hạn ký đủ văn bản gia hạn<br /><strong>{dt(data.renewalSignBy)}</strong></p>
       </div>
-      <p className="text-xs text-muted-foreground">Gia hạn thời gian thuê khác gia hạn thanh toán. Giữ nguyên giá/chính sách và cọc, tạo văn bản mới liên kết bản gốc; chỉ áp dụng sau đủ chữ ký SmartCA. Hạn ký trước ngày chốt công tơ kỳ cuối để không thiếu tiền thuê kỳ tiếp theo.</p>
+      <InfoDisclosure tone="neutral" summary="Gia hạn thời gian thuê khác gia hạn thanh toán; chỉ áp dụng sau đủ chữ ký SmartCA.">
+        <p>Gia hạn thời gian thuê khác gia hạn thanh toán. Giữ nguyên giá/chính sách và cọc, tạo văn bản mới liên kết bản gốc; chỉ áp dụng sau đủ chữ ký SmartCA. Hạn ký trước ngày chốt công tơ kỳ cuối để không thiếu tiền thuê kỳ tiếp theo.</p>
+      </InfoDisclosure>
       {!isLandlord && !data.canRequestRenewal && !data.closure && <div className="space-y-2 rounded-xl border p-3 text-xs text-muted-foreground">
         <button type="button" disabled className="rounded-lg border px-4 py-2 opacity-50">Gia hạn hợp đồng</button>
         <p>{new Date(data.serverNow) < new Date(data.renewalOpensAt)
@@ -235,7 +238,9 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
         </div>}
         {data.earlyReturnPending && <div role="status" className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
           <p className="font-semibold">Xác nhận bàn giao cùng đề xuất quyết toán</p>
-          <p>Chủ nhà xác nhận đã nhận lại nhà khi gửi đề xuất bên dưới. Người thuê xác nhận đã trả nhà khi đồng ý đúng phiên bản đề xuất; sau đó hệ thống mới tạo khoản hoàn hoặc khoản phải trả thêm. Không cần xác nhận lại ở hồ sơ chấm dứt sớm.</p>
+          <InfoDisclosure tone="warning" summary="Gửi/đồng ý đề xuất đồng thời là xác nhận đã bàn giao nhà.">
+            <p>Chủ nhà xác nhận đã nhận lại nhà khi gửi đề xuất bên dưới. Người thuê xác nhận đã trả nhà khi đồng ý đúng phiên bản đề xuất; sau đó hệ thống mới tạo khoản hoàn hoặc khoản phải trả thêm. Không cần xác nhận lại ở hồ sơ chấm dứt sớm.</p>
+          </InfoDisclosure>
         </div>}
         {data.canProposeClosure && <div className="space-y-3 rounded-xl bg-muted/30 p-3 text-xs">
           <p className="font-semibold">Bước 2 · {noDepositToRefund ? "Xác nhận trả nhà và quyết toán sau khi thanh toán đủ hóa đơn" : "Lập đề xuất quyết toán cọc sau khi thanh toán đủ hóa đơn"}</p>

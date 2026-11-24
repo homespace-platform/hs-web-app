@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Check } from "lucide-react";
 
 export interface WizardStep {
@@ -17,9 +18,18 @@ interface Props {
 
 export default function ListingWizardStepper({ steps, current, isReachable, onSelect }: Props) {
   const percent = Math.round(((current - 1) / (steps.length - 1)) * 100);
+  const listRef = useRef<HTMLOListElement>(null);
+
+  // The bar is hidden, so keep the current step visible when it changes on narrow screens.
+  useEffect(() => {
+    listRef.current
+      ?.querySelector('[aria-current="step"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+  }, [current]);
+
   return (
     <nav aria-label="Các bước đăng tin" className="space-y-3">
-      <ol className="flex gap-2 overflow-x-auto pb-1">
+      <ol ref={listRef} className="no-scrollbar flex gap-2 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible">
         {steps.map((step) => {
           const done = step.id < current;
           const active = step.id === current;

@@ -42,13 +42,14 @@ function ReceiptActions({ paymentId, receipt }: Props) {
     const counter = sequence.current;
     const token = counter.value;
     try {
+      // A prop that is not READY may be stale (the PDF may be ready by now): read it again.
       const source =
-        receipt ?? (await paymentReceiptService.byPayment(paymentId));
+        receipt?.pdfStatus === "READY" ? receipt : await paymentReceiptService.byPayment(paymentId);
       if (token !== counter.value) return;
       if (source.pdfStatus !== "READY") {
         toast.info(
           source.pdfStatus === "FAILED"
-            ? "PDF chưa tạo được. Mở mục Chứng từ đã thanh toán để thử lại."
+            ? "PDF chưa tạo được. Mở mục Chứng từ thanh toán để thử lại."
             : "PDF đang được chuẩn bị. Bạn có thể xem lại sau ít phút.",
         );
         return;
@@ -79,7 +80,7 @@ function ReceiptActions({ paymentId, receipt }: Props) {
     }
   }
   const button =
-    "inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-2 text-xs font-semibold hover:bg-muted disabled:opacity-50";
+    "inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-2 text-sm font-semibold hover:bg-muted disabled:opacity-50";
   return (
     <div className="flex flex-wrap items-center gap-2">
       <button
@@ -127,7 +128,7 @@ function ReceiptActions({ paymentId, receipt }: Props) {
                 <Dialog.Title className="text-sm font-bold">
                   Chứng từ thanh toán
                 </Dialog.Title>
-                <Dialog.Description className="text-xs text-muted-foreground">
+                <Dialog.Description className="text-sm text-muted-foreground">
                   {preview?.number} · Có thể in bằng thanh công cụ PDF.
                 </Dialog.Description>
               </div>

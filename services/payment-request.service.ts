@@ -1,7 +1,6 @@
 import axiosClient from "@/lib/axios-client";
 import type { ApiResponse } from "@/types/api.type";
 import type {
-  PaymentEvent,
   PaymentRequest,
   ReportTransferPayload,
   RejectReceiptPayload,
@@ -101,16 +100,6 @@ export const paymentRequestService = {
       payload
     );
     return normalizePaymentRequest(response.data.result);
-  },
-
-  /**
-   * Lấy lịch sử audit log (PaymentEvent) của yêu cầu thanh toán
-   */
-  async getEvents(id: string): Promise<PaymentEvent[]> {
-    const response = await axiosClient.get<ApiResponse<PaymentEvent[]>>(
-      `/api/v1/payment-requests/${id}/events`
-    );
-    return response.data.result || [];
   },
 
   /**

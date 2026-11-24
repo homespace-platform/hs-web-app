@@ -53,7 +53,18 @@ test("receipt service reconstructs the original PDF from authenticated JSON with
     payload=invalid;await assert.rejects(s.pdf("r"),/Không nhận được nội dung hóa đơn PDF/);
   }
 });
-test("the confirmed-receipts page explains the confirmation boundary",()=>{
-  const Component=load("components/dashboard/invoices/PaymentReceiptsPanel.tsx",name=>name==="@/components/common/PolicyDialog"?{ PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null }:name==="@/services/payment-receipt.service"?{paymentReceiptService:{}}:name==="@/components/payment/PaymentReceiptActions"?{default:()=>null}:name==="@/utils/apiError"?{getApiErrorMessage:()=>"error"}:require(name)).default;
-  const html=renderToStaticMarkup(React.createElement(Component,{role:"tenant"}));assert.match(html,/Mỗi khoản tiền đã được bên nhận xác nhận/);assert.match(html,/Chứng từ đã thanh toán/);
+const panelImports=(hooks=React)=>name=>name==="react"?hooks:name==="@/components/common/PolicyDialog"?{ PolicyNotice: ({ summary, children, text }) => React.createElement("div", null, summary, children, text), PolicyConsent: () => null }:name==="@/services/payment-receipt.service"?{paymentReceiptService:{}}:name==="@/components/payment/PaymentReceiptActions"?{default:()=>React.createElement("i",null,"actions")}:name==="@/utils/apiError"?{getApiErrorMessage:()=>"error"}:require(name);
+test("the payment-history panel explains the confirmation boundary",()=>{
+  const Component=load("components/dashboard/invoices/PaymentReceiptsPanel.tsx",panelImports()).default;
+  const html=renderToStaticMarkup(React.createElement(Component,{role:"tenant"}));assert.match(html,/Mỗi khoản tiền đã được bên nhận xác nhận/);assert.match(html,/Lịch sử thanh toán/);
+});
+test("rows are compact buttons; the full receipt stays in the details dialog",()=>{
+  const row={id:"r1",paymentId:"p1",receiptNumber:"HS-TT-1",title:"Tiền thuê tháng 11",kind:"PAYMENT",totalAmount:5000000,currency:"VND",issuedAt:"2026-11-02T03:00:00Z",payerName:"Tenant A",payeeName:"Landlord B",contractNumber:"HD-1",propertyAddress:"1 Phố X",periodLabel:"11/2026",transferReference:"HS123",pdfStatus:"READY"};
+  {
+    let n=0;const hooks={...React,useState(initial){const i=n++;return[i===0?[row]:i===1||i===2?1:i===3?false:i===5?"r1":initial,()=>{}];},useEffect(){},useCallback:f=>f};
+    const Component=load("components/dashboard/invoices/PaymentReceiptsPanel.tsx",panelImports(hooks)).default;
+    const html=renderToStaticMarkup(React.createElement(Component,{role:"landlord"}));
+    assert.match(html,/Tiền thuê tháng 11/);assert.match(html,/HD-1 · 2\/11\/2026 · Tenant A → Landlord B/);assert.match(html,/Đã xác nhận/);
+    assert.doesNotMatch(html,/Nội dung CK|HS-TT-1|HS123/);
+  }
 });

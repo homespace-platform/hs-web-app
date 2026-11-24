@@ -117,7 +117,7 @@ function section(initial = {}) {
   const state = { payments: [] };
   const document = events({ visibilityState: 'visible', getElementById: () => null });
   const replaced = [];
-  const window = { location: { hash: '' }, history: { replaceState: (...args) => replaced.push(args) }, confirm: () => true, open: () => null, ...timers.globals };
+  const window = { location: { pathname: `/dashboard/contracts/${CONTRACT}`, search: '?tab=payment', hash: '' }, history: { replaceState: (...args) => replaced.push(args) }, confirm: () => true, open: () => null, ...timers.globals };
   const invoiceApi = { list() { const call = deferred(); lists.push(call); return call.promise; },
     async prepare(id, data) { prepared.push([id, data]); }, async issue() {} };
   const paymentApi = { async getContractPayments() { paymentCalls.push(1); return state.payments; },
@@ -314,9 +314,7 @@ test('hidden tabs defer recovery during debounce and while waiting, then recover
   await f.resolve(2, [bill('a', 'PAID')]); f.runtime.unmount();
 });
 
-test('page -> section: a malformed ?invoice= shows the neutral state instead of an unrelated invoice, and a later valid link replaces it', async () => {
-  const p = page({ search: 'section=monthly&invoice=..%2Fsecret' }); p.mountGate();
-  const body = p.runtime.tree; assert.equal(body.props.requestedInvoiceId, null); assert.equal(body.props.invalidInvoiceRequest, '../secret');
+test('section: a malformed ?invoice= shows the neutral state instead of an unrelated invoice, and a later valid link replaces it', async () => {
   const f = section(); f.mount({ requestedInvoiceId: null, invalidInvoiceRequest: '../secret' });
   await f.resolve(0, [bill('open', 'UNPAID', { periodIndex: 1 }), bill('paid', 'PAID', { periodIndex: 0 })]);
   assert.match(html(f.runtime), /Không tìm thấy hóa đơn được yêu cầu/); assert.equal(selectedId(f), ''); assert.equal(f.nodes().filter(n => n.type === 'article').length, 0);
@@ -325,32 +323,22 @@ test('page -> section: a malformed ?invoice= shows the neutral state instead of 
   f.update({ requestedInvoiceId: 'open', invalidInvoiceRequest: null }); assert.equal(selectedId(f), 'open'); assert.doesNotMatch(html(f.runtime), /Không tìm thấy/);
   f.update({ requestedInvoiceId: null, invalidInvoiceRequest: null }); assert.equal(selectedId(f), 'open', 'no query goes back to the action-first default');
   assert.equal(f.lists.length, 1); f.runtime.unmount();
-  const parent = page({ search: 'section=monthly&invoice=..%2Fsecret' }); parent.mountBody(OWNER, { requestedInvoiceId: null, invalidInvoiceRequest: '../secret' });
-  await parent.answer({ parentContractId: 'root-1' });
-  assert.ok(flatten(parent.runtime.tree).some(n => n.props?.href === '/dashboard/invoices/root-1?section=monthly&invoice=..%2Fsecret'), 'parent link keeps the explicit (encoded) request');
 });
 
-test('real month-1 id first-rent:<paymentId> in the authorized list survives page query -> section -> selector click -> history -> reload', async () => {
+test('real month-1 id first-rent:<paymentId> in the authorized list survives query -> section -> selector click -> history -> reload', async () => {
   const PAY = '3f2c9a4e-1b7d-4c8a-9e21-5d6f0a7b8c90', FIRST = `first-rent:${PAY}`;
   const list = [bill(FIRST, 'PAID', { periodIndex: -1, billingPeriod: { kind: 'INITIAL_RENT', paymentPeriodNumber: 1 } }),
     bill('open', 'UNPAID', { periodIndex: 1 })];
-  const query = id => `section=monthly&invoice=${encodeURIComponent(id)}`;
-  // Gate: the exact synthetic id is a usable request; only that exact shape is.
-  const gate = search => { const p = page({ search }); p.mountGate(); return p.runtime.tree.props; };
-  assert.deepEqual(plain(gate(query(FIRST))), { actorId: OWNER, contractId: CONTRACT, section: 'monthly', moveIn: false, agreementId: null, requestedInvoiceId: FIRST, invalidInvoiceRequest: null });
-  for (const bad of ['first-rent:', 'first-rent:a/b', 'first-rent:first-rent:x', 'first-rent:../x', 'other:abc', 'first-rent: x y']) {
-    const props = gate(query(bad)); assert.equal(props.requestedInvoiceId, null, bad); assert.equal(props.invalidInvoiceRequest, bad, bad);
-  }
   // Section: matched against the authorized list, no by-id fetch.
   const f = section(); f.mount({ requestedInvoiceId: FIRST }); await f.resolve(0, list);
   assert.equal(selectedId(f), FIRST); assert.doesNotMatch(html(f.runtime), /Không tìm thấy hóa đơn/); assert.match(html(f.runtime), /Tiền thuê tháng 1/);
   // Click month 1 from another invoice: history gets a Gate-valid query that re-renders to the same selection.
   f.update({ requestedInvoiceId: 'open' }); assert.equal(selectedId(f), 'open');
   f.nav(FIRST).props.onClick(); await f.runtime.settle(); assert.equal(selectedId(f), FIRST);
-  const written = f.replaced.at(-1)[2]; assert.equal(written, `/dashboard/invoices/${CONTRACT}?${query(FIRST)}`);
-  const rerender = page({ search: written.split('?')[1] }); rerender.mountGate();
-  assert.equal(rerender.runtime.tree.props.requestedInvoiceId, FIRST); assert.equal(rerender.runtime.tree.props.invalidInvoiceRequest, null);
-  f.update({ requestedInvoiceId: rerender.runtime.tree.props.requestedInvoiceId, invalidInvoiceRequest: rerender.runtime.tree.props.invalidInvoiceRequest });
+  const written = f.replaced.at(-1)[2];
+  assert.equal(written, `/dashboard/contracts/${CONTRACT}?tab=payment&section=monthly&invoice=${encodeURIComponent(FIRST)}`, 'same page and tab, only the query changes');
+  const written_invoice = new URLSearchParams(written.split('?')[1]).get('invoice'); assert.equal(written_invoice, FIRST);
+  f.update({ requestedInvoiceId: written_invoice, invalidInvoiceRequest: null });
   assert.equal(selectedId(f), FIRST); assert.doesNotMatch(html(f.runtime), /Không tìm thấy hóa đơn/);
   assert.equal(f.lists.length, 1); f.runtime.unmount();
   // Reload of the saved link: a fresh mount selects the same month-1 row.
@@ -388,126 +376,4 @@ test('a rejected old GET still gives the pending notice its follow-up; failures 
   assert.equal(f.lists.length, 4); f.runtime.unmount(); await f.resolve(3, [bill('a', 'PAID')]); assert.equal(f.lists.length, 4);
   const empty = section(); empty.mount(); empty.lists[0].reject(new Error('boom')); await empty.runtime.settle();
   assert.match(html(empty.runtime), /Lỗi tải/); empty.runtime.unmount();
-});
-
-// ---------------------------------------------------------------- invoice detail page
-const OWNER = 'owner-id', RENTER = 'tenant-id';
-function page({ search = 'section=monthly&invoice=inv-1', contractId = CONTRACT, hash = '#top' } = {}) {
-  const runtime = hookRuntime(), timers = clock(), contracts = [], logins = [], notifications = service();
-  const document = events({ visibilityState: 'visible' });
-  const { useAgreementChangeSync } = load('hooks/useAgreementChangeSync.ts', {
-    react: runtime.hooks, '@/services/notification.service': notifications,
-  }, { ...timers.globals, document });
-  const auth = { initialized: true, authenticated: true, userId: OWNER, login: path => logins.push(path) };
-  const state = { search, contractId };
-  const window = { location: { pathname: `/dashboard/invoices/${contractId}`, search: `?${search}`, hash }, ...timers.globals };
-  const Section = () => null, Onboarding = () => null, Workflow = () => null, Lifecycle = () => null, Deposit = () => null;
-  const exports = load('app/dashboard/invoices/[contractId]/page.tsx', { react: runtime.hooks, 'next/link': Link, 'lucide-react': icons,
-    'next/navigation': { useParams: () => ({ contractId: state.contractId }), useSearchParams: () => new URLSearchParams(state.search) },
-    '@/components/contract/detail/MonthlyInvoicesSection': Section, '@/components/rental-request/RentalOnboardingPanel': Onboarding, '@/components/rental-request/RentalWorkflowPanel': Workflow,
-    '@/components/contract/detail/ContractLifecyclePanel': Lifecycle, '@/components/contract/detail/SettlementPaymentPanel': { DepositAdjustmentPayments: Deposit },
-    '@/features/auth/useAuth': { useAuth: () => auth }, '@/utils/apiError': { getApiErrorMessage: () => 'Không mở được' },
-    '@/hooks/useAgreementChangeSync': { useAgreementChangeSync },
-    '@/services/contract.service': { contractService: { getContract(id) { const call = deferred(); contracts.push({ kind: 'contract', id, ...call }); return call.promise; },
-      getRevision(id) { const call = deferred(); contracts.push({ kind: 'revision', id, ...call }); return call.promise; } } },
-    '@/lib/contract-routes': load('lib/contract-routes.ts'),
-    '@/lib/payment-module': load('lib/payment-module.ts', { '@/lib/invoice-list': load('lib/invoice-list.ts', { '@/lib/contract-routes': load('lib/contract-routes.ts'), '@/lib/invoice-status': load('lib/invoice-status.ts') }), '@/lib/contract-routes': load('lib/contract-routes.ts') }) },
-  { ...timers.globals, window }, '\nexports.Gate=ContractInvoicesPage;exports.Body=InvoicesBody;');
-  const contract = (over = {}) => ({ id: CONTRACT, contractNumber: 'HD-1', status: 'ACTIVE', landlordId: OWNER, tenantId: RENTER, rentalRequestId: 'rr', ...over });
-  return { runtime, auth, contracts, logins, state, Section, Lifecycle, Deposit, exports, contract, timers, document, notifications: notifications.notificationService,
-    mountBody(actorId = OWNER, over = {}) { runtime.mount(exports.Body, { actorId, contractId: CONTRACT, section: 'monthly', requestedInvoiceId: 'inv-1', ...over }); },
-    mountGate() { runtime.mount(exports.Gate); },
-    async answer(over = {}, revision = { charges: [{ chargeType: 'ELECTRICITY', billingMethod: 'PER_KWH' }], meters: { electricityInitial: 4 } }) {
-      await runtime.settle(); const pending = contracts.filter(c => !c.done); for (const c of pending) { c.done = true; c.resolve(c.kind === 'contract' ? over.value ?? contract(over) : revision); }
-      await runtime.settle(); },
-    section: () => flatten(runtime.tree).find(n => n.type === Section) };
-}
-
-test('page waits for auth, keeps the full path+query+hash for login and never calls the API signed out or with an unsafe path id', async () => {
-  const p = page(); p.auth.initialized = false; p.mountGate(); assert.equal(p.contracts.length, 0);
-  p.auth.initialized = true; p.auth.authenticated = false; p.runtime.update(); assert.equal(p.contracts.length, 0);
-  flatten(p.runtime.tree).find(n => n.type === 'button').props.onClick();
-  assert.deepEqual(p.logins, [`/dashboard/invoices/${CONTRACT}?section=monthly&invoice=inv-1#top`]);
-  for (const bad of ['a/../b', '..', 'x y', '', 'a'.repeat(80)]) {
-    const q = page({ contractId: bad }); q.state.contractId = bad; q.mountGate(); assert.equal(q.contracts.length, 0, bad);
-    assert.match(html(q.runtime), /Không tìm thấy hồ sơ thanh toán/);
-  }
-});
-
-test('body is keyed by verified account and path contract; ?invoice=/?section= changes only update props (no remount)', () => {
-  const p = page(); p.mountGate(); const key = p.runtime.tree.key; assert.equal(key, `${OWNER}:${CONTRACT}`);
-  assert.equal(p.runtime.tree.props.requestedInvoiceId, 'inv-1'); assert.equal(p.runtime.tree.props.section, 'monthly');
-  p.state.search = 'section=monthly&invoice=inv-2'; p.runtime.update(); assert.equal(p.runtime.tree.key, key); assert.equal(p.runtime.tree.props.requestedInvoiceId, 'inv-2');
-  p.state.search = 'section=deposit&invoice=%3Cscript%3E'; p.runtime.update(); assert.equal(p.runtime.tree.key, key);
-  assert.equal(p.runtime.tree.props.section, 'deposit'); assert.equal(p.runtime.tree.props.requestedInvoiceId, null, 'unsafe id is never passed on as a usable id');
-  assert.equal(p.runtime.tree.props.invalidInvoiceRequest, '<script>', 'but the explicit request stays distinct from no request');
-  p.state.search = 'section=monthly&invoice=%20%20'; p.runtime.update(); assert.equal(p.runtime.tree.props.invalidInvoiceRequest, null, 'blank means no request');
-  p.state.search = 'section=monthly&invoice=inv-1'; p.runtime.update(); assert.equal(p.runtime.tree.props.invalidInvoiceRequest, null);
-  p.state.search = ''; p.runtime.update(); assert.equal(p.runtime.tree.props.section, 'monthly');
-  p.auth.userId = 'someone-else'; p.runtime.update(); assert.notEqual(p.runtime.tree.key, key);
-  p.state.contractId = 'contract-2'; p.runtime.update(); assert.equal(p.runtime.tree.key, 'someone-else:contract-2');
-});
-
-test('sides come from the verified actor and persisted parties, not a stored role; strangers get a neutral state with no section', async () => {
-  for (const [actor, landlord, tenant] of [[OWNER, true, false], [RENTER, false, true]]) {
-    const p = page(); p.mountBody(actor); await p.answer();
-    const section = p.section(); assert.equal(section.props.isLandlord, landlord); assert.equal(section.props.isTenant, tenant);
-    assert.equal(section.props.requestedInvoiceId, 'inv-1'); assert.equal(section.props.electricityRequired, true); assert.equal(section.props.initialElectricity, '4');
-    assert.ok(flatten(p.runtime.tree).some(n => n.props?.href === `/dashboard/${landlord ? 'landlord' : 'tenant'}/contracts/${CONTRACT}`));
-    p.runtime.unmount();
-  }
-  const stranger = page(); stranger.mountBody('outsider'); await stranger.answer();
-  assert.equal(stranger.section(), undefined); assert.match(html(stranger.runtime), /Không tìm thấy hồ sơ thanh toán hoặc bạn không có quyền/);
-  assert.doesNotMatch(html(stranger.runtime), /HD-1/);
-});
-
-test('a child/amendment contract links to the parent preserving the intended section and invoice', async () => {
-  for (const [section, invoice, expected] of [['monthly', 'inv-1', '/dashboard/invoices/root-1?section=monthly&invoice=inv-1'],
-    ['deposit', null, '/dashboard/invoices/root-1?section=deposit']]) {
-    const p = page(); p.mountBody(OWNER, { section, requestedInvoiceId: invoice }); await p.answer({ parentContractId: 'root-1' });
-    assert.ok(flatten(p.runtime.tree).some(n => n.props?.href === expected), expected); assert.equal(p.section(), undefined);
-  }
-});
-
-test('settlement landing rejects a mismatched root response and never mounts actions without the persisted party identity', async () => {
-  for (const over of [{ id: 'foreign-root' }, { landlordId: null, tenantId: null }]) {
-    const p = page(); p.mountBody(OWNER, { section: 'deposit' }); await p.answer(over);
-    assert.match(html(p.runtime), /Không tìm thấy hồ sơ thanh toán hoặc bạn không có quyền/);
-    assert.equal(flatten(p.runtime.tree).filter(n => n.props?.contractId || n.props?.rentalRequestId).length, 0);
-    assert.doesNotMatch(html(p.runtime), /HD-1/); p.runtime.unmount();
-  }
-});
-
-test('parent refreshes after actions share one read and one follow-up; failures keep the page and a late read after unmount is ignored', async () => {
-  const p = page(); p.mountBody(); await p.answer(); const calls = () => p.contracts.filter(c => c.kind === 'contract').length; assert.equal(calls(), 1);
-  const refresh = p.section().props.onUpdated; const all = Promise.all([refresh(), refresh(), refresh()]);
-  await p.runtime.settle(); assert.equal(calls(), 2, 'burst shares one in-flight read');
-  p.contracts.filter(c => !c.done).forEach(c => { c.done = true; c.resolve(c.kind === 'contract' ? p.contract({ contractNumber: 'OLD' }) : { charges: [] }); }); await p.runtime.settle();
-  assert.equal(calls(), 3, 'one follow-up'); await p.answer({ contractNumber: 'NEW' }); await all;
-  assert.match(html(p.runtime), /NEW/); assert.doesNotMatch(html(p.runtime), /OLD/); assert.equal(calls(), 3);
-  void refresh(); await p.runtime.settle(); p.contracts.filter(c => !c.done).forEach(c => { c.done = true; c.reject(new Error('down')); }); await p.runtime.settle();
-  assert.match(html(p.runtime), /Chưa cập nhật được dữ liệu hợp đồng mới nhất/); assert.ok(p.section(), 'current data stays');
-  p.runtime.unmount(); void refresh(); await p.runtime.settle(); assert.equal(calls(), 4, 'stale callbacks after unmount issue no read');
-});
-
-test('termination root signal refreshes the invoice page contract status, ignores foreign roots and recovers after hiding', async () => {
-  const p = page(); p.mountBody(); await p.answer();
-  const calls = () => p.contracts.filter(c => c.kind === 'contract').length;
-  assert.equal(p.section().props.contractActive, true);
-  p.notifications.notifyAgreementChanged('foreign-root'); await p.timers.advance(250); assert.equal(calls(), 1);
-  p.notifications.notifyAgreementChanged(CONTRACT); p.notifications.notifyAgreementChanged(CONTRACT);
-  await p.timers.advance(250); assert.equal(calls(), 2); await p.answer({ status: 'TERMINATED' });
-  assert.equal(p.section().props.contractActive, false, 'termination controls do not retain an ACTIVE parent snapshot');
-  p.document.visibilityState = 'hidden'; p.notifications.notifyAgreementChanged();
-  await p.timers.advance(1000); assert.equal(calls(), 2);
-  p.document.visibilityState = 'visible'; p.document.fire('visibilitychange'); await p.timers.advance(250); assert.equal(calls(), 3);
-  await p.answer({ status: 'TERMINATED' }); await p.timers.advance(60000); assert.equal(calls(), 3, 'no fetch/render loop');
-  p.runtime.unmount(); assert.equal(p.timers.size, 0); assert.equal(p.document.listenerCount, 0);
-});
-
-test('first load failure is blocking with retry; retry loads the page', async () => {
-  const p = page(); p.mountBody(); p.contracts[0].reject(new Error('down')); p.contracts[1].reject(new Error('down')); await p.runtime.settle();
-  assert.match(html(p.runtime), /Không mở được/);
-  flatten(p.runtime.tree).find(n => n.type === 'button').props.onClick(); await p.runtime.settle();
-  assert.equal(p.contracts.length, 4); await p.answer(); assert.ok(p.section());
 });

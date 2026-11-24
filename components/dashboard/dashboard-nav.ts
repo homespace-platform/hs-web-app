@@ -7,7 +7,7 @@ import {
   Send,
   FileCheck,
   Calendar,
-  ReceiptText,
+  History,
   Crown,
   type LucideIcon,
 } from "lucide-react";
@@ -68,9 +68,9 @@ export const LANDLORD_NAV: DashboardNavGroup[] = [
         icon: FileCheck,
       },
       {
-        title: "Hóa đơn",
+        title: "Lịch sử thanh toán",
         path: "/dashboard/invoices",
-        icon: ReceiptText,
+        icon: History,
       },
     ],
   },
@@ -101,9 +101,9 @@ export const TENANT_NAV: DashboardNavGroup[] = [
         icon: FileCheck,
       },
       {
-        title: "Hóa đơn",
+        title: "Lịch sử thanh toán",
         path: "/dashboard/invoices",
-        icon: ReceiptText,
+        icon: History,
       },
     ],
   },

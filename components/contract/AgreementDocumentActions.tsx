@@ -12,7 +12,7 @@ import { requiresVerifiedContent } from "@/lib/contract-document-history";
 import { getApiErrorMessage } from "@/utils/apiError";
 import ContractPdfViewerModal from "./detail/ContractPdfViewerModal";
 
-const button = "inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50 hover:bg-muted";
+const button = "inline-flex items-center justify-center gap-1.5 min-h-11 rounded-xl border border-border px-3 text-sm font-semibold transition-colors disabled:opacity-50 hover:bg-muted";
 
 /** Shared by request cards, the contract list and the lease detail page. */
 export default function AgreementDocumentActions({ contract, perspective, showPrimary = true, showDetails = true }: {
@@ -55,7 +55,7 @@ export default function AgreementDocumentActions({ contract, perspective, showPr
     </button>}
     {showDetails && <Link href={contractDetailPath(perspective, contract.id)} className={button}>
       {deposit ? contract.status === "ACTIVE" || contract.status === "CANCELLED" ? "Hồ sơ cọc" : "Ký / theo dõi HĐ cọc"
-        : ["DRAFT", "PENDING_REVIEW", "LANDLORD_SIGNATURE_PENDING", "TENANT_SIGNATURE_PENDING"].includes(contract.status) ? "Chi tiết & ký HĐ thuê" : "Chi tiết HĐ thuê"}
+        : ["DRAFT", "PENDING_REVIEW", "LANDLORD_SIGNATURE_PENDING", "TENANT_SIGNATURE_PENDING"].includes(contract.status) ? "Mở hồ sơ & ký HĐ thuê" : "Mở hồ sơ HĐ thuê"}
     </Link>}
     <ContractPdfViewerModal isOpen={!!preview} document={preview} onClose={() => setPreview(null)}/>
   </div>;

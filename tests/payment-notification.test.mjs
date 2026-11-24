@@ -5,7 +5,8 @@ import { load, hookRuntime, clock, events, service, deferred, nullComponent, ico
 
 const ID = 'cb856b21-5fbf-4d33-b7f7-fd54d5ce7867';
 const OTHER = '82a1fb41-2882-4dc3-b6e7-eb5fbb9f9d2e';
-const types = ['PAYMENT_REQUEST_CREATED', 'PAYMENT_OBLIGATION_OVERDUE', 'PAYMENT_TRANSFER_REPORTED', 'PAYMENT_RECEIPT_CONFIRMED', 'PAYMENT_RECEIPT_REJECTED'];
+const types = ['PAYMENT_REQUEST_CREATED', 'PAYMENT_OBLIGATION_OVERDUE', 'PAYMENT_TRANSFER_REPORTED', 'PAYMENT_RECEIPT_CONFIRMED', 'PAYMENT_RECEIPT_REJECTED',
+  'PAYMENT_REFUND_AUTO_CONFIRM_SOON', 'PAYMENT_RECEIPT_AUTO_CONFIRM_SOON', 'PAYMENT_RECEIPT_AUTO_CONFIRMED'];
 const flatten = node => node == null || typeof node !== 'object' ? [] : [node, ...React.Children.toArray(node.props?.children).flatMap(flatten)];
 const row = (id = ID, status = 'REJECTED') => ({ id, status, type: 'INITIAL_PAYMENT_REFUND', payerId: 'owner', payeeId: 'tenant',
   totalAmount: 3000000, transferReference: 'TESTREF', lineItems: [], direction: 'LANDLORD_TO_TENANT' });

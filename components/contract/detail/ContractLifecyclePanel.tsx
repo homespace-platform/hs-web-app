@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import { contractLifecycleService as api } from "@/services/contract-lifecycle.service";
 import type { ClosureDeduction, ContractLifecycle } from "@/types/contract-lifecycle.type";
 import storageService from "@/services/storage.service";
-import { contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
+import { contractDetailPath } from "@/lib/contract-routes";
+import { paymentModulePath } from "@/lib/payment-module";
 import { getApiErrorMessage } from "@/utils/apiError";
 import SettlementPaymentPanel from "./SettlementPaymentPanel";
 import DepositLedgerSummary from "@/components/payment/DepositLedgerSummary";
@@ -15,6 +16,7 @@ import { useNotificationChangeSync } from "@/hooks/useAgreementChangeSync";
 import { MeterReadingInput } from "./MeterReading";
 import { invoicePeriodLabel } from "@/lib/invoice-status";
 import { PolicyNotice } from "@/components/common/PolicyDialog";
+import { useActionDialog } from "@/components/common/ActionDialog";
 const dt = (value?: string) => value ? new Date(value).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 const money = (value?: number | null) => value == null ? "Chưa có dữ liệu" : value.toLocaleString("vi-VN") + " đ";
 const renewalLabels = { REQUESTED: "Chờ chủ nhà duyệt", APPROVED: "Chờ ký văn bản gia hạn", APPLIED: "Đã ký đủ · Đã áp dụng", REJECTED: "Chủ nhà từ chối", EXPIRED: "Đã hết hạn duyệt/ký" };
@@ -29,9 +31,12 @@ function EvidenceLinks({ ids }: { ids?: string[] }) {
     catch (error) { tab?.close(); toast.error(getApiErrorMessage(error, "Không mở được minh chứng.")); }
   }}>Xem minh chứng {i + 1} ↗</button>)}</div>;
 }
-export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdated, mode = "all" }: {
+export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdated, mode = "all", showLedger = true }: {
   contractId: string; isLandlord: boolean; onUpdated?: () => Promise<void>; mode?: "all" | "renewal" | "settlement";
+  /** Set false when the deposit ledger is already shown on the same screen (e.g. by RentalOnboardingPanel). */
+  showLedger?: boolean;
 }) {
+  const { confirm, dialog } = useActionDialog();
   const [data, setData] = useState<ContractLifecycle | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -153,23 +158,23 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
     void perform(async () => { await api.finalCosts(contractId, { ...payload, requestId });
       supplementRetry.current = null; setElectricity(""); setWater(""); setExtraDescription(""); setExtraAmount(""); });
   }
-  return <section className="space-y-4 rounded-2xl border border-primary/20 bg-card p-4 sm:p-5">
-    <div className="flex items-center justify-between"><h2 className="flex items-center gap-2 font-bold"><CalendarPlus className="h-5 w-5 text-primary" />{mode === "renewal" ? "Gia hạn hợp đồng" : mode === "settlement" ? "Hoàn cọc & bàn giao" : "Gia hạn & quyết toán hợp đồng"}</h2>
+  return <section className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+    <div className="flex items-center justify-between"><h2 className="flex items-center gap-2 text-base font-bold"><CalendarPlus className="h-5 w-5 text-primary" />{mode === "renewal" ? "Gia hạn thời gian thuê" : mode === "settlement" ? "Quyết toán & hoàn cọc" : "Gia hạn thời gian thuê & quyết toán"}</h2>
       <button type="button" aria-label="Làm mới vòng đời hợp đồng" onClick={() => void refresh()} className="rounded-lg border p-2"><RefreshCw className="h-4 w-4" /></button></div>
-    {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
+    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {!data && !error && <p className="flex gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Đang tải…</p>}
     {data && <>
       {mode !== "settlement" && <>
-      <div className="grid gap-3 rounded-xl bg-primary/5 p-3 text-xs sm:grid-cols-3">
+      <div className="grid gap-3 rounded-xl bg-primary/5 p-3 text-sm sm:grid-cols-3">
         <p>Mốc hết thời hạn thuê<br /><strong>{data.endExclusive} · 00:00 (không bao gồm ngày này)</strong></p>
         <p>Mở yêu cầu trước 30 ngày<br /><strong>{dt(data.renewalOpensAt)}</strong></p>
         <p>Hạn ký đủ văn bản gia hạn<br /><strong>{dt(data.renewalSignBy)}</strong></p>
       </div>
-      <PolicyNotice tone="neutral" title="Gia hạn hợp đồng" summary="Gia hạn thời gian thuê khác gia hạn thanh toán; chỉ áp dụng sau đủ chữ ký SmartCA.">
-        <p>Gia hạn thời gian thuê khác gia hạn thanh toán. Giữ nguyên giá/chính sách và cọc, tạo văn bản mới liên kết bản gốc; chỉ áp dụng sau đủ chữ ký SmartCA. Hạn ký trước ngày chốt công tơ kỳ cuối để không thiếu tiền thuê kỳ tiếp theo.</p>
+      <PolicyNotice tone="neutral" title="Gia hạn thời gian thuê" summary="Kéo dài thời hạn thuê, khác với dời hạn thanh toán; chỉ áp dụng sau đủ chữ ký SmartCA.">
+        <p>Gia hạn thời gian thuê (kéo dài hợp đồng) khác dời hạn thanh toán của một hóa đơn. Giữ nguyên giá/chính sách và cọc, tạo văn bản mới liên kết bản gốc; chỉ áp dụng sau đủ chữ ký SmartCA. Hạn ký trước ngày chốt công tơ kỳ cuối để không thiếu tiền thuê kỳ tiếp theo.</p>
       </PolicyNotice>
-      {!isLandlord && !data.canRequestRenewal && !data.closure && <div className="space-y-2 rounded-xl border p-3 text-xs text-muted-foreground">
-        <button type="button" disabled className="rounded-lg border px-4 py-2 opacity-50">Gia hạn hợp đồng</button>
+      {!isLandlord && !data.canRequestRenewal && !data.closure && <div className="space-y-2 rounded-xl border p-3 text-sm text-muted-foreground">
+        <button type="button" disabled className="rounded-lg border px-4 py-2 opacity-50">Gia hạn thời gian thuê</button>
         <p>{new Date(data.serverNow) < new Date(data.renewalOpensAt)
           ? `Mở yêu cầu từ ${dt(data.renewalOpensAt)} (30 ngày trước khi hết hạn).`
           : new Date(data.serverNow) >= new Date(data.renewalSignBy)
@@ -177,42 +182,42 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
             : "Chưa thể gửi yêu cầu mới. Kiểm tra hồ sơ gia hạn hoặc phương án chấm dứt đang xử lý bên dưới."}</p>
       </div>}
       {!isLandlord && data.canRequestRenewal && <div className="space-y-2 rounded-xl border p-3 text-sm">
-        {data.renewals.some(r => r.startsOn === data.endExclusive && ["REJECTED", "EXPIRED"].includes(r.status)) && <p className="text-xs text-muted-foreground">Đề nghị trước đã bị từ chối hoặc hết hạn. Bạn có thể gửi đề nghị mới trong thời gian cho phép; lịch sử trước đó được giữ nguyên.</p>}
+        {data.renewals.some(r => r.startsOn === data.endExclusive && ["REJECTED", "EXPIRED"].includes(r.status)) && <p className="text-sm text-muted-foreground">Đề nghị trước đã bị từ chối hoặc hết hạn. Bạn có thể gửi đề nghị mới trong thời gian cho phép; lịch sử trước đó được giữ nguyên.</p>}
         <p className="font-semibold">Gửi yêu cầu gia hạn thời gian thuê</p>
-        <label className="block text-xs">Số tháng thêm<input aria-label="Số tháng gia hạn thuê" type="number" min={1} max={36} value={months} onChange={e => setMonths(Number(e.target.value))} className="ml-3 w-24 rounded-lg border px-3 py-2" /></label>
+        <label className="block text-sm">Số tháng thêm<input aria-label="Số tháng gia hạn thuê" type="number" min={1} max={36} value={months} onChange={e => setMonths(Number(e.target.value))} className="ml-3 w-24 rounded-lg border px-3 py-2" /></label>
         <textarea aria-label="Lý do gia hạn thuê" maxLength={1000} value={note} onChange={e => setNote(e.target.value)} placeholder="Nhu cầu tiếp tục thuê (ít nhất 10 ký tự)" className="w-full rounded-lg border p-3" />
-        <button type="button" disabled={busy} onClick={requestRenewal} className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">Gửi yêu cầu gia hạn</button>
+        <button type="button" disabled={busy} onClick={requestRenewal} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">Gửi yêu cầu gia hạn</button>
       </div>}
       {data.renewals.map(r => <article key={r.id} className="space-y-2 rounded-xl border p-3 text-sm">
         <p className="font-semibold">Thêm {r.months} tháng · {renewalLabels[r.status]}</p>
-        <p className="text-xs">Từ {r.startsOn} đến trước {r.endExclusive}. Hạn duyệt: {dt(r.respondBy)} · Hạn ký: {dt(r.signBy)}</p>
-        <p className="whitespace-pre-wrap text-xs text-muted-foreground">{r.note}</p>
-        {r.decidedAt && <p className="text-xs text-muted-foreground">Chủ nhà phản hồi lúc {dt(r.decidedAt)}</p>}
+        <p className="text-sm">Từ {r.startsOn} đến trước {r.endExclusive}. Hạn duyệt: {dt(r.respondBy)} · Hạn ký: {dt(r.signBy)}</p>
+        <p className="whitespace-pre-wrap text-sm text-muted-foreground">{r.note}</p>
+        {r.decidedAt && <p className="text-sm text-muted-foreground">Chủ nhà phản hồi lúc {dt(r.decidedAt)}</p>}
         {isLandlord && r.status === "REQUESTED" && <div className="flex gap-2">
-          <button type="button" disabled={busy} onClick={() => { if (window.confirm("Duyệt yêu cầu và tạo văn bản gia hạn giữ nguyên giá/chính sách? Hợp đồng chưa kéo dài cho đến khi ký đủ hai bên.")) void perform(() => api.decide(contractId, r.id, true)); }} className="rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground">Duyệt & tạo văn bản</button>
-          <button type="button" disabled={busy} onClick={() => void perform(() => api.decide(contractId, r.id, false))} className="rounded-lg border px-3 py-2 text-xs">Từ chối</button>
+          <button type="button" disabled={busy} onClick={async () => { if (await confirm({ title: "Duyệt yêu cầu gia hạn thời gian thuê?", description: "Hệ thống tạo văn bản gia hạn giữ nguyên giá và chính sách. Hợp đồng chưa kéo dài cho đến khi ký đủ hai bên.", confirmLabel: "Duyệt & tạo văn bản" })) void perform(() => api.decide(contractId, r.id, true)); }} className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">Duyệt & tạo văn bản</button>
+          <button type="button" disabled={busy} onClick={() => void perform(() => api.decide(contractId, r.id, false))} className="rounded-lg border px-3 py-2 text-sm">Từ chối</button>
         </div>}
-        {r.agreementContractId && (isLandlord || r.agreementStatus === "TENANT_SIGNATURE_PENDING" || r.agreementStatus === "ACTIVE") && <Link href={contractDetailPath(isLandlord ? "landlord" : "tenant", r.agreementContractId)} target="_blank" rel="noopener noreferrer" className="inline-block text-xs font-semibold text-primary underline">Mở văn bản gia hạn · xem PDF & ký SmartCA ↗</Link>}
-        {!isLandlord && r.status === "APPROVED" && r.agreementStatus !== "TENANT_SIGNATURE_PENDING" && <p className="text-xs text-muted-foreground">Chờ chủ nhà kết xuất PDF và ký trước; sau đó bạn sẽ ký trên văn bản đã có chữ ký chủ nhà.</p>}
+        {r.agreementContractId && (isLandlord || r.agreementStatus === "TENANT_SIGNATURE_PENDING" || r.agreementStatus === "ACTIVE") && <Link href={contractDetailPath(isLandlord ? "landlord" : "tenant", r.agreementContractId)} target="_blank" rel="noopener noreferrer" className="inline-block text-sm font-semibold text-primary underline">Mở văn bản gia hạn · xem PDF & ký SmartCA ↗</Link>}
+        {!isLandlord && r.status === "APPROVED" && r.agreementStatus !== "TENANT_SIGNATURE_PENDING" && <p className="text-sm text-muted-foreground">Chờ chủ nhà kết xuất PDF và ký trước; sau đó bạn sẽ ký trên văn bản đã có chữ ký chủ nhà.</p>}
       </article>)}
       </>}
-      {mode !== "renewal" && <DepositLedgerSummary ledger={data.deposit} />}
+      {mode !== "renewal" && showLedger && <DepositLedgerSummary ledger={data.deposit} />}
       {mode === "settlement" && !data.closure && <div className="space-y-3 rounded-xl bg-muted/30 p-4 text-sm"><p>Cọc đang giữ: <strong>{money(data.heldDeposit)}</strong></p><PolicyNotice tone="neutral" title="Hoàn cọc & quyết toán" text={noDepositToRefund ? "Không có tiền cọc cần hoàn. Khi kết thúc thuê, hai bên vẫn cần xác nhận trả nhà, hoàn tất hóa đơn và các khoản còn phải trả." : "Hồ sơ hoàn cọc mở khi kết thúc thời hạn thuê. Hai bên hoàn tất chi phí cuối, bàn giao và thống nhất khoản khấu trừ trước khi chuyển tiền hoàn."} /></div>}
       {mode !== "renewal" && data.closure && <div className="space-y-3 border-t pt-4">
-        <details open={!data.billing.allPaid} className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/30 p-3 text-xs">
+        <details open={!data.billing.allPaid} className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm">
           <summary className="cursor-pointer font-semibold">Bước 1 · Hoàn tất hóa đơn kỳ cuối{data.billing.allPaid ? " · Đã hoàn tất ✓ — xem chi tiết" : " · Cần xử lý"}</summary>
-          <p>Điện, nước, dịch vụ và chi phí phát sinh được thanh toán trong mục Hóa đơn. Không gia hạn thuê thì bill cuối không thu tiền phòng kỳ tiếp theo; điện/nước không trừ vào cọc.</p>
+          <PolicyNotice tone="neutral" title="Hóa đơn kỳ cuối" summary="Điện, nước, dịch vụ thanh toán trong mục Hóa đơn theo kỳ, không trừ vào cọc."><p>Điện, nước, dịch vụ và chi phí phát sinh được thanh toán trong mục Hóa đơn. Không gia hạn thuê thì bill cuối không thu tiền phòng kỳ tiếp theo; điện/nước không trừ vào cọc.</p></PolicyNotice>
           {data.billing.bills.map(bill => <div key={bill.id} className="flex flex-wrap justify-between gap-2 border-t pt-2">
             <span>{invoicePeriodLabel(bill)}</span>
             <strong>{money(bill.totalAmount)} · {bill.status === "PAID" ? "Đã xác nhận thanh toán" : bill.status === "ROLLED_OVER" ? "Đã chuyển nợ" : bill.paymentStatus === "TRANSFER_REPORTED" ? "Đã thanh toán · Chờ chủ nhà xác nhận" : bill.status === "DRAFT" ? "Chờ chốt chỉ số/phát hành" : "Cần thanh toán"}</strong>
           </div>)}
-          <p className={data.billing.allPaid ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>
+          <p className={data.billing.allPaid ? "font-semibold text-emerald-700 dark:text-emerald-300" : "font-semibold text-amber-700 dark:text-amber-300"}>
             {data.billing.allPaid ? data.closure.status === "CLOSED" ? "Tất cả hóa đơn đã hoàn tất." : data.earlyReturnPending ? "Tất cả hóa đơn đã hoàn tất. Hai bên xác nhận bàn giao trong đề xuất quyết toán cọc." : noDepositToRefund ? "Tất cả hóa đơn đã hoàn tất. Tiếp tục xác nhận trả nhà và quyết toán các khoản còn lại; không cần hoàn cọc." : "Tất cả hóa đơn đã hoàn tất. Có thể tiếp tục quyết toán cọc." : noDepositToRefund ? "Chưa hoàn tất hóa đơn. Bước bàn giao/quyết toán đang khóa." : "Chưa hoàn tất hóa đơn. Bước quyết toán/hoàn cọc đang khóa."}</p>
-          <Link href={invoiceDetailPath(contractId)} className="inline-block rounded-lg bg-primary px-3 py-2 font-semibold text-primary-foreground">{isLandlord ? "Mở hóa đơn · Chốt chỉ số / xác nhận nhận tiền →" : "Mở hóa đơn · Thanh toán kỳ cuối →"}</Link>
+          <Link href={paymentModulePath(contractId, "monthly")} className="inline-block rounded-lg bg-primary px-3 py-2 font-semibold text-primary-foreground">{isLandlord ? "Mở hóa đơn · Chốt chỉ số / xác nhận nhận tiền →" : "Mở hóa đơn · Thanh toán kỳ cuối →"}</Link>
           {data.billing.canIssueSupplement && <details className="space-y-2 border-t pt-3">
             <summary className="cursor-pointer font-semibold">Ngoại lệ · Bổ sung chi phí chưa thu (không bắt buộc)</summary>
             <PolicyNotice tone="warning" title="Ngoại lệ · Bổ sung chi phí chưa thu" text={noDepositToRefund ? "Nếu đã thanh toán đủ chi phí kỳ cuối, tiếp tục đề xuất trả nhà và quyết toán. Khoản bồi thường hoặc phải trả khác cần có căn cứ và hai bên đồng ý; không thu hai lần." : "Nếu đã thanh toán đủ chi phí kỳ cuối, bỏ qua mục này và lập đề xuất hoàn cọc. Hư hại tài sản đưa vào khấu trừ cọc bên dưới, không thu hai lần. Phát hành bổ sung sẽ yêu cầu thanh toán hóa đơn mới và lập lại đề xuất cọc nếu đã gửi."} />
-            <p>Chỉ nhập phần chưa thu. Chỉ số mới là số công tơ thực tế; hệ thống chỉ thu phần tăng so với số đã tính trên hóa đơn gần nhất. Không sửa bill cũ hoặc thu lại tiền phòng.</p>
+            <PolicyNotice tone="neutral" title="Cách nhập chi phí chưa thu" summary="Chỉ nhập phần chưa thu; hệ thống chỉ thu phần tăng so với hóa đơn gần nhất."><p>Chỉ nhập phần chưa thu. Chỉ số mới là số công tơ thực tế; hệ thống chỉ thu phần tăng so với số đã tính trên hóa đơn gần nhất. Không sửa bill cũ hoặc thu lại tiền phòng.</p></PolicyNotice>
             <div className="grid gap-2 sm:grid-cols-2">
               <MeterReadingInput name="điện" unit="kWh" variant="supplement" start={lastBilled?.electricityEnd} end={electricity} onChange={setElectricity} />
               <MeterReadingInput name="nước" unit="m³" variant="supplement" start={lastBilled?.waterEnd} end={water} onChange={setWater} />
@@ -224,32 +229,32 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
         </details>
         <h3 className="flex items-center gap-2 font-semibold"><ClipboardCheck className="h-4 w-4 text-primary" />{noDepositToRefund ? "Trả nhà & quyết toán" : "Bàn giao & tiền cọc"} · {noDepositToRefund && data.closure.status === "CLOSED" ? "Đã hoàn tất quyết toán" : closureLabels[data.closure.status]}</h3>
         {data.closure.status !== "CLOSED" ? <PolicyNotice tone="neutral" title="Bàn giao & tiền cọc" summary={noDepositToRefund ? "Không có tiền cọc cần hoàn." : <>Cọc đang giữ: <strong>{money(data.heldDeposit)}</strong>.</>}><p>{noDepositToRefund ? "Không có tiền cọc cần hoàn. Hai bên vẫn xác nhận trả nhà, hoàn tất hóa đơn và thống nhất khoản còn phải trả nếu có." : <>Cọc đang giữ: <strong>{money(data.heldDeposit)}</strong>. Hoàn tất hóa đơn rồi thống nhất khấu trừ và số tiền hoàn.</>}</p></PolicyNotice>
-          : <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900"><p className="font-semibold">Đã kết thúc hợp đồng · {noDepositToRefund ? "Hoàn tất quyết toán cọc" : "Hoàn tất xử lý tiền cọc"}</p><p className="mt-1 text-sm">{data.refundPayment ? `Đã hoàn ${money(data.refundPayment.totalAmount)} cho người thuê và xác nhận nhận tiền.` : data.balancePayment ? "Đã xác nhận thanh toán khoản quyết toán còn thiếu." : noDepositToRefund ? "Hai bên đã xác nhận trả nhà và hoàn tất quyết toán cọc; không phát sinh chuyển khoản hoàn cọc." : "Hai bên đã thống nhất khấu trừ và hoàn tất quyết toán cọc."}</p></div>}
-        {data.closure.respondBy && <p className={data.closure.responseOverdueAt ? "rounded-lg bg-amber-50 p-3 text-xs text-amber-800" : "text-xs text-muted-foreground"}>
+          : <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-800 dark:text-emerald-200"><p className="font-semibold">Đã kết thúc hợp đồng · {noDepositToRefund ? "Hoàn tất quyết toán cọc" : "Hoàn tất xử lý tiền cọc"}</p><p className="mt-1 text-sm">{data.refundPayment ? `Đã hoàn ${money(data.refundPayment.totalAmount)} cho người thuê và xác nhận nhận tiền.` : data.balancePayment ? "Đã xác nhận thanh toán khoản quyết toán còn thiếu." : noDepositToRefund ? "Hai bên đã xác nhận trả nhà và hoàn tất quyết toán cọc; không phát sinh chuyển khoản hoàn cọc." : "Hai bên đã thống nhất khấu trừ và hoàn tất quyết toán cọc."}</p></div>}
+        {data.closure.respondBy && <p className={data.closure.responseOverdueAt ? "rounded-xl bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200" : "text-sm text-muted-foreground"}>
           {data.closure.status === "DISPUTED" ? "Chủ nhà cần phản hồi đối soát" : "Người thuê cần phản hồi đề xuất"} trước {dt(data.closure.respondBy)}.
           {data.closure.responseOverdueAt && " Đã quá hạn phản hồi. Hai bên cần liên hệ xử lý; không tự đồng ý, không tự tạo QR hoặc đóng hồ sơ."}
         </p>}
-        {data.closure.refundDueAt && data.closure.status !== "CLOSED" && new Date(data.serverNow) > new Date(data.closure.refundDueAt) && <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">Đã quá hạn chuyển tiền quyết toán. Cần liên hệ bên thanh toán để đối soát; hồ sơ vẫn mở cho đến khi xác nhận đã nhận đủ tiền.</p>}
-        {data.closure.status === "DISPUTED" && <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs">
+        {data.closure.refundDueAt && data.closure.status !== "CLOSED" && new Date(data.serverNow) > new Date(data.closure.refundDueAt) && <p className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">Đã quá hạn chuyển tiền quyết toán. Cần liên hệ bên thanh toán để đối soát; hồ sơ vẫn mở cho đến khi xác nhận đã nhận đủ tiền.</p>}
+        {data.closure.status === "DISPUTED" && <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
           <p className="font-semibold">Người thuê chưa đồng ý · {noDepositToRefund ? "chưa chốt khoản phải trả" : "chưa tạo QR hoàn cọc"}</p>
           <p className="whitespace-pre-wrap">{data.closure.history?.filter(event => event.type === "DISPUTED").at(-1)?.note}</p>
           <EvidenceLinks ids={data.closure.history?.filter(event => event.type === "DISPUTED").at(-1)?.evidenceIds} />
           <PolicyNotice tone="warning" title="Khiếu nại đề xuất quyết toán" summary="Chủ nhà đối chiếu minh chứng và gửi đề xuất phiên bản mới."><p>Chủ nhà đối chiếu minh chứng và gửi đề xuất phiên bản mới. Người thuê cần đọc và đồng ý lại.</p></PolicyNotice>
         </div>}
-        {data.earlyReturnPending && <div role="status" className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+        {data.earlyReturnPending && <div role="status" className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
           <p className="font-semibold">Xác nhận bàn giao cùng đề xuất quyết toán</p>
           <PolicyNotice tone="warning" title="Xác nhận bàn giao cùng đề xuất quyết toán" summary="Gửi/đồng ý đề xuất đồng thời là xác nhận đã bàn giao nhà.">
             <p>Chủ nhà xác nhận đã nhận lại nhà khi gửi đề xuất bên dưới. Người thuê xác nhận đã trả nhà khi đồng ý đúng phiên bản đề xuất; sau đó hệ thống mới tạo khoản hoàn hoặc khoản phải trả thêm. Không cần xác nhận lại ở hồ sơ chấm dứt sớm.</p>
           </PolicyNotice>
         </div>}
-        {data.canProposeClosure && <div className="space-y-3 rounded-xl bg-muted/30 p-3 text-xs">
+        {data.canProposeClosure && <div className="space-y-3 rounded-xl bg-muted/30 p-3 text-sm">
           <p className="font-semibold">Bước 2 · {noDepositToRefund ? "Xác nhận trả nhà và quyết toán sau khi thanh toán đủ hóa đơn" : "Lập đề xuất quyết toán cọc sau khi thanh toán đủ hóa đơn"}</p>
           {data.closure.proposalVersion > 0 && <button type="button" disabled={busy} onClick={() => {
             setDeductions((data.closure!.deductions ?? []).map(row => ({ ...row, key: crypto.randomUUID(), files: [] })));
             setClosureNote(data.closure!.note ?? ""); setHandover(false);
           }} className="text-primary underline">Lấy nội dung đề xuất hiện tại để chỉnh sửa</button>}
           <PolicyNotice tone="neutral" title="Nguyên tắc nhập khoản khấu trừ" actionLabel="Xem nguyên tắc" text={noDepositToRefund ? "Điện/nước và chi phí kỳ cuối đã thanh toán riêng qua hóa đơn. Chỉ nhập khoản phải trả khác có căn cứ theo thỏa thuận (ví dụ hư hại tài sản), không thu hai lần; người thuê cần đồng ý đúng phiên bản." : "Điện/nước và chi phí kỳ cuối đã thanh toán riêng qua hóa đơn, không trừ cọc lần nữa. Chỉ nhập khấu trừ cọc khác theo thỏa thuận (ví dụ hư hại tài sản), có nội dung rõ ràng và người thuê đồng ý."} />
-          {deductions.length === 0 && <p className="text-emerald-700">{noDepositToRefund ? "Không có khoản phải trả thêm: xác nhận trả nhà và hoàn tất, bỏ qua chuyển khoản hoàn cọc." : "Không có khoản khấu trừ: đề xuất hoàn nguyên cọc."}</p>}
+          {deductions.length === 0 && <p className="text-emerald-700 dark:text-emerald-300">{noDepositToRefund ? "Không có khoản phải trả thêm: xác nhận trả nhà và hoàn tất, bỏ qua chuyển khoản hoàn cọc." : "Không có khoản khấu trừ: đề xuất hoàn nguyên cọc."}</p>}
           {deductions.map((row, index) => <fieldset key={row.key} disabled={busy} className="space-y-2 rounded-xl border bg-card p-3">
             <legend className="px-1 font-semibold">{noDepositToRefund ? "Khoản quyết toán" : "Khoản khấu trừ"} {index + 1}</legend>
             <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
@@ -259,7 +264,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
             <EvidenceLinks ids={row.evidenceIds} />
             <label className="block">Minh chứng (không bắt buộc, tối đa 5 ảnh/PDF, 15 MB/tệp)<input aria-label={`Minh chứng khấu trừ ${index + 1}`} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" className="mt-2 block w-full" onChange={e => { const files = selectFiles(e.target.files, row.evidenceIds.length); if (files) setDeductions(rows => rows.map(item => item.key === row.key ? { ...item, files } : item)); else e.target.value = ""; }} /></label>
             {row.files.length > 0 && <p>{row.files.map(file => file.name).join(", ")}</p>}
-            <button type="button" onClick={() => setDeductions(rows => rows.filter(item => item.key !== row.key))} className="text-rose-700 underline">Xóa khoản này</button>
+            <button type="button" onClick={() => setDeductions(rows => rows.filter(item => item.key !== row.key))} className="text-destructive underline">Xóa khoản này</button>
           </fieldset>)}
           <button type="button" disabled={busy || deductions.length >= 20} onClick={() => setDeductions(rows => [...rows, { key: crypto.randomUUID(), description: "", amount: 0, evidenceIds: [], files: [] }])} className="rounded-lg border px-3 py-2 disabled:opacity-50">{noDepositToRefund ? "+ Thêm khoản phải trả" : "+ Thêm khoản khấu trừ"}</button>
           <div className="grid gap-3 rounded-xl border bg-card p-3 sm:grid-cols-3">
@@ -275,7 +280,7 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
           {data.closure.deductions?.map((row, i) => <div key={i} className="space-y-1 border-t pt-2"><p>{row.description} · <strong>{money(row.amount)}</strong></p><EvidenceLinks ids={row.evidenceIds} /></div>)}
           <p>Điện cuối: {data.closure.electricityFinal ?? "Không thu theo công tơ"} · Nước cuối: {data.closure.waterFinal ?? "Không thu theo công tơ"}</p>
           {(data.closure.utilityAdjustment ?? 0) > 0
-            ? <p className="text-amber-700">Đề xuất theo luồng cũ có {money(data.closure.utilityAdjustment)} điện/nước trừ vào cọc. Cần đối soát và lập lại đề xuất theo luồng thanh toán hóa đơn trước; không tự sửa khoản đã chốt.</p>
+            ? <p className="text-amber-700 dark:text-amber-300">Đề xuất theo luồng cũ có {money(data.closure.utilityAdjustment)} điện/nước trừ vào cọc. Cần đối soát và lập lại đề xuất theo luồng thanh toán hóa đơn trước; không tự sửa khoản đã chốt.</p>
             : <p>Điện/nước đã chốt trên hóa đơn, không trừ vào cọc · {noDepositToRefund ? "Khoản quyết toán khác" : "Khấu trừ khác"}: {money(data.closure.otherDeduction)}</p>}
           <p className="font-semibold">{!noDepositToRefund && <>Hoàn cho người thuê: {money(data.closure.refundAmount)} · </>}Người thuê trả thêm: {money(data.closure.balanceAmount)}</p>
           <p className="whitespace-pre-wrap">{data.closure.note}</p>
@@ -285,16 +290,18 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
             <div className="flex gap-2"><button type="button" disabled={busy || consent !== proposalKey || !data.billing.allPaid || (data.closure.utilityAdjustment ?? 0) > 0 || Boolean(data.closure.complaintCaseId && !data.closure.complaintOwnerApprovedAt)} onClick={() => void perform(() => api.accept(contractId, data.closure!.proposalVersion))} className="rounded-lg bg-emerald-600 px-3 py-2 text-white disabled:opacity-50">Đồng ý quyết toán</button>
             </div>
             <details className="space-y-3 border-t pt-3">
-              <summary className="cursor-pointer font-semibold text-rose-700">Chưa đồng ý · Gửi yêu cầu đối soát</summary>
+              <summary className="cursor-pointer font-semibold text-destructive">Chưa đồng ý · Gửi yêu cầu đối soát</summary>
               <textarea aria-label="Lý do khiếu nại quyết toán" maxLength={2000} value={disputeReason} onChange={e => setDisputeReason(e.target.value)} placeholder="Nêu khoản chưa đồng ý và lý do (ít nhất 10 ký tự)" className="w-full rounded-lg border p-3" />
               <label className="block">Minh chứng (không bắt buộc, tối đa 5 ảnh/PDF, 15 MB/tệp)<input aria-label="Minh chứng khiếu nại" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" className="mt-2 block w-full" onChange={e => { const files = selectFiles(e.target.files); if (files) setDisputeFiles(files); else e.target.value = ""; }} /></label>
-              <button type="button" disabled={busy || disputeReason.trim().length < 10} onClick={dispute} className="rounded-lg border border-rose-200 px-3 py-2 text-rose-700 disabled:opacity-50">Gửi yêu cầu đối soát</button>
+              <button type="button" disabled={busy || disputeReason.trim().length < 10} onClick={dispute} className="rounded-lg border border-destructive/40 px-3 py-2 text-destructive disabled:opacity-50">Gửi yêu cầu đối soát</button>
               <p>{noDepositToRefund ? "Chưa chốt khoản phải trả. Chủ nhà cần phản hồi bằng đề xuất mới; không coi im lặng là đồng ý." : "Chưa tạo QR hoàn cọc. Chủ nhà cần phản hồi bằng đề xuất mới; không coi im lặng là đồng ý."}</p>
             </details>
           </>}
         </details>}
-        {data.closure.complaintCaseId && !data.closure.complaintOwnerApprovedAt && <p className="text-sm text-amber-800">Đề xuất từ hồ sơ khiếu nại cần chủ nhà đồng ý trước tại <Link href={contractDetailPath(isLandlord ? "landlord" : "tenant", contractId)} className="underline">mục Khiếu nại & hỗ trợ trong hồ sơ hợp đồng</Link>.</p>}
-        {!!data.closure.history?.length && <details className="space-y-3 rounded-xl border p-3 text-xs">
+        {data.closure.complaintCaseId && !data.closure.complaintOwnerApprovedAt && <p className="text-sm text-amber-800 dark:text-amber-200">Đề xuất từ hồ sơ khiếu nại cần chủ nhà đồng ý trước. {data.rentalRequestId
+          ? <Link href={`/dashboard/complaints?requestId=${encodeURIComponent(data.rentalRequestId)}&complaintId=${encodeURIComponent(data.closure.complaintCaseId)}`} className="font-semibold underline">Mở hồ sơ khiếu nại</Link>
+          : "Mở hồ sơ khiếu nại từ thông báo hoặc mục Hóa đơn thuê của hợp đồng thuê."}</p>}
+        {!!data.closure.history?.length && <details className="space-y-3 rounded-xl border p-3 text-sm">
           <summary className="cursor-pointer font-semibold">Lịch sử quyết toán & khiếu nại ({data.closure.history.length})</summary>
           {[...data.closure.history].reverse().map((event, index) => <article key={index} className="space-y-2 border-t pt-3">
             <p className="font-semibold">{eventLabels[event.type] ?? event.type} · Phiên bản {event.proposalVersion}</p><p className="text-muted-foreground">{dt(event.at)}</p>
@@ -307,5 +314,6 @@ export default function ContractLifecyclePanel({ contractId, isLandlord, onUpdat
         {data.balancePayment && <SettlementPaymentPanel key={data.balancePayment.id} payment={data.balancePayment} isLandlord={isLandlord} refresh={refresh} />}
       </div>}
     </>}
+    {dialog}
   </section>;
 }

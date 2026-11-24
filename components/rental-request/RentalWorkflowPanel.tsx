@@ -14,8 +14,8 @@ import {Calendar} from "@/components/ui/calendar";
 import WorkflowDocumentsPanel from "./WorkflowDocumentsPanel";
 import type {FinalRentCalculation} from "@/types/rental-workflow.type";
 
-const button="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50";
-const input="mt-1 block w-full rounded-lg border bg-background p-2 text-sm";
+const button="inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
+const input="mt-1 block w-full rounded-xl border border-border bg-background p-3 text-sm";
 const date=(s?:string)=>s?new Date(s).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"—";
 const money=(n?:number|null)=>n==null?"Chưa ghi nhận":n.toLocaleString("vi-VN")+" đ";
 const calendarDate=(value:string)=>value.split("-").reverse().join("/");
@@ -189,13 +189,13 @@ function ScopedWorkflowPanel({rentalRequestId,kind,contractId,focusRequest,agree
       </>}
     </>;
   const paymentModal=paymentId&&<RentalPaymentModal request={{id:rentalRequestId}} paymentId={paymentId} isOpen onClose={()=>{setPaymentId(undefined);void refresh();}} onPaymentSuccess={()=>{setPaymentId(undefined);void refresh();}}/>;
-  return <section id={`workflow-${kind}`} tabIndex={-1} className={`scroll-mt-24 space-y-3 rounded-xl border bg-card p-4 text-sm${focusRequest?" ring-2 ring-primary":""}`} aria-label={workflowTitles[kind]}>
+  return <section id={`workflow-${kind}`} tabIndex={-1} className={`scroll-mt-24 space-y-3 rounded-2xl border border-border bg-card p-4 text-sm shadow-sm${focusRequest?" ring-2 ring-primary":""}`} aria-label={workflowTitles[kind]}>
     {earlyExit?<>
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">{workflowTitles[kind]}</h2><p className="mt-1 text-xs text-muted-foreground">{data?workflowStatuses[data.status]??data.status:error?"Chưa tải được hồ sơ":"Đang tải hồ sơ…"}</p></div><button type="button" className={button} onClick={()=>setExpanded(true)}>Xem / đề nghị chấm dứt sớm</button></div>
       <dialog ref={dialog} aria-labelledby={`workflow-title-${rentalRequestId}`} className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-2xl overflow-y-auto rounded-2xl border bg-card p-0 text-sm text-foreground shadow-2xl backdrop:bg-black/50" onCancel={event=>{event.preventDefault();if(paymentId)setPaymentId(undefined);else closeModal();}}>
         {expanded&&<><header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-card p-4"><h2 id={`workflow-title-${rentalRequestId}`} className="font-semibold">{workflowTitles[kind]}</h2><button type="button" className={button} disabled={busy} aria-label="Đóng cửa sổ chấm dứt sớm" onClick={closeModal}>Đóng</button></header><div className="space-y-4 p-4 sm:p-5">{content}</div>{paymentModal}</>}
       </dialog>
-    </>:<><button className="font-semibold" type="button" aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>{workflowTitles[kind]}</button>{expanded&&content}{paymentModal}</>}
+    </>:<><button className="flex min-h-11 w-full items-center justify-between gap-2 text-left text-base font-bold" type="button" aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>{workflowTitles[kind]}<span aria-hidden="true" className="text-muted-foreground">{expanded?"−":"+"}</span></button>{expanded&&content}{paymentModal}</>}
 
   </section>;
 }

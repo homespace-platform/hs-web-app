@@ -3,8 +3,8 @@
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
-import { safeResourceId } from "@/lib/payment-module";
+import { contractDetailPath } from "@/lib/contract-routes";
+import { contractLandingTarget, safeResourceId } from "@/lib/payment-module";
 import { contractService } from "@/services/contract.service";
 import { rentalWorkflowService } from "@/services/rental-workflow.service";
 import RentalWorkflowPanel from "@/components/rental-request/RentalWorkflowPanel";
@@ -48,7 +48,8 @@ function Landing({ userId, contractId }: { userId: string; contractId: string })
         }
         return;
       }
-      router.replace(window.location.hash === "#monthly-invoices" ? invoiceDetailPath(contractId) : contractDetailPath(side, contractId));
+      // Keep the query (?tab=sign|payment|end...) so a notification link lands on the exact section; old links have none.
+      router.replace(contractLandingTarget(side, contract, window.location.search, window.location.hash));
     }).catch((error: unknown) => {
       if (!live) return;
       // Only an answer from the server (forbidden/not found/invalid) is neutral "missing"; connection or server failures can be retried.

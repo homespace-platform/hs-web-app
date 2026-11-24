@@ -33,7 +33,7 @@ export interface ContractLifecycle {
   billing: { allPaid: boolean; canIssueSupplement: boolean; bills: {
     id: string; periodIndex: number; finalCostSupplement: boolean; status: MonthlyInvoiceStatus;
     billingPeriod?: BillingPeriodView;
-    paymentStatus?: PaymentStatus; totalAmount: number; electricityEnd?: number; waterEnd?: number;
+    paymentStatus?: PaymentStatus; /** Server verdict that the landlord may pick an overdue option now; absent on older backends. */ canResolveOverdue?: boolean; totalAmount: number; electricityEnd?: number; waterEnd?: number;
   }[] };
 }
 export interface ClosurePayload {

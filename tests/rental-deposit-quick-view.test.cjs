@@ -1,20 +1,10 @@
 const {test}=require("node:test"),assert=require("node:assert/strict");
 const fs=require("node:fs"),path=require("node:path"),vm=require("node:vm"),ts=require("typescript");
 const React=require("react"),{renderToStaticMarkup}=require("react-dom/server");
-const cache=new Map();
 const read=file=>fs.readFileSync(path.join(__dirname,"..",file),"utf8");
-function load(file) {
-  if(cache.has(file))return cache.get(file);
-  const output=ts.transpileModule(read(file),{fileName:file,compilerOptions:{module:ts.ModuleKind.CommonJS,
-    target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
-  const mod={exports:{}};
-  const resolve=name=>name==="@/lib/rental-deposit-quick-view"?load("lib/rental-deposit-quick-view.ts"):
-    name==="./rental-request.helper"?load("components/rental-request/rental-request.helper.ts"):
-    name.startsWith("@/")?{}:require(name);
-  vm.runInThisContext(`(function(require,module,exports){${output}\n})`)(resolve,mod,mod.exports);
-  cache.set(file,mod.exports);return mod.exports;
-}
-const {canOpenDepositQuickView,selectOnboardingPayment,canReviewReservationReceipt,reservationPaymentTitle}=load("lib/rental-deposit-quick-view.ts");
+const {loadTs}=require("./helpers/ts-loader.cjs");
+const load=file=>loadTs(file);
+const {selectOnboardingPayment,canReviewReservationReceipt,reservationPaymentTitle}=load("lib/rental-deposit-quick-view.ts");
 const {ReservationReceipt,RentalReceiptNotice}=load("components/rental-request/RentalDepositQuickViewModal.tsx");
 const deposit={id:"deposit",rentalRequestId:"rental",payeeId:"owner",payerId:"tenant",type:"RESERVATION_DEPOSIT",
   direction:"TENANT_TO_LANDLORD",status:"TRANSFER_REPORTED",totalAmount:12400000,transferReference:"HS123",
@@ -52,11 +42,6 @@ test("first-month transfer notice exposes the exact amount and receipt action di
   const receipt=render({...rent,status:"TRANSFER_REPORTED",totalAmount:24680000,lineItems:[]});
   assert.match(receipt,/Tiền thuê tháng đầu/);assert.match(receipt,/Xác nhận đã nhận đủ tiền/);assert.doesNotMatch(receipt,/Khoản này chỉ là cọc giữ chỗ/);
 });
-test("owner shortcut is available for receipts, not unaccepted requests or guessed payment data",()=>{
-  assert.equal(canOpenDepositQuickView({status:"ACCEPTED",initialPayment:{id:"deposit"}}),true);
-  assert.equal(canOpenDepositQuickView({status:"PENDING",initialPayment:{id:"deposit"}}),false);
-  assert.equal(canOpenDepositQuickView({status:"ACCEPTED"}),false);
-});
 test("only the actual landlord payee may review a reported incoming deposit or combined payment",()=>{
   assert.equal(canReviewReservationReceipt(deposit,"owner",true),true);
   assert.equal(canReviewReservationReceipt({...deposit,type:"INITIAL"},"owner",true),true);
@@ -83,19 +68,16 @@ test("combined transfer remains visibly combined and zero deposit is never calle
   const free=render({...deposit,totalAmount:0,status:"CONFIRMED",evidences:[]});
   assert.match(free,/Miễn cọc · Không cần chuyển khoản/);assert.doesNotMatch(free,/Đã xác nhận nhận đủ tiền|Xác nhận đã nhận đủ tiền/);
 });
-test("shortcut opens an independent quick modal, refreshes the list and retains tenant payment flow",()=>{
-  const list=read("components/rental-request/RentalRequestsManagement.tsx");
-  assert.match(list,/mode === "RECEIVED" && canOpenDepositQuickView\(req\)/);
-  assert.match(list,/onClick=\{\(\)=>setDepositQuickTarget\(req\)\}/);
+test("the card's one primary action opens an independent quick modal, refreshes the list and keeps the tenant payment flow",()=>{
+  const list=read("components/rental-request/RentalRequestsManagement.tsx"),card=read("components/rental-request/RentalRequestCard.tsx");
+  assert.match(list,/review: setDepositQuickTarget/);assert.match(list,/pay: setPaymentTarget/);
   assert.match(list,/onUpdated=\{fetchRequests\}/);
-  assert.match(list,/mode === "SENT" && req.status === "ACCEPTED" && isPaymentPending/);
+  assert.match(card,/kind === "pay"/);assert.match(card,/kind === "review" && <RentalReceiptNotice request=\{req\} onOpen=\{\(\) => actions\.review\(req\)\}/);
   const modal=read("components/rental-request/RentalDepositQuickViewModal.tsx");
-  assert.match(modal,/view.askerRole!=="LANDLORD"/);assert.match(modal,/payment.payeeId!==userId/);
-  assert.match(modal,/actionLock.current=true;setBusy\(true\)/);assert.match(modal,/getPaymentProofViewUrl\(storageId\)/);
-  assert.match(modal,/Promise.allSettled/);assert.match(modal,/<dialog/);
-  assert.match(modal,/selectOnboardingPayment\(view.payments,request.id,selectedPaymentId \?\? retainedPaymentId.current\)/);
-  assert.match(modal,/confirmReceipt\(current.payment.id\)/);
+  assert.match(modal,/view\.askerRole!=="LANDLORD"/);assert.match(modal,/payment\.payeeId!==userId/);
+  assert.match(modal,/actionLock\.current=true;setBusy\(true\)/);assert.match(modal,/getPaymentProofViewUrl\(storageId\)/);
+  assert.match(modal,/Promise\.allSettled/);assert.match(modal,/<ModalShell/);assert.doesNotMatch(modal,/window\.(prompt|confirm)/);
+  assert.match(modal,/selectOnboardingPayment\(view\.payments,request\.id,selectedPaymentId \?\? retainedPaymentId\.current\)/);
+  assert.match(modal,/confirmReceipt\(current\.payment\.id\)/);
   assert.match(modal,/Chọn khoản thanh toán/);
-  assert.match(list,/<RentalReceiptNotice request=\{req\} onOpen=\{\(\)=>setDepositQuickTarget\(req\)\}/);
-  assert.doesNotMatch(list,/<span>Xem tiền cọc<\/span>/);
 });

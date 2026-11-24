@@ -1,5 +1,6 @@
 import type { MonthlyInvoice } from "@/types/monthly-invoice.type";
 import type { PaymentStatus } from "@/types/payment-request.type";
+import { paymentStatus as paymentLabel } from "@/lib/rental-labels";
 
 type InvoiceState = Pick<MonthlyInvoice, "status" | "workflowState">;
 type InvoicePeriod = Pick<MonthlyInvoice, "periodIndex" | "finalCostSupplement" | "billingPeriod">
@@ -46,14 +47,6 @@ export function invoicePeriodSecondaryLabel(invoice: InvoicePeriod): string | nu
   return `Tiền phòng theo khoảng ngày trên hóa đơn + chi phí tháng ${rentMonth - 1}`;
 }
 
-export function invoicePeriodDateSummary(invoice: Pick<MonthlyInvoice, "periodStart" | "periodEndExclusive" | "billingPeriod">): string {
-  const cost = `Chi phí: ${formatInvoiceDate(invoice.periodStart)} – trước ${formatInvoiceDate(invoice.periodEndExclusive)}`;
-  if(invoice.billingPeriod?.kind === "INITIAL_RENT") return `Tiền thuê: ${formatInvoiceDate(invoice.periodStart)} – trước ${formatInvoiceDate(invoice.periodEndExclusive)}`;
-  if (invoice.billingPeriod?.kind !== "RECURRING") return cost;
-  const rent = `Tiền phòng: ${formatInvoiceDate(invoice.billingPeriod.rentPeriodStart || undefined)} – trước ${formatInvoiceDate(invoice.billingPeriod.rentPeriodEndExclusive || undefined)}`;
-  return `${cost}. ${rent}`;
-}
-
 export function formatInvoiceDate(value?: string | null) {
   if (!value) return "—";
   const iso = value.includes("T") ? value : `${value}T00:00:00+07:00`;
@@ -85,10 +78,10 @@ export function invoiceStatusPresentation(
     return { label: "Đã thanh toán", className: styles.paid, kind: "paid" as const };
   }
   if (paymentStatus === "TRANSFER_REPORTED") {
-    return { label: "Đã báo chuyển · Chờ xác nhận", className: styles.pending, kind: "awaiting_confirm" as const };
+    return { label: paymentLabel("TRANSFER_REPORTED").label, className: styles.pending, kind: "awaiting_confirm" as const };
   }
   if (paymentStatus === "REJECTED") {
-    return { label: "Chứng từ bị từ chối", className: styles.overdue, kind: "rejected" as const };
+    return { label: paymentLabel("REJECTED").label, className: styles.overdue, kind: "rejected" as const };
   }
   if (!paymentStatus && invoice.workflowState === "UNDER_REVIEW") {
     if (options?.paymentLoadFailed) {
@@ -97,7 +90,7 @@ export function invoiceStatusPresentation(
     return { label: "Chờ xác nhận", className: styles.pending, kind: "awaiting_confirm" as const };
   }
   if (invoice.status === "OVERDUE") {
-    return { label: "Quá hạn", className: styles.overdue, kind: "overdue" as const };
+    return { label: paymentLabel("OVERDUE").label, className: styles.overdue, kind: "overdue" as const };
   }
-  return { label: "Chưa thanh toán", className: styles.unpaid, kind: "unpaid" as const };
+  return { label: paymentLabel("AWAITING_TRANSFER").label, className: styles.unpaid, kind: "unpaid" as const };
 }

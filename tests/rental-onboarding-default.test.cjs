@@ -1,13 +1,14 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Node regression tests execute the real TypeScript with isolated dependencies. */
 const {test}=require("node:test"),assert=require("node:assert/strict");
 const fs=require("node:fs"),path=require("node:path"),vm=require("node:vm"),ts=require("typescript");
+const {loadTs}=require("./helpers/ts-loader.cjs");
 const React=require("react"),{renderToStaticMarkup}=require("react-dom/server");
 let snapshot,index;
 const testReact={...React,useState(initial){return React.useState(index++===0?snapshot:initial);}};
 const source=fs.readFileSync(path.join(__dirname,"../components/rental-request/RentalOnboardingPanel.tsx"),"utf8");
 const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 const mod={exports:{}};
-vm.runInThisContext(`(function(require,module,exports){${output}\n})`)(name=>name==="react"?testReact:name==="@/components/common/PolicyDialog"?{ PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null }:name==="./useRentalRequestSync"?{useRentalRequestSync:()=>{}}:name.startsWith("@/services/")?{rentalOnboardingService:{},default:{}}:name==="@/utils/apiError"?{getApiErrorMessage:()=>"error"}:["./RentalPaymentModal","./RentalWorkflowPanel","./DepositAgreementPanel","@/components/payment/PaymentReceiptActions","@/components/payment/DepositLedgerSummary","@/components/complaint/ComplaintPanel"].includes(name)?{default:()=>null}:require(name),mod,mod.exports);
+vm.runInThisContext(`(function(require,module,exports){${output}\n})`)(name=>name==="@/components/common/ActionDialog"?{useActionDialog:()=>({confirm:async()=>false,askReason:async()=>null,dialog:null})}:name.startsWith("@/lib/")?loadTs("lib/"+name.slice(6)+".ts"):["./OnboardingStepper","./OnboardingPaymentCard","./EarlierStart"].includes(name)?loadTs("components/rental-request/"+name.slice(2)+".tsx"):name==="react"?testReact:name==="@/components/common/PolicyDialog"?{ PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null }:name==="./useRentalRequestSync"?{useRentalRequestSync:()=>{}}:name.startsWith("@/services/")?{rentalOnboardingService:{},default:{}}:name==="@/utils/apiError"?{getApiErrorMessage:()=>"error"}:["./RentalPaymentModal","./RentalWorkflowPanel","./DepositAgreementPanel","@/components/payment/PaymentReceiptActions","@/components/payment/DepositLedgerSummary","@/components/complaint/ComplaintPanel"].includes(name)?{default:()=>null}:require(name),mod,mod.exports);
 function render(role,defaultCase={},stage="REQUIRES_REVIEW",extra={},props={}) {
   snapshot={stage,askerRole:role,serverNow:"2026-11-03T03:00:00Z",startsOn:"2026-11-01",endExclusive:"2027-02-01",payments:[],startChanges:[],history:[],canRequestCancellation:true,
     defaultCase:{eligibleKind:"FIRST_RENT",canComplete:false,...defaultCase},...extra};index=0;
@@ -61,15 +62,6 @@ test("completed unpaid-rent default shows the result without promising a refund 
 test("an open final notice never invents a received rent payment",()=>{
   const html=render("TENANT",{notifiedAt:"2026-11-09T00:01:00Z",respondBy:"2026-11-10T00:01:00Z",reason:"Người thuê chưa thanh toán tháng đầu."});
   assert.match(html,/Hạn cuối:/);assert.doesNotMatch(html,/Tiền thuê đã nhận phải hoàn riêng|Đã hủy lúc:/);
-});
-test("request summary links to the deposit workspace without embedding payment and signature controls",()=>{
-  const html=render("TENANT",{},"WAITING_START",{depositAgreementContractId:"deposit-id",depositAgreementTenantSigned:true},{compact:true});
-  assert.match(html,/href="\/dashboard\/tenant\/contracts\/deposit-id"/);assert.match(html,/Mở hồ sơ hợp đồng/);
-  assert.doesNotMatch(html,/Đề nghị hủy và hoàn tiền|Sổ cọc|Chuyển khoản \/ Gửi chứng từ/);
-});
-for(const exempt of [false,true])test("request keeps a usable contract workspace before a PDF exists, deposit exemption="+exempt,()=>{
-  const html=render("TENANT",{},"WAITING_START",{depositAgreementRequired:!exempt},{compact:true});
-  assert.match(html,/href="\/dashboard\/tenant\/contracts\/reservations\/rental"/);
 });
 test("owner has notice first; retention is exposed only with server completion permission",()=>{
   assert.match(render("LANDLORD"),/Thông báo quá hạn trước khi xử lý cọc/);

@@ -9,10 +9,6 @@ export function str(v: unknown): string {
   return s === "" ? "—" : s;
 }
 
-export function isBlank(value: unknown): boolean {
-  return value == null || String(value).trim() === "";
-}
-
 export function isZeroDeposit(value: unknown): boolean {
   return /^0(?:\.0+)?(?:\s+VN[ĐD])?$/u.test(String(value ?? "").trim());
 }

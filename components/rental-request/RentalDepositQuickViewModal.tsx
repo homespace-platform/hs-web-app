@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CreditCard, Loader2, RefreshCw, X } from "lucide-react";
+import { CreditCard, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/useAuth";
+import { useActionDialog } from "@/components/common/ActionDialog";
 import { rentalOnboardingService, type RentalOnboarding } from "@/services/rental-onboarding.service";
 import paymentService from "@/services/payment-request.service";
 import storageService from "@/services/storage.service";
@@ -11,24 +12,29 @@ import type { PaymentRequest } from "@/types/payment-request.type";
 import type { RentalRequestResponse } from "@/types/rental-request.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { canReviewReservationReceipt, paymentSummaryTitle, reservationPaymentStatus, reservationPaymentTitle, selectOnboardingPayment } from "@/lib/rental-deposit-quick-view";
+import { paymentStatus, toneClasses } from "@/lib/rental-labels";
+import { readOnboarding } from "@/lib/rental-onboarding-read";
 import { formatVND } from "./rental-request.helper";
+import ModalShell from "./ModalShell";
 
-const button="rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold hover:bg-muted disabled:opacity-50";
+const button="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50";
+const primary="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50";
 const instant=(value?:string)=>value?new Date(value).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"—";
 
+/** List-card strip for the landlord when a transfer waits for confirmation. */
 export function RentalReceiptNotice({request,onOpen}:{request:RentalRequestResponse;onOpen:()=>void}) {
   const payment=request.initialPayment;
   if(request.status!=="ACCEPTED" || payment?.status!=="TRANSFER_REPORTED")return null;
-  return <section aria-label="Khoản chuyển chờ xác nhận" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
-    <div className="space-y-1 text-sm">
+  return <section aria-label="Khoản chuyển chờ xác nhận" className={`flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${toneClasses.warning}`}>
+    <div className="min-w-0 space-y-1 text-sm">
       <p className="font-semibold">{paymentSummaryTitle(payment)} · Khách đã báo chuyển, chờ bạn xác nhận</p>
-      <p className="text-lg font-bold">{formatVND(payment.totalAmount)}</p>
+      <p className="text-xl font-bold text-foreground">{formatVND(payment.totalAmount)}</p>
       {payment.transferReference && <p className="break-all text-xs">Nội dung chuyển khoản: {payment.transferReference}</p>}
       {payment.payerReportedAt && <p className="text-xs">Báo chuyển: {instant(payment.payerReportedAt)} (giờ Việt Nam)</p>}
       {payment.confirmationDueAt && <p className="text-xs">Hạn xác nhận: {instant(payment.confirmationDueAt)} (giờ Việt Nam)</p>}
       <p className="text-xs">Báo chuyển chưa có nghĩa đã nhận tiền. Đối chiếu chứng từ và tài khoản trước khi xác nhận.</p>
     </div>
-    <button type="button" className={`${button} border-primary bg-primary text-primary-foreground hover:bg-primary/90`} onClick={onOpen}>Kiểm tra & xác nhận</button>
+    <button type="button" className={primary} onClick={onOpen}>Kiểm tra & xác nhận</button>
   </section>;
 }
 
@@ -40,32 +46,34 @@ export function ReservationReceipt({payment,actorId,isLandlord,busy=false,onConf
   const account=payment.payeeBankAccountSnapshot || payment.payeeAccount;
   return <div className="space-y-4">
     <div className="space-y-2 rounded-2xl border border-primary/30 bg-primary/5 p-4">
-      <h3 className="font-semibold">{reservationPaymentTitle(payment)}</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-bold">{reservationPaymentTitle(payment)}</h3>
+        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${toneClasses[paymentStatus(payment.status).tone]}`}>{reservationPaymentStatus(payment)}</span>
+      </div>
       <p className="text-2xl font-extrabold text-primary">{formatVND(payment.totalAmount)}</p>
-      <p className="text-sm font-medium">{reservationPaymentStatus(payment)}</p>
-      {payment.type==="RESERVATION_DEPOSIT" && <p className="text-xs text-muted-foreground">Khoản này chỉ là cọc giữ chỗ, không gồm tiền thuê tháng đầu.</p>}
+      {payment.type==="RESERVATION_DEPOSIT" && <p className="text-sm text-muted-foreground">Khoản này chỉ là cọc giữ chỗ, không gồm tiền thuê tháng đầu.</p>}
       {payment.type==="INITIAL" && payment.lineItems?.map(line=><div key={line.id} className="flex justify-between gap-3 text-sm"><span>{line.displayName}</span><span>{formatVND(line.amount)}</span></div>)}
     </div>
-    <dl className="grid gap-3 rounded-2xl border p-4 text-sm sm:grid-cols-2">
+    <dl className="grid gap-3 rounded-2xl border border-border bg-card p-4 text-sm shadow-sm sm:grid-cols-2">
       <div><dt className="text-xs text-muted-foreground">Nội dung chuyển khoản</dt><dd className="mt-1 break-all font-semibold">{payment.transferReference || "—"}</dd></div>
       <div><dt className="text-xs text-muted-foreground">Khách báo chuyển lúc</dt><dd className="mt-1">{instant(payment.payerReportedAt)}</dd></div>
       <div><dt className="text-xs text-muted-foreground">Hạn báo chuyển</dt><dd className="mt-1">{instant(payment.dueAt)}</dd></div>
       <div><dt className="text-xs text-muted-foreground">{payment.status==="CONFIRMED"?"Đã xác nhận lúc":"Hạn xác nhận"}</dt><dd className="mt-1">{instant(payment.status==="CONFIRMED"?payment.confirmedAt:payment.confirmationDueAt)}</dd></div>
       {account && <div className="sm:col-span-2"><dt className="text-xs text-muted-foreground">Tài khoản nhận tiền</dt><dd className="mt-1 break-words">{account.bankName} · {account.accountNumber} · {account.accountHolderName}</dd></div>}
     </dl>
-    <div className="space-y-3 rounded-2xl border p-4">
-      <h3 className="text-sm font-semibold">Chứng từ người thuê đã gửi</h3>
+    <div className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <h3 className="text-sm font-bold">Chứng từ người thuê đã gửi</h3>
       {payment.evidences?.length ? payment.evidences.map((e,index)=><div key={e.id} className="space-y-1 text-sm">
         <button type="button" className={button} disabled={busy} onClick={()=>onProof(e.storageObjectId)}>Xem chứng từ {index+1}</button>
         {e.bankTransactionReference && <p>Mã giao dịch: {e.bankTransactionReference}</p>}
         {e.note && <p className="break-words text-muted-foreground">{e.note}</p>}
       </div>):<p className="text-sm text-muted-foreground">Chưa có chứng từ.</p>}
     </div>
-    {payment.rejectedReason && <p className="rounded-xl border p-3 text-sm">Lý do chưa xác nhận: {payment.rejectedReason}</p>}
-    {review && <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 dark:bg-amber-950/20">
+    {payment.rejectedReason && <p className="rounded-2xl border border-border p-3 text-sm">Lý do chưa xác nhận: {payment.rejectedReason}</p>}
+    {review && <div className={`space-y-3 rounded-2xl border p-4 ${toneClasses.warning}`}>
       <p className="text-sm">Đối chiếu chứng từ và tài khoản ngân hàng. Chỉ xác nhận khi bạn đã thực nhận đủ {formatVND(payment.totalAmount)}; báo chuyển chưa có nghĩa đã nhận tiền.</p>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={busy} className={`${button} border-primary bg-primary text-primary-foreground hover:bg-primary/90`} onClick={onConfirm}>Xác nhận đã nhận đủ tiền</button>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <button type="button" disabled={busy} className={primary} onClick={onConfirm}>Xác nhận đã nhận đủ tiền</button>
         <button type="button" disabled={busy} className={button} onClick={onReject}>Chưa nhận đủ / Từ chối chứng từ</button>
       </div>
     </div>}
@@ -77,7 +85,7 @@ export default function RentalDepositQuickViewModal({request,onClose,onUpdated,o
   request:RentalRequestResponse;onClose:()=>void;onUpdated:()=>void|Promise<void>;onOpenDetail:()=>void;
 }) {
   const {userId}=useAuth();
-  const dialog=useRef<HTMLDialogElement>(null);
+  const {confirm,askReason,dialog}=useActionDialog();
   const alive=useRef(false), sequence=useRef(0), actionLock=useRef(false);
   const retainedPaymentId=useRef<string|null>(null);
   const [selectedPaymentId,setSelectedPaymentId]=useState<string|null>(null);
@@ -85,9 +93,9 @@ export default function RentalDepositQuickViewModal({request,onClose,onUpdated,o
   const [loading,setLoading]=useState(true), [busy,setBusy]=useState(false), [error,setError]=useState("");
   const key=JSON.stringify([request.id,userId,selectedPaymentId]);
   const current=data?.key===key?data:null;
-  const load=useCallback(async()=>{
+  const load=useCallback(async(sync=true)=>{
     const seq=++sequence.current;
-    const view=await rentalOnboardingService.refresh(request.id);
+    const view=sync?await rentalOnboardingService.refresh(request.id):await readOnboarding(request.id);
     if(view.askerRole!=="LANDLORD")throw new Error("Bạn không có quyền xem nhanh với vai trò chủ nhà.");
     const selected=selectOnboardingPayment(view.payments,request.id,selectedPaymentId ?? retainedPaymentId.current);
     if(!selected)throw new Error("Không tìm thấy khoản thanh toán đã chọn trong hồ sơ này. Vui lòng tải lại danh sách.");
@@ -103,10 +111,6 @@ export default function RentalDepositQuickViewModal({request,onClose,onUpdated,o
       .finally(()=>{if(active)setLoading(false);});
     return ()=>{active=false;alive.current=false;};
   },[load]);
-  useEffect(()=>{
-    const element=dialog.current;element?.showModal();
-    return ()=>element?.close();
-  },[]);
   async function refresh() {
     if(actionLock.current)return;
     setLoading(true);
@@ -120,18 +124,25 @@ export default function RentalDepositQuickViewModal({request,onClose,onUpdated,o
   async function decide(received:boolean) {
     if(actionLock.current || loading || error || !current || !canReviewReservationReceipt(current.payment,userId,true))return;
     let reason="";
-    if(received) {if(!window.confirm(`Bạn xác nhận đã thực nhận đủ ${formatVND(current.payment.totalAmount)} vào tài khoản ngân hàng?`))return;}
-    else {reason=window.prompt("Lý do chưa nhận đủ tiền / từ chối chứng từ:")?.trim() || "";if(!reason)return;}
+    if(received) {
+      if(!await confirm({title:"Xác nhận đã nhận đủ tiền?",confirmLabel:"Đã nhận đủ tiền",
+        description:`Bạn xác nhận đã thực nhận đủ ${formatVND(current.payment.totalAmount)} vào tài khoản ngân hàng. Báo chuyển chưa có nghĩa đã nhận tiền.`}))return;
+    } else {
+      const answer=await askReason({title:"Chưa nhận đủ tiền / từ chối chứng từ",label:"Lý do",minLength:1,tone:"warning",confirmLabel:"Gửi lý do",
+        description:"Người thuê sẽ nhận được lý do này và gửi lại chứng từ."});
+      if(!answer)return;
+      reason=answer;
+    }
     actionLock.current=true;setBusy(true);sequence.current++;
     try {
       const payment=received?await paymentService.confirmReceipt(current.payment.id):await paymentService.rejectReceipt(current.payment.id,{reason});
       if(alive.current)setData({...current,payment});
       toast.success(received?"Đã xác nhận nhận đủ tiền.":"Đã ghi nhận từ chối chứng từ.");
-      const updates=await Promise.allSettled([load(),Promise.resolve().then(onUpdated)]);
+      const updates=await Promise.allSettled([load(false),Promise.resolve().then(onUpdated)]);
       if(alive.current && updates.some(result=>result.status==="rejected"))setError("Thao tác đã được ghi nhận nhưng chưa làm mới được dữ liệu. Vui lòng bấm Làm mới.");
     } catch(e) {
       toast.error(getApiErrorMessage(e,"Không thể cập nhật khoản thanh toán."));
-      try{await load();}catch{if(alive.current)setError("Chưa cập nhật được trạng thái; hãy làm mới trước khi tiếp tục.");}
+      try{await load(false);}catch{if(alive.current)setError("Chưa cập nhật được trạng thái; hãy làm mới trước khi tiếp tục.");}
     } finally {actionLock.current=false;if(alive.current)setBusy(false);}
   }
   async function proof(storageId:string) {
@@ -140,28 +151,26 @@ export default function RentalDepositQuickViewModal({request,onClose,onUpdated,o
     try{tab.location.href=await storageService.getPaymentProofViewUrl(storageId);}
     catch{tab.close();toast.error("Không mở được chứng từ hoặc bạn không có quyền truy cập.");}
   }
-  return <dialog ref={dialog} aria-labelledby="deposit-quick-title" className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-2xl overflow-y-auto rounded-2xl border border-border bg-card p-0 text-foreground shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
-    onCancel={e=>{e.preventDefault();if(!actionLock.current)onClose();}}>
-    <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-card p-5">
-      <h2 id="deposit-quick-title" className="flex items-center gap-2 text-lg font-bold"><CreditCard className="h-5 w-5 text-primary"/>Xem nhanh thanh toán</h2>
-      <button type="button" className={button} disabled={busy} onClick={onClose} aria-label="Đóng xem nhanh thanh toán"><X className="h-4 w-4"/></button>
-    </header>
-    <div className="space-y-4 p-5">
-      <p className="text-sm font-medium">{request.listingTitle}</p>
-      {error && <p role="alert" className="rounded-xl border border-amber-300 p-3 text-sm">{error}</p>}
-      {loading || !current && !error ? <p role="status" className="flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin"/>Đang tải khoản thanh toán…</p> : current && <>
-        <p className="text-xs text-muted-foreground">Người thuê: {request.renterName} · Ngày vào ở: {current.view.startsOn.split("-").reverse().join("/")} · Cập nhật {instant(current.view.serverNow)} (giờ Việt Nam)</p>
-        <div className="flex flex-wrap gap-2" aria-label="Chọn khoản thanh toán">{current.view.payments.filter(p=>selectOnboardingPayment([p],request.id,p.id)).map(p=><button key={p.id} type="button" disabled={busy} aria-pressed={p.id===current.payment.id} className={`${button} ${p.id===current.payment.id?"border-primary text-primary":""}`} onClick={()=>void selectPayment(p.id)}>
-          {reservationPaymentTitle(p)} · {reservationPaymentStatus(p)}
-        </button>)}</div>
-        <ReservationReceipt payment={current.payment} actorId={userId} isLandlord={current.view.askerRole==="LANDLORD"} busy={busy || !!error}
-          onConfirm={()=>void decide(true)} onReject={()=>void decide(false)} onProof={id=>void proof(id)}/>
-      </>}
-    </div>
-    <footer className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t bg-card p-4">
-      <button type="button" className={button} disabled={busy || loading} onClick={()=>void refresh()}><RefreshCw className="mr-1 inline h-4 w-4"/>Làm mới</button>
-      <button type="button" className={button} disabled={busy} onClick={onOpenDetail}>Chi tiết yêu cầu</button>
-      <button type="button" className={button} disabled={busy} onClick={onClose}>Đóng</button>
-    </footer>
-  </dialog>;
+  return <>
+    <ModalShell title="Xem nhanh thanh toán" icon={<CreditCard className="h-5 w-5"/>} onClose={onClose} closeDisabled={busy} size="md"
+      footer={<>
+        <button type="button" className={button} disabled={busy || loading} onClick={()=>void refresh()}><RefreshCw className="h-4 w-4" aria-hidden="true"/>Làm mới</button>
+        <button type="button" className={button} disabled={busy} onClick={onOpenDetail}>Chi tiết yêu cầu</button>
+        <button type="button" className={button} disabled={busy} onClick={onClose}>Đóng</button>
+      </>}>
+      <div className="space-y-4">
+        <p className="text-base font-bold">{request.listingTitle}</p>
+        {error && <p role="alert" className={`rounded-2xl border p-3 text-sm ${toneClasses.warning}`}>{error}</p>}
+        {loading || !current && !error ? <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true"/>Đang tải khoản thanh toán…</p> : current && <>
+          <p className="text-sm text-muted-foreground">Người thuê: {request.renterName} · Ngày vào ở: {current.view.startsOn.split("-").reverse().join("/")} · Cập nhật {instant(current.view.serverNow)} (giờ Việt Nam)</p>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Chọn khoản thanh toán">{current.view.payments.filter(p=>selectOnboardingPayment([p],request.id,p.id)).map(p=><button key={p.id} type="button" disabled={busy} aria-pressed={p.id===current.payment.id} className={`${button} ${p.id===current.payment.id?"border-primary bg-primary/5 text-primary":""}`} onClick={()=>void selectPayment(p.id)}>
+            {reservationPaymentTitle(p)} · {reservationPaymentStatus(p)}
+          </button>)}</div>
+          <ReservationReceipt payment={current.payment} actorId={userId} isLandlord={current.view.askerRole==="LANDLORD"} busy={busy || !!error}
+            onConfirm={()=>void decide(true)} onReject={()=>void decide(false)} onProof={id=>void proof(id)}/>
+        </>}
+      </div>
+    </ModalShell>
+    {dialog}
+  </>;
 }

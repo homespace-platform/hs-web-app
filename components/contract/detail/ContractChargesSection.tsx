@@ -27,7 +27,7 @@ const BILLING_METHOD_LABELS: Record<string, string> = {
   CUSTOM: "Tùy chỉnh",
 };
 
-export function formatBillingMethod(method?: unknown): string {
+function formatBillingMethod(method?: unknown): string {
   if (!method) return "—";
   const s = String(method).trim();
   return BILLING_METHOD_LABELS[s.toUpperCase()] || s;

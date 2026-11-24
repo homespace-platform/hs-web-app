@@ -2,17 +2,8 @@ const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript');
 const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
 const read=file=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
-const cache=new Map();
-function load(file) {
-  if(cache.has(file))return cache.get(file);
-  const code=ts.transpileModule(read(file),{fileName:file,compilerOptions:{module:ts.ModuleKind.CommonJS,
-    target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
-  const module={exports:{}};
-  const resolve=name=>name==='@/lib/rental-start-change-quick-view'?load('lib/rental-start-change-quick-view.ts'):
-    name.startsWith('@/')?{}:require(name);
-  vm.runInThisContext(`(function(require,module,exports){${code}\n})`)(resolve,module,module.exports);
-  cache.set(file,module.exports);return module.exports;
-}
+const {loadTs}=require("./helpers/ts-loader.cjs");
+const load=file=>loadTs(file);
 const {canHandleStartChange}=load('lib/rental-start-change-quick-view.ts');
 const {StartChangeNotice,StartChangeReview}=load('components/rental-request/RentalStartChangeQuickModal.tsx');
 const change={id:'change',previousDate:'2026-11-01',requestedDate:'2026-10-25',reason:'Muốn dọn vào ở sớm hơn',status:'REQUESTED',
@@ -50,11 +41,22 @@ test('decided and expired history is readable and never exposes actionable pendi
   }
 });
 test('quick flow is independent of detail, refreshes list and blocks double submit and uncertain outcomes',()=>{
-  const list=read('components/rental-request/RentalRequestsManagement.tsx');
-  assert.match(list,/<StartChangeNotice request=\{req\} mode=\{mode\} onOpen=\{\(\)=>setStartChangeTarget\(req\)\}/);
+  const list=read('components/rental-request/RentalRequestsManagement.tsx'),card=read('components/rental-request/RentalRequestCard.tsx');
+  assert.match(card,/<StartChangeNotice request=\{req\} mode=\{mode\} onOpen=\{\(\) => actions\.openStartChange\(req\)\}/);
   assert.match(list,/<RentalStartChangeQuickModal/);assert.match(list,/onUpdated=\{fetchRequests\}/);
   const modal=read('components/rental-request/RentalStartChangeQuickModal.tsx');
-  assert.match(modal,/lock.current=true;setBusy\(true\)/);assert.match(modal,/await service.refresh\(request.id\)/);
-  assert.match(modal,/next.askerRole!==/);assert.match(modal,/Promise.allSettled/);assert.match(modal,/max=\{maxDate\}/);
-  assert.doesNotMatch(modal,/setDetailRequestId|RentalRequestDetailModal/);
+  assert.match(modal,/lock\.current=true;setBusy\(true\)/);assert.match(modal,/service\.refresh\(request\.id\)/);
+  assert.match(modal,/next\.askerRole!==/);assert.match(modal,/Promise\.allSettled/);
+  assert.doesNotMatch(modal,/setDetailRequestId|RentalRequestDetailModal|window\.(prompt|confirm)/);
+});
+test('modal and panel share ONE earlier-start form, review list and date bounds',()=>{
+  const panel=read('components/rental-request/RentalOnboardingPanel.tsx'),modal=read('components/rental-request/RentalStartChangeQuickModal.tsx');
+  for(const source of [panel,modal]){assert.match(source,/<EarlierStartForm/);assert.match(source,/<StartChangeReview/);assert.match(source,/confirmStartChange/);assert.doesNotMatch(source,/type="date"/);}
+  const {earlierStartBounds,isValidEarlierStart}=load('lib/rental-start-change-quick-view.ts');
+  const v={serverNow:'2026-10-22T03:00:00Z',startsOn:'2026-11-01'};
+  assert.deepEqual({...earlierStartBounds(v)},{min:'2026-10-22',max:'2026-10-31'});
+  const reason='Muốn dọn vào ở sớm hơn';
+  assert.equal(isValidEarlierStart('2026-10-22',reason,v),true);assert.equal(isValidEarlierStart('2026-10-31',reason,v),true);
+  assert.equal(isValidEarlierStart('2026-10-21',reason,v),false);assert.equal(isValidEarlierStart('2026-11-01',reason,v),false);
+  assert.equal(isValidEarlierStart('2026-10-25','ngắn',v),false);assert.equal(isValidEarlierStart('',reason,v),false);
 });

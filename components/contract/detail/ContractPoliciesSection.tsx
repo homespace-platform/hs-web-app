@@ -166,10 +166,10 @@ export default function ContractPoliciesSection({
           ? "Sau hơn 5 ngày quá hạn, chủ nhà có thể cho cộng nợ kỳ sau hoặc đề nghị chấm dứt. Nếu người thuê từ chối, chủ nhà có thể chọn chấm dứt theo điều khoản đã ký sau khi thông báo và thực tế nhận lại phòng; khi đó hệ thống ghi cọc cho chủ nhà và mở lại tin đăng. Hệ thống không tự chấm dứt."
           : "Hợp đồng này không có điều khoản chấm dứt sau 5 ngày quá hạn theo cấu trúc hiện hành; hệ thống không tự chấm dứt hoặc thu cọc."} />
 
-      {(w?.data?.currentTerms.systemTerms || draftSystemTerms) && <div className="rounded-xl border bg-muted/20 p-3.5 text-xs">
-        <h4 className="font-semibold">Điều khoản hệ thống · Chỉ đọc</h4>
-        <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{w?.data?.currentTerms.systemTerms || draftSystemTerms}</p>
-      </div>}
+      {(w?.data?.currentTerms.systemTerms || draftSystemTerms) && <PolicyNotice tone="neutral" title="Điều khoản hệ thống · Chỉ đọc"
+        summary="Điều khoản hệ thống do HomeSpace áp dụng cho mọi hợp đồng. Chỉ đọc." actionLabel="Xem điều khoản hệ thống">
+        <p className="whitespace-pre-wrap">{w?.data?.currentTerms.systemTerms || draftSystemTerms}</p>
+      </PolicyNotice>}
       <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-2">
         <h4 className="text-xs font-bold uppercase tracking-wider">Điều khoản thỏa thuận khác</h4>
         {draft?.additionalTerms !== undefined ? (
@@ -178,9 +178,14 @@ export default function ContractPoliciesSection({
               disabled={draftDisabled} onChange={(e) => onDraftChange?.({additionalTerms: e.target.value})}
               placeholder="Nhập thỏa thuận bổ sung giữa hai bên nếu có…" className="w-full rounded-lg border border-input bg-background p-2.5 text-xs" />
           </ContractEditField>
-        ) : <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
-          {(draft ? null : specialTerms) || (draft ? "Điều khoản của bản nháp này được giữ nguyên ở phần chỉ đọc." : "Không có điều khoản bổ sung.")}
-        </p>}
+        ) : (() => {
+          const text = (draft ? null : specialTerms) || (draft ? "Điều khoản của bản nháp này được giữ nguyên ở phần chỉ đọc." : "Không có điều khoản bổ sung.");
+          return text.length > 280
+            ? <PolicyNotice tone="neutral" title="Điều khoản thỏa thuận khác" summary="Hai bên có thỏa thuận bổ sung riêng. Mở để xem đầy đủ." actionLabel="Xem điều khoản">
+                <p className="whitespace-pre-wrap">{text}</p>
+              </PolicyNotice>
+            : <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{text}</p>;
+        })()}
       </div>
     </section>
   );

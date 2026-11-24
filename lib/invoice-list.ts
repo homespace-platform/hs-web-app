@@ -1,9 +1,6 @@
 import type { DashboardRole } from "@/lib/dashboard-role";
 import { invoiceDetailPath } from "@/lib/contract-routes";
-import {
-  invoicePeriodLabel,
-  invoiceStatusPresentation,
-} from "@/lib/invoice-status";
+import { invoiceStatusPresentation } from "@/lib/invoice-status";
 import type { ContractResponse } from "@/types/contract.type";
 import type { MonthlyInvoice } from "@/types/monthly-invoice.type";
 import type { PaymentRequest, PaymentStatus } from "@/types/payment-request.type";
@@ -129,60 +126,6 @@ export function invoiceMatchesIssuedMonth(invoice: Pick<MonthlyInvoice, "issuedA
   const monthPart = parts.find((part) => part.type === "month")?.value;
   if (!year || !monthPart) return false;
   return `${year}-${monthPart}` === month;
-}
-
-export function invoiceMatchesSearch(
-  row: InvoiceListRow,
-  query: string,
-): boolean {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return true;
-  const haystack = [
-    row.contract.contractNumber,
-    invoicePeriodLabel(row.invoice),
-    row.invoice.id,
-  ]
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(normalized);
-}
-
-export function buildInvoiceListRows(input: {
-  contract: ContractResponse;
-  invoices: MonthlyInvoice[];
-  payments: PaymentRequest[];
-  invoiceLoadFailed: boolean;
-  paymentLoadFailed: boolean;
-}): InvoiceListRow[] {
-  return input.invoices.map((invoice) => {
-    const payment = findInvoicePayment(invoice, input.payments);
-    return {
-      key: invoice.id,
-      contract: input.contract,
-      invoice,
-      paymentStatus: payment?.status ?? null,
-      paymentLoadFailed: input.paymentLoadFailed,
-      invoiceLoadFailed: input.invoiceLoadFailed,
-    };
-  });
-}
-
-export function countInvoiceTabs(
-  role: DashboardRole,
-  rows: InvoiceListRow[],
-): Record<InvoiceListTab, number> {
-  return {
-    all: rows.length,
-    needs_action: rows.filter((row) => invoiceNeedsAction(role, row.invoice, row.paymentStatus)).length,
-    awaiting_confirm: rows.filter((row) => invoiceAwaitingConfirmation(role, row.invoice, row.paymentStatus)).length,
-    completed: rows.filter((row) => invoiceCompleted(row.invoice, row.paymentStatus)).length,
-  };
-}
-
-export function presentationForRow(row: InvoiceListRow) {
-  return invoiceStatusPresentation(row.invoice, row.paymentStatus, {
-    paymentLoadFailed: row.paymentLoadFailed,
-  });
 }
 
 export type InvoiceListAction = {

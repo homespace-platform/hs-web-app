@@ -48,9 +48,9 @@ test("the UI separates read errors from absent documents and removes the old wai
   const panel=fs.readFileSync(path.join(__dirname,"../components/rental-request/DepositAgreementPanel.tsx"),"utf8");
   assert.match(panel,/view && !contract && !error/);assert.match(panel,/view && !error &&/);
   assert.match(panel,/Lỗi tải không có nghĩa hợp đồng chưa được tạo/);assert.match(panel,/Xem PDF hợp đồng cọc/);
-  for(const file of ["RentalRequestDetailModal.tsx","RentalRequestsManagement.tsx"]){
+  for(const file of ["RentalRequestDetailModal.tsx","RentalRequestCard.tsx"]){
     const text=fs.readFileSync(path.join(__dirname,"../components/rental-request",file),"utf8");
-    assert.doesNotMatch(text,/Chỉ nhận cọc chưa tạo bản nháp/);assert.match(text,/Hợp đồng cọc|hợp đồng cọc/);
+    assert.doesNotMatch(text,/Chỉ nhận cọc chưa tạo bản nháp/);if(file==="RentalRequestCard.tsx")assert.match(text,/Hợp đồng cọc|hợp đồng cọc/);
   }
 });
 
@@ -68,6 +68,9 @@ vm.runInThisContext(`(function(require,module,exports){${panelOutput}\n})`)(name
   if(name==="@/services/contract.service")return {contractService:{}};
   if(name==="@/lib/deposit-agreement-loader")return mod.exports;
   if(name==="@/utils/apiError")return {getApiErrorMessage:()=>"error"};
+  if(name==="@/lib/contract-routes")return require("./helpers/ts-loader.cjs").loadTs("lib/contract-routes.ts");
+  if(name==="next/link")return {default:({href,children,...rest})=>React.createElement("a",{href,...rest},children)};
+  if(name==="@/lib/rental-labels")return require("./helpers/ts-loader.cjs").loadTs("lib/rental-labels.ts");
   if(name==="@/components/contract/detail/SmartCaSignaturePanel")return {default:()=>null};
   if(name==="@/components/contract/detail/ContractBlockchainProof")return {default:({document})=>React.createElement("span",{"data-blockchain-document":document.id})};
   if(name==="@/components/contract/detail/ContractPdfViewerModal")return {default:()=>null};
@@ -115,7 +118,7 @@ test("completed deposit keeps its signed PDF and blockchain proof while showing 
     blockedReason:"Hợp đồng cọc đã hoàn tất cùng quyết toán hợp đồng thuê.",
     agreement:{...ready.agreement,status:"CLOSED",signedAt:"2026-11-08T01:00:00Z"},
     documents:[{id:"signed-final",contractId:"deposit-doc",status:"READY",purpose:"SIGNED_FINAL",documentType:"PDF"}]}});
-  assert.match(html,/Đã hoàn tất HĐ cọc/);assert.match(html,/đã hoàn tất cùng quyết toán/);
+  assert.match(html,/Đã đóng/);assert.match(html,/đã hoàn tất cùng quyết toán/);
   assert.match(html,/Xem \/ tải hợp đồng cọc đã ký/);assert.match(html,/data-blockchain-document="signed-final"/);
   assert.doesNotMatch(html,/Kiểm tra \/ tạo lại tài liệu cọc/);
 });

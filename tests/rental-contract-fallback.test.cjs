@@ -91,7 +91,7 @@ test('unmount cancellation stops follow-up POST and file requests',async()=>{
 });
 test('list and detail use the same guarded handler with a synchronous lock and private contract route',()=>{
   const list=read('components/rental-request/RentalRequestsManagement.tsx');const detail=read('components/rental-request/RentalRequestDetailModal.tsx');
-  assert.match(list,/contractCreationLock\.current=true/);assert.match(list,/if \(contractCreationLock\.current/);
-  assert.match(list,/onCreate=\{handleCreateDraft\}/);assert.match(list,/onCreateDraft=\{handleCreateDraft\}/);
-  assert.match(detail,/onCreate=\{onCreateDraft\}/);assert.match(list,/contractDetailPath\("landlord",result\.contract\.id\)/);
+  assert.match(list,/contractCreationLock\.current = true/);assert.match(list,/if \(contractCreationLock\.current/);
+  assert.match(list,/createContract: \(r\) => void handleCreateDraft\(r\)/);assert.match(list,/onCreateDraft=\{handleCreateDraft\}/);
+  assert.match(detail,/onCreate=\{onCreateDraft\}/);assert.match(list,/contractDetailPath\("landlord", result\.contract\.id\)/);
 });

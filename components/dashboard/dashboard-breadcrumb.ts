@@ -26,8 +26,7 @@ const ROUTES: Record<string, { label: string; parent?: string }> = {
   "/dashboard/contracts": { label: "Hợp đồng" },
   "/dashboard/landlord/contracts": { label: "Hợp đồng cho thuê" },
   "/dashboard/tenant/contracts": { label: "Hợp đồng đi thuê" },
-  "/dashboard/invoices": { label: "Hóa đơn" },
-  "/dashboard/invoices/receipts": { label: "Biên lai", parent: "/dashboard/invoices" },
+  "/dashboard/invoices": { label: "Lịch sử thanh toán" },
   "/dashboard/deposit": { label: "Nạp tiền" },
   "/dashboard/withdraw": { label: "Rút tiền" },
   "/dashboard/transactions": { label: "Lịch sử giao dịch" },
@@ -40,9 +39,8 @@ const DYNAMIC: { pattern: RegExp; label: string; parent: string }[] = [
   { pattern: /^\/dashboard\/branches\/[^/]+$/, label: "Chi tiết chi nhánh", parent: "/dashboard/branches" },
   { pattern: /^\/dashboard\/contracts\/[^/]+$/, label: "Chi tiết hợp đồng", parent: "/dashboard/contracts" },
   { pattern: /^\/dashboard\/landlord\/contracts\/[^/]+$/, label: "Chi tiết hợp đồng", parent: "/dashboard/landlord/contracts" },
-  { pattern: /^\/dashboard\/tenant\/contracts\/reservations\/[^/]+$/, label: "Chi tiết giữ chỗ", parent: "/dashboard/tenant/contracts" },
+  { pattern: /^\/dashboard\/tenant\/contracts\/reservations\/[^/]+$/, label: "Hồ sơ cọc & nhận nhà", parent: "/dashboard/tenant/contracts" },
   { pattern: /^\/dashboard\/tenant\/contracts\/[^/]+$/, label: "Chi tiết hợp đồng", parent: "/dashboard/tenant/contracts" },
-  { pattern: /^\/dashboard\/invoices\/[^/]+$/, label: "Chi tiết hóa đơn", parent: "/dashboard/invoices" },
 ];
 
 // Unknown routes: use the last segment if we know its name, else just the root.

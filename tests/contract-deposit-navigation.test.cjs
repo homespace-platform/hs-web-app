@@ -15,6 +15,9 @@ function fixture(kind="LEASE",status="ACTIVE") {
     "@/services/contract.service":{contractService:{listContracts:async query=>{calls.push(query);return {result:[contract],totalPages:1};}}},
     "@/utils/apiError":{getApiErrorMessage:e=>e.message},"@/lib/contract-routes":{contractDetailPath:(role,id)=>`/dashboard/${role}/contracts/${id}`,invoiceDetailPath:id=>`/dashboard/invoices/${id}`},
     "./AgreementDocumentActions":{__esModule:true,default:()=>null},"next/link":{__esModule:true,default:({children,...props})=>React.createElement("a",props,children)}};
+  const labelsModule={exports:{}};
+  vm.runInThisContext("(function(require,module,exports){"+ts.transpileModule(fs.readFileSync(path.join(__dirname,"../lib/rental-labels.ts"),"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText+"\n})")(require,labelsModule,labelsModule.exports);
+  dependencies["@/lib/rental-labels"]=labelsModule.exports;
   vm.runInThisContext(`(function(require,module,exports){${output}\n})`)(name=>dependencies[name]??require(name),fixtureModule,fixtureModule.exports);
   const wrapper=fixtureModule.exports.default({perspective:"tenant"});const tree=wrapper.props.children.type({perspective:"tenant"});
   return {tree,html:renderToStaticMarkup(tree),effects,calls,navigation,updates};
@@ -33,7 +36,8 @@ for(const kind of ["LEASE","DEPOSIT"])test(kind+" tab filters on the server and 
   finally {global.window=windowBefore;}
   assert.equal(f.calls.length,1);assert.equal(f.calls[0].agreementKind,kind);assert.equal(f.calls[0].role,"TENANT");
   assert.equal(f.calls[0].includeDepositFallback,undefined);
-  if(kind==="DEPOSIT")assert.match(f.html,/Đã ký đủ HĐ cọc/);
+  assert.equal(f.calls[0].status,undefined);
+  if(kind==="DEPOSIT")assert.match(f.html,/Đã ký đủ/);
 });
 test("switching tabs resets filters and keeps the scroll position",()=>{
   const f=fixture();const tab=find(f.tree,n=>n.props?.role==="tab"&&n.props.children==="Hợp đồng cọc");tab.props.onClick();
@@ -41,9 +45,16 @@ test("switching tabs resets filters and keeps the scroll position",()=>{
   assert.deepEqual(f.updates,[[2,1],[4,"ALL"]]);
 });
 
-test("completed deposit has a terminal badge and its own server status filter",()=>{
+test("status chips are four client-side groups with counts and no per-status API filter",()=>{
   const f=fixture("DEPOSIT","CLOSED");
-  const badge=find(f.tree,n=>n.type==="span"&&n.props.children==="Đã hoàn tất HĐ cọc");assert.ok(badge);
-  const filter=find(f.tree,n=>n.type==="button"&&n.props.children==="Đã hoàn tất HĐ cọc");assert.ok(filter);
-  filter.props.onClick();assert.deepEqual(f.updates,[[2,1],[4,"CLOSED"]]);
+  for(const label of ["Cần tôi xử lý","Đang chờ bên kia","Đã ký đủ","Đã kết thúc"])assert.match(f.html,new RegExp(label));
+  const ended=find(f.tree,n=>n.type==="button"&&Array.isArray(n.props.children)&&String(n.props.children.join("")).startsWith("Đã kết thúc"));assert.ok(ended);
+  ended.props.onClick();assert.deepEqual(f.updates,[[4,"ENDED"]]);
+  assert.match(f.html,/Hợp đồng cọc đã hoàn tất|Đã đóng/);
+});
+test("one primary action per card comes from the row's own data",()=>{
+  const sign=fixture("LEASE","TENANT_SIGNATURE_PENDING");
+  assert.match(sign.html,/Ký số/);assert.match(sign.html,/tab=sign/);
+  const active=fixture("LEASE","ACTIVE");assert.match(active.html,/Xem hóa đơn/);assert.match(active.html,/\/dashboard\/invoices\/contract/);
+  const closedDeposit=fixture("DEPOSIT","CLOSED");assert.match(closedDeposit.html,/Mở hồ sơ/);assert.doesNotMatch(closedDeposit.html,/Xem hóa đơn/);
 });

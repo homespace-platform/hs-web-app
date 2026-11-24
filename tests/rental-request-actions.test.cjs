@@ -5,13 +5,19 @@ const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.Co
 const mod={exports:{}};vm.runInThisContext(`(function(module,exports){${output}\n})`)(mod,mod.exports);
 const canCancel=mod.exports.canCancelRentalRequest;
 const unpaid={status:"ACCEPTED",initialPayment:{status:"AWAITING_TRANSFER",totalAmount:100,canCancelImmediately:true}};
-test("both screens use the shared permission without requiring the tenant role",()=>{
-  for(const file of ["RentalRequestsManagement","RentalRequestDetailModal"]) {
+test("both screens use the shared, role-aware permission",()=>{
+  const sources={card:/canCancelRentalRequest\(req, contract, undefined, role\)/,detail:/canCancelRentalRequest\(detail, linkedContract, currentPaymentStatus, role\)/};
+  for(const [file,pattern] of [["RentalRequestCard",sources.card],["RentalRequestDetailModal",sources.detail]]) {
     const text=fs.readFileSync(path.join(__dirname,`../components/rental-request/${file}.tsx`),"utf8");
-    assert.match(text,/canCancelRentalRequest\((req|detail),linkedContract/);
+    assert.match(text,pattern);
     assert.doesNotMatch(text,/mode === "SENT" && (req|detail).status === "PENDING" &&/);
   }
   assert.equal(canCancel({status:"PENDING"}),true);assert.equal(canCancel(unpaid),true);
+});
+test("a landlord answers PENDING with reject, so only the tenant is offered cancel there",()=>{
+  assert.equal(canCancel({status:"PENDING"},null,undefined,"LANDLORD"),false);
+  assert.equal(canCancel({status:"PENDING"},null,undefined,"TENANT"),true);
+  assert.equal(canCancel(unpaid,null,undefined,"LANDLORD"),true);
 });
 test("paid deposit flag, absent data, reported/rejected/disputed status and execution contracts cannot show immediate cancel",()=>{
   assert.equal(canCancel({...unpaid,initialPayment:{...unpaid.initialPayment,canCancelImmediately:false}}),false);

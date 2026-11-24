@@ -241,6 +241,7 @@ export default function NotificationTransport() {
         const sender = item.category === "CHAT" ? conversations.find(({ id }) => id === conversationId) : undefined;
         return <NotificationPopup key={item.id} item={item}
           sender={item.category === "CHAT" ? { name: sender?.userName || "Người dùng HomeSpace", avatar: sender?.userAvatar } : undefined}
+          onOpen={item.category === "CHAT" ? undefined : () => { void notificationService.markRead(item.id).catch(() => undefined); }}
           onDismiss={() => setPopups((current) => current.filter(({ id }) => id !== item.id))} />;
       })}
     </div>

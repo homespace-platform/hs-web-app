@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import NotificationIcon from "@/components/notification/NotificationIcon";
 import {
   Bell,
@@ -31,6 +32,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 const DROPDOWN_PAGE_LIMIT = 10;
 
 export default function NotificationDropdown() {
+  const router = useRouter();
   const { authenticated, initialized, userId } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -219,6 +221,15 @@ export default function NotificationDropdown() {
     } finally {
       isSelfMutatingRef.current = false;
     }
+  };
+
+  // Row click: mark read and go to the page where the user can act (same target as "Xem chi tiết").
+  const openItem = (item: NotificationItem) => {
+    void handleItemClick(item);
+    const href = getSafeActionPath(item.actionPath);
+    if (!href) return;
+    setIsOpen(false);
+    router.push(href);
   };
 
   const handleMarkAllAsRead = async (e: React.MouseEvent) => {
@@ -460,7 +471,7 @@ export default function NotificationDropdown() {
                   return (
                     <div
                       key={item.id}
-                      onClick={() => void handleItemClick(item)}
+                      onClick={() => openItem(item)}
                       className={`p-3.5 hover:bg-muted/60 transition-colors flex items-start gap-3 cursor-pointer group ${
                         isUnread ? "bg-primary/[0.02]" : ""
                       }`}
@@ -485,7 +496,7 @@ export default function NotificationDropdown() {
                               type="button"
                               onClick={(e) => void handleDeleteItem(e, item)}
                               title="Xóa thông báo này"
-                              className="text-muted-foreground/40 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 cursor-pointer"
+                              className="text-muted-foreground/40 hover:text-red-500 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-0.5 cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -512,7 +523,7 @@ export default function NotificationDropdown() {
                                 void handleItemClick(item);
                                 setIsOpen(false);
                               }}
-                              className="text-primary hover:underline text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="text-primary hover:underline text-[11px] font-semibold [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                             >
                               Xem chi tiết →
                             </Link>

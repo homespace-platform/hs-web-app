@@ -16,7 +16,7 @@ export default function InvoiceLineCalculation({ line }: { line: InvoiceLine }) 
     <small className="text-muted-foreground">
       ({money(line.unitPrice)}{line.quantityUnit === "ngày" ? "/ngày" : ""} × {line.quantity} {line.quantityUnit})
     </small>
-    {beforeCap > line.amount && <p className="mt-1 text-xs text-muted-foreground">
+    {beforeCap > line.amount && <p className="mt-1 text-sm text-muted-foreground">
       Phí tính theo đơn giá: {money(beforeCap)}; áp dụng mức trần còn {money(line.amount)}.
     </p>}
   </>;

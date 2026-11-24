@@ -29,11 +29,14 @@ function load(source, lifecycle, namespace = false) {
     : name === "@/components/payment/DepositLedgerSummary" ? { default: load(fs.readFileSync(path.join(__dirname, "../components/payment/DepositLedgerSummary.tsx"), "utf8"), false) }
     : name === "./MeterReading" ? MeterComponents
     : name === "@/components/ui/vnd-money-input" ? { default: ({label, value}) => React.createElement("input", {"aria-label":label, value:value ?? "", readOnly:true}) }
+    : name === "@/components/common/ActionDialog" ? { useActionDialog: () => ({ confirm: async () => true, askReason: async () => "lý do", dialog: null }) }
+    : name === "@/lib/rental-labels" ? load(fs.readFileSync(path.join(__dirname, "../lib/rental-labels.ts"), "utf8"), false, true)
     : name === "@/lib/invoice-status" ? load(fs.readFileSync(path.join(__dirname, "../lib/invoice-status.ts"), "utf8"), false, true)
     : name.startsWith("@/services/") ? { contractLifecycleService: {}, default: {} }
     : name === "@/hooks/usePermission" ? { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }) }
     : name === "@/lib/permissions" ? { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }
     : name === "@/utils/apiError" ? { getApiErrorMessage: () => "test error" }
+    : name === "@/lib/payment-module" ? { paymentModulePath: (id, section) => `/dashboard/payments-for/${id}?section=${section}` }
     : name === "@/lib/contract-routes" ? { contractDetailPath: (role, id) => `/dashboard/${role}/contracts/${id}`, invoiceDetailPath: id => `/dashboard/invoices/${id}` }
     : name === "@/hooks/useAgreementChangeSync" ? { useNotificationChangeSync(matches) { agreementMatcher = id => matches({ type: "agreement-changed", agreementId: id }); } }
     : require(name);
@@ -83,13 +86,13 @@ test("separate payment module preserves settlement consent and hides contract re
   assert.match(renewal, /Gửi yêu cầu gia hạn/);assert.doesNotMatch(renewal, /Đồng ý quyết toán|Bàn giao &amp; tiền cọc/);
 });
 
-test("deposit settlement omits contract workflows and links complaint decisions to the contract", () => {
+test("deposit settlement omits contract workflows and links complaint decisions to the complaint page, which works for EXPIRED/CLOSED too", () => {
   const closure = { status: "PROPOSED", proposalVersion: 1, refundAmount: 20000000, complaintCaseId: "complaint" };
   for (const isLandlord of [true, false]) {
     const html = renderLifecycle({ rentalRequestId: "rental", closure }, isLandlord, "settlement");
     assert.doesNotMatch(html, /CONTRACT_ONLY_WORKFLOW/);
-    assert.match(html, new RegExp(`/dashboard/${isLandlord ? "landlord" : "tenant"}/contracts/root`));
-    assert.match(html, /Khiếu nại &amp; hỗ trợ trong hồ sơ hợp đồng/);
+    assert.match(html, /href="\/dashboard\/complaints\?requestId=rental&amp;complaintId=complaint"/);
+    assert.doesNotMatch(html, /\/contracts\/root/);
   }
 });
 
@@ -151,6 +154,13 @@ test("zero-deposit ledger is an exemption, while later received money retains it
   const adjusted=renderLifecycle({heldDeposit:3000000,deposit:{...ledger,heldAmount:3000000,confirmedReceivedAmount:3000000}},false,"settlement");
   assert.match(adjusted,/3\.000\.000/);assert.doesNotMatch(adjusted,/Không đặt cọc/);
 });
+test("settlement can hide the deposit ledger when the page already shows it", () => {
+  const ledger = { status: "HELD", originalAmount: 5, heldAmount: 5, retainedAmount: 0, refundableAmount: 5, confirmedReceivedAmount: 5, confirmedRefundedAmount: 0 };
+  fixture = { ...base, deposit: ledger }; stateIndex = 0;
+  assert.match(renderToStaticMarkup(React.createElement(Lifecycle, { contractId: "root", isLandlord: false, mode: "settlement" })), /aria-label="Sổ cọc"/);
+  fixture = { ...base, deposit: ledger }; stateIndex = 0;
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(Lifecycle, { contractId: "root", isLandlord: false, mode: "settlement", showLedger: false })), /aria-label="Sổ cọc"/);
+});
 test("refund QR belongs to landlord while actual receipt belongs to tenant", () => {
   assert.match(renderPayment("AWAITING_TRANSFER", true), /Tôi đã chuyển khoản/);
   assert.doesNotMatch(renderPayment("AWAITING_TRANSFER", false), /Tôi đã chuyển khoản/);
@@ -162,7 +172,7 @@ test("balance settlement reverses roles and overdue obligation stays payable", (
   assert.match(renderPayment("TRANSFER_REPORTED", true, "TENANT_TO_LANDLORD"), /Xác nhận đã nhận tiền/);
   assert.doesNotMatch(renderPayment("CONFIRMED", true), /Tôi đã chuyển khoản/);
   assert.match(paymentSource, /expectedAmount: payment.totalAmount/);
-  assert.match(paymentSource, /window.confirm/);
+  assert.match(paymentSource, /useActionDialog/);assert.doesNotMatch(paymentSource, /window\.confirm/);
 });
 test("deposit adjustment distinguishes top-up and partial refund with correct receipt roles", () => {
   assert.match(renderPayment("AWAITING_TRANSFER",false,"TENANT_TO_LANDLORD","DEPOSIT_ADJUSTMENT"),/Bổ sung cọc|Tôi đã chuyển khoản/);

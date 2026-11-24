@@ -344,10 +344,15 @@ function onboardingFixture() {
   const document = events({ visibilityState: 'visible' });
   const sync = load('components/rental-request/useRentalRequestSync.ts', { react: runtime.hooks,
     '@/services/notification.service': notifications.notificationService }, { ...timers.globals, document });
+  const onboardingApi = { refresh(id) { const call = { ...deferred(), id }; calls.push(call); return call.promise; } };
   const mocks = { react: runtime.hooks, sonner: { toast: { success() {}, error() {} } },
-    '@/services/rental-onboarding.service': { rentalOnboardingService: { refresh(id) { const call = { ...deferred(), id }; calls.push(call); return call.promise; } } },
+    '@/services/rental-onboarding.service': { rentalOnboardingService: onboardingApi },
+    // The panel polls through readOnboarding (get, falling back to refresh); the fixture backend only has refresh.
+    '@/lib/rental-onboarding-read': { readOnboarding: (id) => onboardingApi.refresh(id) },
     '@/services/payment-request.service': {}, '@/services/storage.service': {},
-    '@/utils/apiError': { getApiErrorMessage: (_error, fallback) => fallback }, './useRentalRequestSync': sync };
+    '@/utils/apiError': { getApiErrorMessage: (_error, fallback) => fallback }, './useRentalRequestSync': sync,
+    '@/components/common/PolicyDialog': { PolicyNotice: nullComponent },
+    '@/components/common/ActionDialog': { useActionDialog: () => ({ confirm: async () => true, askReason: async () => null, dialog: null }) } };
   for (const name of ['./RentalPaymentModal', './DepositAgreementPanel',
     '@/components/payment/PaymentReceiptActions', '@/components/payment/DepositLedgerSummary',
     '@/components/complaint/ComplaintPanel', './RentalWorkflowPanel']) mocks[name] = nullComponent;
@@ -399,14 +404,25 @@ function resourceFixture(detail = false, authOverrides = {}) {
     '@/services/payment-request.service': {}, '@/services/storage.service': {},
     '@/utils/apiError': {}, '@/config/rental-hold.config': {}, '@/lib/contract-routes': {},
     '@/lib/rental-request-actions': {}, '@/lib/listing-detail-access': {}, '@/lib/rental-deposit-quick-view': {},
-    '@/lib/rental-contract-fallback': {}, './rental-request.helper': {}, './rental-request-snapshot.helper': {} };
+    '@/lib/rental-contract-fallback': {}, './rental-request.helper': {}, './rental-request-snapshot.helper': {},
+    '@/components/common/PolicyDialog': { PolicyNotice: nullComponent }, '@/components/rental/NextActionCard': { default: nullComponent },
+    '@/components/rental/DetailTabs': { default: nullComponent, panelId: () => '', tabId: () => '' },
+    '@/lib/rental-labels': { DETAIL_TABS: [], describeNextAction: () => null, toneClasses: {}, contractStatus: () => ({}), requestStatus: () => ({}), paymentStatus: () => ({}) },
+    '@/lib/rental-request-presentation': { presentRentalRequest: () => ({}), transferWindowClosed: () => false }, '@/hooks/useNowMs': { useNowMs: () => 0 }, './ModalShell': { default: nullComponent },
+    './useRequestContracts': { useRequestContracts: () => ({ contractsByRequest: {}, agreementsByRequest: {}, rememberContract() {} }) },
+    './useRentalHoldMinutes': { useRentalHoldMinutes: () => null }, './RentalRequestDialogs': { useRequestDecisions: () => ({}) },
+    './RentalRequestCard': { default: nullComponent }, './RentalRequestFilters': { default: nullComponent },
+    '@/types/rental-request.type': {} };
+  // The list state now lives in its own hook: load the real one against the same service mock.
+  mocks['./useRentalRequestList'] = load('components/rental-request/useRentalRequestList.ts', { react: runtime.hooks, sonner: { toast: { error() {} } },
+    '@/services/rental-request.service': mocks['@/services/rental-request.service'], '@/types/rental-request.type': {} }, { ...timers.globals, document });
   for (const name of ['./RentalRequestDetailModal', './RentalRequestAiReviewModal', './RentalContractFallbackButton',
     './RentalPaymentModal', './RentalDepositQuickViewModal', './RentalStartChangeQuickModal',
     '@/components/contract/AgreementDocumentActions', './RentalOnboardingPanel', './EndOfPeriodCharges']) mocks[name] = nullComponent;
   // Keep the actual component hooks and network callbacks; replace only the markup/action tail with state observables.
   const transform = detail
     ? source => source.slice(0, source.indexOf('  if (!isOpen) return null;')) + '  return {detail, loading, error};\n}'
-    : source => source.slice(0, source.indexOf('  // Handle Accept')) + '  return {requests, loading, totalElements, fetchRequests};\n}\nexports.View = RentalRequestsManagementView;';
+    : source => source.slice(0, source.indexOf('  const actions: RequestCardActions')) + '  return {requests, loading, totalElements, fetchRequests};\n}\nexports.View = RentalRequestsManagementView;';
   const exports = load(`components/rental-request/${detail ? 'RentalRequestDetailModal' : 'RentalRequestsManagement'}.tsx`, mocks,
     { ...timers.globals, document, window: timers.globals }, '', transform);
   runtime.mount(detail ? exports.default : exports.View, detail ? { requestId: REQUEST, isOpen: true, mode: 'RECEIVED' } : { mode: 'RECEIVED' });

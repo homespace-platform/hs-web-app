@@ -16,7 +16,7 @@ function load(source, imports = require) {
   vm.runInThisContext(`(function(require,module,exports){${compiled}\n})`)(imports, mod, mod.exports);
   return mod.exports;
 }
-const invoiceStatus = load(read("lib/invoice-status.ts"));
+const invoiceStatus = load(read("lib/invoice-status.ts"), (name) => (name.startsWith("@/lib/") ? load(read(name.replace("@/", "") + ".ts")) : require(name)));
 const presentation = invoiceStatus.invoiceStatusPresentation;
 const invoicePeriodLabel = invoiceStatus.invoicePeriodLabel;
 const invoicePeriodSecondaryLabel = invoiceStatus.invoicePeriodSecondaryLabel;
@@ -32,13 +32,13 @@ test("first rent has its own label without deposit or expense month zero; cancel
 test("submitted proof takes priority over unpaid/overdue badge without marking invoice paid", () => {
   for (const status of ["UNPAID", "OVERDUE"]) {
     const invoice = state(status);
-    assert.equal(presentation(invoice, "TRANSFER_REPORTED").label, "Đã báo chuyển · Chờ xác nhận");
+    assert.equal(presentation(invoice, "TRANSFER_REPORTED").label, "Đã báo chuyển · chờ xác nhận");
     assert.match(presentation(invoice, "TRANSFER_REPORTED").className, /blue/);
     assert.equal(invoice.status, status);
   }
 });
 test("rejected proof are not described as awaiting confirmation", () => {
-  assert.equal(presentation(state(), "REJECTED").label, "Chứng từ bị từ chối");
+  assert.equal(presentation(state(), "REJECTED").label, "Chứng từ chưa được chấp nhận");
 });
 test("confirmed payment and paid invoices retain green completed badge", () => {
   assert.equal(presentation(state(), "CONFIRMED").label, "Đã thanh toán");
@@ -51,7 +51,7 @@ test("draft and transferred debt do not inherit a stale pending payment label", 
 test("missing review payment data does not falsely call it unpaid or confirmed", () => {
   assert.equal(presentation(state()).label, "Chờ xác nhận");
   assert.equal(presentation(state("UNPAID", "UNPAID"), "AWAITING_TRANSFER").label, "Chưa thanh toán");
-  assert.equal(presentation(state("OVERDUE", "OVERDUE"), "OVERDUE").label, "Quá hạn");
+  assert.equal(presentation(state("OVERDUE", "OVERDUE"), "OVERDUE").label, "Đã quá hạn");
 });
 
 const detailSource = read("components/contract/detail/MonthlyInvoicesSection.tsx");
@@ -62,6 +62,7 @@ const testReact = { ...React, useState(initial) {
 } };
 const Detail = load(detailSource, name => name === "@/components/common/PolicyDialog" ? { PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null }
   : name === "react" ? testReact
+  : name === "@/components/common/ActionDialog" ? { useActionDialog: () => ({ confirm: async () => true, askReason: async () => "lý do", dialog: null }) }
   : ["@/components/payment/PaymentReceiptActions"].includes(name) ? { default: () => null }
   : ["@/components/complaint/ComplaintPanel","@/components/rental-request/RentalWorkflowPanel"].includes(name) ? { default: () => null }
   : name === "@/lib/invoice-status" ? { invoiceStatusPresentation: presentation, invoicePeriodLabel, invoicePeriodSecondaryLabel }
@@ -81,18 +82,14 @@ test("both parties see pending badge on actual detail component, owner retains c
     initialStates = [[invoice], [payment], false]; stateIndex = 0;
     const html = renderToStaticMarkup(React.createElement(Detail, { contractId: "contract", contractActive: true,
       isLandlord, isTenant: !isLandlord, electricityRequired: false, waterRequired: false, unsupportedWaterRate: false }));
-    assert.match(html, /Đã báo chuyển · Chờ xác nhận/);
+    assert.match(html, /Đã báo chuyển · chờ xác nhận/);
     assert.doesNotMatch(html, />Chưa thanh toán</);
     if (isLandlord) assert.match(html, /Xác nhận đã nhận tiền/);
     else assert.doesNotMatch(html, />Xác nhận đã nhận tiền</);
   }
 });
-test("list and detail share the same status mapper; list reads actual payment state", () => {
-  const listSource = read("app/dashboard/invoices/page.tsx");
+test("detail reads the shared status mapper with the actual payment state", () => {
   assert.match(detailSource, /invoiceStatusPresentation\(invoice, payment\?\.status\)/);
-  assert.match(listSource, /getContractPayments\(contract.id\)/);
-  assert.match(read("components/dashboard/invoices/ContractPaymentCard.tsx"), /monthlySummary/);
-  assert.match(listSource, /cancelled|refreshKey/);
 });
 
 test("actual month-one view uses original combined transfer without monthly penalty or month-zero expenses",()=>{
@@ -121,19 +118,4 @@ test("payment numbers are independent of expense months for three and twelve mon
   assert.equal(invoicePeriodLabel({ periodIndex: 0, status: "PAID", lines: [{ type: "RENT" }] }), "Kỳ thanh toán 2");
   assert.equal(invoicePeriodLabel({ periodIndex: 11, status: "PAID", lines: [{ type: "ELECTRICITY" }] }), "Chi phí cuối hợp đồng");
   assert.match(invoicePeriodLabel({ periodIndex: 2, status: "DRAFT" }), /Chờ thông tin/);
-});
-
-const initialSource = read("components/contract/detail/InitialPaymentHistory.tsx");
-const InitialHistory = load(initialSource, name => name === "react" ? testReact
-  : name === "@/components/rental-request/RentalOnboardingPanel" ? { default: () => null }
-  : name.startsWith("@/services/") ? { default: {} } : require(name)).default;
-test("initial payment history delegates to the onboarding panel so deposit and first rent keep separate receipts", () => {
-  const html = renderToStaticMarkup(React.createElement(InitialHistory, { rentalRequestId: "rental", defaultOpen: true }));
-  assert.match(html, /<details open/);
-  assert.match(initialSource, /<RentalOnboardingPanel rentalRequestId=\{rentalRequestId\} \/>/);
-  assert.doesNotMatch(html, /<img|Tôi đã chuyển khoản/);
-  const panel = read("components/rental-request/RentalOnboardingPanel.tsx");
-  // Reported is not confirmed, and confirming one payment never implies the other.
-  assert.match(panel, /TRANSFER_REPORTED: "Đã báo chuyển · Chờ xác nhận"/);
-  assert.match(panel, /CONFIRMED: "Đã xác nhận"/);
 });

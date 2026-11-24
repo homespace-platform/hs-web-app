@@ -7,7 +7,16 @@ export interface RentalStartChange {
   status: "REQUESTED" | "APPROVED" | "REJECTED" | "WITHDRAWN" | "EXPIRED";
   requestedAt: string; respondBy: string; decidedAt?: string; responseNote?: string;
 }
+/** Single next step of the pre-tenancy flow, computed by the server (`nextAction` on the onboarding view). */
+export type NextActionCode =
+  | "PAY_DEPOSIT" | "CONFIRM_DEPOSIT" | "REVIEW_PAYMENT" | "PREPARE_DEPOSIT_AGREEMENT" | "SIGN_DEPOSIT_LANDLORD"
+  | "SIGN_DEPOSIT_TENANT" | "WAIT_START" | "PAY_FIRST_RENT" | "FIRST_RENT_OVERDUE" | "CONFIRM_FIRST_RENT" | "PREPARE_LEASE"
+  | "LEASE_TEMPLATE_REQUIRED" | "SIGN_LEASE_LANDLORD" | "SIGN_LEASE_TENANT" | "SIGNING_OVERDUE" | "RESPOND_DEFAULT_NOTICE"
+  | "DECIDE_CANCELLATION" | "RESOLUTION_IN_PROGRESS" | "SEND_REFUND" | "CONFIRM_REFUND" | "NONE";
+export interface NextAction { actor: "LANDLORD" | "TENANT" | "SYSTEM" | "NONE"; code: NextActionCode; dueAt?: string | null }
 export interface RentalOnboarding {
+  /** Absent when the backend is older than the nextAction release. */
+  nextAction?: NextAction | null;
   serverNow: string; timezone: string; stage: string; startsOn: string; endExclusive: string;
   originalEndExclusive?: string; leaseTermSource?: "EARLY_EXIT" | "SIGNED_ADJUSTMENT" | null;
   paymentOpensAt: string; paymentDueAt?: string; signingDueAt?: string;
@@ -27,6 +36,10 @@ export const rentalOnboardingService = {
   async notifyDefault(id:string,reason:string) {return (await axiosClient.post<ApiResponse<RentalOnboarding>>(`${base(id)}/default-notice`,{reason})).data.result;},
   async disputeDefault(id:string,reason:string) {return (await axiosClient.post<ApiResponse<RentalOnboarding>>(`${base(id)}/default-dispute`,{reason})).data.result;},
   async completeDefault(id:string,reason:string) {return (await axiosClient.post<ApiResponse<RentalOnboarding>>(`${base(id)}/default-completion`,{reason,tenantNotified:true,vacantPossessionConfirmed:true})).data.result;},
+  /** Read-only twin of refresh (no server-side sync or row lock): use it for polling and list views. */
+  async get(id: string) {
+    return (await axiosClient.get<ApiResponse<RentalOnboarding>>(base(id))).data.result;
+  },
   async refresh(id: string) {
     return (await axiosClient.post<ApiResponse<RentalOnboarding>>(`${base(id)}/refresh`)).data.result;
   },

@@ -1,6 +1,6 @@
 import axiosClient from "@/lib/axios-client";
 import type { ApiResponse } from "@/types/api.type";
-import type { IssueMonthlyInvoicePayload, MonthlyInvoice, OverdueActionType } from "@/types/monthly-invoice.type";
+import type { IssueMonthlyInvoicePayload, MonthlyInvoice } from "@/types/monthly-invoice.type";
 
 export const monthlyInvoiceService = {
   async issueUnilateralTermination(id: string, reason: string): Promise<MonthlyInvoice> {
@@ -59,14 +59,6 @@ export const monthlyInvoiceService = {
     );
     return data.result;
   },
-  async recordOverdueAction(id: string, payload: {
-    type: OverdueActionType; note: string; proposedDate?: string;
-  }): Promise<MonthlyInvoice> {
-    const { data } = await axiosClient.post<ApiResponse<MonthlyInvoice>>(
-      `/api/v1/monthly-invoices/${id}/overdue-actions`, payload
-    );
-    return data.result;
-  },
   async acknowledgeOverdueAction(id: string, actionId: string, note: string): Promise<MonthlyInvoice> {
     const { data } = await axiosClient.post<ApiResponse<MonthlyInvoice>>(
       `/api/v1/monthly-invoices/${id}/overdue-actions/${actionId}/acknowledge`, { note }
@@ -76,12 +68,6 @@ export const monthlyInvoiceService = {
   async deferToNextPeriod(id: string): Promise<MonthlyInvoice> {
     const { data } = await axiosClient.post<ApiResponse<MonthlyInvoice>>(
       `/api/v1/monthly-invoices/${id}/defer-to-next-period`
-    );
-    return data.result;
-  },
-  async proposeTermination(id: string): Promise<MonthlyInvoice> {
-    const { data } = await axiosClient.post<ApiResponse<MonthlyInvoice>>(
-      `/api/v1/monthly-invoices/${id}/termination/propose`
     );
     return data.result;
   },

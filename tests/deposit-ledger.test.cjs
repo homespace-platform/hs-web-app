@@ -18,5 +18,6 @@ test("reported refund never claims that money was actually received",()=>{
   assert.match(html,/Chờ bên nhận xác nhận/);assert.match(html,/chưa phải đã nhận tiền hoàn/);
 });
 test("admin and renter/landlord views render the same ledger definition",()=>{
-  assert.equal(source,fs.readFileSync(path.join(__dirname,"../../hs-admin-portal/src/pages/contracts/DepositLedgerSummary.tsx"),"utf8"));
+  const eol=text=>text.split(String.fromCharCode(13)).join(""); // checkouts differ in CRLF/LF; only the content must match
+  assert.equal(eol(source),eol(fs.readFileSync(path.join(__dirname,"../../hs-admin-portal/src/pages/contracts/DepositLedgerSummary.tsx"),"utf8")));
 });

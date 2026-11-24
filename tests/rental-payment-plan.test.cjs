@@ -26,8 +26,10 @@ test("reservation consent is mandatory in browser validation, button gating and 
   assert.match(modal,/if\(!reservationPolicyAccepted \|\| !reservationPolicy\) \{[\s\S]*?return;/);
   assert.match(modal,/reservationPolicyVersion: reservationPolicy!\.version/);
   assert.match(modal,/setReservationPolicyAccepted\(false\)/);
-  assert.doesNotMatch(modal,/setReservationPolicyAccepted\(true\)/);
-  assert.match(modal,/đã đọc và đồng ý điều kiện giữ chỗ \(bắt buộc\)/);
+  // Never prechecked: the only way to set it true is the explicit "Đồng ý" button inside the policy dialog.
+  assert.match(modal,/useState\(false\)/);
+  assert.doesNotMatch(modal.replace(/onAgree=\{\(\) => setReservationPolicyAccepted\(true\)\}/,""),/setReservationPolicyAccepted\(true\)/);
+  assert.match(modal,/đã đọc và đồng ý <\/strong>[\s\S]*?<PolicyConsent label=\"điều kiện giữ chỗ\"[\s\S]*?<strong> \(bắt buộc\)<\/strong>/);
 });
 test("future move-in separates deposit due after approval from first rent due on move-in",()=>{
   const html=render();

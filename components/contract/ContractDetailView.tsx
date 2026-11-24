@@ -2,21 +2,17 @@
 
 import RentalOnboardingPanel from "@/components/rental-request/RentalOnboardingPanel";
 import DepositAgreementPanel from "@/components/rental-request/DepositAgreementPanel";
-import type { RentalOnboarding } from "@/services/rental-onboarding.service";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import {
-  Loader2,
-} from "lucide-react";
+import { Banknote, CalendarRange, Loader2, MapPin, User } from "lucide-react";
 import { toast } from "sonner";
 import { contractService } from "@/services/contract.service";
 import type {
   ContractCompletenessResponse,
   ContractListingSyncPreview,
   ContractDocumentResponse,
-  ContractPaymentBreakdownResponse,
   ContractResponse,
   ContractRevisionResponse,
   UpdateContractRevisionRequest,
@@ -24,7 +20,11 @@ import type {
 } from "@/types/contract.type";
 import { useAuth } from "@/features/auth/useAuth";
 import { useAgreementChangeSync } from "@/hooks/useAgreementChangeSync";
+import { useDetailTab } from "@/hooks/useDetailTab";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { useActionDialog } from "@/components/common/ActionDialog";
+import { PolicyNotice } from "@/components/common/PolicyDialog";
+import { contractStatus, describeNextAction, toneClasses, type DetailTab, type Role } from "@/lib/rental-labels";
 
 import ContractHeader from "@/components/contract/detail/ContractHeader";
 import ContractPartiesSection from "@/components/contract/detail/ContractPartiesSection";
@@ -39,25 +39,34 @@ import ContractHandoverSection from "@/components/contract/detail/ContractHandov
 import ContractMissingFieldsNotice from "@/components/contract/detail/ContractMissingFieldsNotice";
 import ContractInitialPaymentSection from "@/components/contract/detail/ContractInitialPaymentSection";
 import { ContractFieldLegend } from "@/components/contract/detail/ContractFieldState";
-import { ContractSnapshotReadOnly } from "@/components/contract/detail/utils";
+import { ContractSnapshotReadOnly, isZeroDeposit } from "@/components/contract/detail/utils";
 import ContractDocumentSection from "@/components/contract/detail/ContractDocumentSection";
 import ContractSignaturePanel from "@/components/contract/detail/ContractSignaturePanel";
 import SmartCaSignaturePanel from "@/components/contract/detail/SmartCaSignaturePanel";
-import ContractLifecyclePanel from "@/components/contract/detail/ContractLifecyclePanel";
-import ComplaintPanel from "@/components/complaint/ComplaintPanel";
-import RentalWorkflowPanel from "@/components/rental-request/RentalWorkflowPanel";
 import ContractAmendmentPanel from "@/components/contract/detail/ContractAmendmentPanel";
 import ContractAmendmentWorkspace, { ContractTermsNotice } from "@/components/contract/detail/ContractAmendmentWorkspace";
-import { contractListPath, contractDetailPath, invoiceDetailPath } from "@/lib/contract-routes";
+import { ContractDraftEditor, draftContentPatch, draftEditorValues } from "@/components/contract/detail/ContractDraftEditor";
+import ListingSyncControl from "@/components/contract/detail/ListingSyncControl";
+import ContractPage from "@/components/contract/page/ContractPage";
+import ContractSummary, { type Fact } from "@/components/contract/page/ContractSummary";
+import DraftActionsCard from "@/components/contract/page/DraftActionsCard";
+import EndTab, { AmendmentSlot } from "@/components/contract/page/EndTab";
+import HistoryTab from "@/components/contract/page/HistoryTab";
+import OverviewTab, { type InfoCardData } from "@/components/contract/page/OverviewTab";
+import PaymentTab from "@/components/contract/page/PaymentTab";
+import { leaseTimeline } from "@/components/contract/page/timeline";
+import { ContractPageSkeleton } from "@/components/contract/page/ui";
+import { useOnboardingNextAction } from "@/components/contract/page/useOnboardingNextAction";
+import { contractListPath, contractDetailPath } from "@/lib/contract-routes";
 import { generateContractPreview } from "@/lib/contract-preview";
 import { missingRequiredInitialMeters, validateInitialMeterReading } from "@/lib/contract-initial-meters";
 import { VIETNAMESE_PHONE_REGEX } from "@/validation/user.schema";
 import type { AmendmentTerms } from "@/types/contract-amendment.type";
-import { ContractDraftEditor, draftContentPatch, draftEditorValues } from "@/components/contract/detail/ContractDraftEditor";
-import ListingSyncControl from "@/components/contract/detail/ListingSyncControl";
 
-import { PolicyNotice } from "@/components/common/PolicyDialog";
 const DRAFT_FORM_ID = "lease-draft-form";
+const POST_ACTIVE = ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"];
+const money = (n: number) => `${n.toLocaleString("vi-VN")} đ`;
+const isoDate = (s: string) => s.split("T")[0].split("-").reverse().join("/");
 
 export default function ContractDetailView({ perspective }: { perspective: "landlord" | "tenant" }) {
   const params = useParams();
@@ -66,13 +75,10 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   const contractId = String(params?.id || "");
 
   const [contract, setContract] = useState<ContractResponse | null>(null);
-  const [onboarding, setOnboarding] = useState<RentalOnboarding | null>(null);
-  useEffect(() => { setOnboarding(null); }, [contractId]);
   const [revision, setRevision] = useState<ContractRevisionResponse | null>(null);
   const [completeness, setCompleteness] = useState<ContractCompletenessResponse | null>(null);
   const [documents, setDocuments] = useState<ContractDocumentResponse[]>([]);
   const [currentPreview, setCurrentPreview] = useState<ContractDocumentResponse | null>(null);
-  const [payment, setPayment] = useState<ContractPaymentBreakdownResponse | null>(null);
   const [signatureState, setSignatureState] = useState<SignatureStateResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -104,6 +110,18 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     perspective === "tenant" && profile?.id && contract?.tenantId && profile.id === contract.tenantId
   );
 
+  const role: Role = isLandlord ? "LANDLORD" : "TENANT";
+  const isDepositKind = contract?.agreementKind === "DEPOSIT";
+  // Pre-tenancy: the deposit agreement, or a lease that is not yet in effect. The server then names the single next step.
+  const preActive = Boolean(contract && contract.agreementKind !== "WORKFLOW" && !contract.parentContractId
+    && (isDepositKind || !POST_ACTIVE.includes(contract.status)));
+  const { view: onboarding, nextAction, error: onboardingError, reload: reloadOnboarding, accept } =
+    useOnboardingNextAction(contract?.rentalRequestId, role, preActive && (isLandlord || isTenant));
+  const nextView = describeNextAction(nextAction, role);
+  const [tab, setTab] = useDetailTab(preActive && nextView?.mine ? nextView.tab : "overview");
+  const [syncTick, setSyncTick] = useState(0);
+  const { confirm, dialog } = useActionDialog();
+
   const load = useCallback(async () => {
     if (!contractId) return;
     setLoading(true);
@@ -126,11 +144,10 @@ export default function ContractDetailView({ perspective }: { perspective: "land
         setRevision(null);
         return; // Deposit/workflow documents must not load lease billing, meters or amendment tools.
       }
-      const [rev, comp, docs, paymentBreakdown, sigState, preview] = await Promise.all([
+      const [rev, comp, docs, sigState, preview] = await Promise.all([
         contractService.getRevision(contractId),
         contractService.getCompleteness(contractId),
         contractService.getDocuments(contractId),
-        contractService.getPaymentBreakdown(contractId),
         contractService.getSignatureState(contractId),
         c.status === "DRAFT" ? contractService.getPreviewStatus(contractId) : Promise.resolve(null),
       ]);
@@ -141,7 +158,6 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       setCompleteness(comp);
       setDocuments(docs);
       setCurrentPreview(preview);
-      setPayment(paymentBreakdown);
       setSignatureState(sigState);
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Không thể tải dữ liệu hợp đồng."));
@@ -189,7 +205,13 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     return run;
   }, [contractId]);
   // Signing notices for this exact document (or generic recovery). A deposit root is refreshed by its own panel.
-  useAgreementChangeSync(id => !id || id === contractId, refreshSignedState, contract?.agreementKind !== "DEPOSIT");
+  // After any panel changed something: refresh the signed state, the next-step card and the onboarding view.
+  const afterUpdate = useCallback(async () => {
+    try { await refreshSignedState(); }
+    catch { toast.info("Đã cập nhật, chưa tải lại được dữ liệu."); } // the action itself succeeded; callers must not report it as failed
+    finally { setSyncTick((n) => n + 1); if (preActive) void reloadOnboarding(); }
+  }, [refreshSignedState, preActive, reloadOnboarding]);
+  useAgreementChangeSync(id => !id || id === contractId, afterUpdate, contract?.agreementKind !== "DEPOSIT");
 
   useEffect(() => {
     void load();
@@ -263,6 +285,13 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   const baseTerms = useMemo(() => draftEditorValues(revision), [revision]);
   const draftContent = useMemo(() => draftContentPatch(baseTerms, draftEdits), [baseTerms, draftEdits]);
   const draftDirty = reviewDraft && Boolean(metersDirty || feeDirty || termsDirty || draftContent || listingSyncPreview);
+  // Field errors are shown in the content tab: bring the landlord there when a save was refused from another tab.
+  useEffect(() => {
+    if (reviewDraft && tab !== "content" && (meterErrors.electricity || meterErrors.water || feeError)) setTab("content");
+  }, [reviewDraft, tab, setTab, meterErrors, feeError]);
+  async function reloadDraft() {
+    if (!draftDirty || await confirm({ title: "Tải bản mới?", description: "Tải bản mới và bỏ các chỉnh sửa chưa lưu trên trang này.", tone: "warning", confirmLabel: "Tải lại" })) void load();
+  }
 
   async function handleRender(sourceOverride?: ContractListingSyncPreview) {
     if (!contractId || !revision || previewRequest.current || (reviewDraft && reviewLocked)) return;
@@ -393,6 +422,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       const refreshedDocs = await contractService.getDocuments(contractId);
       setDocuments(refreshedDocs);
       toast.success("Đã xác nhận nội dung và gửi hợp đồng cho người thuê.");
+      void afterUpdate();
     } catch (err) {
       toast.error(
         getApiErrorMessage(err, "Không thể gửi hợp đồng cho người thuê.")
@@ -414,6 +444,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
       const signed = await contractService.sign(contractId);
       setContract(signed);
       toast.success("Đã xác nhận đồng ý hợp đồng. Hợp đồng đã có hiệu lực.");
+      void afterUpdate();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Không thể xác nhận ký hợp đồng."));
     } finally {
@@ -421,14 +452,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="w-5 h-5 animate-spin text-primary" />
-        Đang tải thông tin hợp đồng...
-      </div>
-    );
-  }
+  if (loading) return <ContractPageSkeleton />;
 
   if (!contract) return null;
 
@@ -443,21 +467,58 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     </div>;
   }
 
-  if (contract.agreementKind === "DEPOSIT") return <div className="mx-auto max-w-4xl space-y-4 pb-8">
-    <Link href={`${contractListPath(perspective)}?kind=DEPOSIT`} className="text-sm text-primary underline">← Hợp đồng cọc của tôi</Link>
-    <div className="rounded-2xl border bg-card p-4"><h1 className="text-xl font-bold">Hợp đồng cọc & giữ phòng</h1><p className="mt-2 text-sm text-muted-foreground">1. Xác nhận cọc → 2. Ký HĐ cọc → 3. Thanh toán tháng đầu và ký HĐ thuê.</p></div>
-    <DepositAgreementPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} onUpdated={refreshSignedState}/>
-    <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} showDepositAgreement={false} onUpdated={refreshSignedState}/>
-  </div>;
   if (contract.agreementKind === "WORKFLOW") return <div className="mx-auto max-w-4xl space-y-3 rounded-2xl border bg-card p-5 pb-8 text-sm">
     <p className="font-semibold">Văn bản ký riêng của hồ sơ trả nhà / chấm dứt sớm</p>
     <p className="text-muted-foreground">Văn bản này được xem và ký cùng hồ sơ của hợp đồng gốc, nơi có đủ nội dung và kiểm tra phiên bản đang áp dụng.</p>
     {contract.parentContractId && <Link href={contractDetailPath(perspective, contract.parentContractId)} className="font-semibold text-primary underline">Mở hợp đồng gốc →</Link>}
   </div>;
+
+  const status = contractStatus(contract.status, isDepositKind ? "DEPOSIT" : "LEASE");
+  const pageProps = {
+    perspective, role, actorId: profile.id, contract, nextAction, onboardingMessage: onboarding?.message,
+    onboardingLoaded: Boolean(onboarding), onboardingError, onRetryOnboarding: reloadOnboarding, tab, setTab, syncTick,
+  };
+  const statusProps = { statusLabel: status.label, statusClassName: toneClasses[status.tone] };
+
+  if (isDepositKind) {
+    const available: DetailTab[] = ["overview", "sign", "payment", "end", "history"];
+    const deposit = onboarding?.deposit;
+    const facts: Fact[] = [
+      { label: "Tiền cọc", icon: <Banknote className="h-3.5 w-3.5" aria-hidden="true" />, value: deposit?.originalAmount != null ? money(deposit.originalAmount) : undefined },
+      { label: "Thời hạn thuê", icon: <CalendarRange className="h-3.5 w-3.5" aria-hidden="true" />, value: onboarding ? `${isoDate(onboarding.startsOn)} – ${isoDate(onboarding.endExclusive)}` : undefined },
+    ];
+    return <ContractAmendmentWorkspace contractId={contract.id} actorId={profile.id} perspective={perspective} enabled={false}>
+      <ContractPage key={contract.id} {...pageProps} preActive available={available}
+        header={<ContractHeader backPath={`${contractListPath(perspective)}?kind=DEPOSIT`} contract={contract} revision={null} completeness={null}
+          latestDoc={null} hasReadyDoc={false} isLandlord={isLandlord} isTenant={isTenant} rendering={false} sending={false}
+          onRender={handleRender} onSend={handleSendToTenant} kindLabel="HĐ cọc" {...statusProps} summary={<ContractSummary facts={facts} />} />}
+        panels={{
+          overview: <OverviewTab role={role} contractId={contract.id} showInvoices={false}
+            cards={[{ title: "Hợp đồng cọc & giữ phòng", rows: [["Trạng thái", status.label], ["Tiền cọc", deposit?.originalAmount != null ? money(deposit.originalAmount) : undefined],
+              ["Đang giữ", deposit?.heldAmount != null ? money(deposit.heldAmount) : undefined]] }]}
+            onboardingSummary={<RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} showDepositAgreement={false} sections={["summary"]} onSnapshot={accept} onUpdated={afterUpdate} />} />,
+          sign: <>
+            <DepositAgreementPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} onUpdated={afterUpdate} />
+            <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} showDepositAgreement={false} sections={["sign"]} onSnapshot={accept} onUpdated={afterUpdate} />
+          </>,
+          payment: <PaymentTab contract={contract} isLandlord={isLandlord} preActive onUpdated={afterUpdate} onSnapshot={accept} />,
+          end: <EndTab contract={contract} isLandlord={isLandlord} actorId={profile.id} perspective={perspective} preActive onUpdated={afterUpdate} onSnapshot={accept} />,
+          history: <HistoryTab contract={contract} isLandlord={isLandlord} perspective={perspective} preActive onUpdated={afterUpdate} onSnapshot={accept} />,
+        }} />
+      {dialog}
+    </ContractAmendmentWorkspace>;
+  }
   if (!revision) return null;
 
+  const listingSyncAction = reviewDraft && <ListingSyncControl contractId={contractId} baseRevisionId={revision.id}
+    disabled={reviewLocked || draftBusy} onBusyChange={setSyncingListing} onSelect={async source => {
+      if (previewRequest.current) return;
+      setListingSyncPreview(source);
+      await handleRender(source);
+    }} />;
   const isDraft = contract.status === "DRAFT" && !contract.parentContractId;
   const isAmendment = contract.agreementKind === "AMENDMENT";
+  const isChild = Boolean(contract.parentContractId);
   const landlord = revision.landlord || {};
   const tenant = revision.tenant || {};
   const property = listingSyncPreview?.terms.property ?? revision.property ?? {};
@@ -510,165 +571,170 @@ export default function ContractDetailView({ perspective }: { perspective: "land
     <ContractPropertySection property={property} />
     <ContractLeaseSection lease={lease} agreedEarlyEndExclusive={contract.agreedEarlyEndExclusive} />
     <ContractFinancialSection financial={financial} />
-    <ContractInitialPaymentSection initialPayment={revision.initialPayment} />
     <ContractAmenitiesSection amenities={amenities} />
     <ContractChargesSection charges={charges} />
     <ContractEquipmentSection equipments={equipments} />
     {policiesSection}
   </>;
 
-  return (
-    <ContractAmendmentWorkspace contractId={contract.id} actorId={profile.id} perspective={perspective} enabled={!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status)}>
-    <ContractSnapshotReadOnly.Provider value={isDraft}>
-    <div className="space-y-6 animate-in fade-in-50 duration-200 pb-52 max-w-6xl mx-auto">
-      <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm">
-        <p className="font-semibold">{isAmendment ? "Phụ lục điều chỉnh hợp đồng" : perspective === "landlord" ? "Hợp đồng cho thuê" : "Hợp đồng đi thuê"}</p>
-        <p className="text-xs text-muted-foreground">{perspective === "landlord"
-          ? "Quản lý nội dung, tài liệu và chữ ký với tư cách bên cho thuê."
-          : "Xem nội dung, tài liệu và xác nhận ký với tư cách bên đi thuê."}</p>
-      </div>
-      {/* 1. CONTRACT HEADER */}
-      <ContractHeader
-        backPath={isAmendment && contract.parentContractId ? contractDetailPath(perspective, contract.parentContractId) : contractListPath(perspective)}
-        contract={contract}
-        revision={revision}
-        completeness={completeness}
-        latestDoc={draftDirty || draftConflict ? null : latestDoc}
-        hasReadyDoc={hasReadyCurrentDocument && !draftDirty && !draftConflict}
-        isLandlord={isLandlord}
-        isTenant={isTenant}
-        rendering={rendering}
-        reconcilingPreview={reconcilingPreview}
-        sending={sending}
-        onRender={handleRender}
-        draftReview={reviewDraft ? { formId: DRAFT_FORM_ID, saving: savingDraft || syncingListing, retry: retryPreview && !draftDirty, locked: reviewLocked } : undefined}
-        listingSyncAction={reviewDraft && <ListingSyncControl contractId={contractId} baseRevisionId={revision.id}
-          disabled={reviewLocked || draftBusy} onBusyChange={setSyncingListing} onSelect={async source => {
-            if (previewRequest.current) return;
-            setListingSyncPreview(source);
-            await handleRender(source);
-          }} />}
-        onSend={handleSendToTenant}
-        smartCaMode={signatureState?.signatureMode === "SMARTCA"}
-        cancellationRefundPending={onboarding?.stage === "CANCELLATION_REFUND_PENDING"}
-      />
+  const afterEffective = !isChild && POST_ACTIVE.includes(contract.status);
+  const available: DetailTab[] = isChild ? ["overview", "sign", "content"] : ["overview", "sign", "payment", "end", "content", "history"];
+  const text = (value: unknown) => (value == null || String(value).trim() === "" ? undefined : String(value));
+  const counterpart = isLandlord ? tenant : landlord;
+  // Signed early-termination addendum: the effective last rental day is (agreed exclusive end - 1 day); the original text stays on the content tab.
+  const earlyEnd = !isChild && contract.agreedEarlyEndExclusive ? new Date(`${contract.agreedEarlyEndExclusive.split("T")[0]}T00:00:00Z`) : null;
+  if (earlyEnd && !Number.isNaN(earlyEnd.getTime())) earlyEnd.setUTCDate(earlyEnd.getUTCDate() - 1);
+  const effectiveEndText = earlyEnd && !Number.isNaN(earlyEnd.getTime()) ? isoDate(earlyEnd.toISOString()) : undefined;
+  const leaseEndText = effectiveEndText ?? text(lease.endDateText);
+  const title = text(property.title) ?? text(property.listingTitle) ?? text(property.propertyType);
+  const address = text(property.fullAddress);
+  const facts: Fact[] = [
+    { label: isLandlord ? "Người thuê" : "Chủ nhà", icon: <User className="h-3.5 w-3.5" aria-hidden="true" />, value: text(counterpart.fullName) },
+    { label: "Bất động sản", icon: <MapPin className="h-3.5 w-3.5" aria-hidden="true" />,
+      value: title || address ? <>{title ?? address}{title && address ? <span className="block font-normal text-muted-foreground">{address}</span> : null}</> : undefined },
+    { label: "Tiền thuê · Tiền cọc", icon: <Banknote className="h-3.5 w-3.5" aria-hidden="true" />,
+      value: text(financial.amountNumber) ? <>{text(financial.amountNumber)}<span className="block font-normal text-muted-foreground">Cọc: {isZeroDeposit(financial.depositAmountValue ?? financial.depositAmountNumber) ? "không đặt cọc" : text(financial.depositAmountNumber) ?? "—"}</span></> : undefined },
+    { label: "Thời hạn thuê", icon: <CalendarRange className="h-3.5 w-3.5" aria-hidden="true" />,
+      value: text(lease.startDateText) && leaseEndText ? `${text(lease.startDateText)} – ${leaseEndText}` : undefined },
+  ];
+  const cards: InfoCardData[] = [
+    { title: "Các bên", rows: [["Chủ nhà (Bên A)", text(landlord.fullName)], ["Người thuê (Bên B)", text(tenant.fullName)],
+      [isLandlord ? "Điện thoại người thuê" : "Điện thoại chủ nhà", text(counterpart.phone)]] },
+    { title: "Bất động sản", rows: [["Địa chỉ", address], ["Loại hình", text(property.propertyType)], ["Diện tích", text(property.areaText)],
+      ["Số căn / phòng", text(property.unitNumber)], ["Tầng", text(property.floor)]] },
+    { title: "Thời hạn thuê", rows: [["Bắt đầu", text(lease.startDateText)], ["Kết thúc", leaseEndText], effectiveEndText ? ["Thời hạn", "Rút ngắn theo phụ lục chấm dứt sớm"] : ["Thời hạn", text(lease.durationText) ?? (text(lease.durationMonths) ? `${text(lease.durationMonths)} tháng` : undefined)],
+      ["Bàn giao", text(lease.handoverDateText)]] },
+    { title: "Tiền thuê & cọc", rows: [["Tiền thuê", text(financial.amountNumber)], ["Tiền cọc", isZeroDeposit(financial.depositAmountValue ?? financial.depositAmountNumber) ? "Không đặt cọc" : text(financial.depositAmountNumber)],
+      ["Kỳ thanh toán", text(financial.paymentCycle)], ["Phương thức", text(financial.paymentMethod)]] },
+  ];
+  const depositSigned = !isChild && onboarding?.depositAgreementContractId && onboarding.depositAgreementRequired !== false
+    ? POST_ACTIVE.includes(onboarding.depositAgreementStatus ?? "") : undefined;
 
+  const documentsAvailable = hasReadyCurrentDocument && !draftDirty && !draftConflict;
+  const header = <ContractHeader
+    backPath={isAmendment && contract.parentContractId ? contractDetailPath(perspective, contract.parentContractId) : contractListPath(perspective)}
+    contract={contract}
+    revision={revision}
+    completeness={completeness}
+    latestDoc={draftDirty || draftConflict ? null : latestDoc}
+    hasReadyDoc={documentsAvailable}
+    isLandlord={isLandlord}
+    isTenant={isTenant}
+    rendering={rendering}
+    reconcilingPreview={reconcilingPreview}
+    sending={sending}
+    onRender={handleRender}
+    draftReview={reviewDraft ? { formId: DRAFT_FORM_ID, saving: savingDraft || syncingListing, retry: retryPreview && !draftDirty, locked: reviewLocked } : undefined}
+    listingSyncAction={listingSyncAction}
+    onSend={handleSendToTenant}
+    smartCaMode={signatureState?.signatureMode === "SMARTCA"}
+    cancellationRefundPending={onboarding?.stage === "CANCELLATION_REFUND_PENDING"}
+    kindLabel={isAmendment ? "Phụ lục" : "HĐ thuê"}
+    {...statusProps}
+    summary={<ContractSummary facts={facts} />}
+    onOpenDocuments={() => setTab("sign")}
+  />;
+
+  const signaturePanel = signatureState?.signatureMode === "SMARTCA" ? <SmartCaSignaturePanel
+    contract={contract}
+    signingAllowed={Boolean(contract.parentContractId || onboarding?.canSign)}
+    blockedReason={onboarding?.message ?? "Đang kiểm tra ngày bắt đầu thuê và trạng thái thanh toán…"}
+    state={signatureState}
+    isLandlord={isLandlord}
+    isTenant={isTenant}
+    hasReadyPdf={Boolean(readyToSign && documents.some(d => d.revisionId === revision.id && d.documentType === "PDF" && d.status === "READY"))}
+    onUpdated={afterUpdate}
+  /> : <ContractSignaturePanel
+    contract={contract}
+    signingAllowed={Boolean(contract.parentContractId || onboarding?.canSign)}
+    blockedReason={onboarding?.message ?? "Đang kiểm tra ngày bắt đầu thuê và trạng thái thanh toán…"}
+    isLandlord={isLandlord}
+    isTenant={isTenant}
+    canSend={Boolean(completeness?.complete && readyToSign)}
+    sending={sending}
+    signing={signing}
+    onSend={handleSendToTenant}
+    onSign={handleSign}
+  />;
+
+  const panels: Partial<Record<DetailTab, ReactNode>> = {
+    overview: <OverviewTab role={role} contractId={contract.id} cards={cards} showInvoices={afterEffective}
+      timeline={isChild ? undefined : leaseTimeline(contract, depositSigned)}
+      onboardingSummary={preActive ? <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} showDepositAgreement={false} sections={["summary"]} onSnapshot={accept} onUpdated={afterUpdate} /> : undefined} />,
+    sign: <>
+      {reviewDraft && <DraftActionsCard dirty={draftDirty} conflict={draftConflict} signatureLocked={signatureLocked} missingMeters={missingMeterReadings.length > 0}
+        onReviewContent={() => setTab("content")} onReload={() => void reloadDraft()} />}
+      {missingFieldsNotice}
+      {isTenant && isDraft && <PolicyNotice title="Bản nháp hợp đồng" summary="Bản nháp để xem trước · Chưa có hiệu lực">
+        <p>Chủ nhà vẫn có thể cập nhật nội dung. Bạn có thể xem văn bản và đề nghị nhận nhà, bắt đầu hợp đồng sớm trong mục Thanh toán &amp; cọc. Chấp nhận đề nghị sẽ đổi ngày thuê và các kỳ hóa đơn; không chỉ mở ký trước ngày thuê cũ.</p>
+      </PolicyNotice>}
+      {preActive && <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} sections={["sign"]} onSnapshot={accept} onUpdated={afterUpdate} />}
+      {isChild && <div className="space-y-2">
+        <PolicyNotice tone="info" title={isAmendment ? "Phụ lục hợp đồng" : "Văn bản gia hạn hợp đồng"} summary={isAmendment ? "Phụ lục này ghi nhận điều khoản đã thống nhất với ngày áp dụng riêng." : "Đây là văn bản gia hạn liên kết hợp đồng gốc."}>
+          <p>{isAmendment ? "Phụ lục này ghi nhận điều khoản đã thống nhất với ngày áp dụng riêng. Xem bảng thay đổi và PDF trước khi ký. Hợp đồng gốc và lịch sử thanh toán được giữ nguyên."
+            : "Đây là văn bản gia hạn liên kết hợp đồng gốc. Không thu lại cọc hoặc tiền thuê tháng đầu; giữ nguyên điều kiện đã chốt. Chỉ có hiệu lực sau đủ chữ ký hai bên."}</p>
+        </PolicyNotice>
+        <Link href={contractDetailPath(perspective, contract.parentContractId!)} className="mt-2 block text-sm font-semibold text-primary underline">Mở hợp đồng gốc để theo dõi thời hạn, hóa đơn và cọc →</Link>
+      </div>}
+      {isAmendment && contract.parentContractId && <ContractAmendmentPanel contractId={contract.parentContractId} actorId={profile.id} perspective={perspective} agreementId={contract.id} />}
+      {signaturePanel}
+      <ContractDocumentSection documents={documents} contract={contract} />
+    </>,
+    payment: <PaymentTab contract={contract} revision={revision} isLandlord={isLandlord} preActive={preActive} onUpdated={afterUpdate} onSnapshot={accept}
+      initialPayment={<ContractInitialPaymentSection initialPayment={revision.initialPayment} />} />,
+    end: <EndTab contract={contract} isLandlord={isLandlord} actorId={profile.id} perspective={perspective} preActive={preActive} onUpdated={afterUpdate} onSnapshot={accept} />,
+    content: <>
       {reviewDraft && <>
-        <section className="space-y-2 rounded-xl border bg-card p-4 text-sm">
-          <h2 className="font-semibold">Rà soát bản nháp trước khi ký</h2>
+        <section className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6">
+          <h2 className="text-lg font-bold">Rà soát bản nháp trước khi ký</h2>
           <PolicyNotice tone="info" title="Soạn bản nháp hợp đồng" summary="Kiểm tra và sửa trực tiếp các ô bên dưới."><p>Kiểm tra và sửa trực tiếp các ô bên dưới. Bấm <strong>Lưu</strong> để lưu bản nháp và tự tạo PDF xem trước.</p></PolicyNotice>
-          <div className="flex flex-wrap gap-4 text-xs font-semibold text-primary">
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-primary">
             <a href="#contract-handover">Chỉ số điện nước</a>
             <a href="#contract-parties">Thông tin hai bên</a>
             <a href="#contract-property">Thông tin bất động sản</a>
-            <a href="#contract-policies">Phí chậm trả & thỏa thuận</a>
+            <a href="#contract-policies">Phí chậm trả &amp; thỏa thuận</a>
           </div>
-          {draftDirty && <p role="status" className="text-xs font-medium text-amber-700 dark:text-amber-400">Có thay đổi chưa lưu</p>}
-          {listingSyncPreview && <div className="flex flex-wrap items-center gap-3 text-xs">
+          {draftDirty && <p role="status" className="text-sm font-medium text-amber-700 dark:text-amber-400">Có thay đổi chưa lưu</p>}
+          {listingSyncPreview && <div className="flex flex-wrap items-center gap-3 text-sm">
             <span>Đã tải dữ liệu bài đăng. Hoàn thiện các ô còn thiếu để lưu và kết xuất.</span>
             <button type="button" className="text-primary underline" disabled={draftBusy || reviewLocked}
               onClick={() => setListingSyncPreview(null)}>Bỏ dữ liệu vừa lấy</button>
           </div>}
-          {draftConflict && <div role="alert" className="space-y-2 text-amber-800">
+          {draftConflict && <div role="alert" className="space-y-2 text-sm text-amber-800 dark:text-amber-300">
             <p>Bản nháp đã thay đổi ở nơi khác. Hãy đối chiếu nội dung trước khi chỉnh sửa lại.</p>
-            <button type="button" className="underline" onClick={() => {
-              if (!draftDirty || window.confirm("Tải bản mới và bỏ các chỉnh sửa chưa lưu trên trang này?")) void load();
-            }}>Tải lại bản nháp</button>
+            <button type="button" className="font-semibold underline" onClick={() => void reloadDraft()}>Tải lại bản nháp</button>
           </div>}
-          {signatureLocked && <p className="text-amber-800">Bản nháp đang xử lý chữ ký. Hãy theo dõi trạng thái ký bên dưới.</p>}
+          {signatureLocked && <p className="text-sm text-amber-800 dark:text-amber-300">Bản nháp đang xử lý chữ ký. Hãy theo dõi trạng thái ở mục Ký số &amp; tài liệu.</p>}
         </section>
         {!prioritizeMeters && missingFieldsNotice}
         {handoverSection}
       </>}
-      {!reviewDraft && (prioritizeMeters ? handoverSection : missingFieldsNotice)}
+      {!reviewDraft && prioritizeMeters && handoverSection}
 
       {isLandlord && isDraft && !contract.parentContractId && <PolicyNotice tone="neutral" title="Nguồn nội dung hợp đồng nháp" summary="Các nội dung chính lấy từ hồ sơ thuê đã chấp thuận.">
-        <p>Ngày thuê, thời hạn, tiền thuê, tiền cọc và số người/xe lấy từ hồ sơ đã chấp thuận. Đổi ngày nhận nhà dùng đề nghị nhận nhà sớm bên dưới. Các điều khoản sau ký được điều chỉnh qua phụ lục.</p>
+        <p>Ngày thuê, thời hạn, tiền thuê, tiền cọc và số người/xe lấy từ hồ sơ đã chấp thuận. Đổi ngày nhận nhà dùng đề nghị nhận nhà sớm trong mục Thanh toán &amp; cọc. Các điều khoản sau ký được điều chỉnh qua phụ lục.</p>
       </PolicyNotice>}
+      {afterEffective && <ContractTermsNotice />}
+      <AmendmentSlot where="content" contractId={contract.id} actorId={profile.id} perspective={perspective} />
+      {reviewDraft ? <form id={DRAFT_FORM_ID} aria-label="Nội dung bản nháp hợp đồng" noValidate className="space-y-6"
+        onInvalidCapture={() => { if (tab !== "content") setTab("content"); }}
+        onSubmit={event => { event.preventDefault(); void handleRender(); }}>
+        <ContractDraftEditor.Provider value={{ base: baseTerms, values: { ...baseTerms, ...draftEdits },
+          busy: reviewLocked || draftBusy,
+          patch: (group, value) => setDraftEdits(previous => ({ ...previous, [group]: value })) }}>
+          {contractSections}
+        </ContractDraftEditor.Provider>
+      </form> : contractSections}
+      {!reviewDraft && !prioritizeMeters && handoverSection}
+    </>,
+    history: <HistoryTab contract={contract} isLandlord={isLandlord} perspective={perspective} preActive={preActive} onUpdated={afterUpdate} onSnapshot={accept} />,
+  };
 
-      {isTenant && isDraft && <PolicyNotice title="Bản nháp hợp đồng" summary="Bản nháp để xem trước · Chưa có hiệu lực">
-        <p>Chủ nhà vẫn có thể cập nhật nội dung. Bạn có thể xem văn bản và đề nghị nhận nhà, bắt đầu hợp đồng sớm trong phần bên dưới. Chấp nhận đề nghị sẽ đổi ngày thuê và các kỳ hóa đơn; không chỉ mở ký trước ngày thuê cũ.</p>
-      </PolicyNotice>}
-      {!contract.parentContractId && !["ACTIVE","EXPIRED","CLOSED","TERMINATED"].includes(contract.status) && <RentalOnboardingPanel rentalRequestId={contract.rentalRequestId} isLandlord={isLandlord} onSnapshot={setOnboarding} onUpdated={refreshSignedState} />}
-      {/* 3. SIGNATURE & CONFIRMATION PANEL (PROMINENT AT TOP / BOTTOM) */}
-      {contract.parentContractId && <div className="space-y-2">
-        <PolicyNotice tone="info" title={isAmendment ? "Phụ lục hợp đồng" : "Văn bản gia hạn hợp đồng"} summary={isAmendment ? "Phụ lục này ghi nhận điều khoản đã thống nhất với ngày áp dụng riêng." : "Đây là văn bản gia hạn liên kết hợp đồng gốc."}>
-          <p>{isAmendment ? "Phụ lục này ghi nhận điều khoản đã thống nhất với ngày áp dụng riêng. Xem bảng thay đổi và PDF trước khi ký. Hợp đồng gốc và lịch sử thanh toán được giữ nguyên."
-            : "Đây là văn bản gia hạn liên kết hợp đồng gốc. Không thu lại cọc hoặc thanh toán INITIAL; giữ nguyên điều kiện đã chốt. Chỉ có hiệu lực sau đủ chữ ký hai bên."}</p>
-        </PolicyNotice>
-        <Link href={contractDetailPath(perspective, contract.parentContractId)} className="mt-2 block font-semibold underline">Mở hợp đồng gốc để theo dõi thời hạn, hóa đơn và cọc →</Link>
-      </div>}
-      {isAmendment && contract.parentContractId && <ContractAmendmentPanel contractId={contract.parentContractId} actorId={profile.id} perspective={perspective} agreementId={contract.id} />}
-      {signatureState?.signatureMode === "SMARTCA" ? <SmartCaSignaturePanel
-        contract={contract}
-        signingAllowed={Boolean(contract.parentContractId || onboarding?.canSign)}
-        blockedReason={onboarding?.message ?? "Đang kiểm tra ngày bắt đầu thuê và trạng thái thanh toán…"}
-        state={signatureState}
-        isLandlord={isLandlord}
-        isTenant={isTenant}
-        hasReadyPdf={Boolean(readyToSign && documents.some(d => d.revisionId === revision.id && d.documentType === "PDF" && d.status === "READY"))}
-        onUpdated={refreshSignedState}
-      /> : <ContractSignaturePanel
-        contract={contract}
-        signingAllowed={Boolean(contract.parentContractId || onboarding?.canSign)}
-        blockedReason={onboarding?.message ?? "Đang kiểm tra ngày bắt đầu thuê và trạng thái thanh toán…"}
-        isLandlord={isLandlord}
-        isTenant={isTenant}
-        canSend={Boolean(completeness?.complete && readyToSign)}
-        sending={sending}
-        signing={signing}
-        onSend={handleSendToTenant}
-        onSign={handleSign}
-      />}
-
-      {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED"].includes(contract.status) && <>
-        {contract.status === "ACTIVE" && <ContractLifecyclePanel key={`${profile.id}:${contract.id}`} contractId={contract.id} isLandlord={isLandlord} onUpdated={refreshSignedState} mode="renewal" />}
-        <ContractAmendmentPanel contractId={contract.id} actorId={profile.id} perspective={perspective} />
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4"><div><p className="font-semibold">Hóa đơn & thanh toán</p><PolicyNotice tone="neutral" className="mt-1" title="Hóa đơn & thanh toán" summary="Thanh toán, hóa đơn và hoàn cọc nằm trong một hồ sơ riêng."><p>Thanh toán ban đầu, hóa đơn theo kỳ và bàn giao / hoàn cọc được quản lý trong một hồ sơ riêng.</p></PolicyNotice></div><Link href={invoiceDetailPath(contract.id)} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Mở hồ sơ thanh toán →</Link></div>
-      </>}
-      {/* 4. MAIN CONTRACT SECTIONS */}
-      {!contract.parentContractId && ["ACTIVE","EXPIRED","CLOSED","TERMINATED"].includes(contract.status) && <><RentalWorkflowPanel rentalRequestId={contract.rentalRequestId} kind="early-exit" onUpdated={refreshSignedState}/>{contract.status === "ACTIVE" && <ComplaintPanel rentalRequestId={contract.rentalRequestId} onUpdated={refreshSignedState}/>}</>}
-      <div className="space-y-6">
-        <>
-        {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status) && <ContractTermsNotice />}
-        {reviewDraft ? <form id={DRAFT_FORM_ID} aria-label="Nội dung bản nháp hợp đồng" noValidate className="space-y-6"
-          onSubmit={event => { event.preventDefault(); void handleRender(); }}>
-          <ContractDraftEditor.Provider value={{ base: baseTerms, values: { ...baseTerms, ...draftEdits },
-            busy: reviewLocked || draftBusy,
-            patch: (group, value) => setDraftEdits(previous => ({ ...previous, [group]: value })) }}>
-            {contractSections}
-          </ContractDraftEditor.Provider>
-        </form> : contractSections}
-
-        {/* CHỈ SỐ BAN ĐẦU ĐƯA VÀO HỢP ĐỒNG */}
-        {!reviewDraft && !prioritizeMeters && handoverSection}
-
-        </>
-        {/* DANH SÁCH FILE VĂN BẢN KẾT XUẤT */}
-        <ContractDocumentSection documents={documents} contract={contract} />
-        {!contract.parentContractId && ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status) && <Link
-          href={invoiceDetailPath(contract.id)}
-          className="block rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm font-semibold text-primary hover:bg-primary/10"
-        >
-          Xem và quản lý hóa đơn của hợp đồng này →
-        </Link>}
-      </div>
-
-      {/* FOOTER NAVIGATION */}
-      <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <PolicyNotice tone="neutral" className="flex-1" title="Hợp đồng gốc, phụ lục và bản đã ký" summary="Hợp đồng gốc, các phụ lục và bản đã ký được giữ nguyên để cả hai bên xem lại."><p>Hợp đồng gốc, các phụ lục và bản đã ký được giữ nguyên để cả hai bên xem lại. Nội dung điều chỉnh chỉ áp dụng sau khi hoàn tất ký và đến mốc hiệu lực.</p></PolicyNotice>
-        <Link
-          href={
-            isLandlord
-              ? "/dashboard/rental-requests"
-              : "/dashboard/rental-requests/my-requests"
-          }
-          className="text-primary font-semibold hover:underline shrink-0"
-        >
-          Quay lại yêu cầu thuê →
-        </Link>
-      </div>
-    </div>
+  return (
+    <ContractAmendmentWorkspace contractId={contract.id} actorId={profile.id} perspective={perspective} enabled={afterEffective}>
+    <ContractSnapshotReadOnly.Provider value={isDraft}>
+      <ContractPage key={contract.id} {...pageProps} preActive={preActive} available={available} header={header} panels={panels} keepMounted={reviewDraft ? "content" : undefined} />
+      {dialog}
     </ContractSnapshotReadOnly.Provider>
     </ContractAmendmentWorkspace>
   );

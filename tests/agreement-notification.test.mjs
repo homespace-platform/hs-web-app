@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { load, hookRuntime, clock, events, service, deferred, plain, Link, html, nullComponent } from './helpers/notification-runtime.mjs';
 
-const TYPES = ['AGREEMENT_REVIEW_READY', 'AGREEMENT_SIGNING_TURN', 'AGREEMENT_FULLY_SIGNED', 'AGREEMENT_SIGNATURE_NEEDS_REVIEW'];
+const TYPES = ['AGREEMENT_REVIEW_READY', 'AGREEMENT_SIGNING_TURN', 'AGREEMENT_FULLY_SIGNED', 'AGREEMENT_SIGNATURE_NEEDS_REVIEW', 'AGREEMENT_SIGNING_DUE_SOON'];
 const AMENDMENT_TYPES = ['AMENDMENT_RESPONSE_NEEDED', 'AMENDMENT_DECIDED', 'AMENDMENT_WITHDRAWN', 'AMENDMENT_EXPIRED', 'AMENDMENT_APPLIED'];
 const RENEWAL_TYPES = ['RENEWAL_REQUESTED', 'RENEWAL_APPROVED', 'RENEWAL_REJECTED', 'RENEWAL_EXPIRED'];
 const TERMINATION_TYPES = ['TERMINATION_RESPONSE_NEEDED', 'TERMINATION_AGREED', 'TERMINATION_DECLINED', 'TERMINATION_WITHDRAWN',
@@ -72,7 +72,7 @@ test('termination decisions have distinct tags and use the authorized root route
 });
 
 const Workflow = () => null;
-function landing({ user = 'owner', contractId = 'child-1', documents = [] } = {}) {
+function landing({ user = 'owner', contractId = 'child-1', documents = [], search = '' } = {}) {
   const runtime = hookRuntime(), requests = [], routes = [], documentCalls = [];
   const getContract = id => { const call = deferred(); requests.push({ id, ...call }); return call.promise; };
   const router = { replace: route => routes.push(route) };
@@ -85,7 +85,7 @@ function landing({ user = 'owner', contractId = 'child-1', documents = [] } = {}
     '@/services/rental-workflow.service': { rentalWorkflowService: { async documents(...args) { documentCalls.push(args); return documents; } } },
     '@/components/rental-request/RentalWorkflowPanel': Workflow,
     '@/features/auth/useAuth': { useAuth: () => ({ initialized: true, authenticated: true, userId: user }) },
-  }, { window: { location: { hash: '' } } }, '\nexports.TestLanding=Landing;').TestLanding;
+  }, { window: { location: { hash: '', search } } }, '\nexports.TestLanding=Landing;').TestLanding;
   runtime.mount(Component, { userId: user, contractId });
   return { runtime, requests, routes, documentCalls, answer: async value => { requests.at(-1).resolve(value); await runtime.settle(); } };
 }
@@ -100,6 +100,13 @@ test('authorized persisted party opens the exact child; a stranger never redirec
   const stranger = landing({ user: 'stranger' }); await stranger.answer(child());
   assert.deepEqual(stranger.routes, []);
   assert.match(html(stranger.runtime), /không có quyền/);
+});
+
+test('landing keeps the ?tab= query so a notification opens the exact contract section for both sides', async () => {
+  const owner = landing({ search: '?tab=sign' }); await owner.answer(child());
+  assert.deepEqual(owner.routes, ['/dashboard/landlord/contracts/child-1?tab=sign']);
+  const tenant = landing({ user: 'tenant', search: '?tab=payment' }); await tenant.answer(child());
+  assert.deepEqual(tenant.routes, ['/dashboard/tenant/contracts/child-1?tab=payment']);
 });
 
 test('historical workflow child outside the early-exit list never redirects or opens a workflow', async () => {

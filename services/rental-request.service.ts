@@ -147,6 +147,14 @@ const rentalRequestService = {
     );
     return response.data.result!;
   },
+
+  /**
+   * Chính sách giữ chỗ hiện hành (số phút giữ phòng)
+   */
+  async getPolicy(): Promise<{ holdMinutes?: number } | undefined> {
+    const response = await axiosClient.get<ApiResponse<{ holdMinutes?: number }>>("/api/v1/rental-requests/policy");
+    return response.data.result;
+  },
 };
 
 export default rentalRequestService;

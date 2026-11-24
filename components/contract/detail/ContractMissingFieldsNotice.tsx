@@ -27,15 +27,15 @@ export default function ContractMissingFieldsNotice({ completeness, isLandlord, 
       <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
       <div className="min-w-0 space-y-1 text-amber-900 dark:text-amber-200">
         <p className="text-sm font-bold">Hợp đồng còn {missingCount} thông tin bắt buộc chưa có dữ liệu</p>
-        {incomplete && <p className="text-xs">Đã điền {Math.max(0, incomplete.totalFields - missingCount)}/{incomplete.totalFields} trường.</p>}
-        <p className="text-xs leading-relaxed">{hasMeterEditor
+        {incomplete && <p className="text-sm">Đã điền {Math.max(0, incomplete.totalFields - missingCount)}/{incomplete.totalFields} trường.</p>}
+        <p className="text-sm leading-relaxed">{hasMeterEditor
           ? isLandlord
             ? "Vui lòng nhập chỉ số thực tế vào các ô bên dưới. Số 0 là hợp lệ. Chọn Lưu sau khi đã rà soát bản nháp."
             : "Chủ nhà cần bổ sung và lưu chỉ số công tơ ban đầu trước khi kết xuất, ký hợp đồng. Người thuê vui lòng kiểm tra chỉ số thực tế cùng chủ nhà."
           : "Vui lòng bổ sung thông tin còn thiếu trước khi kết xuất và gửi hợp đồng."}</p>
         {listedFields.length > 0 && <>
           {hasMeterEditor && <p className="pt-1 text-xs font-semibold">Thông tin khác cần bổ sung:</p>}
-          <ul className="text-[11px] list-disc pl-4 space-y-0.5 pt-1">
+          <ul className="text-sm list-disc pl-4 space-y-0.5 pt-1">
             {listedFields.slice(0, 6).map(field => <li key={field.key}>{field.label}</li>)}
             {listedFields.length > 6 && <li>… và {listedFields.length - 6} trường khác</li>}
           </ul>

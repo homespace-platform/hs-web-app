@@ -240,6 +240,9 @@ const PAYMENT_TYPE_TAGS: Record<string, string> = {
   PAYMENT_TRANSFER_REPORTED: "Đã báo chuyển khoản",
   PAYMENT_RECEIPT_CONFIRMED: "Đã xác nhận nhận",
   PAYMENT_RECEIPT_REJECTED: "Chưa xác nhận",
+  PAYMENT_REFUND_AUTO_CONFIRM_SOON: "Sắp tự xác nhận hoàn tiền",
+  PAYMENT_RECEIPT_AUTO_CONFIRM_SOON: "Sắp tự xác nhận nhận tiền",
+  PAYMENT_RECEIPT_AUTO_CONFIRMED: "Đã tự xác nhận nhận tiền",
 };
 
 // Invoice lifecycle notices (PAYMENT category). They open /dashboard/invoices/<contractId>?section=monthly&invoice=<id>
@@ -272,6 +275,7 @@ const AGREEMENT_TYPE_TAGS: Record<string, string> = {
   AGREEMENT_SIGNING_TURN: "Đến lượt ký",
   AGREEMENT_FULLY_SIGNED: "Đủ chữ ký",
   AGREEMENT_SIGNATURE_NEEDS_REVIEW: "Cần kiểm tra chữ ký",
+  AGREEMENT_SIGNING_DUE_SOON: "Sắp đến hạn ký",
 };
 
 export function isAgreementNotificationType(type: unknown): boolean {
@@ -335,6 +339,9 @@ const ROUTED_PAYMENT_TYPES: ReadonlySet<string> = new Set([
   "PAYMENT_TRANSFER_REPORTED",
   "PAYMENT_RECEIPT_CONFIRMED",
   "PAYMENT_RECEIPT_REJECTED",
+  "PAYMENT_REFUND_AUTO_CONFIRM_SOON",
+  "PAYMENT_RECEIPT_AUTO_CONFIRM_SOON",
+  "PAYMENT_RECEIPT_AUTO_CONFIRMED",
 ]);
 
 export function isRoutedPaymentType(type: unknown): boolean {

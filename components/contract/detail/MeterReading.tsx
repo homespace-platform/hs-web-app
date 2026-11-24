@@ -20,9 +20,9 @@ export function MeterReadingInput({ name, unit, start, end, onChange, variant = 
     ? Math.round((endNumber - startNumber) * 1000) / 1000 : undefined;
   const supplementary = variant === "supplement";
 
-  return <div className="space-y-3 rounded-xl border border-border bg-background p-3">
+  return <div className="space-y-3 rounded-2xl border border-border bg-card p-3 sm:p-4">
     <p className="text-sm font-semibold">Công tơ {name}</p>
-    <div className="grid grid-cols-2 gap-3 text-xs">
+    <div className="grid gap-3 text-sm sm:grid-cols-2">
       <div>
         <p className="text-muted-foreground">Chỉ số {name} {supplementary ? "đã tính trên hóa đơn" : "đầu kỳ"} ({unit})</p>
         <p className="mt-1 font-semibold tabular-nums">{format(start)}</p>
@@ -33,13 +33,13 @@ export function MeterReadingInput({ name, unit, start, end, onChange, variant = 
         <input id={inputId} type="number" min={startNumber ?? 0} step="0.001" value={end}
           aria-describedby={`${inputId}-help`} placeholder="Nhập số trên công tơ"
           onChange={(event) => onChange(event.target.value)}
-          className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" />
+          className="mt-1 w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2" />
       </div>
     </div>
-    <p id={`${inputId}-help`} className="text-xs text-muted-foreground">
+    <p id={`${inputId}-help`} className="text-sm text-muted-foreground">
       {supplementary ? "Nhập số công tơ thực tế hiện tại, không nhập lượng cần thu bổ sung." : "Nhập số đang hiển thị trên công tơ cuối kỳ, không nhập lượng đã dùng."}
     </p>
-    <p aria-live="polite" className={`rounded-lg p-2 text-xs ${consumption != null && consumption <= 0 ? "bg-amber-50 text-amber-900" : "bg-blue-50 text-blue-800"}`}>
+    <p aria-live="polite" className={`rounded-xl p-3 text-sm ${consumption != null && consumption <= 0 ? "bg-amber-500/10 text-amber-800 dark:text-amber-200" : "bg-primary/10 text-primary"}`}>
       {consumption == null ? supplementary ? "Lượng bổ sung = chỉ số hiện tại − chỉ số đã tính trên hóa đơn." : "Lượng sử dụng = chỉ số cuối kỳ − chỉ số đầu kỳ."
         : consumption < 0 ? supplementary ? "Chỉ số mới không được thấp hơn chỉ số đã tính trên hóa đơn." : "Chỉ số cuối kỳ không được thấp hơn chỉ số đầu kỳ."
           : <>{supplementary ? "Lượng bổ sung" : "Lượng sử dụng"}: {format(end)} − {format(start)} = <strong>{format(consumption)} {unit}</strong>.
@@ -51,7 +51,7 @@ export function MeterReadingInput({ name, unit, start, end, onChange, variant = 
 export function MeterReadingSummary({ start, end, quantity, unit }: {
   start: Reading; end: Reading; quantity: number; unit: "kWh" | "m³";
 }) {
-  return <p className="mt-1 text-xs text-muted-foreground">
+  return <p className="mt-1 text-sm text-muted-foreground">
     Chỉ số đầu kỳ: <span className="font-medium tabular-nums">{format(start)} {unit}</span>
     {" · "}Chỉ số cuối kỳ: <span className="font-medium tabular-nums">{format(end)} {unit}</span>
     {" · "}Đã dùng: <span className="font-medium tabular-nums">{format(quantity)} {unit}</span>

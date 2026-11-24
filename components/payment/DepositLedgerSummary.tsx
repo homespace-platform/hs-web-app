@@ -22,9 +22,9 @@ export default function DepositLedgerSummary({ ledger }: { ledger?: DepositLedge
   ] as const;
   return <section aria-label="Sổ cọc" className="space-y-2 rounded-xl border p-3 text-sm">
     <p className="font-semibold">Sổ cọc · {ledger.status === "REFUNDED" && ledger.confirmedRefundedAmount == null ? "Sổ ghi đã hoàn · Chưa đủ chứng từ" : labels[ledger.status] ?? ledger.status}</p>
-    <dl className="grid gap-2 sm:grid-cols-2">{rows.map(([label, value]) => <div key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="font-medium">{money(value)}</dd></div>)}</dl>
+    <dl className="grid gap-2 sm:grid-cols-2">{rows.map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="font-medium">{money(value)}</dd></div>)}</dl>
     {ledger.retainedReason && <p>Căn cứ giữ lại: {ledger.retainedReason}</p>}
-    {ledger.retainedAt && <p className="text-xs text-muted-foreground">Chốt giữ lúc {new Date(ledger.retainedAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}</p>}
+    {ledger.retainedAt && <p className="text-sm text-muted-foreground">Chốt giữ lúc {new Date(ledger.retainedAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}</p>}
     <PolicyNotice tone="neutral" title="Sổ cọc" summary="Đã thống nhất quyết toán hoặc đã báo chuyển chưa phải đã nhận tiền hoàn."><p>Đã thống nhất quyết toán hoặc đã báo chuyển chưa phải đã nhận tiền hoàn. Khoản phải trả thêm vượt cọc được theo dõi riêng.</p></PolicyNotice>
   </section>;
 }

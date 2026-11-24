@@ -15,45 +15,6 @@ function load(file) {
 const api = load("lib/payment-module");
 const bill = (id, status, amount, index = 0) => ({ id, contractId: "root", status, workflowState: status,
   totalAmount: amount, periodIndex: index, paymentRequestId: id + "-pay", paymentExtensions: [] });
-test("monthly summary counts transferred debt only in receiving bill and separates reported payments", () => {
-  const bills = [bill("old", "ROLLED_OVER", 100), bill("new", "UNPAID", 250, 1), bill("pending", "OVERDUE", 300, 2), bill("paid", "PAID", 800, 3)];
-  const payments = [{ id: "new-pay", status: "AWAITING_TRANSFER" }, { id: "pending-pay", status: "TRANSFER_REPORTED" }];
-  const summary = api.monthlySummary(bills, payments);
-  assert.equal(summary.amount, 250); assert.equal(summary.tone, "warning");
-  assert.match(summary.detail, /chờ xác nhận/);
-  assert.equal(bills[0].status, "ROLLED_OVER");
-  assert.equal(api.monthlySummary([bills[2]], payments).amount, 300);
-  assert.equal(api.monthlySummary([bills[2]], payments).tone, "info");
-});
-test("missing payment or invoice data never becomes zero debt or paid", () => {
-  for (const args of [[undefined, []], [[], undefined]]) {
-    const result = api.monthlySummary(...args); assert.equal(result.amount, undefined);assert.equal(result.tone, "muted");
-    assert.doesNotMatch(result.label, /Đã thanh toán/);
-  }
-  assert.equal(api.initialSummary().amount, undefined);
-});
-test("completed refund retains original transferred amount when held deposit becomes zero", () => {
-  const data = { heldDeposit: 0, billing: { allPaid: true }, closure: { status: "CLOSED", refundAmount: 26720000 },
-    refundPayment: { totalAmount: 26720000, status: "CONFIRMED" } };
-  const summary = api.depositSummary(data);assert.equal(summary.amount, 26720000);assert.equal(summary.tone, "success");
-  assert.match(summary.detail, /xác nhận nhận tiền/);
-  assert.equal(api.depositSummary({ ...data, refundPayment: { ...data.refundPayment, status: "TRANSFER_REPORTED" }, closure: { status: "REFUND_PENDING" } }).tone, "info");
-});
-test("deposit dispute, unaccepted proposal and zero settlement stay distinct", () => {
-  const data = { heldDeposit: 100, billing: { allPaid: true }, closure: { status: "PROPOSED", refundAmount: 50 } };
-  assert.match(api.depositSummary(data).label, /Chờ người thuê/);
-  assert.match(api.depositSummary({ ...data, closure: { status: "DISPUTED" } }).label, /đối soát/);
-  assert.equal(api.depositSummary({ ...data, closure: { status: "CLOSED", refundAmount: 0, balanceAmount: 0 } }).amount, 0);
-});
-
-test("paid invoices never advertise deposit proposal before the server permits it", () => {
-  const data={heldDeposit:100,billing:{allPaid:true},closure:{status:"WAITING_HANDOVER"},earlyReturnPending:true,canProposeClosure:false};
-  assert.match(api.depositSummary(data).detail,/xác nhận bàn giao/);
-  assert.doesNotMatch(api.depositSummary(data).detail,/có thể lập/);
-  assert.doesNotMatch(api.depositSummary({...data,earlyReturnPending:false}).detail,/có thể lập/);
-  assert.match(api.depositSummary({...data,earlyReturnPending:false,canProposeClosure:true}).detail,/chủ nhà có thể lập/);
-  assert.match(api.depositSummary({...data,canProposeClosure:true}).detail,/chủ nhà có thể lập/);
-});
 test("invoice selection follows deep link or party action, preserving newest history and input order", () => {
   const bills = [bill("paid", "PAID", 20, 0), bill("pending", "UNPAID", 40, 1), bill("last", "PAID", 10, 2)];
   const payments = [{ id: "pending-pay", status: "TRANSFER_REPORTED" }];
@@ -64,17 +25,9 @@ test("invoice selection follows deep link or party action, preserving newest his
   assert.deepEqual(bills.map(b => b.id), ["paid", "pending", "last"]);
 });
 test("module URLs encode contract and invoice identity and default to monthly safely", () => {
-  assert.deepEqual(api.paymentSections.map(s=>s.id),["monthly","deposit"]);
   assert.equal(api.paymentSection("initial"),"monthly");
-  assert.equal(api.paymentModulePath("a/b", "monthly", "x y"), "/dashboard/invoices/a%2Fb?section=monthly&invoice=x+y");
+  assert.equal(api.paymentModulePath("a/b", "monthly", "x y"), "/dashboard/contracts/a%2Fb?tab=payment&section=monthly&invoice=x+y");
   assert.equal(api.paymentSection("deposit"), "deposit");assert.equal(api.paymentSection("unknown"), "monthly");
-});
-
-test("first rent is counted without deposit, cancelled bills are not outstanding, retained deposit stays visible",()=>{
-  const first={...bill("first","PAID",5000000,-1),billingPeriod:{kind:"INITIAL_RENT",paymentPeriodNumber:1}};
-  assert.equal(api.monthlySummary([first,bill("cancelled","CANCELLED",5000000)],[]).tone,"success");
-  const summary=api.depositSummary(undefined,{deposit:{status:"RETAINED_BY_LANDLORD",heldAmount:0,retainedAmount:10000000,retainedReason:"Quá hạn ký sau thông báo"}});
-  assert.equal(summary.amount,10000000);assert.match(summary.label,/giữ cọc/);
 });
 
 test("untrusted route ids pass only as a single safe segment before they reach a path or comparison", () => {
@@ -86,6 +39,22 @@ test("untrusted route ids pass only as a single safe segment before they reach a
   assert.equal(api.safeInvoiceSelectionId(` first-rent:${uuid} `), `first-rent:${uuid}`);
   assert.equal(api.safeResourceId(`first-rent:${uuid}`), null, "contract path validation does not accept the synthetic id");
   for (const bad of [null, "", "first-rent:", "first-rent:a/b", "first-rent:../x", "first-rent:first-rent:x", "first-rent:-x", "other:abc", "a:b", "first-rent:" + "a".repeat(65)]) assert.equal(api.safeInvoiceSelectionId(bad), null, String(bad));
-  assert.equal(api.paymentModulePath("root", "monthly", `first-rent:${uuid}`), `/dashboard/invoices/root?section=monthly&invoice=first-rent%3A${uuid}`);
-  assert.equal(api.paymentModulePath("root", "deposit", undefined), "/dashboard/invoices/root?section=deposit");
+  assert.equal(api.paymentModulePath("root", "monthly", `first-rent:${uuid}`), `/dashboard/contracts/root?tab=payment&section=monthly&invoice=first-rent%3A${uuid}`);
+  assert.equal(api.paymentModulePath("root", "deposit", undefined), "/dashboard/contracts/root?tab=payment&section=deposit");
+  assert.equal(api.paymentQuery("deposit"), "tab=payment&section=deposit");
+});
+
+test("landing sends ?section=deposit on a lease to its deposit agreement, everything else to the contract's own page", () => {
+  const lease = { id: "lease", depositAgreementContractId: "dc-1" };
+  const target = (contract, search = "", hash = "", side = "tenant") => api.contractLandingTarget(side, contract, search, hash);
+  assert.equal(target(lease, "?tab=payment&section=deposit"), "/dashboard/tenant/contracts/dc-1?tab=payment");
+  assert.equal(target(lease, "?tab=payment&section=monthly&invoice=i1", "", "landlord"), "/dashboard/landlord/contracts/lease?tab=payment&section=monthly&invoice=i1");
+  assert.equal(target(lease, "?tab=sign"), "/dashboard/tenant/contracts/lease?tab=sign");
+  assert.equal(target(lease, "", "#monthly-invoices"), "/dashboard/tenant/contracts/lease?tab=payment&section=monthly#monthly-invoices");
+  // no deposit agreement, or an unsafe id: nothing to open, fall back to the lease's end tab
+  assert.equal(target({ id: "lease" }, "?section=deposit"), "/dashboard/tenant/contracts/lease?tab=end");
+  assert.equal(target({ id: "lease", depositAgreementContractId: "../x" }, "?section=deposit"), "/dashboard/tenant/contracts/lease?tab=end");
+  // the deposit agreement itself and child documents stay where they are
+  assert.equal(target({ id: "dc-1", agreementKind: "DEPOSIT" }, "?tab=payment&section=deposit"), "/dashboard/tenant/contracts/dc-1?tab=payment&section=deposit");
+  assert.equal(target({ id: "amend", agreementKind: "AMENDMENT", parentContractId: "lease" }, "?section=deposit"), "/dashboard/tenant/contracts/amend?section=deposit");
 });

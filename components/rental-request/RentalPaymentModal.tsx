@@ -38,6 +38,9 @@ import type { RentalRequestResponse } from "@/types/rental-request.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { useAuth } from "@/features/auth/useAuth";
 import { paymentTransferPresentation } from "@/lib/payment-transfer-presentation";
+import { paymentStatus, toneClasses } from "@/lib/rental-labels";
+import { transferWindowClosed } from "@/lib/rental-request-presentation";
+import { useNowMs } from "@/hooks/useNowMs";
 import { useNotificationChangeSync } from "@/hooks/useAgreementChangeSync";
 
 interface RentalPaymentModalProps {
@@ -82,6 +85,7 @@ function ScopedPaymentModal({
   onPaymentSuccess,
 }: RentalPaymentModalProps) {
   const { profile } = useAuth();
+  const nowMs = useNowMs();
   const [payment, setPayment] = useState<PaymentRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [qrLoading, setQrLoading] = useState(true);
@@ -249,7 +253,9 @@ function ScopedPaymentModal({
   const isConfirmed = payment?.status === "CONFIRMED";
   const isReported = payment?.status === "TRANSFER_REPORTED";
   const isRejected = payment?.status === "REJECTED";
-  const canReport = Boolean(payment && profile?.id === payment.payerId && ["AWAITING_TRANSFER", "REJECTED", "OVERDUE"].includes(payment.status));
+  // Server refuses a new report after the deadline of a deposit / first-rent transfer: only the landlord can reconcile or reopen.
+  const windowClosed = transferWindowClosed(payment, nowMs);
+  const canReport = Boolean(payment && profile?.id === payment.payerId && !windowClosed && ["AWAITING_TRANSFER", "REJECTED", "OVERDUE"].includes(payment.status));
 
   function copyToClipboard(text: string, label: string) {
     navigator.clipboard.writeText(text);
@@ -544,7 +550,7 @@ function ScopedPaymentModal({
 
               {/* TRẠNG THÁI HIỆN TẠI */}
               {isConfirmed && (
-                <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 flex items-start gap-3.5">
+                <div className={`p-4 sm:p-5 rounded-2xl border flex items-start gap-3.5 ${toneClasses[paymentStatus("CONFIRMED").tone]}`}>
                   <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0 text-emerald-600" />
                   <div className="space-y-1 text-sm">
                     <p className="font-bold text-base">{presentation.refund ? "Người thuê đã xác nhận nhận đủ tiền hoàn" : "Chủ nhà đã xác nhận nhận đủ tiền"}</p>
@@ -556,7 +562,7 @@ function ScopedPaymentModal({
               )}
 
               {isReported && (
-                <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 flex items-start gap-3.5">
+                <div className={`p-4 sm:p-5 rounded-2xl border flex items-start gap-3.5 ${toneClasses[paymentStatus("TRANSFER_REPORTED").tone]}`}>
                   <Clock className="w-5 h-5 mt-0.5 shrink-0 text-amber-600" />
                   <div className="space-y-1 text-sm">
                     <p className="font-bold text-base">Đã gửi chứng từ — chờ {presentation.recipient} xác nhận</p>
@@ -568,7 +574,7 @@ function ScopedPaymentModal({
               )}
 
               {isRejected && (
-                <div className="p-4 sm:p-5 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 flex items-start gap-3.5">
+                <div className={`p-4 sm:p-5 rounded-2xl border flex items-start gap-3.5 ${toneClasses[paymentStatus("REJECTED").tone]}`}>
                   <Ban className="w-5 h-5 mt-0.5 shrink-0 text-red-600" />
                   <div className="space-y-1 text-sm">
                     <p className="font-bold text-base">Bên nhận chưa nhận được tiền hoặc từ chối chứng từ</p>
@@ -578,7 +584,9 @@ function ScopedPaymentModal({
                       </p>
                     )}
                     <p className="text-xs sm:text-sm opacity-90">
-                      Vui lòng kiểm tra lại biến động số dư tài khoản ngân hàng hoặc đính kèm lại chứng từ chính xác bên dưới.
+                      {windowClosed
+                        ? "Đã quá hạn chuyển khoản nên chưa thể gửi lại chứng từ. Nếu bạn đã chuyển tiền, hãy nhờ chủ nhà đối soát hoặc mở lại thanh toán."
+                        : "Vui lòng kiểm tra lại biến động số dư tài khoản ngân hàng hoặc đính kèm lại chứng từ chính xác bên dưới."}
                     </p>
                   </div>
                 </div>

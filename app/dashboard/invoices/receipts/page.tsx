@@ -1,41 +1,23 @@
 "use client";
 
-import { Suspense } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
-import PaymentReceiptsPanel from "@/components/dashboard/invoices/PaymentReceiptsPanel";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { safeResourceId } from "@/lib/payment-module";
 
-function Receipts() {
-  const params = useSearchParams();
-  const { role, hydrated, openRolePicker } = useDashboardRole();
-  if (!hydrated) return <p>Đang tải vai trò…</p>;
-  if (!role)
-    return (
-      <button type="button" onClick={openRolePicker}>
-        Chọn vai trò để xem chứng từ thanh toán
-      </button>
-    );
-  return (
-    <div className="mx-auto max-w-6xl space-y-5 pb-12">
-      <Link
-        href="/dashboard/invoices"
-        className="text-sm font-semibold text-primary"
-      >
-        ← Hóa đơn & thanh toán
-      </Link>
-      <PaymentReceiptsPanel
-        key={role + ":" + (params.get("contract") ?? "")}
-        role={role}
-        contractId={params.get("contract") || undefined}
-      />
-    </div>
-  );
+// Legacy URL: the receipts list now lives at /dashboard/invoices (payment history).
+function Redirect() {
+  const router = useRouter();
+  const contract = safeResourceId(useSearchParams().get("contract"));
+  useEffect(() => {
+    router.replace(contract ? `/dashboard/invoices?contract=${encodeURIComponent(contract)}` : "/dashboard/invoices");
+  }, [router, contract]);
+  return <p className="text-sm text-muted-foreground">Đang chuyển đến lịch sử thanh toán…</p>;
 }
+
 export default function Page() {
   return (
-    <Suspense fallback={<p>Đang tải chứng từ…</p>}>
-      <Receipts />
+    <Suspense fallback={null}>
+      <Redirect />
     </Suspense>
   );
 }

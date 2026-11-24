@@ -20,7 +20,7 @@ function load(source, imports = require) {
   return mod.exports;
 }
 
-const status = load(read("lib/invoice-status.ts"));
+const status = load(read("lib/invoice-status.ts"), (name) => (name.startsWith("@/lib/") ? load(read(name.replace("@/", "") + ".ts")) : require(name)));
 const list = load(read("lib/invoice-list.ts"), (name) => {
   if (name === "@/lib/invoice-status") return status;
   if (name === "@/lib/contract-routes") return { invoiceDetailPath: (id) => `/dashboard/invoices/${id}` };

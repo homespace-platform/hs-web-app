@@ -31,7 +31,8 @@ test("all catalog fields route to a view and amendment editor or an explicitly p
     assert.ok(section,code);const source=fs.readFileSync(path.join(root,"components/contract/detail",section+".tsx"),"utf8");
     if(!code.startsWith("#"))assert.ok(source.includes(aliases[code]??code.split(".").at(-1)),`${code} missing from ${section}`);
   }
-  const main=fs.readFileSync(path.join(root,"components/contract/ContractDetailView.tsx"),"utf8");
+  const pageDir=path.join(root,"components/contract/page");
+  const main=["components/contract/ContractDetailView.tsx",...fs.readdirSync(pageDir).filter(f=>f.endsWith(".tsx")).map(f=>"components/contract/page/"+f)].map(f=>fs.readFileSync(path.join(root,f),"utf8")).join(" ");
   for(const section of new Set([...Object.values(files),...Object.values(dynamic)]))assert.ok(main.includes(`<${section}`),section+" is not mounted");
 });
 
@@ -42,6 +43,8 @@ function loader(w) {
     const mod={exports:{}};cache.set(file,mod);
     const source=ts.transpileModule(fs.readFileSync(file,"utf8"),{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText;
     const resolve=name=>{
+      // The bank select shows the stored snapshot only once the bank list has loaded (it never resolves in static markup).
+      if(name.endsWith("hooks/useBanks"))return {useBanks:()=>({banks:[],loading:false,error:false,retry(){}})};
       if(name.endsWith("ContractAmendmentWorkspace"))return {useAmendmentWorkspace:()=>w,amendmentInput:"input"};
       if(name.startsWith(".")||name.startsWith("@/")) {
         const base=name.startsWith("@/")?path.join(root,name.slice(2)):path.resolve(path.dirname(file),name);
@@ -94,5 +97,5 @@ test("agreed early cutoff is displayed separately without replacing signed lease
   const lease={startDateText:"01/03/2026",endDateText:"01/09/2026",durationMonths:6};
   const html=renderToStaticMarkup(React.createElement(Lease,{lease,agreedEarlyEndExclusive:"2026-05-01"}));
   assert.match(html,/01\/05\/2026 lúc 00:00/);assert.match(html,/Ngày kết thúc theo văn bản đã ký/);assert.match(html,/01\/09\/2026/);
-  assert.equal(lease.endDateText,"01/09/2026");assert.match(html,/Bàn giao và quyết toán thực hiện riêng/);
+  assert.equal(lease.endDateText,"01/09/2026");assert.match(fs.readFileSync(path.join(root,"components/contract/detail/ContractLeaseSection.tsx"),"utf8"),/Bàn giao và quyết toán thực hiện riêng/);
 });

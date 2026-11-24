@@ -7,7 +7,7 @@ function panel(options={}){
   const hooks={...React,useState:initial=>{const i=index++;return [i<states.length?states[i]:initial,()=>{}];},useRef:initial=>refs[refIndex++]??(refs[refIndex-1]={current:initial}),useEffect:fn=>effects.push(fn)};
   const api=Object.fromEntries(["issueUnilateralTermination","requestTerminationReview","decideTerminationReview","withdrawUnilateralTermination","completeUnilateralHandover"].map(kind=>[kind,async(...args)=>{calls.push({kind,args});if(options.error)throw options.error;return options.pending??{};}]));
   const mod={exports:{}};vm.runInNewContext(ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,
-    {module:mod,exports:mod.exports,require:name=>name==="react"?hooks:name==="@/components/common/PolicyDialog"?{ PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null }:name==="@/services/monthly-invoice.service"?{monthlyInvoiceService:api}:name==="@/utils/apiError"?{getApiErrorMessage:e=>e.message}:name==="sonner"?{toast:{success(){},error:e=>errors.push(e)}}:require(name),
+    {module:mod,exports:mod.exports,require:name=>name==="react"?hooks:name==="@/components/common/PolicyDialog"?{ PolicyNotice: ({ summary, children, text }) => require("react").createElement("div", null, summary, children, text), PolicyConsent: () => null }:name==="@/services/monthly-invoice.service"?{monthlyInvoiceService:api}:name==="@/components/common/ActionDialog"?{useActionDialog:()=>({confirm:async o=>{confirmations.push(o.title+" "+o.description);return options.confirm!==false;},askReason:async()=>null,dialog:null})}:name==="@/utils/apiError"?{getApiErrorMessage:e=>e.message}:name==="sonner"?{toast:{success(){},error:e=>errors.push(e)}}:require(name),
       window:{confirm:text=>{confirmations.push(text);return options.confirm!==false;}},setInterval:(fn,delay)=>{timers.push({fn,delay});return 1;},clearInterval:()=>{timers.push({cleared:true});}});
   const invoice={id:"invoice",canDeferToNextPeriod:true,unilateralTermination:notice,...options.invoice};
   const tree=mod.exports.default({invoice,isLandlord:options.role==="owner",isTenant:options.role!=="owner"&&options.role!=="outsider",canIssue:!!options.canIssue,refresh:async()=>{refreshes++;}});
@@ -42,7 +42,7 @@ test("only the owner receives decision buttons and rejection clearly ends the co
 });
 test("approval, duplicate clicks and stale failures never trigger an automatic retry",async()=>{
   let release;const pending=new Promise(r=>{release=r;});const invoice={unilateralTermination:{...notice,status:"REVIEW_REQUESTED"},canDecideTerminationReview:true};
-  const f=panel({role:"owner",invoice,pending});const click=f.button("Đồng ý đổi phương án").props.onClick;click();click();assert.equal(f.calls.length,1);assert.equal(f.calls[0].args[3],true);release({});await tick();assert.equal(f.refreshes,1);
+  const f=panel({role:"owner",invoice,pending});const click=f.button("Đồng ý đổi phương án").props.onClick;click();click();await tick();assert.equal(f.calls.length,1);assert.equal(f.calls[0].args[3],true);release({});await tick();assert.equal(f.refreshes,1);
   const stale=panel({role:"owner",invoice,error:new Error("Quyết định đã thay đổi")});stale.button("Đồng ý đổi phương án").props.onClick();await tick();assert.equal(stale.calls.length,1);assert.equal(stale.refreshes,1);assert.match(stale.errors[0],/đã thay đổi/);
 });
 test("server permissions and input bounds hide or disable unavailable operations",()=>{
@@ -60,6 +60,6 @@ test("ending and handover are separate and the owner must explicitly confirm pos
 test("pending notice polls read-only state and unmount prevents late updates",async()=>{
   let release;const pending=new Promise(r=>{release=r;});const f=panel({role:"owner",canIssue:true,pending});const leave=f.effects[0](),stop=f.effects[1]();
   assert.equal(f.timers[0].delay,30000);f.timers[0].fn();assert.equal(f.refreshes,1);
-  f.button("Rút quyết định đơn phương").props.onClick();f.timers[0].fn();assert.equal(f.refreshes,1);
+  f.button("Rút quyết định đơn phương").props.onClick();await tick();f.timers[0].fn();assert.equal(f.refreshes,1);
   leave();stop();release({});await tick();assert.equal(f.refreshes,1);assert.equal(f.calls.length,1);assert.equal(f.timers.at(-1).cleared,true);
 });

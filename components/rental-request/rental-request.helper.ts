@@ -18,12 +18,6 @@ export function clampValue(val: number, min: number, max: number): number {
   return val;
 }
 
-export function parseCurrency(text: string): number {
-  const digits = (text || "").replace(/\D/g, "");
-  const num = parseInt(digits, 10);
-  return isNaN(num) ? 0 : num;
-}
-
 export function hasVehicleParkingAllowed(
   estimate?: RentalEstimateResponse | null
 ): boolean {
@@ -40,20 +34,6 @@ export function hasPersonBasedCharges(
       (c) => c.billingMethod === "PER_PERSON_MONTH"
     ) ?? false
   );
-}
-
-export function getDepositBadge(
-  depositType?: string,
-  depositMonths?: number,
-  isNegotiable?: boolean
-): string {
-  if (depositType === "NONE") return "Không yêu cầu đặt cọc";
-  if (isNegotiable || depositType === "NEGOTIABLE") return "Theo thỏa thuận";
-  if (depositType === "MONTH_COUNT") {
-    const months = depositMonths && depositMonths > 0 ? depositMonths : 1;
-    return `${months} tháng tiền nhà`;
-  }
-  return "Cố định theo bài đăng";
 }
 
 export interface PartitionedPredictableCharges {
@@ -122,58 +102,6 @@ export function partitionExcludedCharges(
   }
 
   return { meteredCharges, negotiableOrCustomCharges };
-}
-
-export interface ChargeDisplayInfo {
-  mainText: string;
-  subText?: string;
-  isUnregisteredVehicle?: boolean;
-}
-
-export function formatChargeDisplay(
-  charge: PredictableChargeItem
-): ChargeDisplayInfo {
-  // 1. Phí gửi xe PER_VEHICLE_MONTH
-  if (charge.billingMethod === "PER_VEHICLE_MONTH") {
-    if (charge.quantity > 0) {
-      return {
-        mainText: formatVND(charge.amount),
-        subText: `${formatVND(charge.unitAmount)} × ${charge.quantity} xe`,
-        isUnregisteredVehicle: false,
-      };
-    }
-    // quantity === 0: người thuê chưa đăng ký xe
-    return {
-      mainText: "Chưa đăng ký",
-      subText: `${formatVND(charge.unitAmount)}/xe/tháng`,
-      isUnregisteredVehicle: true,
-    };
-  }
-
-  // 2. Phí tính theo đầu người PER_PERSON_MONTH
-  if (charge.billingMethod === "PER_PERSON_MONTH") {
-    return {
-      mainText: formatVND(charge.amount),
-      subText: `${formatVND(charge.unitAmount)} × ${charge.quantity} người`,
-      isUnregisteredVehicle: false,
-    };
-  }
-
-  // 3. Phí tính theo tháng cố định PER_MONTH
-  if (charge.billingMethod === "PER_MONTH") {
-    return {
-      mainText: formatVND(charge.amount),
-      subText: `${formatVND(charge.unitAmount)}/tháng`,
-      isUnregisteredVehicle: false,
-    };
-  }
-
-  // 4. Các khoản cố định khác
-  return {
-    mainText: formatVND(charge.amount),
-    subText: charge.note || (charge.unitAmount ? `${formatVND(charge.unitAmount)}/tháng` : undefined),
-    isUnregisteredVehicle: false,
-  };
 }
 
 export function formatExcludedChargeValue(c: ExcludedChargeItem): string {

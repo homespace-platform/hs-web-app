@@ -168,23 +168,6 @@ export interface ContractResponse {
   updatedAt: string;
 }
 
-export interface ContractPaymentCharge {
-  name: string;
-  amount: number;
-}
-
-export interface ContractPaymentBreakdownResponse {
-  contractId: string;
-  monthlyRent: number;
-  deposit: number;
-  charges: ContractPaymentCharge[];
-  chargesTotal: number;
-  totalAmount: number;
-  excludedMeterCharges: string[];
-  paymentStatus: ContractPaymentStatus;
-  paidAt?: string | null;
-}
-
 export interface ContractRevisionResponse {
   id: string;
   contractId: string;

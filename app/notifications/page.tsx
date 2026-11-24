@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Breadcrumb from "@/components/common/Breadcrumb";
 import NotificationIcon from "@/components/notification/NotificationIcon";
 import Header from "@/components/layout/Header";
@@ -36,6 +37,7 @@ import {
 } from "lucide-react";
 
 export default function NotificationsPage() {
+  const router = useRouter();
   const { authenticated, initialized, userId, login } = useAuth();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -540,7 +542,10 @@ export default function NotificationsPage() {
                 return (
                   <div
                     key={item.id}
-                    onClick={() => void handleItemClick(item)}
+                    onClick={() => {
+                      void handleItemClick(item);
+                      if (safeHref) router.push(safeHref);
+                    }}
                     className={`p-4 sm:p-5 hover:bg-muted/50 transition-colors flex items-start gap-3.5 sm:gap-4 cursor-pointer group relative ${
                       isUnread ? "bg-primary/[0.02]" : ""
                     }`}
@@ -565,7 +570,7 @@ export default function NotificationsPage() {
                             type="button"
                             onClick={(e) => void handleRemoveSingle(e, item)}
                             title="Xóa thông báo này"
-                            className="text-muted-foreground/40 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 cursor-pointer"
+                            className="text-muted-foreground/40 hover:text-red-500 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1 cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

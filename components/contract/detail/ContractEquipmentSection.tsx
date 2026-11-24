@@ -41,7 +41,7 @@ const HANDOVER_CONDITION_CONFIG: Record<
   },
 };
 
-export function formatHandoverCondition(val?: unknown): {
+function formatHandoverCondition(val?: unknown): {
   label: string;
   className: string;
 } {

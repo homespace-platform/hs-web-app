@@ -7,7 +7,7 @@ const {listingDetailPath,fetchListingForViewer}=mod.exports;
 test("rental request list and details link to the full listing page, not the preview modal",()=>{
   assert.equal(listingDetailPath("listing-id"),"/rent/listing-id");
   assert.equal(listingDetailPath("a/b?next=x"),"/rent/a%2Fb%3Fnext%3Dx");
-  const list=read("components/rental-request/RentalRequestsManagement.tsx");
+  const list=read("components/rental-request/RentalRequestCard.tsx");
   const detail=read("components/rental-request/RentalRequestDetailModal.tsx");
   assert.match(list,/href=\{listingDetailPath\(req.listingId\)\}/);
   assert.match(detail,/href=\{listingDetailPath\(detail.listingId\)\}/);

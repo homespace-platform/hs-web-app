@@ -5,6 +5,12 @@ import { createPortal } from "react-dom";
 import { Check, FileText, Info, TriangleAlert, X } from "lucide-react";
 import { splitSentences } from "@/lib/split-sentences";
 
+/** Policy codes like "RESERVATION_DEFAULT_V3" are internal; users only see "Phiên bản 3". */
+function versionLabel(version?: string) {
+  const n = version?.trim().match(/v?(\d+(?:\.\d+)*)$/i)?.[1];
+  return n ? `Phiên bản ${n}` : null;
+}
+
 // Open dialogs, last = topmost. Esc closes only the topmost one.
 const stack: symbol[] = [];
 
@@ -95,8 +101,8 @@ export function PolicyDialog({
           <div className="min-w-0 flex-1">
             <h2 id={titleId} className="text-base font-bold leading-tight">{title}</h2>
             {subtitle ? <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p> : null}
-            {version ? (
-              <span className="mt-1.5 inline-block rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground">{version}</span>
+            {versionLabel(version) ? (
+              <span className="mt-1.5 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">{versionLabel(version)}</span>
             ) : null}
           </div>
           <button type="button" aria-label="Đóng" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer">

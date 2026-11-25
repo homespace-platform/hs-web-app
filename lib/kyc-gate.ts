@@ -1,7 +1,13 @@
 import { toast } from "sonner";
 import type { UserProfile } from "@/types/user.type";
 
-const KYC_SETTINGS_PATH = "/settings/account-security";
+const KYC_PATH = "/kyc";
+
+/** /kyc that returns to the current page; /kyc validates returnTo itself. */
+export function kycHref(): string {
+  if (typeof window === "undefined") return KYC_PATH;
+  return `${KYC_PATH}?returnTo=${encodeURIComponent(`${window.location.pathname}${window.location.search}`)}`;
+}
 
 type NavLike = { push: (href: string) => void };
 
@@ -14,14 +20,14 @@ export function notifyKycRequired(router?: NavLike) {
   toast.error("Vui lòng xác minh danh tính (KYC) trước khi thực hiện thao tác này.", {
     action: {
       label: "Xác minh ngay",
-      onClick: () => router?.push(KYC_SETTINGS_PATH),
+      onClick: () => router?.push(kycHref()),
     },
   });
 }
 
 /**
  * If KYC is satisfied, runs `onAllowed` (or returns true).
- * Otherwise shows toast, optionally navigates to KYC settings, returns false.
+ * Otherwise shows toast, optionally navigates to /kyc, returns false.
  */
 export function requireKyc(
   profile: UserProfile | null | undefined,
@@ -41,9 +47,7 @@ export function requireKyc(
   }
   notifyKycRequired(options?.router);
   if (options?.redirect !== false && options?.router) {
-    options.router.push(KYC_SETTINGS_PATH);
+    options.router.push(kycHref());
   }
   return false;
 }
-
-export { KYC_SETTINGS_PATH };

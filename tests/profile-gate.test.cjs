@@ -40,7 +40,7 @@ test("banner items map each requirement to its label and settings section", () =
     ["Thông tin cá nhân", "/settings/profile"],
     ["Địa chỉ", "/settings/profile#address"],
     ["Tài khoản ngân hàng", "/settings/bank-accounts"],
-    ["Xác minh danh tính (KYC)", "/settings/account-security"],
+    ["Xác minh danh tính (KYC)", "/kyc"],
   ]);
   assert.deepEqual(missingItems([]), []);
 });

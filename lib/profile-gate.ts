@@ -7,7 +7,7 @@ export const PROFILE_REQUIREMENTS: ReadonlyArray<{ code: ProfileRequirement; lab
   { code: "PROFILE", label: "Thông tin cá nhân", href: "/settings/profile" },
   { code: "ADDRESS", label: "Địa chỉ", href: "/settings/profile#address" },
   { code: "BANK_ACCOUNT", label: "Tài khoản ngân hàng", href: "/settings/bank-accounts" },
-  { code: "KYC", label: "Xác minh danh tính (KYC)", href: "/settings/account-security" },
+  { code: "KYC", label: "Xác minh danh tính (KYC)", href: "/kyc" },
 ];
 
 /** Stays usable while the profile is incomplete: favorites and starting eKYC. */

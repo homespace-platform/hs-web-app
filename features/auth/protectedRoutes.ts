@@ -4,6 +4,7 @@ const PROTECTED_ROUTE_PREFIXES = [
   "/history",
   "/notifications",
   "/chat/call",
+  "/kyc",
 ] as const;
 
 export function isProtectedRoute(pathname: string) {
@@ -12,3 +13,8 @@ export function isProtectedRoute(pathname: string) {
   );
 }
 
+
+/** Protected pages that start Keycloak login in place so their full URL (query) survives the round trip. */
+export function isLoginInPlaceRoute(pathname: string) {
+  return pathname === "/kyc" || pathname.startsWith("/kyc/");
+}

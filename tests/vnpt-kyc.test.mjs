@@ -6,7 +6,10 @@ import React from 'react';
 import { load, hookRuntime, clock, events, icons, html } from './helpers/notification-runtime.mjs';
 const flatten=node=>!node||typeof node!=='object'?[]:[node,...React.Children.toArray(node.props?.children).flatMap(flatten)];
 const detailsPanel=()=>null;
-const loadKyc=(mocks,globals={})=>load('components/settings/sections/KycSection.tsx',mocks,globals,'\nmodule.exports.default=AccountKycSection;');
+const pushes=[];
+const loadKyc=(mocks,globals={})=>load('components/settings/sections/KycSection.tsx',{
+ 'next/navigation':{useRouter:()=>({push:href=>pushes.push(href)}),usePathname:()=>'/settings/account-security'},
+ '@/components/kyc/kycStatusMeta':load('components/kyc/kycStatusMeta.ts',{'lucide-react':icons}),...mocks},globals,'\nmodule.exports.default=AccountKycSection;');
 
 test('SDK bridge pins origin/source and routes capture without provider credentials or callback PII',async()=>{
  const messages=[],listeners=new Map(),config=[],parent={postMessage:(data,origin)=>messages.push({data,origin})};
@@ -52,7 +55,7 @@ test('production VNPT session enables image upload',async()=>{
  runtime.unmount();
 });
 
-test('web defaults to VNPT and keeps upcoming providers disabled',async()=>{
+test('Settings keeps provider list and starts KYC by opening the shared /kyc page without a second capture',async()=>{
  const runtime=hookRuntime(),calls=[],capture=()=>null;
  const Component=loadKyc({
  react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},message(){},success(){}}},
@@ -66,8 +69,8 @@ test('web defaults to VNPT and keeps upcoming providers disabled',async()=>{
  assert.equal(providers[0].props.checked,true);assert.equal(providers[0].props.disabled,false);
  assert.equal(providers[1].props.disabled,true);assert.equal(providers[2].props.disabled,true);
  assert.match(html(runtime),/FPT AI eKYC/);assert.match(html(runtime),/Viettel AI eKYC/);
- flatten(runtime.tree).find(n=>n.type==='button'&&n.props.className.includes('bg-primary')).props.onClick();await runtime.settle();
- assert.deepEqual(calls,['vnpt']);assert.equal(flatten(runtime.tree).find(n=>n.type===capture).props.session.sessionId,'attempt');assert.equal(flatten(runtime.tree).find(n=>n.type==='fieldset').props.disabled,true);runtime.unmount();
+ pushes.length=0;flatten(runtime.tree).find(n=>n.type==='button'&&n.props.className.includes('bg-primary')).props.onClick();await runtime.settle();
+ assert.deepEqual(pushes,['/kyc?returnTo=%2Fsettings%2Faccount-security']);assert.deepEqual(calls,[]);assert.equal(flatten(runtime.tree).find(n=>n.type===capture),undefined);runtime.unmount();
 });
 
 test('parent rejects foreign frames and arbitrary steps; failed capture does not finalize',async()=>{
@@ -106,20 +109,6 @@ test('successful SDK callback asks the backend to finalize once',async()=>{
  await runtime.settle();assert.deepEqual(calls,['attempt']);assert.equal(result.status,'VERIFIED');runtime.unmount();
 });
 
-
-test('a session response from a previous account cannot reopen its capture',async()=>{
- const runtime=hookRuntime(),capture=()=>null;let actor='alice',resolve;
- const Component=loadKyc({
- react:runtime.hooks,'lucide-react':icons,sonner:{toast:{error(){},message(){},success(){}}},
- '@/services/kyc.service':{__esModule:true,default:{getStatus:async()=>({status:'NOT_VERIFIED',provider:'VNPT'}),createVnptSession:()=>new Promise(done=>{resolve=done;})}},
- './VnptKycCapture':{__esModule:true,default:capture},'@/components/settings/KycVerifiedDetailsPanel':{__esModule:true,default:detailsPanel},'@/features/user/userSlice':{fetchCurrentUser:args=>args},
- '@/hooks/usePermission': { useFeatureGate: () => ({ allowed: true, title: undefined, guard: () => true }), usePermission: () => true }, '@/lib/permissions': { PERMISSIONS: new Proxy({}, { get: (_, key) => key }) }, '@/store/hooks':{useAppDispatch:()=>()=>{},useAppSelector:fn=>fn({auth:{userId:actor},user:{profile:{id:actor}}})},
- },{window:{clearInterval(){},setInterval(){}}}).default;
- runtime.mount(Component);await runtime.settle();
- flatten(runtime.tree).find(n=>n.type==='button'&&n.props.className.includes('bg-primary')).props.onClick();await runtime.settle();
- actor='bob';runtime.update();await runtime.settle();resolve({sessionId:'alice-attempt',expiresAt:'2099-01-01',maxImageMb:1});await runtime.settle();
- assert.equal(flatten(runtime.tree).find(n=>n.type===capture),undefined);assert.doesNotMatch(html(runtime),/alice-attempt/);runtime.unmount();
-});
 
 for(const provider of ['DIDIT','ADMIN'])test(`${provider} verified users stay verified without provider selection or a new session`,async()=>{
  const runtime=hookRuntime(),calls=[];
@@ -176,4 +165,25 @@ test('KYC gate never trusts role or the retired optional flag',()=>{
   assert.equal(isKycSatisfied({role,kycVerified:true}),true);
  }
  assert.equal(isKycSatisfied(null),false);
+});
+
+test('page variant is a full-screen non-modal view with the same bridge, a visible cancel and a finalizing callback',async()=>{
+ const runtime=hookRuntime(),timers=clock(),posts=[],win=events({location:{origin:'http://localhost:3000'},...timers.globals}),child={postMessage:data=>posts.push(data)};
+ const log=[];
+ const Component=load('components/settings/sections/VnptKycCapture.tsx',{
+  react:runtime.hooks,'lucide-react':icons,'@/types/kyc.type':load('types/kyc.type.ts'),
+  '@/services/kyc.service':{__esModule:true,default:{finalizeVnpt:async()=>({status:'VERIFIED'})}},
+ },{window:win,crypto,Blob,process:{env:{NODE_ENV:'production'}}}).default;
+ runtime.mount(Component,{variant:'page',session:{sessionId:'attempt',maxImageMb:1},onResult:value=>log.push(value.status),onCancel:()=>log.push('cancel'),onFinalizing:()=>log.push('finalizing')});
+ const nodes=flatten(runtime.tree);
+ assert.equal(nodes.find(n=>n.type==='dialog'),undefined);
+ assert.match(nodes[0].props.className,/fixed inset-0/);assert.match(nodes[0].props.className,/h-dvh/);assert.equal(nodes[0].props['aria-modal'],'true');
+ assert.equal(nodes.find(n=>n.type==='iframe').props.allow,'camera');
+ assert.match(html(runtime),/Hủy phiên/);
+ nodes.find(n=>n.type==='button').props.onClick();
+ nodes.find(n=>n.type==='iframe').props.ref.current={contentWindow:child};
+ win.fire('message',{origin:'https://evil.test',source:child,data:{type:'vnpt:ready'}});assert.equal(posts.length,0);
+ win.fire('message',{origin:win.location.origin,source:child,data:{type:'vnpt:ready'}});const nonce=posts[0].nonce;
+ win.fire('message',{origin:win.location.origin,source:child,data:{type:'vnpt:complete',nonce}});await runtime.settle();
+ assert.deepEqual(log,['cancel','finalizing','VERIFIED']);runtime.unmount();
 });

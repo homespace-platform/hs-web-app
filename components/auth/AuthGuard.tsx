@@ -4,7 +4,8 @@ import { useEffect } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/useAuth";
-import { isProtectedRoute } from "@/features/auth/protectedRoutes";
+import keycloak from "@/lib/keycloak";
+import { isLoginInPlaceRoute, isProtectedRoute } from "@/features/auth/protectedRoutes";
 import { Loader2 } from "lucide-react";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -16,6 +17,12 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!shouldRedirect) return;
+
+    if (isLoginInPlaceRoute(pathname)) {
+      // redirectUri is the full current URL, so /kyc?client=app&state=... is not lost.
+      keycloak.login({ redirectUri: window.location.href }).catch(() => router.replace("/"));
+      return;
+    }
 
     sessionStorage.setItem("hs:return-url", pathname);
     router.replace("/");

@@ -6,8 +6,12 @@ import axios from "axios";
 import kycService from "@/services/kyc.service";
 import { VNPT_KYC_STEPS, type VnptKycSession, type VnptKycStep, type KycStatusResponse } from "@/types/kyc.type";
 
-export default function VnptKycCapture({ session, onResult, onCancel }: {
+export default function VnptKycCapture({ session, onResult, onCancel, onFinalizing, variant = "dialog" }: {
   session: VnptKycSession; onResult: (status: KycStatusResponse) => void; onCancel: () => void;
+  /** Called once when the capture is complete and the backend is asked to finalize. */
+  onFinalizing?: () => void;
+  /** "dialog": modal inside Settings; "page": full-screen for the shared /kyc page (web and mobile). */
+  variant?: "dialog" | "page";
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => { const element = dialog.current; element?.showModal(); return () => element?.close(); }, []);
@@ -58,7 +62,7 @@ export default function VnptKycCapture({ session, onResult, onCancel }: {
       }
       if (data.type === "vnpt:complete" && !done.current) {
         if (firstStepError.current) return;
-        done.current = true; setBusy(true);
+        done.current = true; setBusy(true); onFinalizing?.();
         try {
           const result = await kycService.finalizeVnpt(session.sessionId);
           if (!disposed) onResult(result);
@@ -74,16 +78,22 @@ export default function VnptKycCapture({ session, onResult, onCancel }: {
     };
     window.addEventListener("message", ready);
     return () => { disposed = true; window.clearTimeout(timeout); window.removeEventListener("message", onMessage); window.removeEventListener("message", ready); };
-  }, [session, onResult]);
+  }, [session, onResult, onFinalizing]);
+  const header = <div className="flex items-center justify-between gap-2 border-b p-3 text-slate-900 sm:p-4">
+    <h3 className="font-semibold">Xác minh VNPT eKYC</h3>
+    <button type="button" onClick={onCancel} disabled={busy} aria-label="Đóng và hủy phiên VNPT" className={variant === "page" ? "inline-flex items-center gap-1.5 rounded-lg border border-rose-300 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50" : "rounded-lg p-2 hover:bg-slate-100 disabled:opacity-50"}>{variant === "page" ? <><X className="h-4 w-4" />Hủy phiên</> : <X className="h-5 w-5" />}</button>
+  </div>;
+  const body = <>
+    {error && <p role="alert" className="bg-amber-50 p-3 text-sm text-amber-900">{error}</p>}
+    {busy && <div role="status" className="flex items-center gap-2 p-3 text-sm text-slate-700"><LoaderCircle className="h-4 w-4 animate-spin" />Đang kiểm tra kết quả từ VNPT…</div>}
+    <iframe ref={frame} src="/kyc/vnpt-frame.html" title="Chụp giấy tờ và khuôn mặt với VNPT" allow="camera" className="min-h-0 flex-1 border-0 bg-white" />
+  </>;
+  if (variant === "page") {
+    return <div role="dialog" aria-modal="true" aria-label="Xác minh VNPT eKYC" className="fixed inset-0 z-[100] flex h-dvh w-screen flex-col overflow-hidden bg-white">{header}{body}</div>;
+  }
   return <dialog ref={dialog} onCancel={event => { event.preventDefault(); if (!busy) onCancel(); }} className="m-auto w-[min(96vw,900px)] max-w-none border-0 bg-transparent p-0 backdrop:bg-slate-950/60" aria-label="Xác minh VNPT eKYC">
     <div className="flex h-[min(900px,95dvh)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-      <div className="flex items-center justify-between border-b p-4 text-slate-900">
-        <h3 className="font-semibold">Xác minh VNPT eKYC</h3>
-        <button type="button" onClick={onCancel} disabled={busy} aria-label="Đóng và hủy phiên VNPT" className="rounded-lg p-2 hover:bg-slate-100 disabled:opacity-50"><X className="h-5 w-5" /></button>
-      </div>
-      {error && <p role="alert" className="bg-amber-50 p-3 text-sm text-amber-900">{error}</p>}
-      {busy && <div role="status" className="flex items-center gap-2 p-3 text-sm text-slate-700"><LoaderCircle className="h-4 w-4 animate-spin" />Đang kiểm tra kết quả từ VNPT…</div>}
-      <iframe ref={frame} src="/kyc/vnpt-frame.html" title="Chụp giấy tờ và khuôn mặt với VNPT" allow="camera" className="min-h-0 flex-1 border-0 bg-white" />
+      {header}{body}
     </div>
   </dialog>;
 }

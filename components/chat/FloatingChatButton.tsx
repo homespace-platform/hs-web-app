@@ -12,8 +12,8 @@ export default function FloatingChatButton() {
   const { currentUserId, conversations } = useChatDemo();
   const [isHovered, setIsHovered] = useState(false);
 
-  // Nếu đang ở màn hình /chat thì ẩn nút bấm
-  if (pathname === "/chat" || pathname.startsWith("/chat/")) {
+  // Nếu đang ở màn hình /chat hoặc /kyc (toàn màn hình) thì ẩn nút bấm
+  if (pathname === "/chat" || pathname.startsWith("/chat/") || pathname === "/kyc") {
     return null;
   }
 

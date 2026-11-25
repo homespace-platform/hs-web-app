@@ -11,6 +11,17 @@ const nextConfig: NextConfig = {
         }]
       : [];
   },
+  // The KYC page (also opened by the mobile app) must not be framed by another site (clickjacking on "Hủy phiên").
+  // Its own same-origin VNPT iframe (/kyc/vnpt-frame.html) stays allowed by 'self'.
+  async headers() {
+    return [{
+      source: "/kyc/:path*",
+      headers: [
+        { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+        { key: "X-Frame-Options", value: "SAMEORIGIN" },
+      ],
+    }];
+  },
   allowedDevOrigins: process.env.DEV_TUNNEL_ORIGIN
     ? [process.env.DEV_TUNNEL_ORIGIN]
     : [],

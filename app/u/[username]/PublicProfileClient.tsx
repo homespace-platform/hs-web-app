@@ -34,6 +34,7 @@ import type { PublicUserProfile } from "@/types/user.type";
 import type { RentPropertyItem } from "@/types/rent.type";
 
 const card = "rounded-2xl border border-border bg-card shadow-sm";
+const profileBanner = "rounded-2xl bg-primary p-5 text-primary-foreground shadow-sm sm:p-8 dark:bg-blue-700";
 
 function Shell({ crumb, children }: { crumb: string; children: React.ReactNode }) {
   return (
@@ -51,12 +52,12 @@ function Shell({ crumb, children }: { crumb: string; children: React.ReactNode }
 function Skeleton() {
   return (
     <div className="animate-pulse" aria-busy="true" aria-label="Đang tải">
-      <div className={`${card} flex flex-col items-center gap-5 p-5 sm:p-8 md:flex-row`}>
-        <div className="h-24 w-24 shrink-0 rounded-full bg-muted sm:h-28 sm:w-28" />
+      <div className={`${profileBanner} flex flex-col items-center gap-5 md:flex-row`}>
+        <div className="h-24 w-24 shrink-0 rounded-full bg-white/20 sm:h-28 sm:w-28" />
         <div className="flex flex-1 flex-col items-center gap-2 md:items-start">
-          <div className="h-7 w-56 rounded bg-muted" />
-          <div className="h-4 w-32 rounded bg-muted" />
-          <div className="mt-2 h-6 w-72 max-w-full rounded-full bg-muted" />
+          <div className="h-7 w-56 rounded bg-white/20" />
+          <div className="h-4 w-32 rounded bg-white/20" />
+          <div className="mt-2 h-6 w-72 max-w-full rounded-full bg-white/20" />
         </div>
       </div>
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
@@ -169,25 +170,30 @@ export default function PublicProfileClient({ username }: { username: string }) 
     }
   };
 
-  const chip = "inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground";
+  const chip = "inline-flex items-center gap-1.5 rounded-full bg-black/15 px-3 py-1 text-xs font-medium";
   const primaryBtn =
-    "inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90";
+    "inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
   return (
     <Shell crumb={fullName}>
-      <section className={`${card} p-5 sm:p-8`}>
+      <section className={profileBanner}>
         <div className="flex flex-col items-center gap-5 text-center md:flex-row md:items-center md:text-left">
           <UserAvatar
             src={profile.avatarUrl}
             name={fullName}
             sizeClassName="h-24 w-24 shrink-0 text-3xl sm:h-28 sm:w-28"
+            className="ring-4 ring-white/35"
           />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
               <h1 className="break-words text-2xl font-bold sm:text-3xl">{fullName}</h1>
-              <IdentityBadge kycVerified={profile.kycVerified} />
+              {profile.kycVerified && (
+                <span className="inline-flex rounded-full ring-1 ring-white/80">
+                  <IdentityBadge kycVerified={profile.kycVerified} />
+                </span>
+              )}
             </div>
-            <p className="mt-0.5 text-sm text-muted-foreground">@{profile.username}</p>
+            <p className="mt-0.5 text-sm">@{profile.username}</p>
             <div className="mt-4 flex flex-wrap justify-center gap-2 md:justify-start">
               {joinedAt && (
                 <span className={chip}>
@@ -202,7 +208,7 @@ export default function PublicProfileClient({ username }: { username: string }) 
                 </span>
               )}
               {profile.kycVerified && (
-                <span className={`${chip} bg-primary/10 text-primary`}>
+                <span className={chip}>
                   <BadgeCheck className="h-3.5 w-3.5" />
                   Đã xác minh danh tính
                 </span>
@@ -230,7 +236,7 @@ export default function PublicProfileClient({ username }: { username: string }) 
               <button
                 type="button"
                 onClick={() => void copyLink()}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:bg-muted"
+                className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/60 px-4 py-2.5 text-sm font-semibold hover:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 <Copy className="h-4 w-4" />
                 Sao chép liên kết

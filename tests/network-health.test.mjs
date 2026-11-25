@@ -89,13 +89,13 @@ test("offline event and navigator.onLine=false block immediately", async () => {
 test("blocks after exactly 2 consecutive BAD probes, not after 1; slow RTT counts as BAD", async () => {
   const f = fixture([G, B, G, B, B]); const stop = f.monitor.subscribe(() => {}); await settle();
   await f.advance(15000); assert.equal(status(f), "online"); // 1 BAD
-  await f.advance(15000); assert.equal(status(f), "online"); // GOOD resets
+  await f.advance(2000); assert.equal(status(f), "online"); // GOOD resets
   await f.advance(15000); assert.equal(status(f), "online"); // 1 BAD
-  await f.advance(15000); assert.equal(status(f), "offline"); assert.equal(f.monitor.getSnapshot().reason, "offline");
+  await f.advance(2000); assert.equal(status(f), "offline"); assert.equal(f.monitor.getSnapshot().reason, "offline");
   stop();
   const s = fixture([SLOW, SLOW]); const stop2 = s.monitor.subscribe(() => {}); await settle();
   assert.equal(status(s), "checking");
-  await s.advance(15000);
+  await s.advance(2000);
   assert.deepEqual({ ...s.monitor.getSnapshot() }, { status: "offline", reason: "weak", goodStreak: 0 });
   stop2();
   const edge = fixture([{ ok: true, rtt: 2500 }]); const stop3 = edge.monitor.subscribe(() => {}); await settle();
@@ -105,7 +105,7 @@ test("blocks after exactly 2 consecutive BAD probes, not after 1; slow RTT count
 test("unblocks after 3 consecutive GOOD at 2s cadence, BAD in between resets streak, emits backend check", async () => {
   const f = fixture([B, B, G, G, B, G, G, G]);
   const stop = f.monitor.subscribe(() => {}); await settle();
-  await f.advance(15000); assert.equal(status(f), "offline");
+  await f.advance(2000); assert.equal(status(f), "offline");
   await f.advance(2000); assert.equal(f.monitor.getSnapshot().goodStreak, 1);
   await f.advance(2000); assert.equal(f.monitor.getSnapshot().goodStreak, 2);
   await f.advance(2000); assert.equal(f.monitor.getSnapshot().goodStreak, 0); assert.equal(status(f), "offline");
@@ -118,7 +118,7 @@ test("unblocks after 3 consecutive GOOD at 2s cadence, BAD in between resets str
 
 test("never unblocks while navigator.onLine === false", async () => {
   const f = fixture([B, B, G]); const stop = f.monitor.subscribe(() => {}); await settle();
-  await f.advance(15000); assert.equal(status(f), "offline");
+  await f.advance(2000); assert.equal(status(f), "offline");
   f.navigator.onLine = false; await f.advance(20000);
   assert.equal(status(f), "offline"); assert.deepEqual(f.fired, []);
   assert.equal(f.calls, 2); // onLine=false: không gọi mạng
@@ -197,4 +197,14 @@ test("axios emits hs:network-check only for responseless non-cancel errors", asy
   await assert.rejects(responseError({ config: {}, cancel: true })); await assert.rejects(responseError({ config: { backendHealthProbe: true } }));
   await assert.rejects(responseError({ config: {}, response: { status: 503 } }));
   assert.deepEqual(fired, ["hs:backend-health-check"]);
+});
+
+test("after 1 BAD (not yet blocked) the next probe runs in 2s, then back to 15s after GOOD", async () => {
+  const f = fixture([G, B, G, G]); const stop = f.monitor.subscribe(() => {}); await settle();
+  await f.advance(15000); assert.equal(f.calls, 2); assert.equal(status(f), "online");
+  await f.advance(1999); assert.equal(f.calls, 2);
+  await f.advance(1); assert.equal(f.calls, 3); assert.equal(status(f), "online");
+  await f.advance(14999); assert.equal(f.calls, 3);
+  await f.advance(1); assert.equal(f.calls, 4);
+  stop();
 });

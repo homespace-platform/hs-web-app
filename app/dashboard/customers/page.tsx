@@ -1,7 +1,3 @@
-"use client";
-
-import React from "react";
-
 export default function CustomersPage() {
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-200">
@@ -15,7 +11,7 @@ export default function CustomersPage() {
       </div>
 
       <div className="bg-card rounded-2xl border border-border p-8 text-center text-muted-foreground shadow-2xs">
-        <p className="text-sm font-semibold">Chưa có thông tin khách hàng nào.</p>
+        <p className="text-sm font-semibold">Trang quản lý khách hàng đang được xây dựng…</p>
       </div>
     </div>
   );

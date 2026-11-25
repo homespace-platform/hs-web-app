@@ -27,6 +27,7 @@ export default async function CallPage({ searchParams }: CallPageProps) {
       callId={callId}
       mode={mode}
       participantName={participantName}
+      historyEnabled={params.historyVersion === "1"}
     />
   );
 }

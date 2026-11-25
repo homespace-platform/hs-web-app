@@ -17,7 +17,7 @@ import keycloak from "@/lib/keycloak";
 import chatService from "@/services/chat.service";
 import type { ChatParticipantProfile } from "@/services/chat.service";
 import type { ChatConversation, RelatedListing } from "@/types/chat.type";
-import { mapApiConversation, mapApiMessage } from "@/lib/chat-api-mapper";
+import { legacyAttachmentContent, mapApiConversation, mapApiMessage } from "@/lib/chat-api-mapper";
 import { dedupeByParticipant, listingToAttach } from "@/lib/chat-demo-state";
 import { applyPresence, mergePresence, type ChatPresenceMap, type ChatPresenceUpdate } from "@/lib/chat-presence";
 import type {
@@ -50,20 +50,25 @@ function mergeUnreadCount(local: ChatConversation, snapshot: ChatApiConversation
   return Math.max(local.unreadCount, snapshot.unreadCount + afterSnapshot);
 }
 
-function openCallTab(call: ChatCallSignal, participantName: string) {
+function callRoomPath(call: ChatCallSignal, participantName: string) {
   const params = new URLSearchParams({
     conversationId: call.conversationId,
     callId: call.callId,
     mode: call.mode,
     participantName,
   });
+  if (call.historyVersion === 1) params.set("historyVersion", "1");
+  return `/chat/call?${params}`;
+}
+
+function openCallTab(callId: string, path: string) {
   const width = Math.min(1100, window.screen.availWidth - 48);
   const height = Math.min(720, window.screen.availHeight - 48);
   const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);
   const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2);
   const callTab = window.open(
-    `/chat/call?${params}`,
-    `hs-call-${call.callId}`,
+    path,
+    `hs-call-${callId}`,
     `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes`,
   );
   if (callTab) callTab.opener = null;
@@ -137,7 +142,7 @@ type ChatDemoContextValue = {
     content: string,
     listingCard?: RelatedListing,
     attachments?: ChatApiAttachment[],
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   loadConversationMessages: (conversationId: string) => Promise<void>;
   setActiveConversationId: (conversationId: string | null) => void;
   toggleHideConversation: (conversationId: string) => void;
@@ -151,7 +156,7 @@ type ChatDemoContextValue = {
     mode: ChatCallMode,
     participantName: string,
   ) => void;
-  endCall: (conversationId: string, callId: string) => void;
+  endCall: (conversationId: string, callId: string, reason?: ChatCallEndSignal["reason"]) => void;
   manageMessage: (
     conversationId: string,
     messageId: string,
@@ -187,7 +192,10 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   const loadingConversationIds = useRef(new Set<string>());
   const activeConversationId = useRef<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const callHistoryReady = useRef(false);
   const conversationsRef = useRef(rawConversations);
+  const callTabs = useRef(new Map<string, Window>());
+  const pendingCallEnds = useRef<ChatCallEndSignal[]>([]);
   const [pendingListings, setPendingListings] = useState<Record<string, RelatedListing>>({});
   const pendingListingsRef = useRef(pendingListings);
   const clearPendingListing = useCallback((conversationId: string) => {
@@ -299,7 +307,7 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
           ?? mapApiConversation({ id: message.conversationId, participantId: message.senderId,
             participantName: "Người dùng HomeSpace", unreadCount: 0 }, currentUserId);
         if (existing.messages.some((item) => item.id === message.id)) return current;
-        return [{ ...existing, lastMessage: message.content, lastMessageTime: mappedMessage.timestamp,
+        return [{ ...existing, lastMessage: mappedMessage.content || mappedMessage.attachments?.[0]?.name || "", lastMessageTime: mappedMessage.timestamp,
           lastMessageSender: incoming ? "them" : "me",
           unreadCount: existing.unreadCount + (incoming ? 1 : 0),
           messages: [...existing.messages, mappedMessage],
@@ -359,6 +367,19 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const openCall = useCallback((callId: string, path: string) => {
+    const tab = openCallTab(callId, path);
+    if (!tab) {
+      toast.error("Trình duyệt đã chặn tab cuộc gọi");
+      return null;
+    }
+    for (const [callId, previousTab] of callTabs.current) {
+      if (previousTab.closed) callTabs.current.delete(callId);
+    }
+    callTabs.current.set(callId, tab);
+    return tab;
+  }, []);
+
   useEffect(() => {
     if (!authenticated || !currentUserId) return;
 
@@ -395,6 +416,15 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
           extraHeaders: { Authorization: `Bearer ${keycloak.token}` },
         });
         socket.on("connect", () => {
+          callHistoryReady.current = false;
+          socket?.timeout(5_000).emit("chat:call:history-ready", {}, (
+            error: Error | null,
+            ack?: { ok: boolean; historyVersion?: number },
+          ) => {
+            if (!error && ack?.ok === true && ack.historyVersion === 1 && !cancelled && socket?.connected) {
+              callHistoryReady.current = true;
+            }
+          });
           presenceSubscribed.current.clear();
           subscribePresence(conversationsRef.current.map((item) => item.userId));
         });
@@ -423,14 +453,19 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
                 call={call}
                 participantName={participantName}
                 onAccept={() => {
+                  if (!openCall(call.callId, callRoomPath(call, participantName))) return;
+                  socket?.emit("chat:call:accept", {
+                    conversationId: call.conversationId,
+                    callId: call.callId,
+                  });
                   toast.dismiss(id);
-                  openCallTab(call, participantName);
                 }}
                 onReject={() => {
                   toast.dismiss(id);
                   socket?.emit("chat:call:end", {
                     conversationId: call.conversationId,
                     callId: call.callId,
+                    ...(call.historyVersion === 1 ? { reason: "declined" } : {}),
                   });
                 }}
               />
@@ -441,6 +476,19 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
         socket.on("chat:call:ended", (call: ChatCallEndSignal) => {
           toast.dismiss(`call-${call.callId}`);
           window.dispatchEvent(new CustomEvent("hs:call-ended", { detail: call }));
+          const tab = callTabs.current.get(call.callId);
+          callTabs.current.delete(call.callId);
+          if (!tab || tab.closed) return;
+          // The call window may still be authenticating when the other user hangs up.
+          try {
+            if (!tab.dispatchEvent(new CustomEvent("hs:call-ended", {
+              cancelable: true,
+              detail: call,
+            }))) return;
+          } catch {
+            // The call window can be on the sign-in origin while it loads.
+          }
+          tab.close();
         });
         socket.io.on("reconnect_attempt", () => {
           if (keycloak.token) {
@@ -448,6 +496,9 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
           }
         });
         socketRef.current = socket;
+        for (const call of pendingCallEnds.current.splice(0)) {
+          socket.emit("chat:call:end", call);
+        }
       })
       .catch(() => undefined);
 
@@ -456,10 +507,11 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       socket?.removeAllListeners();
       socket?.disconnect();
       if (socketRef.current === socket) socketRef.current = null;
+      callHistoryReady.current = false;
       presenceSubscribed.current.clear();
       setPresence({});
     };
-  }, [authenticated, currentUserId, receiveMessage, removeMessage, updateMessage, mergeSummaries, subscribePresence]);
+  }, [authenticated, currentUserId, receiveMessage, removeMessage, updateMessage, mergeSummaries, subscribePresence, openCall]);
 
   useEffect(() => {
     if (!authenticated || !currentUserId) return;
@@ -495,25 +547,38 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
         conversationId,
         callId: crypto.randomUUID(),
         mode,
+        ...(callHistoryReady.current ? { historyVersion: 1 } : {}),
       };
-      const callTab = openCallTab(call, participantName);
-      if (!callTab) {
-        toast.error("Trình duyệt đã chặn tab cuộc gọi");
-        return;
-      }
+      const waitForTracking = call.historyVersion === 1;
+      // Reserve the popup during the click, then use the server's tracking decision.
+      const callTab = openCall(call.callId, waitForTracking ? "about:blank" : callRoomPath(call, participantName));
+      if (!callTab) return;
       void socket
         .timeout(10_000)
         .emitWithAck("chat:call:invite", call)
+        .then((invite?: ChatCallSignal) => {
+          if (!waitForTracking || callTabs.current.get(call.callId) !== callTab) return;
+          if (callTab.closed) {
+            callTabs.current.delete(call.callId);
+            socket.emit("chat:call:end", { conversationId, callId: call.callId });
+            return;
+          }
+          const path = callRoomPath({ ...call, historyVersion: invite?.historyVersion }, participantName);
+          callTab.location.replace(new URL(path, window.location.origin).href);
+        })
         .catch(() => {
+          callTabs.current.delete(call.callId);
           callTab.close();
           toast.error("Không thể gửi lời mời cuộc gọi");
         });
     },
-    [],
+    [openCall],
   );
 
-  const endCall = useCallback((conversationId: string, callId: string) => {
-    socketRef.current?.emit("chat:call:end", { conversationId, callId });
+  const endCall = useCallback((conversationId: string, callId: string, reason?: ChatCallEndSignal["reason"]) => {
+    const call = { conversationId, callId, ...(reason ? { reason } : {}) };
+    if (socketRef.current) socketRef.current.emit("chat:call:end", call);
+    else pendingCallEnds.current.push(call);
   }, []);
 
   const manageMessage = useCallback(
@@ -658,7 +723,7 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       attachments?: ChatApiAttachment[],
     ) => {
       const trimmed = content.trim();
-      if (!trimmed || !currentUserId) return;
+      if ((!trimmed && !attachments?.length) || !currentUserId) return false;
 
       try {
         const socket = socketRef.current;
@@ -670,19 +735,30 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
           conversationsRef.current.find((item) => item.id === conversationId)?.messages ?? [],
           currentUserId,
         );
-        await socket.timeout(10_000).emitWithAck("chat:send", {
+        let messageContent = trimmed;
+        // The gateway that acknowledges history readiness also accepts attachment-only messages.
+        if (!messageContent && !callHistoryReady.current && attachments?.length) {
+          messageContent = legacyAttachmentContent(attachments);
+        }
+        const ack: ChatApiMessage | undefined = await socket.timeout(10_000).emitWithAck("chat:send", {
           conversationId,
-          content: trimmed,
+          content: messageContent,
           ...(listing ? { listing } : {}),
           ...(currentParticipantProfile ? { senderProfile: currentParticipantProfile } : {}),
           ...(attachments?.length ? { attachments } : {}),
         });
+        if (typeof ack?.id !== "string" || !ack.id || ack.conversationId !== conversationId) {
+          throw new Error("Message not acknowledged");
+        }
+        void receiveMessage(ack);
         clearPendingListing(conversationId);
+        return true;
       } catch {
         toast.error("Không thể gửi tin nhắn");
+        return false;
       }
     },
-    [clearPendingListing, currentParticipantProfile, currentUserId]
+    [clearPendingListing, currentParticipantProfile, currentUserId, receiveMessage]
   );
 
   const toggleHideConversation = useCallback((conversationId: string) => {

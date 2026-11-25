@@ -637,6 +637,7 @@ function ChatWorkspace() {
               </div>
             ) : activeDirectConversation ? (
               <ChatWindow
+                key={activeDirectConversation.id}
                 conversation={activeDirectConversation}
                 onBack={() => setActiveDirectConversationId(null)}
                 onSendMessage={(conversationId, text, attachments) =>

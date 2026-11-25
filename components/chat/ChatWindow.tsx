@@ -3,9 +3,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import UserAvatar from "@/components/common/UserAvatar";
+import { MediaLightboxModal, type MediaGalleryItem } from "@/components/common/MediaGallery";
+import ChatDocumentModal from "@/components/chat/ChatDocumentModal";
 import Link from "next/link";
 import {
   Phone,
+  PhoneIncoming,
+  PhoneOutgoing,
   Video,
   Search,
   MoreVertical,
@@ -13,6 +17,12 @@ import {
   Smile,
   ImageIcon,
   Paperclip,
+  File as FileIcon,
+  FileType,
+  FileText,
+  FileSpreadsheet,
+  Presentation,
+  LoaderCircle,
   Send,
   CheckCheck,
   MapPin,
@@ -37,60 +47,125 @@ import storageService from "@/services/storage.service";
 import chatService from "@/services/chat.service";
 import { toast } from "sonner";
 import { listingDetailPath } from "@/lib/listing-detail-access";
+import { chatDocumentFormat, type ChatDocumentFormat } from "@/lib/chat-document-preview";
+
+type Attachment = NonNullable<ChatMessage["attachments"]>[number];
+type DocumentPreview = { fileName: string; format: ChatDocumentFormat; getUrl: () => Promise<string> };
+const MAX_ATTACHMENTS = 5;
+const IMAGE_EXTENSIONS = ".jpg,.jpeg,.jfif,.png,.webp";
+
+function callOutcome(call: NonNullable<ChatMessage["call"]>, outgoing: boolean) {
+  return {
+    missed: outgoing ? "Không có người trả lời" : "Cuộc gọi nhỡ",
+    declined: outgoing ? "Người nhận đã từ chối" : "Bạn đã từ chối",
+    cancelled: outgoing ? "Bạn đã hủy" : "Người gọi đã hủy",
+    ended: "Đã kết thúc",
+    failed: "Cuộc gọi thất bại",
+  }[call.status];
+}
+
+function AttachmentIcon({ name = "", className }: { name?: string; className: string }) {
+  if (/\.pdf$/i.test(name)) return <FileText className={className} />;
+  if (/\.docx?$/i.test(name)) return <FileType className={className} />;
+  if (/\.xlsx?$/i.test(name)) return <FileSpreadsheet className={className} />;
+  if (/\.pptx?$/i.test(name)) return <Presentation className={className} />;
+  return <FileIcon className={className} />;
+}
+
+function getAttachmentUrl(conversationId: string, attachment: Attachment) {
+  const { storageId, url } = attachment;
+  if (storageId?.startsWith("chat_")) return chatService.getAttachmentViewUrl(conversationId, storageId);
+  if (storageId && !url) return storageService.getViewUrl(storageId);
+  return Promise.resolve(url);
+}
 
 function AttachmentPreview({
   attachment,
   conversationId,
+  onOpenImage,
+  onOpenDocument,
 }: {
-  attachment: NonNullable<ChatMessage["attachments"]>[number];
+  attachment: Attachment;
   conversationId: string;
+  onOpenImage: () => void;
+  onOpenDocument: (document: DocumentPreview) => void;
 }) {
-  const [url, setUrl] = useState(attachment.url);
+  const isChatFile = attachment.storageId?.startsWith("chat_");
+  const [url, setUrl] = useState(isChatFile ? "" : attachment.url);
 
   useEffect(() => {
-    if (!url && attachment.storageId) {
-      const request = attachment.storageId.startsWith("chat_")
-        ? chatService.getAttachmentViewUrl(conversationId, attachment.storageId)
-        : storageService.getViewUrl(attachment.storageId);
-      void request
-        .then(setUrl)
-        .catch(() => undefined);
-    }
-  }, [attachment.storageId, conversationId, url]);
+    if (attachment.type !== "image") return;
+    let cancelled = false;
+    void getAttachmentUrl(conversationId, attachment).then((nextUrl) => {
+      if (!cancelled) setUrl(nextUrl);
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [attachment, conversationId, isChatFile]);
 
-  return (
-    <a
-      href={url || undefined}
-      target="_blank"
-      rel="noreferrer"
-      onClick={(event) => {
-        if (!attachment.storageId?.startsWith("chat_")) return;
-        const fileTab = window.open("about:blank", "_blank");
-        if (!fileTab) return;
-        event.preventDefault();
-        fileTab.opener = null;
-        void chatService.getAttachmentViewUrl(conversationId, attachment.storageId).then((freshUrl) => {
-          setUrl(freshUrl);
-          fileTab.location.href = freshUrl;
-        }).catch(() => {
-          fileTab.close();
-          toast.error("Không thể mở tệp đính kèm");
-        });
-      }}
-      className="mb-2 flex max-w-sm items-center gap-3 rounded-xl border border-border bg-card p-2.5 text-xs hover:border-primary/40"
-    >
+  if (attachment.type === "image") {
+    return (
+      <button
+        type="button"
+        onClick={onOpenImage}
+        aria-label={`Mở ảnh ${attachment.name || "đính kèm"}`}
+        className="mb-2 flex aspect-[4/3] w-60 max-w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-muted text-muted-foreground hover:border-primary/40"
+      >
+        {url ? (
+          <Image
+            unoptimized
+            src={url}
+            alt={attachment.name || "Ảnh đính kèm"}
+            width={240}
+            height={180}
+            onError={() => setUrl("")}
+            className="h-full w-full object-contain"
+          />
+        ) : <ImageIcon className="h-6 w-6" />}
+      </button>
+    );
+  }
+
+  const format = chatDocumentFormat(attachment.name, attachment.contentType);
+  const fileCardClass = "mb-2 flex max-w-sm items-center gap-3 rounded-xl border border-border bg-card p-2.5 text-left text-xs hover:border-primary/40";
+  const fileCard = (
+    <>
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        {attachment.type === "image" ? (
-          <ImageIcon className="h-5 w-5" />
-        ) : (
-          <Paperclip className="h-5 w-5" />
-        )}
+        <AttachmentIcon name={attachment.name} className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold">{attachment.name || "Tệp đính kèm"}</span>
         <span className="text-muted-foreground">{attachment.size || "Mở tệp"}</span>
       </span>
-    </a>
+    </>
+  );
+  if (format) {
+    const fileName = attachment.name || `Tài liệu.${format}`;
+    return <button type="button" aria-label={`Xem ${fileName}`} className={fileCardClass} onClick={() => onOpenDocument({
+      fileName, format, getUrl: () => getAttachmentUrl(conversationId, attachment),
+    })}>{fileCard}</button>;
+  }
+  if (!isChatFile && attachment.url) {
+    return <a href={attachment.url} target="_blank" rel="noreferrer" className={fileCardClass}>{fileCard}</a>;
+  }
+
+  const openFile = () => {
+    const fileTab = window.open("about:blank", "_blank");
+    if (!fileTab) {
+      toast.error("Trình duyệt đã chặn tab tệp đính kèm");
+      return;
+    }
+    fileTab.opener = null;
+    void getAttachmentUrl(conversationId, attachment).then((freshUrl) => {
+      if (!freshUrl) throw new Error("Attachment URL missing");
+      fileTab.location.href = freshUrl;
+    }).catch(() => {
+      fileTab.close();
+      toast.error("Không thể mở tệp đính kèm");
+    });
+  };
+
+  return (
+    <button type="button" onClick={openFile} className={fileCardClass}>{fileCard}</button>
   );
 }
 
@@ -101,7 +176,7 @@ interface ChatWindowProps {
     conversationId: string,
     text: string,
     attachments?: ChatApiAttachment[],
-  ) => void;
+  ) => Promise<boolean>;
   onToggleHideConversation: (conversationId: string) => void;
   onTogglePinConversation: (conversationId: string) => void;
   onUpdateParticipantRole: (
@@ -145,11 +220,21 @@ export default function ChatWindow({
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [openMessageMenuId, setOpenMessageMenuId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(Date.now);
-  const [isUploading, setIsUploading] = useState(false);
+  const [draftFiles, setDraftFiles] = useState<{ file: File; previewUrl?: string }[]>([]);
+  const [isSending, setIsSending] = useState(false);
+  const [sendFailed, setSendFailed] = useState(false);
+  const [gallery, setGallery] = useState<{ items: MediaGalleryItem[]; index: number } | null>(null);
+  const [documentPreview, setDocumentPreview] = useState<DocumentPreview | null>(null);
+  const sending = useRef(false);
+  const uploaded = useRef(new Map<File, ChatApiAttachment>());
+  const previewUrls = useRef(new Set<string>());
+  const galleryRequest = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isAi = conversation.id === "conv-ai-assistant";
+  const attachments = conversation.messages.flatMap((message) => message.attachments ?? []);
 
   // Auto scroll to bottom when messages change
   const scrollToBottom = () => {
@@ -166,53 +251,103 @@ export default function ChatWindow({
     return () => window.clearInterval(intervalId);
   }, []);
 
-  const handleSend = (e?: React.FormEvent) => {
+  useEffect(() => {
+    const urls = previewUrls.current;
+    return () => {
+      urls.forEach((url) => URL.revokeObjectURL(url));
+      urls.clear();
+      galleryRequest.current += 1;
+    };
+  }, []);
+
+  const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = inputText.trim();
-    if (!trimmed) return;
+    if ((!trimmed && !draftFiles.length) || sending.current) return;
 
-    onSendMessage(conversation.id, trimmed);
-    setInputText("");
-    setTimeout(() => {
+    sending.current = true;
+    setIsSending(true);
+    setSendFailed(false);
+    try {
+      const ready: ChatApiAttachment[] = [];
+      for (const { file } of draftFiles) {
+        const attachment = uploaded.current.get(file) ?? await chatService.uploadAttachment(file, conversation.id);
+        uploaded.current.set(file, attachment);
+        ready.push(attachment);
+      }
+      if (!await onSendMessage(conversation.id, trimmed, ready)) {
+        setSendFailed(true);
+        return;
+      }
+      setInputText("");
+      setDraftFiles([]);
+      uploaded.current.clear();
+      previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+      previewUrls.current.clear();
       inputRef.current?.focus();
-    }, 50);
+    } catch {
+      setSendFailed(true);
+      toast.error("Không thể tải tệp lên. Chỉ hỗ trợ JPG, PNG, WebP, PDF, Word, Excel và PowerPoint. Tối đa 25 MB/tệp.");
+    } finally {
+      sending.current = false;
+      setIsSending(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   };
 
   const handleQuickReply = (text: string) => {
-    onSendMessage(conversation.id, text);
+    if (!sending.current) void onSendMessage(conversation.id, text);
   };
 
-  const handleAttachment = async (file: File | undefined) => {
-    if (!file || isUploading || isAi) return;
-    setIsUploading(true);
-    try {
-      const attachment = await chatService.uploadAttachment(file, conversation.id);
-      onSendMessage(
-        conversation.id,
-        inputText.trim() || `Đã gửi ${file.name}`,
-        [attachment],
-      );
-      setInputText("");
-    } catch {
-      toast.error("Không thể tải tệp lên");
-    } finally {
-      setIsUploading(false);
-      if (imageInputRef.current) imageInputRef.current.value = "";
-      if (fileInputRef.current) fileInputRef.current.value = "";
+  const selectAttachments = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.currentTarget.files ?? []);
+    event.currentTarget.value = "";
+    if (isAi || sending.current || !files.length) return;
+    const remaining = MAX_ATTACHMENTS - draftFiles.length;
+    if (files.length > remaining) toast.error("Bạn có thể đính kèm tối đa 5 tệp mỗi tin nhắn.");
+    const selected = files.slice(0, remaining).map((file) => {
+      const previewUrl = file.type.startsWith("image/") || /\.(jpe?g|jfif|png|webp)$/i.test(file.name)
+        ? URL.createObjectURL(file)
+        : undefined;
+      if (previewUrl) previewUrls.current.add(previewUrl);
+      return { file, previewUrl };
+    });
+    setDraftFiles([...draftFiles, ...selected]);
+  };
+
+  const removeAttachment = (index: number) => {
+    const { file, previewUrl } = draftFiles[index];
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      previewUrls.current.delete(previewUrl);
     }
+    uploaded.current.delete(file);
+    setDraftFiles(draftFiles.filter((_, fileIndex) => fileIndex !== index));
   };
 
-  const isAi = conversation.id === "conv-ai-assistant";
-  const attachments = conversation.messages.flatMap(
-    (message) => message.attachments ?? [],
-  );
+  const openImage = async (selected: Attachment, group: Attachment[]) => {
+    const request = ++galleryRequest.current;
+    const images = group.filter((attachment) => attachment.type === "image");
+    const loaded = await Promise.allSettled(images.map(async (attachment) => ({
+      attachment,
+      url: await getAttachmentUrl(conversation.id, attachment),
+    })));
+    if (request !== galleryRequest.current) return;
+    const available = loaded.flatMap((item) => item.status === "fulfilled" && item.value.url ? [item.value] : []);
+    const index = available.findIndex((item) => item.attachment === selected);
+    if (index < 0) {
+      toast.error("Không thể mở ảnh đính kèm");
+      return;
+    }
+    setGallery({ index, items: available.map(({ attachment, url }) => ({ url, alt: attachment.name })) });
+  };
+
   const pinnedMessages = conversation.messages.filter((message) => message.isPinned);
 
   const handleMessageAction = (message: ChatMessage, action: ChatMessageAction) => {
@@ -378,6 +513,9 @@ export default function ChatWindow({
           const showDateDivider =
             index === 0 ||
             msg.dateGroup !== conversation.messages[index - 1].dateGroup;
+          const call = msg.isRecalled ? undefined : msg.call;
+          const outgoingCall = currentUserId ? call?.callerId === currentUserId : isMe;
+          const CallIcon = outgoingCall ? PhoneOutgoing : PhoneIncoming;
 
           return (
             <React.Fragment key={msg.id}>
@@ -411,9 +549,15 @@ export default function ChatWindow({
                     />
                   )}
 
-                  <div className="flex flex-col">
-                    {msg.attachments?.map((attachment) => (
-                      <AttachmentPreview key={attachment.storageId || attachment.name} attachment={attachment} conversationId={conversation.id} />
+                  <div className="flex min-w-0 flex-col">
+                    {msg.attachments?.map((attachment, attachmentIndex) => (
+                      <AttachmentPreview
+                        key={`${attachment.storageId || attachment.url || attachment.name}-${attachmentIndex}`}
+                        attachment={attachment}
+                        conversationId={conversation.id}
+                        onOpenImage={() => void openImage(attachment, msg.attachments ?? [])}
+                        onOpenDocument={setDocumentPreview}
+                      />
                     ))}
                     {/* Inline Listing Card Attachment inside message */}
                     {msg.listingCard && (
@@ -449,7 +593,22 @@ export default function ChatWindow({
                       </div>
                     )}
 
-                    <div
+                    {call ? (
+                      <div className="min-w-40 rounded-2xl border border-border bg-card p-3 text-xs">
+                        <div className="flex items-center gap-2 font-semibold">
+                          <CallIcon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                          <span>{call.mode === "video" ? "Gọi video" : "Gọi thoại"} {outgoingCall ? "đi" : "đến"}</span>
+                        </div>
+                        <p className="mt-1 text-muted-foreground">{callOutcome(call, outgoingCall) || msg.content}</p>
+                        <button
+                          type="button"
+                          onClick={() => onStartCall(conversation.id, call.mode === "audio" ? "voice" : "video", conversation.userName)}
+                          className="mt-2 w-full rounded-lg bg-primary/10 px-3 py-1.5 font-semibold text-primary hover:bg-primary/20"
+                        >
+                          Gọi lại
+                        </button>
+                      </div>
+                    ) : msg.content && <div
                       className={`relative px-4 py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-2xs transition-all ${
                         isMe
                           ? "bg-blue-50 dark:bg-blue-950/60 text-foreground border border-blue-200/60 dark:border-blue-800/60 rounded-br-xs"
@@ -465,7 +624,7 @@ export default function ChatWindow({
                       >
                         {msg.content}
                       </p>
-                    </div>
+                    </div>}
                   </div>
 
                   <div className="relative self-center md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100">
@@ -594,7 +753,7 @@ export default function ChatWindow({
 
       {/* 5. Message Input Bar */}
       <div className="p-3 sm:p-4 border-t border-border bg-card">
-        <form onSubmit={handleSend} className="flex flex-col gap-1.5">
+        <form onSubmit={handleSend} aria-busy={isSending} className="flex flex-col gap-1.5">
           {pendingListing && !isAi && (
             <div className="flex items-center gap-2 self-start rounded-full border border-primary/30 bg-primary/5 py-1 pl-3 pr-1 text-xs text-foreground">
               <span className="max-w-[16rem] truncate">Đang hỏi về: <strong>{pendingListing.title}</strong></span>
@@ -608,20 +767,43 @@ export default function ChatWindow({
               </button>
             </div>
           )}
+          {draftFiles.length > 0 && (
+            <ul aria-label="Tệp đính kèm" className="flex flex-wrap gap-2">
+              {draftFiles.map(({ file, previewUrl }, index) => (
+                  <li key={index} className="flex max-w-48 items-center gap-2 rounded-lg border border-border bg-muted/50 p-1.5 text-xs">
+                    {previewUrl ? (
+                      <Image unoptimized src={previewUrl} alt="" width={36} height={36} className="size-9 shrink-0 rounded object-cover" />
+                    ) : <AttachmentIcon name={file.name} className="size-5 shrink-0 text-primary" />}
+                    <span className="truncate" title={file.name}>{file.name}</span>
+                    <button
+                      type="button"
+                      aria-label={`Bỏ tệp ${file.name}`}
+                      onClick={() => removeAttachment(index)}
+                      disabled={isSending}
+                      className="grid size-8 shrink-0 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </li>
+              ))}
+            </ul>
+          )}
           <div className="flex items-center gap-2 bg-muted/50 focus-within:bg-background border border-border focus-within:border-primary/50 rounded-2xl px-3 py-1.5 shadow-2xs transition-all">
             {/* Input Field */}
             <input
               ref={inputRef}
               type="text"
               value={inputText}
+              readOnly={isSending}
+              aria-label={draftFiles.length ? "Chú thích tin nhắn" : "Nội dung tin nhắn"}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={
                 isAi
                   ? "Hỏi Trợ lý AI về tìm nhà, giá cả khu vực, pháp lý, cọc On-chain..."
-                  : "Nhập tin nhắn trao đổi với chủ nhà / khách thuê..."
+                  : draftFiles.length ? "Thêm chú thích (không bắt buộc)" : "Nhập tin nhắn trao đổi với chủ nhà / khách thuê..."
               }
-              className="flex-1 bg-transparent text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none py-1.5"
+              className="min-w-0 flex-1 bg-transparent text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none py-1.5"
             />
 
             {/* Action Buttons */}
@@ -629,18 +811,22 @@ export default function ChatWindow({
               <input
                 ref={imageInputRef}
                 type="file"
-                accept="image/*"
+                accept={IMAGE_EXTENSIONS}
+                multiple
                 className="hidden"
-                onChange={(event) => void handleAttachment(event.target.files?.[0])}
+                onChange={selectAttachments}
               />
               <input
                 ref={fileInputRef}
                 type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                multiple
                 className="hidden"
-                onChange={(event) => void handleAttachment(event.target.files?.[0])}
+                onChange={selectAttachments}
               />
               <button
                 type="button"
+                disabled={isSending}
                 onClick={() => setInputText((prev) => prev + " 😊")}
                 className="p-1.5 rounded-lg hover:text-foreground hover:bg-muted transition-colors"
                 title="Thêm emoji"
@@ -650,7 +836,7 @@ export default function ChatWindow({
               <button
                 type="button"
                 onClick={() => imageInputRef.current?.click()}
-                disabled={isUploading}
+                disabled={isSending || draftFiles.length >= MAX_ATTACHMENTS}
                 className="p-1.5 rounded-lg hover:text-foreground hover:bg-muted transition-colors"
                 title="Gửi hình ảnh"
               >
@@ -659,7 +845,7 @@ export default function ChatWindow({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
+                disabled={isSending || draftFiles.length >= MAX_ATTACHMENTS}
                 className="p-1.5 rounded-lg hover:text-foreground hover:bg-muted transition-colors"
                 title="Đính kèm tệp"
               >
@@ -669,15 +855,16 @@ export default function ChatWindow({
               {/* Send Button */}
               <button
                 type="submit"
-                disabled={!inputText.trim() || isUploading}
+                disabled={(!inputText.trim() && !draftFiles.length) || isSending}
                 className={`p-2 rounded-xl font-semibold transition-all flex items-center justify-center ${
-                  inputText.trim()
+                  inputText.trim() || draftFiles.length
                     ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30 hover:scale-105 active:scale-95"
                     : "text-muted-foreground/40 cursor-not-allowed"
                 }`}
-                title="Gửi tin nhắn"
+                aria-label={isSending ? "Đang gửi tin nhắn" : sendFailed ? "Thử gửi lại" : "Gửi tin nhắn"}
+                title={sendFailed ? "Thử gửi lại" : "Gửi tin nhắn"}
               >
-                <Send className="w-4 h-4" />
+                {isSending ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : sendFailed ? <span className="text-xs">Thử lại</span> : <Send className="size-4" />}
               </button>
             </div>
           </div>
@@ -839,6 +1026,8 @@ export default function ChatWindow({
                         conversationId={conversation.id}
                         key={`${attachment.storageId || attachment.url || attachment.name}-${index}`}
                         attachment={attachment}
+                        onOpenImage={() => void openImage(attachment, attachments)}
+                        onOpenDocument={setDocumentPreview}
                       />
                     ))
                   ) : (
@@ -850,6 +1039,16 @@ export default function ChatWindow({
           </aside>
         </>
       )}
+      {gallery && (
+        <MediaLightboxModal
+          isOpen
+          onClose={() => setGallery(null)}
+          mediaItems={gallery.items}
+          initialIndex={gallery.index}
+          title="Ảnh đính kèm"
+        />
+      )}
+      {documentPreview && <ChatDocumentModal {...documentPreview} onClose={() => setDocumentPreview(null)} />}
     </div>
   );
 }

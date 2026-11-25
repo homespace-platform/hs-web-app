@@ -5,6 +5,14 @@ export type ChatApiAttachment = {
   fileName: string;
   contentType: string;
   sizeBytes: number;
+  url?: string;
+};
+
+export type ChatCallHistory = {
+  callId: string;
+  callerId: string;
+  mode: "audio" | "video";
+  status: "missed" | "declined" | "cancelled" | "ended" | "failed";
 };
 
 export type ChatApiConversation = {
@@ -29,6 +37,7 @@ export type ChatApiMessage = {
   listing?: RelatedListing;
   createdAt: string;
   attachments?: ChatApiAttachment[];
+  call?: ChatCallHistory;
   isPinned?: boolean;
   isRecalled?: boolean;
 };
@@ -47,12 +56,13 @@ export type ChatCallSignal = {
   callId: string;
   mode: ChatCallMode;
   callerId?: string;
+  historyVersion?: 1;
 };
 
 export type ChatCallEndSignal = Pick<
   ChatCallSignal,
   "conversationId" | "callId"
->;
+> & { reason?: "declined" | "failed" };
 
 export type ChatCallToken = {
   appId: string;

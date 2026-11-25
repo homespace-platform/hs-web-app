@@ -1,6 +1,12 @@
 import type { ChatConversation, ChatMessage } from "@/types/chat.type";
 import type { ChatApiConversation, ChatApiMessage } from "@/types/chat-api.type";
 
+export function legacyAttachmentContent(attachments: NonNullable<ChatApiMessage["attachments"]>) {
+  return attachments.length === 1
+    ? `Đã gửi ${attachments[0].fileName}`
+    : `Đã gửi ${attachments.length} tệp đính kèm`;
+}
+
 const formatTime = (value?: string) => {
   if (!value) return "";
   const date = new Date(value);
@@ -47,11 +53,16 @@ export function mapApiMessage(
   message: ChatApiMessage,
   currentUserId: string,
 ): ChatMessage {
+  const attachments = message.attachments ?? [];
+  const isLegacyAttachmentText = attachments.length > 0 && (
+    message.content === legacyAttachmentContent(attachments) ||
+    (attachments.length === 1 && message.content === "Đã gửi tệp đính kèm")
+  );
   return {
     id: message.id,
     sender: message.senderId === currentUserId ? "me" : "them",
     senderId: message.senderId,
-    content: message.content,
+    content: isLegacyAttachmentText ? "" : message.content,
     timestamp: formatTime(message.createdAt),
     createdAt: message.createdAt,
     dateGroup: "Hôm nay",
@@ -59,11 +70,13 @@ export function mapApiMessage(
     isPinned: message.isPinned,
     isRecalled: message.isRecalled,
     listingCard: message.listing,
-    attachments: (message.attachments ?? []).map((attachment) => ({
+    call: message.call,
+    attachments: attachments.map((attachment) => ({
       type: attachment.contentType.startsWith("image/") ? "image" : "file",
-      url: "",
+      url: attachment.url ?? "",
       storageId: attachment.storageId,
       name: attachment.fileName,
+      contentType: attachment.contentType,
       size: `${Math.max(1, Math.round(attachment.sizeBytes / 1024))} KB`,
     })),
   };

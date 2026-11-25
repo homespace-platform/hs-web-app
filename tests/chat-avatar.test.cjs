@@ -36,6 +36,9 @@ for (const url of [google, s3]) {
     const ChatWindow = load("components/chat/ChatWindow.tsx", {
       react: { ...React, useState: (initial) => ++stateIndex === 2 ? [true, () => {}] : React.useState(initial) },
       "@/components/common/UserAvatar": UserAvatar,
+      "@/components/common/MediaGallery": {},
+      "@/components/chat/ChatDocumentModal": {},
+      "@/lib/chat-document-preview": {},
       "@/services/storage.service": {},
       "@/services/chat.service": {},
       "@/lib/listing-detail-access": { listingDetailPath: (id) => `/rent/${id}` },

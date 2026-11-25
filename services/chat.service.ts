@@ -48,12 +48,16 @@ const chatService = {
 
   async uploadAttachment(file: File, conversationId: string): Promise<ChatApiAttachment> {
     const typeByExtension: Record<string, string> = {
-      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', jfif: 'image/jpeg', png: 'image/png', webp: 'image/webp',
       pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     };
-    const contentType = file.type && file.type !== 'application/octet-stream' ? file.type : typeByExtension[file.name.split('.').pop()?.toLowerCase() ?? ''];
+    const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+    let contentType = file.type && file.type !== 'application/octet-stream' ? file.type : typeByExtension[extension];
+    if (['image/pjpeg', 'image/jfif', 'image/x-jfif'].includes(contentType)) contentType = 'image/jpeg';
     if (!Object.values(typeByExtension).includes(contentType) || file.size < 1 || file.size > 25 * 1024 * 1024) {
-      throw new Error('Chỉ hỗ trợ JPG/PNG/WebP, PDF, Word; tối đa 25 MB/tệp.');
+      throw new Error('Chỉ hỗ trợ JPG, PNG, WebP, PDF, Word, Excel và PowerPoint. Tối đa 25 MB/tệp.');
     }
     const base = `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/media`;
     const response = await axiosClient.post<ApiResponse<{ storageId: string; uploadUrl: string }>>(`${base}/uploads`, {

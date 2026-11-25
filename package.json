@@ -16,6 +16,8 @@
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/montserrat": "^5.3.0",
     "@hookform/resolvers": "^5.9.1",
+    "@office-open/doc": "0.15.3",
+    "@office-open/docx": "0.15.3",
     "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-separator": "^1.1.15",
     "@radix-ui/react-slider": "^1.4.7",

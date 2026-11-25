@@ -19,20 +19,25 @@ export default function CallRoom({
   callId,
   mode,
   participantName,
+  historyEnabled,
 }: {
   conversationId: string;
   callId: string;
   mode: ChatCallMode;
   participantName: string;
+  historyEnabled?: boolean;
 }) {
   const { endCall } = useChatDemo();
   const [status, setStatus] = useState<CallStatus>("connecting");
   const [muted, setMuted] = useState(false);
   const [videoMode, setVideoMode] = useState(mode === "video");
   const [cameraEnabled, setCameraEnabled] = useState(mode === "video");
+  const [playbackBlocked, setPlaybackBlocked] = useState(false);
   const clientRef = useRef<IAgoraRTCClient | null>(null);
   const microphoneRef = useRef<IMicrophoneAudioTrack | null>(null);
   const cameraRef = useRef<ICameraVideoTrack | null>(null);
+  const cameraPending = useRef(false);
+  const finishCallRef = useRef<(() => void) | null>(null);
   const localVideoRef = useRef<HTMLDivElement>(null);
   const remoteVideoRef = useRef<HTMLDivElement>(null);
 
@@ -50,101 +55,110 @@ export default function CallRoom({
 
   useEffect(() => {
     let cancelled = false;
+    let removeAutoplayListener: (() => void) | undefined;
+    const finish = (nextStatus: "ended" | "error", notifyPeer = false) => {
+      if (cancelled) return;
+      cancelled = true;
+      removeAutoplayListener?.();
+      setStatus(nextStatus);
+      if (notifyPeer) {
+        endCall(conversationId, callId, nextStatus === "error" && historyEnabled ? "failed" : undefined);
+      }
+      void leaveAgora();
+    };
+    const hangUp = () => finish("ended", true);
+    finishCallRef.current = hangUp;
 
     const connect = async () => {
       try {
         const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
         if (cancelled) return;
 
+        const onAutoplayFailed = () => setPlaybackBlocked(true);
+        AgoraRTC.on("autoplay-failed", onAutoplayFailed);
+        removeAutoplayListener = () => AgoraRTC.off("autoplay-failed", onAutoplayFailed);
+
         const microphone = await AgoraRTC.createMicrophoneAudioTrack();
+        if (cancelled) {
+          microphone.close();
+          return;
+        }
         microphoneRef.current = microphone;
         const camera =
           mode === "video" ? await AgoraRTC.createCameraVideoTrack() : null;
-        cameraRef.current = camera;
         if (cancelled) {
-          microphone.close();
           camera?.close();
           return;
         }
+        cameraRef.current = camera;
 
         const credentials = await chatService.createCallToken(
           conversationId,
           callId,
         );
-        if (cancelled) {
-          microphone.close();
-          camera?.close();
-          return;
-        }
+        if (cancelled) return;
 
         const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        clientRef.current = client;
         client.on("user-published", async (user, mediaType) => {
-          await client.subscribe(user, mediaType);
-          if (cancelled) return;
-          if (mediaType === "audio") user.audioTrack?.play();
-          if (mediaType === "video") {
-            setVideoMode(true);
-            if (remoteVideoRef.current) user.videoTrack?.play(remoteVideoRef.current);
+          try {
+            await client.subscribe(user, mediaType);
+            if (cancelled) return;
+            if (mediaType === "audio") user.audioTrack?.play();
+            if (mediaType === "video") {
+              setVideoMode(true);
+              if (remoteVideoRef.current) user.videoTrack?.play(remoteVideoRef.current);
+            }
+            setStatus("connected");
+          } catch {
+            if (!cancelled && (mediaType === "audio" ? user.hasAudio : user.hasVideo)) {
+              toast.error("Không thể phát âm thanh hoặc video từ người bên kia");
+            }
           }
-          setStatus("connected");
         });
-        client.on("user-left", () => {
-          if (!cancelled) {
-            setStatus("ended");
-            void leaveAgora();
-          }
-        });
+        client.on("user-left", () => finish("ended"));
 
-        await client.join(
-          credentials.appId,
-          credentials.channel,
-          credentials.token,
-          credentials.uid,
-        );
-        if (cancelled) {
-          await client.leave();
-          return;
+        try {
+          await client.join(
+            credentials.appId,
+            credentials.channel,
+            credentials.token,
+            credentials.uid,
+          );
+        } finally {
+          if (cancelled) await client.leave().catch(() => undefined);
         }
-
-        if (cancelled) {
-          microphone.close();
-          camera?.close();
-          await client.leave();
-          return;
-        }
-
+        if (cancelled) return;
+        clientRef.current = client;
         if (camera && localVideoRef.current) camera.play(localVideoRef.current);
         await client.publish(camera ? [microphone, camera] : [microphone]);
-        setStatus((current) => (current === "connected" ? current : "waiting"));
-      } catch {
         if (!cancelled) {
-          setStatus("error");
-          endCall(conversationId, callId);
-          void leaveAgora();
+          setStatus((current) => (current === "connected" ? current : "waiting"));
         }
+      } catch {
+        finish("error", true);
       }
     };
 
     const handleCallEnded = (event: Event) => {
       const call = (event as CustomEvent<ChatCallEndSignal>).detail;
-      if (call.callId !== callId) return;
-      setStatus("ended");
-      void leaveAgora();
+      if (call.callId !== callId || call.conversationId !== conversationId) return;
+      event.preventDefault();
+      finish("ended");
     };
-    const handlePageHide = () => endCall(conversationId, callId);
 
     window.addEventListener("hs:call-ended", handleCallEnded);
-    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("pagehide", hangUp);
     void connect();
 
     return () => {
       cancelled = true;
+      finishCallRef.current = null;
+      removeAutoplayListener?.();
       window.removeEventListener("hs:call-ended", handleCallEnded);
-      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("pagehide", hangUp);
       void leaveAgora();
     };
-  }, [callId, conversationId, endCall, leaveAgora, mode]);
+  }, [callId, conversationId, endCall, historyEnabled, leaveAgora, mode]);
 
   useEffect(() => {
     if (!videoMode || !cameraEnabled || !cameraRef.current || !localVideoRef.current) {
@@ -159,41 +173,50 @@ export default function CallRoom({
     return () => window.clearTimeout(closeTimer);
   }, [status]);
 
-  const hangUp = async () => {
-    endCall(conversationId, callId);
-    await leaveAgora();
-    setStatus("ended");
-  };
-
   const toggleMute = async () => {
     const microphone = microphoneRef.current;
     if (!microphone) return;
-    await microphone.setMuted(!muted);
-    setMuted((current) => !current);
+    await microphone.setMuted(!muted).catch(() => {
+      if (microphone === microphoneRef.current) toast.error("Không thể đổi trạng thái microphone");
+    });
+    if (microphone === microphoneRef.current) setMuted(microphone.muted);
   };
 
   const toggleCamera = async () => {
+    const client = clientRef.current;
+    if (!client || cameraPending.current) return;
+    cameraPending.current = true;
     const camera = cameraRef.current;
-    if (!camera) {
-      const client = clientRef.current;
-      if (!client) return;
-      try {
+    try {
+      if (camera) {
+        await camera.setMuted(cameraEnabled);
+        if (client === clientRef.current) setCameraEnabled(!camera.muted);
+      } else {
         const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+        if (client !== clientRef.current) return;
         const nextCamera = await AgoraRTC.createCameraVideoTrack();
+        if (client !== clientRef.current) {
+          nextCamera.close();
+          return;
+        }
         cameraRef.current = nextCamera;
-        if (localVideoRef.current) nextCamera.play(localVideoRef.current);
         await client.publish(nextCamera);
-        setVideoMode(true);
-        setCameraEnabled(true);
-      } catch {
-        cameraRef.current?.close();
-        cameraRef.current = null;
-        toast.error("Không thể bật camera");
+        if (client === clientRef.current) {
+          setVideoMode(true);
+          setCameraEnabled(true);
+        }
       }
-      return;
+    } catch {
+      if (client === clientRef.current) {
+        if (!camera) {
+          cameraRef.current?.close();
+          cameraRef.current = null;
+        }
+        toast.error("Không thể đổi trạng thái camera");
+      }
+    } finally {
+      cameraPending.current = false;
     }
-    await camera.setMuted(cameraEnabled);
-    setCameraEnabled((current) => !current);
   };
 
   const statusText = {
@@ -245,11 +268,20 @@ export default function CallRoom({
           <h1 className="text-xl font-semibold">{participantName}</h1>
         )}
         <p className="text-sm text-white/70">{statusText}</p>
+        {playbackBlocked && (status === "waiting" || status === "connected") && (
+          <button
+            type="button"
+            onClick={() => setPlaybackBlocked(false)}
+            className="rounded-full bg-white/15 px-4 py-2 text-sm hover:bg-white/25"
+          >
+            Phát âm thanh và video
+          </button>
+        )}
         <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={() => void toggleMute()}
-            disabled={status === "error" || status === "ended"}
+            disabled={status !== "waiting" && status !== "connected"}
             className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 disabled:opacity-40"
             aria-label={muted ? "Bật microphone" : "Tắt microphone"}
           >
@@ -258,7 +290,7 @@ export default function CallRoom({
           <button
             type="button"
             onClick={() => void toggleCamera()}
-            disabled={status === "error" || status === "ended"}
+            disabled={status !== "waiting" && status !== "connected"}
             className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 disabled:opacity-40"
             aria-label={cameraEnabled ? "Tắt camera" : "Bật camera"}
           >
@@ -266,7 +298,7 @@ export default function CallRoom({
           </button>
           <button
             type="button"
-            onClick={() => void hangUp()}
+            onClick={() => finishCallRef.current?.()}
             className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 hover:bg-red-500"
             aria-label="Kết thúc cuộc gọi"
           >

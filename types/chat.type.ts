@@ -21,11 +21,13 @@ export interface ChatMessage {
   isPinned?: boolean;
   isRecalled?: boolean;
   listingCard?: RelatedListing;
+  call?: import("@/types/chat-api.type").ChatCallHistory;
   attachments?: {
     type: "image" | "file";
     url: string;
     storageId?: string;
     name?: string;
+    contentType?: string;
     size?: string;
   }[];
   aiStatus?: import("@/types/ai.type").AiAnswerStatus;

@@ -1,0 +1,58 @@
+.viewer {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  background: #eef2f6;
+  color: #182230;
+  font: 14px/1.5 system-ui, sans-serif;
+}
+
+.status {
+  margin: auto;
+  padding: 1rem;
+  text-align: center;
+}
+
+.word {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #fff;
+}
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  padding: .25rem;
+  background: #fff;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.toolbar button {
+  min-height: 42px;
+  border: 1px solid #cbd5e1;
+  border-radius: .5rem;
+  padding: .25rem .6rem;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.toolbar button:disabled {
+  opacity: .45;
+  cursor: default;
+}
+
+.page {
+  display: grid;
+  justify-content: center;
+  padding: 8px;
+}

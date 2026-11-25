@@ -11,6 +11,7 @@ import { DashboardRoleProvider } from "@/components/dashboard/DashboardRoleConte
 import NotificationTransport from "@/components/notification/NotificationTransport";
 import DashboardRolePickerModal from "@/components/dashboard/DashboardRolePickerModal";
 import BackendHealthGate from "@/components/system/BackendHealthGate";
+import NetworkGate from "@/components/system/NetworkGate";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -21,18 +22,20 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange={false}
     >
       <StoreProvider>
-        <BackendHealthGate>
-          <AuthInitializer>
-            <ChatDemoProvider>
-              <NotificationTransport />
-              <DashboardRoleProvider>
-                <AuthGuard>{children}</AuthGuard>
-                <DashboardRolePickerModal />
-                <OnboardingInitializer />
-              </DashboardRoleProvider>
-            </ChatDemoProvider>
-          </AuthInitializer>
-        </BackendHealthGate>
+        <NetworkGate>
+          <BackendHealthGate>
+            <AuthInitializer>
+              <ChatDemoProvider>
+                <NotificationTransport />
+                <DashboardRoleProvider>
+                  <AuthGuard>{children}</AuthGuard>
+                  <DashboardRolePickerModal />
+                  <OnboardingInitializer />
+                </DashboardRoleProvider>
+              </ChatDemoProvider>
+            </AuthInitializer>
+          </BackendHealthGate>
+        </NetworkGate>
       </StoreProvider>
       <Toaster position="top-right" closeButton />
     </ThemeProvider>

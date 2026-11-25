@@ -71,6 +71,9 @@ axiosClient.interceptors.response.use(
         && (!error.response || [502, 503, 504].includes(error.response.status))) {
       window.dispatchEvent(new Event("hs:backend-health-check"));
     }
+    if (typeof window !== "undefined" && !axios.isCancel(error) && !error.response) {
+      window.dispatchEvent(new Event("hs:network-check"));
+    }
 
     if (!originalRequest || !error.response) {
       return Promise.reject(error);

@@ -76,12 +76,45 @@ test("reopening an existing chat ignores stale contact names and does not restor
       listMessages: async () => ({ items: [] }), markRead: async () => {},
     },
     "@/lib/chat-api-mapper": load("lib/chat-api-mapper.ts"),
+    "@/lib/chat-presence": load("lib/chat-presence.ts"),
+    "@/lib/chat-demo-state": load("lib/chat-demo-state.ts"),
   });
   const context = ChatDemoProvider({ children: null }).props.value;
   await context.openConversation({ contact: { id: "partner", name: "Old name", avatar: "https://s3.example/old.jpg" } });
   await new Promise(setImmediate);
   assert.equal(conversations[0].userName, "New name");
   assert.equal(conversations[0].userAvatar, undefined);
+});
+
+test("opening a chat from another listing reuses the pair's single conversation (no listing passed to create)", async () => {
+  let conversations = [load("lib/chat-api-mapper.ts").mapApiConversation({ ...apiView, listing: { id: "old-listing", title: "Old", price: "1", location: "x", image: "" } }, "me")];
+  const createCalls = [];
+  const { ChatDemoProvider } = load("components/chat/ChatDemoProvider.tsx", {
+    react: { ...React, useEffect() {}, useMemo: (fn) => fn(), useCallback: (fn) => fn, useRef: (value) => ({ current: value }),
+      // Only the conversations list is tracked; other state (pending listings, presence...) is inert here.
+      useState: (initial) => Array.isArray(initial)
+        ? [conversations, (value) => { conversations = typeof value === "function" ? value(conversations) : value; }]
+        : [initial, () => {}],
+    },
+    "@/lib/keycloak": {},
+    "@/features/auth/useAuth": { useAuth: () => ({ authenticated: true, profile: { id: "me" } }) },
+    "@/services/chat.service": {
+      createConversation: async (...args) => { createCalls.push(args); return apiView; },
+      listMessages: async () => ({ items: [] }), markRead: async () => {},
+    },
+    "@/lib/chat-api-mapper": load("lib/chat-api-mapper.ts"),
+    "@/lib/chat-presence": load("lib/chat-presence.ts"),
+    "@/lib/chat-demo-state": load("lib/chat-demo-state.ts"),
+  });
+  const context = ChatDemoProvider({ children: null }).props.value;
+  const id = await context.openConversation({
+    listing: { id: "new-listing", title: "New", price: "2", location: "y", image: "" },
+    contact: { id: "partner", name: "P" },
+  });
+  await new Promise(setImmediate);
+  assert.equal(id, conversations[0].id);
+  assert.equal(conversations.length, 1);
+  assert.ok(createCalls.every((args) => args.length <= 2 && !args.some((a) => a && a.id === "new-listing")));
 });
 
 test("selected chat refreshes public profile on open, focus and visible timer without Kafka", async (t) => {
@@ -108,6 +141,8 @@ test("selected chat refreshes public profile on open, focus and visible timer wi
       return { firstName: 'Nguyen', lastName: 'Minh', avatarUrl: null };
     } },
     '@/lib/chat-api-mapper': load('lib/chat-api-mapper.ts'),
+    "@/lib/chat-presence": load("lib/chat-presence.ts"),
+    "@/lib/chat-demo-state": load("lib/chat-demo-state.ts"),
   });
   const context = ChatDemoProvider({ children: null }).props.value;
   effects[3]();

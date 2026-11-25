@@ -18,6 +18,7 @@ import chatService from "@/services/chat.service";
 import type { ChatParticipantProfile } from "@/services/chat.service";
 import type { ChatConversation, RelatedListing } from "@/types/chat.type";
 import { mapApiConversation, mapApiMessage } from "@/lib/chat-api-mapper";
+import { dedupeByParticipant, listingToAttach } from "@/lib/chat-demo-state";
 import { applyPresence, mergePresence, type ChatPresenceMap, type ChatPresenceUpdate } from "@/lib/chat-presence";
 import type {
   ChatApiAttachment,
@@ -128,6 +129,9 @@ type ChatDemoContextValue = {
   currentUserId?: string;
   conversations: ChatConversation[];
   openConversation: (input?: OpenConversationInput) => Promise<string | null>;
+  /** Listing the user is asking about; attached to their next message in that conversation. */
+  pendingListings: Record<string, RelatedListing>;
+  clearPendingListing: (conversationId: string) => void;
   sendMessage: (
     conversationId: string,
     content: string,
@@ -177,13 +181,22 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   const [presence, setPresence] = useState<ChatPresenceMap>({});
   const presenceSubscribed = useRef(new Set<string>());
   const conversations = useMemo(
-    () => rawConversations.map((item) => applyPresence(item, presence[item.userId])),
+    () => dedupeByParticipant(rawConversations).map((item) => applyPresence(item, presence[item.userId])),
     [rawConversations, presence],
   );
   const loadingConversationIds = useRef(new Set<string>());
   const activeConversationId = useRef<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const conversationsRef = useRef(rawConversations);
+  const [pendingListings, setPendingListings] = useState<Record<string, RelatedListing>>({});
+  const pendingListingsRef = useRef(pendingListings);
+  const clearPendingListing = useCallback((conversationId: string) => {
+    setPendingListings((current) => {
+      const next = { ...current };
+      delete next[conversationId];
+      return next;
+    });
+  }, []);
   const seenMessageIds = useRef(new Set<string>());
   const conversationVersions = useRef(new Map<string, number>());
   const readVersions = useRef(new Map<string, number>());
@@ -208,12 +221,17 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   const markVisibleRead = useCallback(async (id: string) => {
     if (!isReadingConversation(id)) return;
     const socket = socketRef.current;
+    // Legacy duplicate rows of the same participant are shown merged, so they are read together.
+    const partnerId = conversationsRef.current.find((item) => item.id === id)?.userId;
+    const ids = partnerId ? conversationsRef.current.filter((item) => item.userId === partnerId).map((item) => item.id) : [id];
     try {
-      await chatService.markRead(id);
+      await Promise.all(ids.map((item) => chatService.markRead(item)));
       if (socketRef.current !== socket || !isReadingConversation(id)) return;
-      conversationVersions.current.set(id, (conversationVersions.current.get(id) ?? 0) + 1);
-      readVersions.current.set(id, conversationVersions.current.get(id)!);
-      setConversations((current) => current.map((item) => item.id === id ? { ...item, unreadCount: 0 } : item));
+      for (const item of ids) {
+        conversationVersions.current.set(item, (conversationVersions.current.get(item) ?? 0) + 1);
+        readVersions.current.set(item, conversationVersions.current.get(item)!);
+      }
+      setConversations((current) => current.map((item) => ids.includes(item.id) ? { ...item, unreadCount: 0 } : item));
     } catch { /* Keep unread when marking read fails. */ }
   }, [isReadingConversation]);
   const refreshActiveProfile = useCallback(() => {
@@ -232,6 +250,9 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     conversationsRef.current = rawConversations;
   }, [rawConversations]);
+  useEffect(() => {
+    pendingListingsRef.current = pendingListings;
+  }, [pendingListings]);
 
   // Older chat-service builds never ack: the timeout is swallowed and users stay offline.
   const subscribePresence = useCallback((ids: string[]) => {
@@ -565,16 +586,16 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
         toast.error("Không xác định được người nhận");
         return null;
       }
-      const conversation = conversations.find(
-        (item) =>
-          item.userId === partnerId &&
-          (!input.listing || item.relatedListing?.id === input.listing.id)
-      );
+      // One conversation per pair of users: never look it up by listing.
+      const conversation = conversations.find((item) => item.userId === partnerId);
+      const holdListing = (id: string) => {
+        if (input.listing) setPendingListings((current) => ({ ...current, [id]: input.listing! }));
+      };
 
       if (conversation) {
         if (input.contact) {
           void chatService
-            .createConversation(partnerId, input.listing, {
+            .createConversation(partnerId, {
               displayName: input.contact.name,
               avatarUrl: input.contact.avatar,
             })
@@ -596,6 +617,7 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
             ),
           );
         }
+        holdListing(conversation.id);
         void loadConversationMessages(conversation.id);
         return conversation.id;
       }
@@ -603,7 +625,6 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       try {
         const apiConversation = await chatService.createConversation(
           partnerId,
-          input.listing,
           input.contact
             ? {
                 displayName: input.contact.name,
@@ -619,6 +640,7 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
           newConversation,
           ...current.filter((item) => item.id !== newConversation.id),
         ]);
+        holdListing(newConversation.id);
         return newConversation.id;
       } catch {
         toast.error("Không thể mở cuộc trò chuyện");
@@ -643,18 +665,24 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
         if (!socket?.connected) throw new Error("WebSocket disconnected");
         await keycloak.updateToken(30);
         socket.io.opts.extraHeaders = { Authorization: `Bearer ${keycloak.token}` };
+        const listing = listingCard ?? listingToAttach(
+          pendingListingsRef.current[conversationId],
+          conversationsRef.current.find((item) => item.id === conversationId)?.messages ?? [],
+          currentUserId,
+        );
         await socket.timeout(10_000).emitWithAck("chat:send", {
           conversationId,
           content: trimmed,
-          ...(listingCard ? { listing: listingCard } : {}),
+          ...(listing ? { listing } : {}),
           ...(currentParticipantProfile ? { senderProfile: currentParticipantProfile } : {}),
           ...(attachments?.length ? { attachments } : {}),
         });
+        clearPendingListing(conversationId);
       } catch {
         toast.error("Không thể gửi tin nhắn");
       }
     },
-    [currentParticipantProfile, currentUserId]
+    [clearPendingListing, currentParticipantProfile, currentUserId]
   );
 
   const toggleHideConversation = useCallback((conversationId: string) => {
@@ -700,6 +728,8 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       currentUserId,
       conversations,
       openConversation,
+      pendingListings,
+      clearPendingListing,
       sendMessage,
       loadConversationMessages,
       setActiveConversationId,
@@ -714,6 +744,8 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       currentUserId,
       conversations,
       openConversation,
+      pendingListings,
+      clearPendingListing,
       sendMessage,
       loadConversationMessages,
       setActiveConversationId,

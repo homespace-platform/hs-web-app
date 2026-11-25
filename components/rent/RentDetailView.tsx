@@ -231,7 +231,8 @@ export default function RentDetailView({
 
   const openPropertyChat = async (message?: string) => {
     const conversationId = await openConversation({
-      listing: chatListing,
+      // With a message the card travels on that message; otherwise hold it for the next one.
+      listing: message ? undefined : chatListing,
       contact: {
         id: property.ownerId || property.landlord.id,
         name: property.landlord.name,

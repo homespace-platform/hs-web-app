@@ -83,14 +83,12 @@ const chatService = {
 
   async createConversation(
     participantId: string,
-    listing?: RelatedListing,
     participantProfile?: ChatParticipantProfile,
   ): Promise<ChatApiConversation> {
     const response = await axiosClient.post<ApiResponse<ChatApiConversation>>(
       "/api/v1/chat/conversations",
       {
         participantId,
-        ...(listing ? { listing } : {}),
         ...(participantProfile ? { participantProfile } : {}),
       },
     );

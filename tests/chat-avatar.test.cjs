@@ -104,6 +104,8 @@ for (const contactAvatar of [undefined, "", google]) {
       "@/lib/keycloak": {},
       "@/services/chat.service": { createConversation: async () => api },
       "@/lib/chat-api-mapper": load("lib/chat-api-mapper.ts"),
+      "@/lib/chat-presence": load("lib/chat-presence.ts"),
+      "@/lib/chat-demo-state": load("lib/chat-demo-state.ts"),
     });
     const context = ChatDemoProvider({ children: null }).props.value;
     assert.equal(await context.openConversation({ contact: { id: "partner", name: "Minh", avatar: contactAvatar } }), "conversation");

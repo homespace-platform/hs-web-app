@@ -20,6 +20,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/features/auth/useAuth";
 import { toAiSession } from "@/lib/ai-conversation";
 import { toast } from "sonner";
+import { listingToAttach } from "@/lib/chat-demo-state";
 import { guestChatState, isGuestLoginRequired, resumeGuestConversation } from "@/lib/guest-ai-session";
 
 export default function ChatPage() {
@@ -193,6 +194,8 @@ function ChatWorkspace() {
     currentUserId,
     conversations: directConversations,
     sendMessage: sendDirectMessage,
+    pendingListings,
+    clearPendingListing,
     toggleHideConversation,
     togglePinConversation,
     updateParticipantRole,
@@ -645,6 +648,8 @@ function ChatWorkspace() {
                 onStartCall={startCall}
                 onMessageAction={manageMessage}
                 currentUserId={currentUserId}
+                pendingListing={listingToAttach(pendingListings[activeDirectConversation.id], activeDirectConversation.messages, currentUserId ?? "")}
+                onDismissPendingListing={() => clearPendingListing(activeDirectConversation.id)}
                 isSidebarCollapsed={isSidebarCollapsed}
                 onToggleSidebar={toggleSidebar}
               />

@@ -59,6 +59,8 @@ async function setup(t, options = {}) {
     "@/features/auth/useAuth": { useAuth: () => ({ authenticated: true, profile: { id: "me" } }) },
     "@/lib/keycloak": { token: "test-token", updateToken: async () => {} },
     "@/lib/chat-api-mapper": load("lib/chat-api-mapper.ts"),
+    "@/lib/chat-presence": load("lib/chat-presence.ts"),
+    "@/lib/chat-demo-state": load("lib/chat-demo-state.ts"),
     "@/services/chat.service": {
       getParticipantProfile: async () => ({ firstName: "Nguyen", lastName: "Minh", username: "minh" }),
       markRead: async (id) => { reads.push(id); if (options.readFails) throw new Error("offline"); },

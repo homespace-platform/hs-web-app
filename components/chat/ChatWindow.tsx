@@ -27,7 +27,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { ChatConversation, ChatMessage } from "@/types/chat.type";
+import { ChatConversation, ChatMessage, RelatedListing } from "@/types/chat.type";
 import type {
   ChatApiAttachment,
   ChatCallMode,
@@ -119,6 +119,9 @@ interface ChatWindowProps {
     action: ChatMessageAction,
   ) => Promise<void>;
   currentUserId?: string;
+  /** Listing the next message will carry; dismissible. */
+  pendingListing?: RelatedListing;
+  onDismissPendingListing?: () => void;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
 }
@@ -133,6 +136,8 @@ export default function ChatWindow({
   onStartCall,
   onMessageAction,
   currentUserId,
+  pendingListing,
+  onDismissPendingListing,
   isSidebarCollapsed,
   onToggleSidebar,
 }: ChatWindowProps) {
@@ -590,6 +595,19 @@ export default function ChatWindow({
       {/* 5. Message Input Bar */}
       <div className="p-3 sm:p-4 border-t border-border bg-card">
         <form onSubmit={handleSend} className="flex flex-col gap-1.5">
+          {pendingListing && !isAi && (
+            <div className="flex items-center gap-2 self-start rounded-full border border-primary/30 bg-primary/5 py-1 pl-3 pr-1 text-xs text-foreground">
+              <span className="max-w-[16rem] truncate">Đang hỏi về: <strong>{pendingListing.title}</strong></span>
+              <button
+                type="button"
+                onClick={onDismissPendingListing}
+                aria-label="Bỏ tin đăng đang hỏi"
+                className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-2 bg-muted/50 focus-within:bg-background border border-border focus-within:border-primary/50 rounded-2xl px-3 py-1.5 shadow-2xs transition-all">
             {/* Input Field */}
             <input

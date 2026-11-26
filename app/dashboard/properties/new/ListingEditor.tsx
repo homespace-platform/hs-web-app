@@ -37,7 +37,10 @@ import RoomDetailsSection from "./components/details/RoomDetailsSection";
 import FurnishingAssetsSection from "./components/details/FurnishingAssetsSection";
 import AmenitiesSection from "./components/AmenitiesSection";
 import ListingPolicyFields from "@/components/listing/ListingPolicyFields";
+import { swapPolicySuggestions, withDefaultSuggestions, withSystemRules } from "@/lib/listing-policy-suggestions";
 import { policyInputs, type ListingPolicyInput } from "@/types/listing-policy.type";
+import { fetchListingDescription, toDescriptionRequest } from "@/lib/listing-description-request";
+import { useActionDialog } from "@/components/common/ActionDialog";
 import MonthlyExpensesSection from "./components/MonthlyExpensesSection";
 import PricingSection from "./components/PricingSection";
 import LocationSection, { type AddressMode } from "./components/LocationSection";
@@ -330,6 +333,7 @@ export default function ListingEditor({
     if (branch.category) {
       const mappedCategory = branch.category.toLowerCase() as PropertyCategoryKey;
       const defaultPriceUnit = PRICE_UNITS_BY_CATEGORY[mappedCategory]?.[0]?.value ?? "VND_MONTH";
+      if (mappedCategory !== basicInfo.category) setListingPolicies((prev) => swapPolicySuggestions(prev, mappedCategory.toUpperCase()));
       setBasicInfo((prev) => ({
         ...prev,
         branchId,
@@ -489,6 +493,7 @@ export default function ListingEditor({
       .then((res) => {
         if (!cancelled && res) {
           setListingOptions(res);
+          if (!targetListingId) setListingPolicies((prev) => withDefaultSuggestions(prev, res.policies ?? [], catEnum));
           setPolicyCatalogError(res.policies?.length ? "" : "Danh mục chính sách chưa có dữ liệu. Vui lòng khởi động backend và tải lại.");
         }
       })
@@ -500,7 +505,7 @@ export default function ListingEditor({
     return () => {
       cancelled = true;
     };
-  }, [basicInfo.category]);
+  }, [basicInfo.category, targetListingId]);
 
   // Load existing listing data (for edit or duplicate mode) or branch
   useEffect(() => {
@@ -664,6 +669,8 @@ export default function ListingEditor({
       priceUnit: defaultPriceUnit,
     }));
 
+    setListingPolicies((prev) => swapPolicySuggestions(prev, newCategory.toUpperCase()));
+
     // Catalog tiện ích và trang thiết bị khác nhau theo loại hình
     setSelectedAmenities([]);
     setFurnishingAssets([]);
@@ -763,7 +770,18 @@ export default function ListingEditor({
         addError("field-room-code", "roomCode", "Vui lòng nhập mã phòng / tên phòng.");
       }
       if (!roomDetails.maxOccupants || Number(roomDetails.maxOccupants) <= 0) {
-        addError("field-room-occupants", "maxOccupants", "Số người ở tối đa phải lớn hơn 0.");
+        addError("field-max-occupants", "maxOccupants", "Số người ở tối đa phải lớn hơn 0.");
+      }
+    }
+
+    if (basicInfo.category === "apartment" || basicInfo.category === "house") {
+      const { bedrooms, bathrooms } = basicInfo.category === "apartment" ? apartmentDetails : houseDetails;
+      const minBedrooms = basicInfo.category === "apartment" ? 0 : 1; // 0 = studio
+      if (String(bedrooms ?? "") === "" || !(Number(bedrooms) >= minBedrooms)) {
+        addError("field-bedrooms", "bedrooms", "Vui lòng nhập số phòng ngủ hợp lệ.");
+      }
+      if (!(Number(bathrooms) >= 1)) {
+        addError("field-bathrooms", "bathrooms", "Số phòng tắm / WC phải từ 1 trở lên.");
       }
     }
 
@@ -804,6 +822,10 @@ export default function ListingEditor({
       addError("field-deposit-months", "depositMonths", "Số tháng đặt cọc phải là số nguyên dương.");
     } else if (pricing.depositType === "MONTHS" && Number(pricing.depositMonths) <= 0) {
       addError("field-deposit-months", "depositMonths", "Số tháng đặt cọc phải là số nguyên dương.");
+    }
+
+    if (!(Number(pricing.minimumLeaseMonths) >= 1)) {
+      addError("field-minimum-lease", "minimumLeaseMonths", "Thời hạn thuê tối thiểu phải từ 1 tháng.");
     }
 
     step = 4;
@@ -851,6 +873,8 @@ export default function ListingEditor({
     return true;
   }
 
+  const effectivePolicies = withSystemRules(listingPolicies, listingOptions.policies ?? [], basicInfo.category.toUpperCase());
+
   function validatePolicies(action: ListingSubmissionAction): boolean {
     const definitions = listingOptions.policies ?? [];
     const fail = (message: string) => {
@@ -859,17 +883,18 @@ export default function ListingEditor({
       else scrollToFirstInvalid(["section-policies"]);
       return false;
     };
-    if (action === "SUBMIT_FOR_REVIEW" && (policyCatalogError || !definitions.length)) {
+    // A draft saved without the catalog would send policies: [] and drop what was already entered.
+    if ((action === "SUBMIT_FOR_REVIEW" || listingPolicies.length > 0) && (policyCatalogError || !definitions.length)) {
       return fail(policyCatalogError || "Chưa tải danh mục chính sách.");
     }
     for (const d of definitions) {
-      const p = listingPolicies.find((p) => p.code === d.code);
+      const p = effectivePolicies.find((p) => p.code === d.code);
       if (p?.value && d.valueType === "INTEGER" && (!Number.isInteger(Number(p.value)) || (d.minimumValue != null && Number(p.value) < d.minimumValue) || (d.maximumValue != null && Number(p.value) > d.maximumValue))) {
         return fail(`${d.label}: nhập số nguyên từ ${d.minimumValue ?? 0} đến ${d.maximumValue ?? "giới hạn quy định"}.`);
       }
     }
     if (action === "SUBMIT_FOR_REVIEW") {
-      const missing = definitions.find((d) => d.required && !listingPolicies.some((p) => p.code === d.code && p.value.trim()));
+      const missing = definitions.find((d) => d.required && !effectivePolicies.some((p) => p.code === d.code && p.value.trim()));
       if (missing) return fail(`Cần nhập chính sách: ${missing.label}`);
     }
     return true;
@@ -907,7 +932,7 @@ export default function ListingEditor({
       furnishingAssets,
       selectedAmenities,
       catalogAmenityCodes: listingOptions.amenities.map((item) => item.code),
-      policies: policyInputs(listingPolicies, listingOptions.policies ?? []),
+      policies: policyInputs(effectivePolicies, listingOptions.policies ?? []),
       monthlyExpenses,
       vehicleLimits,
       originalCharges: chargeBaseline?.charges,
@@ -943,14 +968,70 @@ export default function ListingEditor({
   };
   const previewBranchName = branches.find((b) => b.id === basicInfo.branchId)?.name ?? null;
 
-  function handleGenerateAiDescription() {
-    const isValid = validateFields({ skipDescription: true });
-    if (!isValid) {
-      toast.error("Vui lòng hoàn thành các thông tin ở các bước trên để AI có đủ dữ liệu tạo mô tả.");
+  const { confirm, dialog: actionDialog } = useActionDialog();
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+  const generationRef = useRef<AbortController | null>(null);
+  const previousTemplateId = useRef<string | null>(null);
+  useEffect(() => () => generationRef.current?.abort(), []);
+
+  function buildDescriptionRequest() {
+    return toDescriptionRequest(
+      buildCreateListingPayload(buildParams("SAVE_DRAFT", [])),
+      addressMode === "saved" ? savedUserAddress : selectedAddress,
+      previewExtras.amenityLabels,
+    );
+  }
+  // The answer arrives seconds later: compare it with the form as it is then, not as it was on click.
+  const latestForm = useRef({ facts: "", description: "" });
+  useEffect(() => {
+    latestForm.current = { facts: JSON.stringify(buildDescriptionRequest()), description: basicInfo.description };
+  });
+
+  async function handleGenerateAiDescription() {
+    if (generationRef.current) return;
+    if (!validateFields({ skipDescription: true }) || !validatePolicies("SUBMIT_FOR_REVIEW")) {
+      toast.error("Vui lòng hoàn thành các thông tin bắt buộc để có đủ dữ liệu tạo mô tả.");
       return;
     }
-
-    toast.info("Tính năng đang phát triển");
+    const request = buildDescriptionRequest();
+    const description = basicInfo.description;
+    const controller = new AbortController();
+    generationRef.current = controller;
+    try {
+      if (description.trim() && !(await confirm({
+        title: "Thay thế mô tả hiện tại?",
+        description: "Nội dung bạn đang có trong ô mô tả sẽ được thay bằng mô tả mới.",
+        confirmLabel: "Thay thế",
+        tone: "warning",
+      }))) return;
+      if (controller.signal.aborted) return;
+      setIsGeneratingDescription(true);
+      const result = await fetchListingDescription(
+        { ...request, previousTemplateId: previousTemplateId.current },
+        controller.signal,
+      );
+      if (controller.signal.aborted) return;
+      if (latestForm.current.facts !== JSON.stringify(request) || latestForm.current.description !== description) {
+        toast.info("Thông tin tin đăng đã thay đổi trong lúc tạo mô tả. Vui lòng bấm tạo lại.");
+        return;
+      }
+      previousTemplateId.current = result.templateId;
+      setBasicInfo((prev) => ({ ...prev, description: result.description }));
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.description;
+        return next;
+      });
+      toast.success("Đã tạo mô tả. Bạn có thể chỉnh sửa trước khi đăng.");
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      console.warn("Generate description failed:", error);
+      // Only the route's own messages are Vietnamese; network and timeout errors are not.
+      toast.error(error instanceof Error && error.name === "Error" ? error.message : "Không tạo được mô tả. Vui lòng thử lại.");
+    } finally {
+      generationRef.current = null;
+      setIsGeneratingDescription(false);
+    }
   }
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1273,7 +1354,7 @@ export default function ListingEditor({
       <PolicyNotice tone="neutral" className="mb-5 mt-2" title="Chính sách & nội quy thuê" summary="Người thuê sẽ xem các quy định này trước khi gửi yêu cầu thuê.">
         <p>Người thuê sẽ xem các quy định này trước khi gửi yêu cầu thuê. Phí phạt đóng trễ chỉ nhập khi soạn hợp đồng, không nhập ở đây.</p>
       </PolicyNotice>
-      {policyCatalogError ? <p role="alert" className="text-sm text-amber-800">{policyCatalogError}</p> : <ListingPolicyFields definitions={listingOptions.policies ?? []} values={listingPolicies} onChange={setListingPolicies} />}
+      {policyCatalogError ? <p role="alert" className="text-sm text-amber-800">{policyCatalogError}</p> : <ListingPolicyFields category={basicInfo.category.toUpperCase()} definitions={listingOptions.policies ?? []} values={effectivePolicies} onChange={setListingPolicies} />}
     </section>
   );
   const expensesSection = (
@@ -1313,6 +1394,7 @@ export default function ListingEditor({
         errors={errors}
         onChange={(val) => setBasicInfo((prev) => ({ ...prev, description: val }))}
         onGenerateAiDescription={handleGenerateAiDescription}
+        isGenerating={isGeneratingDescription}
       />
     </div>
   );
@@ -1496,6 +1578,8 @@ export default function ListingEditor({
         }
         onClose={() => setQuotaExhaustedModalOpen(false)}
       />
+
+      {actionDialog}
 
       {/* Confirmation Modal when switching categories */}
       <CategoryChangeConfirmModal

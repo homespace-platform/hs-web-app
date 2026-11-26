@@ -17,7 +17,7 @@ const RULES: { title: string; items: string[] }[] = [
     title: "Nâng cấp trong 24 giờ đầu",
     items: [
       "Trong 24 giờ kể từ lần mua gói trả phí đầu tiên, nâng cấp lên gói cao hơn chỉ thanh toán phần chênh lệch giá.",
-      "Số lượt nhận được bằng định mức gói mới trừ đi số lượt đã dùng.",
+      "Lượt được tính lại từ đầu theo định mức gói mới. Tin đang chờ duyệt vẫn giữ lượt.",
     ],
   },
   {

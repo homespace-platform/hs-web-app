@@ -105,3 +105,17 @@ test("multiple custom fees are retained once and replaced together when edited",
   assert.equal(changed.charges.filter(charge => charge.chargeType === "OTHER").length, 2);
   assert.deepEqual(Array.from(changed.charges, charge => charge.amount), [35000, 20000]);
 });
+
+test("editing keeps the rental scope and a past available date; a copy starts today", () => {
+  const detail = {
+    id: "listing", category: "HOUSE", title: "House", areaM2: 90, availableFrom: "2026-01-05",
+    pricing: { amount: 9000000, unit: "MONTH", depositType: "NONE", minimumLeaseMonths: 6 },
+    houseDetail: { totalFloors: 4, rentalScopeDescription: "Tầng 2-3", rentedFloorFrom: 2, rentedFloorTo: 3 },
+  };
+  const form = mapListingDetailToFormState(detail, "edit", [], "2026-11-09");
+  assert.equal(form.basicInfo.availableDate, "2026-01-05");
+  assert.equal(form.houseDetails.rentalScopeDescription, "Tầng 2-3");
+  assert.equal(form.houseDetails.rentedFloorFrom, 2);
+  assert.equal(form.houseDetails.rentedFloorTo, 3);
+  assert.equal(mapListingDetailToFormState(detail, "duplicate", [], "2026-11-09").basicInfo.availableDate, "2026-11-09");
+});

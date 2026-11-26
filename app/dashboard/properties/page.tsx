@@ -282,10 +282,10 @@ export default function MyPropertiesPage() {
   }, [page, totalPages]);
 
   return (
-    <div className="space-y-6 pb-28 animate-in fade-in-50 duration-200">
+    <div className="space-y-6 max-sm:space-y-2.5 pb-28 animate-in fade-in-50 duration-200">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 max-sm:gap-2">
+        <div className="space-y-1 max-sm:space-y-0">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
             Quản lý tin đăng
           </h1>
@@ -295,7 +295,7 @@ export default function MyPropertiesPage() {
         </div>
 
         {/* Header Action: Làm mới & Đăng tin */}
-        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto max-sm:w-full max-sm:gap-1.5 max-sm:[&>*]:min-h-11 max-sm:[&>*]:flex-auto max-sm:[&>*]:justify-center max-sm:[&>*]:px-2">
           <Link
             href="/dashboard/membership"
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-foreground hover:bg-muted/60 border border-border transition-all shadow-2xs"
@@ -338,7 +338,7 @@ export default function MyPropertiesPage() {
 
       {/* Segmented Status Tabs & Search Toolbar */}
       <div className="bg-card rounded-2xl border border-border shadow-2xs overflow-hidden">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-3 sm:px-4 pt-2.5 pb-0 border-b border-border">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-3 sm:px-4 pt-2.5 pb-0 border-b border-border max-sm:gap-2 max-sm:px-2 max-sm:pt-0">
           {/* Scrollable Status Tabs */}
           <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar scroll-smooth -mb-px">
             {STATUS_TABS.map((tab) => {
@@ -353,7 +353,7 @@ export default function MyPropertiesPage() {
                 <button
                   key={tab.value}
                   onClick={() => handleFilterStatusChange(tab.value)}
-                  className={`group relative flex items-center gap-2 py-3 px-3.5 text-xs font-medium whitespace-nowrap transition-all border-b-2 ${
+                  className={`group relative flex items-center gap-2 py-3 px-3.5 max-sm:min-h-11 max-sm:gap-1.5 max-sm:px-2 text-xs font-medium whitespace-nowrap transition-all border-b-2 ${
                     isActive
                       ? "border-primary text-primary font-bold"
                       : "border-transparent text-muted-foreground hover:text-foreground hover:border-border/80"
@@ -380,7 +380,7 @@ export default function MyPropertiesPage() {
           </div>
 
           {/* Search Box on Desktop Right / Mobile Bottom */}
-          <div className="pb-3 lg:pb-0 lg:mb-2.5 shrink-0">
+          <div className="pb-3 max-sm:pb-2 lg:pb-0 lg:mb-2.5 shrink-0">
             <div className="relative w-full lg:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
@@ -388,7 +388,7 @@ export default function MyPropertiesPage() {
                 value={keywordInput}
                 onChange={(e) => setKeywordInput(e.target.value)}
                 placeholder="Tìm kiếm tin đăng..."
-                className="w-full h-9 rounded-xl bg-muted/40 pl-9 pr-8 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 border border-border/80 focus:border-primary transition-all"
+                className="w-full h-9 max-sm:h-11 rounded-xl bg-muted/40 pl-9 pr-8 max-sm:pr-11 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 border border-border/80 focus:border-primary transition-all"
               />
               {keywordInput && (
                 <button
@@ -400,7 +400,8 @@ export default function MyPropertiesPage() {
                       setLoading(true);
                     }
                   }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-1"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-1 max-sm:right-0 max-sm:h-11 max-sm:w-11"
+                  aria-label="Xóa nội dung tìm kiếm"
                 >
                   ✕
                 </button>
@@ -432,13 +433,13 @@ export default function MyPropertiesPage() {
 
       {/* Loading Skeletons */}
       {loading && !errorMessage && (
-        <div className="space-y-4">
+        <div className="space-y-4 max-sm:space-y-2">
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="flex flex-col sm:flex-row gap-4 p-4 rounded-2xl border border-border bg-card animate-pulse shadow-2xs"
+              className="flex flex-col sm:flex-row gap-4 p-4 max-sm:flex-row max-sm:gap-2.5 max-sm:p-2.5 rounded-2xl border border-border bg-card animate-pulse shadow-2xs"
             >
-              <div className="w-full sm:w-44 h-32 rounded-xl bg-muted shrink-0" />
+              <div className="w-full sm:w-44 h-32 max-sm:h-24 max-sm:w-24 rounded-xl bg-muted shrink-0" />
               <div className="flex-1 space-y-3 py-1">
                 <div className="h-5 bg-muted rounded-md w-3/4" />
                 <div className="h-4 bg-muted rounded-md w-1/2" />
@@ -455,7 +456,7 @@ export default function MyPropertiesPage() {
 
       {/* Empty State */}
       {!loading && !errorMessage && listings.length === 0 && (
-        <div className="rounded-2xl border border-border bg-card p-12 text-center text-muted-foreground shadow-2xs">
+        <div className="rounded-2xl border border-border bg-card p-12 max-sm:p-6 text-center text-muted-foreground shadow-2xs">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <Building className="h-7 w-7" />
           </div>
@@ -490,7 +491,7 @@ export default function MyPropertiesPage() {
 
       {/* Property List Cards */}
       {!loading && !errorMessage && listings.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-4 max-sm:space-y-2">
           {listings.map((item) => (
             <ListingItemCard
               key={item.id}
@@ -508,11 +509,12 @@ export default function MyPropertiesPage() {
             Trang <span className="font-bold text-foreground">{page}</span> / {totalPages} (Tổng cộng {totalElements} tin đăng)
           </p>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 max-sm:w-full max-sm:flex-wrap max-sm:justify-center">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-foreground hover:bg-muted disabled:opacity-40 disabled:pointer-events-none transition-colors"
+              aria-label="Trang trước"
+              className="inline-flex h-9 w-9 max-sm:h-11 max-sm:w-11 items-center justify-center rounded-xl border border-border bg-card text-foreground hover:bg-muted disabled:opacity-40 disabled:pointer-events-none transition-colors"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -529,7 +531,7 @@ export default function MyPropertiesPage() {
                 <button
                   key={p}
                   onClick={() => setPage(p)}
-                  className={`h-9 min-w-9 px-3 rounded-xl text-xs font-bold transition-colors ${
+                  className={`h-9 min-w-9 max-sm:h-11 max-sm:min-w-11 px-3 rounded-xl text-xs font-bold transition-colors ${
                     p === page
                       ? "bg-primary text-primary-foreground shadow-2xs"
                       : "border border-border bg-card text-foreground hover:bg-muted"
@@ -543,7 +545,8 @@ export default function MyPropertiesPage() {
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-foreground hover:bg-muted disabled:opacity-40 disabled:pointer-events-none transition-colors"
+              aria-label="Trang sau"
+              className="inline-flex h-9 w-9 max-sm:h-11 max-sm:w-11 items-center justify-center rounded-xl border border-border bg-card text-foreground hover:bg-muted disabled:opacity-40 disabled:pointer-events-none transition-colors"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

@@ -59,6 +59,10 @@ export interface ApartmentDetailsData {
 
 // Section 2B: House Details
 export interface HouseDetailsData {
+  // No inputs for these three: kept so that an edit does not erase them.
+  rentalScopeDescription?: string | null;
+  rentedFloorFrom?: number | null;
+  rentedFloorTo?: number | null;
   landAreaM2?: number | string;
   totalUsableAreaM2?: number | string;
   facadeWidthM?: number | string;

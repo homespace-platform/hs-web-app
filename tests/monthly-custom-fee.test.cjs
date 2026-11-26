@@ -32,3 +32,21 @@ test("a custom monthly fee remains monthly even when stale form data contains an
   assert.equal(fee.amount, 30000);
   assert.equal(fee.customName, "Phí thang máy");
 });
+
+test("a house payload sends the loaded rental scope back", () => {
+  const payload = moduleRef.exports.buildCreateListingPayload({
+    submissionAction: "SAVE_DRAFT",
+    basicInfo: { category: "house", title: "Nhà cho thuê", description: "Mô tả", availableDate: "2026-11-09" },
+    apartmentDetails: {}, roomDetails: {},
+    houseDetails: { totalUsableAreaM2: 90, rentalScopeDescription: "Tầng 2-3", rentedFloorFrom: 2, rentedFloorTo: 3 },
+    furnishingAssets: [], selectedAmenities: [], uploadedMediaList: [],
+    addressMode: "new", pricing: { priceMonthly: 3000000, priceUnit: "VND_MONTH", depositType: "NONE", paymentCycle: "MONTHLY", minimumLeaseMonths: 6 },
+    monthlyExpenses: {
+      electricityType: "INCLUDED", waterType: "INCLUDED", managementFeeType: "NONE", internetType: "SELF_PAY",
+      garbageFeeType: "INCLUDED", motorbikeParkingType: "NONE", carParkingType: "NONE", customFees: [],
+    },
+  });
+  assert.equal(payload.houseDetail.rentalScopeDescription, "Tầng 2-3");
+  assert.equal(payload.houseDetail.rentedFloorFrom, 2);
+  assert.equal(payload.houseDetail.rentedFloorTo, 3);
+});

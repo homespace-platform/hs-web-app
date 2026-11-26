@@ -49,6 +49,8 @@ export interface ChatConversation {
   lastActive?: string;
   lastMessage: string;
   lastMessageTime: string;
+  lastMessageAt?: string;
+  lastMessageId?: string;
   lastMessageSender: "me" | "them";
   unreadCount: number;
   isHidden: boolean;

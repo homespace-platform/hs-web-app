@@ -40,6 +40,8 @@ export function mapApiConversation(
     lastActive: "",
     lastMessage: conversation.lastMessage ?? "",
     lastMessageTime: formatTime(conversation.lastMessageAt),
+    lastMessageAt: conversation.lastMessageAt,
+    lastMessageId: conversation.lastMessageId,
     lastMessageSender:
       conversation.lastMessageSenderId === currentUserId ? "me" : "them",
     unreadCount: conversation.unreadCount,

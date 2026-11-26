@@ -158,11 +158,6 @@ export default function MembershipCheckoutModal({
       ? plan.priceVnd - quote.amountVnd
       : 0;
 
-  const consumedUsesInWindow =
-    isUpgradeMode && quote && plan.publicationUses >= quote.remainingUsesAfter
-      ? plan.publicationUses - quote.remainingUsesAfter
-      : 0;
-
   async function handleConfirmCheckout() {
     if (!authenticated) {
       login(targetTier ? `/membership?tier=${encodeURIComponent(targetTier)}` : "/membership");
@@ -353,10 +348,8 @@ export default function MembershipCheckoutModal({
                   </div>
                   <p className="leading-relaxed text-emerald-900/90 dark:text-emerald-200/90">
                     Bạn chỉ cần thanh toán <strong>phần chênh lệch giá</strong> so với gói đã mua.
-                    Gói mới sẽ thay thế gói hiện tại với số lượt bằng{" "}
-                    <strong>
-                      định mức gói {plan.shortName} ({plan.publicationUses} lượt) trừ đi số lượt đã sử dụng ({consumedUsesInWindow} lượt)
-                    </strong>.
+                    Lượt được tính lại từ đầu theo{" "}
+                    <strong>định mức gói {plan.shortName} ({plan.publicationUses} lượt)</strong>. Tin đang chờ duyệt vẫn giữ lượt.
                   </p>
                   {quote.upgradeDeadline && (
                     <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 pt-0.5">
@@ -450,8 +443,8 @@ export default function MembershipCheckoutModal({
                     {quote.remainingUsesAfter} lượt đăng tin
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {isUpgradeMode
-                      ? `Định mức ${plan.publicationUses} lượt trừ số lượt đã dùng`
+                    {quote.remainingUsesAfter < plan.publicationUses
+                      ? `Gói ${plan.publicationUses} lượt, đang giữ ${plan.publicationUses - quote.remainingUsesAfter} lượt cho tin chờ duyệt`
                       : `Thay thế bằng toàn bộ ${quote.remainingUsesAfter} lượt của gói mới`}
                   </p>
                 </div>

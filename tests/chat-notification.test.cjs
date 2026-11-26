@@ -32,7 +32,7 @@ async function setup(t, options = {}) {
   const visibleEvents = {};
   let state = options.conversations ?? [{ ...conversation }];
   const effects = [];
-  const refs = [];
+  let conversationsRef;
   const toasts = [];
   const dismissed = [];
   const reads = [];
@@ -47,11 +47,20 @@ async function setup(t, options = {}) {
     addEventListener: (name, fn) => { visibleEvents[name] = fn; }, removeEventListener() {},
   };
   t.after(() => { global.window = previousWindow; global.document = previousDocument; });
-  const socket = { on: (name, fn) => { events[name] = fn; }, io: { on: (name, fn) => { managerEvents[name] = fn; }, opts: {} }, disconnect() {} };
+  const socket = { on: (name, fn) => { events[name] = fn; }, io: { on: (name, fn) => { managerEvents[name] = fn; }, opts: {} }, removeAllListeners() {}, disconnect() {} };
   const { ChatDemoProvider } = load("components/chat/ChatDemoProvider.tsx", {
     react: { ...React, useMemo: (fn) => fn(), useCallback: (fn) => fn, useEffect: (fn) => effects.push(fn),
-      useRef: (value) => { const ref = { current: value }; refs.push(ref); return ref; },
-      useState: () => [state, (value) => { state = typeof value === "function" ? value(state) : value; if (refs[3]) refs[3].current = state; }],
+      useRef: (value) => {
+        const ref = { current: value };
+        if (value === state) conversationsRef = ref;
+        return ref;
+      },
+      useState: (initial) => Array.isArray(initial)
+        ? [state, (value) => {
+          state = typeof value === "function" ? value(state) : value;
+          conversationsRef.current = state;
+        }]
+        : [initial, () => {}],
     },
     "next/link": (props) => React.createElement("a", props),
     "socket.io-client": { io: () => socket },
@@ -62,7 +71,8 @@ async function setup(t, options = {}) {
     "@/lib/chat-presence": load("lib/chat-presence.ts"),
     "@/lib/chat-demo-state": load("lib/chat-demo-state.ts"),
     "@/services/chat.service": {
-      getParticipantProfile: async () => ({ firstName: "Nguyen", lastName: "Minh", username: "minh" }),
+      getParticipantProfile: options.getParticipantProfile ??
+        (async () => ({ firstName: "Nguyen", lastName: "Minh", username: "minh" })),
       markRead: async (id) => { reads.push(id); if (options.readFails) throw new Error("offline"); },
       listMessages: async () => ({ items: [message] }),
       clearProfileCache() {},
@@ -70,12 +80,17 @@ async function setup(t, options = {}) {
     },
   });
   const context = ChatDemoProvider({ children: null }).props.value;
-  const cleanup = effects[2]();
+  const [, , , loadSummary, connectSocket, listenVisibility] = effects;
+  const cleanup = connectSocket();
   await flush();
   t.after(cleanup);
-  return { context, toasts, dismissed, reads, effects, visibleEvents, managerEvents, cleanup,
+  return { context, toasts, dismissed, reads, loadSummary, listenVisibility, visibleEvents, managerEvents, cleanup,
     state: () => state, listCalls: () => listCalls,
     receive: async (value = message) => { events["chat:message"](value); await flush(); await flush(); },
+    receiveProfileChange: async (userId) => {
+      events["chat:profile:changed"]({ userId });
+      await flush();
+    },
   };
 }
 
@@ -99,6 +114,32 @@ test("own messages and duplicate socket deliveries never increment unread twice"
   assert.equal(chat.toasts.length, 0);
 });
 
+test("a late socket message keeps the newer preview and still counts as unread", async (t) => {
+  const chat = await setup(t);
+  await chat.receive({ ...message, id: "message-2", content: "Tin mới" });
+  await chat.receive(message);
+  assert.equal(chat.state()[0].lastMessage, "Tin mới");
+  assert.equal(chat.state()[0].lastMessageId, "message-2");
+  assert.equal(chat.state()[0].unreadCount, 2);
+});
+
+test("profile changes refresh an unopened conversation and clear an old avatar", async (t) => {
+  const requests = [];
+  const chat = await setup(t, {
+    conversations: [{ ...conversation, userAvatar: "old.jpg", unreadCount: 2 }],
+    getParticipantProfile: async (id, force) => {
+      requests.push([id, force]);
+      return { firstName: "Minh", lastName: "Nguyen", username: "new-name", avatarUrl: null };
+    },
+  });
+  await chat.receiveProfileChange("unrelated");
+  await chat.receiveProfileChange("partner");
+  assert.deepEqual(requests, [["partner", true]]);
+  assert.equal(chat.state()[0].userName, "Minh Nguyen");
+  assert.equal(chat.state()[0].userAvatar, undefined);
+  assert.equal(chat.state()[0].unreadCount, 2);
+  assert.equal(chat.state()[0].isPinned, true);
+});
 test("viewing the selected conversation marks incoming messages read and suppresses popup", async (t) => {
   const chat = await setup(t);
   chat.context.setActiveConversationId("conversation");
@@ -111,7 +152,7 @@ test("viewing the selected conversation marks incoming messages read and suppres
 
 test("an unfocused/hidden chat is unread until focus returns, then clears the badge", async (t) => {
   const chat = await setup(t);
-  chat.effects[3]();
+  chat.listenVisibility();
   chat.context.setActiveConversationId("conversation");
   await flush();
   global.document.visibilityState = "hidden";
@@ -157,7 +198,7 @@ test("a late initial summary cannot erase a realtime unread increment", async (t
   let resolve;
   const summaries = new Promise((done) => { resolve = done; });
   const chat = await setup(t, { summaries });
-  chat.effects[1]();
+  chat.loadSummary();
   await chat.receive();
   resolve([{ id: "conversation", participantId: "partner", participantName: "Nguyen Minh", unreadCount: 0 }]);
   await flush();
@@ -169,7 +210,7 @@ test("initial unread backlog is retained when a new message arrives while the su
   let resolve;
   const summaries = new Promise((done) => { resolve = done; });
   const chat = await setup(t, { conversations: [], summaries });
-  chat.effects[1]();
+  chat.loadSummary();
   // Both initial load and the new-contact lookup wait for this server snapshot.
   await chat.receive();
   resolve([{ id: "conversation", participantId: "partner", participantName: "Nguyen Minh", unreadCount: 6,
@@ -183,7 +224,7 @@ test("a late summary cannot resurrect unread after a successful mark-read", asyn
   let resolve;
   const summaries = new Promise((done) => { resolve = done; });
   const chat = await setup(t, { conversations: [{ ...conversation, unreadCount: 5 }], summaries });
-  chat.effects[1]();
+  chat.loadSummary();
   chat.context.setActiveConversationId("conversation");
   await chat.receive();
   resolve([{ id: "conversation", participantId: "partner", participantName: "Nguyen Minh", unreadCount: 5 }]);

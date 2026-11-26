@@ -50,6 +50,12 @@ function mergeUnreadCount(local: ChatConversation, snapshot: ChatApiConversation
   return Math.max(local.unreadCount, snapshot.unreadCount + afterSnapshot);
 }
 
+function hasNewerPreview(conversation: ChatConversation, createdAt = "", messageId = "") {
+  const lastMessageAt = conversation.lastMessageAt ?? "";
+  return lastMessageAt > createdAt ||
+    (lastMessageAt === createdAt && (conversation.lastMessageId ?? "") > messageId);
+}
+
 function callRoomPath(call: ChatCallSignal, participantName: string) {
   const params = new URLSearchParams({
     conversationId: call.conversationId,
@@ -208,6 +214,7 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
   const seenMessageIds = useRef(new Set<string>());
   const conversationVersions = useRef(new Map<string, number>());
   const readVersions = useRef(new Map<string, number>());
+  const profileRequests = useRef(new Map<string, Promise<unknown>>());
   const mergeSummaries = useCallback((items: ChatApiConversation[], baseline: Map<string, number>) => {
     if (!currentUserId) return;
     setConversations((current) => {
@@ -242,18 +249,30 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       setConversations((current) => current.map((item) => ids.includes(item.id) ? { ...item, unreadCount: 0 } : item));
     } catch { /* Keep unread when marking read fails. */ }
   }, [isReadingConversation]);
-  const refreshActiveProfile = useCallback(() => {
-    if (document.visibilityState !== "visible") return;
-    const partnerId = conversationsRef.current.find((item) => item.id === activeConversationId.current)?.userId;
-    if (!partnerId) return;
-    void chatService.getParticipantProfile(partnerId, true).then((updated) => {
+  const refreshParticipantProfile = useCallback((partnerId: string) => {
+    const request = chatService.getParticipantProfile(partnerId, true);
+    profileRequests.current.set(partnerId, request);
+    void request.then((updated) => {
+      if (profileRequests.current.get(partnerId) !== request) return;
+      for (const item of conversationsRef.current) {
+        if (item.userId === partnerId) {
+          conversationVersions.current.set(item.id, (conversationVersions.current.get(item.id) ?? 0) + 1);
+        }
+      }
       setConversations((current) => current.map((item) => item.userId === partnerId ? {
         ...item,
         userName: [updated.firstName, updated.lastName].filter(Boolean).join(" ").trim() || updated.username,
         userAvatar: updated.avatarUrl ?? undefined,
       } : item));
-    }).catch(() => undefined);
+    }).catch(() => undefined).finally(() => {
+      if (profileRequests.current.get(partnerId) === request) profileRequests.current.delete(partnerId);
+    });
   }, []);
+  const refreshActiveProfile = useCallback(() => {
+    if (document.visibilityState !== "visible") return;
+    const partnerId = conversationsRef.current.find((item) => item.id === activeConversationId.current)?.userId;
+    if (partnerId) refreshParticipantProfile(partnerId);
+  }, [refreshParticipantProfile]);
 
   useEffect(() => {
     conversationsRef.current = rawConversations;
@@ -307,11 +326,22 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
           ?? mapApiConversation({ id: message.conversationId, participantId: message.senderId,
             participantName: "Người dùng HomeSpace", unreadCount: 0 }, currentUserId);
         if (existing.messages.some((item) => item.id === message.id)) return current;
-        return [{ ...existing, lastMessage: mappedMessage.content || mappedMessage.attachments?.[0]?.name || "", lastMessageTime: mappedMessage.timestamp,
-          lastMessageSender: incoming ? "them" : "me",
+        const latest = !hasNewerPreview(existing, message.createdAt, message.id);
+        const updated: ChatConversation = {
+          ...existing,
+          ...(latest && {
+            lastMessage: mappedMessage.content || mappedMessage.attachments?.[0]?.name || "",
+            lastMessageAt: message.createdAt,
+            lastMessageId: message.id,
+            lastMessageTime: mappedMessage.timestamp,
+            lastMessageSender: incoming ? "them" : "me",
+          }),
           unreadCount: existing.unreadCount + (incoming ? 1 : 0),
           messages: [...existing.messages, mappedMessage],
-        }, ...current.filter((item) => item.id !== message.conversationId)];
+        };
+        return latest
+          ? [updated, ...current.filter((item) => item.id !== message.conversationId)]
+          : current.map((item) => item.id === updated.id ? updated : item);
       });
 
       if (incoming && reading) await markVisibleRead(message.conversationId);
@@ -323,7 +353,13 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
         if (summary) {
           const mapped = mapApiConversation(summary, currentUserId);
           setConversations((current) => current.map((item) => item.id === mapped.id
-            ? { ...mapped, messages: item.messages, unreadCount: mergeUnreadCount(item, summary,
+            ? { ...mapped, ...(hasNewerPreview(item, mapped.lastMessageAt, mapped.lastMessageId) && {
+                lastMessage: item.lastMessage,
+                lastMessageAt: item.lastMessageAt,
+                lastMessageId: item.lastMessageId,
+                lastMessageTime: item.lastMessageTime,
+                lastMessageSender: item.lastMessageSender,
+              }), messages: item.messages, unreadCount: mergeUnreadCount(item, summary,
               (readVersions.current.get(mapped.id) ?? 0) > baseline), isHidden: item.isHidden, isPinned: item.isPinned } : item));
         }
       }
@@ -439,6 +475,12 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
           }).catch(() => undefined);
         });
         socket.on("chat:message", (message: ChatApiMessage) => void receiveMessage(message));
+        socket.on("chat:profile:changed", (payload: { userId?: unknown } | undefined) => {
+          const partnerId = payload?.userId;
+          if (typeof partnerId === "string" && conversationsRef.current.some((item) => item.userId === partnerId)) {
+            refreshParticipantProfile(partnerId);
+          }
+        });
         socket.on("chat:message:updated", updateMessage);
         socket.on("chat:message:deleted", removeMessage);
         socket.on("chat:call:incoming", (call: ChatCallSignal) => {
@@ -508,10 +550,11 @@ export function ChatDemoProvider({ children }: { children: React.ReactNode }) {
       socket?.disconnect();
       if (socketRef.current === socket) socketRef.current = null;
       callHistoryReady.current = false;
+      profileRequests.current.clear();
       presenceSubscribed.current.clear();
       setPresence({});
     };
-  }, [authenticated, currentUserId, receiveMessage, removeMessage, updateMessage, mergeSummaries, subscribePresence, openCall]);
+  }, [authenticated, currentUserId, receiveMessage, removeMessage, updateMessage, mergeSummaries, subscribePresence, openCall, refreshParticipantProfile]);
 
   useEffect(() => {
     if (!authenticated || !currentUserId) return;

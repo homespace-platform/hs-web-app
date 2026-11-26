@@ -279,8 +279,9 @@ export function mapListingDetailToFormState(
     ? (detail.title ? `${detail.title} (Bản sao)` : "")
     : (detail.title || "");
 
+  // An edit keeps a past date (the backend accepts it unchanged); a copy starts from today at the earliest.
   const availableDate =
-    detail.availableFrom && detail.availableFrom >= todayStr
+    detail.availableFrom && (mode === "edit" || detail.availableFrom >= todayStr)
       ? detail.availableFrom
       : todayStr;
 
@@ -328,6 +329,9 @@ export function mapListingDetailToFormState(
   };
 
   const houseDetails: HouseDetailsData = {
+    rentalScopeDescription: detail.houseDetail?.rentalScopeDescription,
+    rentedFloorFrom: detail.houseDetail?.rentedFloorFrom,
+    rentedFloorTo: detail.houseDetail?.rentedFloorTo,
     landAreaM2: String(detail.houseDetail?.landAreaM2 ?? ""),
     totalUsableAreaM2: String(detail.areaM2 || ""),
     facadeWidthM: String(detail.houseDetail?.frontageWidthM ?? ""),

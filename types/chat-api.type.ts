@@ -24,6 +24,7 @@ export type ChatApiConversation = {
   listing?: RelatedListing;
   lastMessage?: string;
   lastMessageAt?: string;
+  lastMessageId?: string;
   lastMessageSenderId?: string;
   unreadCount: number;
   participantRole?: "TENANT" | "LANDLORD";

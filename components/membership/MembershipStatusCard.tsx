@@ -95,7 +95,7 @@ export default function MembershipStatusCard({
   if (compact) {
     return (
       <div
-        className={`rounded-2xl border p-4 shadow-2xs transition-all ${
+        className={`rounded-2xl border p-4 shadow-2xs transition-all max-sm:p-2.5 ${
           unlimited
             ? "border-indigo-200 bg-indigo-50/70 dark:border-indigo-900/50 dark:bg-indigo-950/30"
             : lowQuota
@@ -103,10 +103,10 @@ export default function MembershipStatusCard({
             : "border-border bg-card"
         }`}
       >
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 max-sm:gap-1.5">
           <div className="flex items-start sm:items-center gap-3">
             <div
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl max-sm:hidden ${
                 unlimited
                   ? "bg-indigo-600 text-white"
                   : lowQuota
@@ -117,8 +117,8 @@ export default function MembershipStatusCard({
               {unlimited ? <InfinityIcon className="h-5 w-5" /> : <Crown className="h-5 w-5" />}
             </div>
 
-            <div className="space-y-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="space-y-1 min-w-0 max-sm:flex-1">
+              <div className="flex flex-wrap items-center gap-2 max-sm:gap-x-1.5 max-sm:gap-y-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Gói hội viên:
                 </span>
@@ -170,19 +170,20 @@ export default function MembershipStatusCard({
                 )}
               </div>
 
-              <PolicyNotice tone="neutral" title="Hạn mức đăng tin" text={unlimited
+              <PolicyNotice tone="neutral" title="Hạn mức đăng tin" className="max-sm:rounded-xl max-sm:py-0 max-sm:pr-0 max-sm:[&>button]:h-11 max-sm:[&>button]:w-11 max-sm:[&>span]:hidden" text={unlimited
                   ? "Tài khoản Quản trị viên có hạn mức đăng tin không giới hạn để kiểm thử và vận hành. Lưu nháp và chỉnh sửa luôn miễn phí."
                   : "Lưu tin nháp và chỉnh sửa nội dung miễn phí. Tạo mới gửi duyệt hoặc đăng lại tin cần 1 lượt. Tin đã hiển thị vẫn giữ nguyên tới hết hạn riêng của bài đăng ngay cả khi gói hết hạn."} />
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 self-start lg:self-center">
+          <div className="flex items-center gap-2 shrink-0 self-start lg:self-center max-sm:w-full max-sm:flex-wrap max-sm:gap-1.5">
             {onRefresh && (
               <button
                 type="button"
                 onClick={onRefresh}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer max-sm:min-h-11 max-sm:min-w-11 max-sm:justify-center"
                 title="Cập nhật hạn mức"
+                aria-label="Cập nhật hạn mức"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
               </button>
@@ -191,14 +192,14 @@ export default function MembershipStatusCard({
               <button
                 type="button"
                 onClick={onBuyAddon}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-primary px-3.5 py-2 text-xs font-bold text-primary hover:bg-primary/10 cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-primary px-3.5 py-2 text-xs font-bold text-primary hover:bg-primary/10 cursor-pointer max-sm:min-h-11 max-sm:flex-auto max-sm:justify-center max-sm:px-2"
               >
                 Mua thêm lượt
               </button>
             ) : (
               <Link
                 href="/dashboard/membership?addon=1"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-primary px-3.5 py-2 text-xs font-bold text-primary hover:bg-primary/10"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-primary px-3.5 py-2 text-xs font-bold text-primary hover:bg-primary/10 max-sm:min-h-11 max-sm:flex-auto max-sm:justify-center max-sm:px-2"
               >
                 Mua thêm lượt
               </Link>
@@ -206,11 +207,11 @@ export default function MembershipStatusCard({
             {showManageLink && (
               <Link
                 href="/dashboard/membership"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-primary-foreground shadow-2xs hover:bg-primary/90 transition-all"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-primary-foreground shadow-2xs hover:bg-primary/90 transition-all max-sm:min-h-11 max-sm:flex-auto max-sm:justify-center max-sm:px-2"
               >
-                <Sparkles className="h-3.5 w-3.5" />
+                <Sparkles className="h-3.5 w-3.5 max-sm:hidden" />
                 <span>{unlimited ? "Xem bảng gói hội viên" : "Mua / Nâng cấp gói"}</span>
-                <ArrowUpRight className="h-3.5 w-3.5" />
+                <ArrowUpRight className="h-3.5 w-3.5 max-sm:hidden" />
               </Link>
             )}
           </div>

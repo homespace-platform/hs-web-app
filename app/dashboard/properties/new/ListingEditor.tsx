@@ -133,6 +133,7 @@ export default function ListingEditor({
   const [branches, setBranches] = useState<PropertyBranch[]>([]);
   const [rentedLockListing, setRentedLockListing] = useState<{ id: string; title: string; isExternal?: boolean } | null>(null);
   const [loadedPendingEdit, setLoadedPendingEdit] = useState(false);
+  const [loadedAvailableDate, setLoadedAvailableDate] = useState<string | null>(null);
   const [loadedListingStatus, setLoadedListingStatus] = useState<string | null>(null);
   const [vehicleLimits, setVehicleLimits] = useState<{ maxMotorbikeCount: number | null; maxCarCount: number | null } | null>(null);
   const [chargeBaseline, setChargeBaseline] = useState<{ charges: ListingDetailResponse["charges"]; expenses: MonthlyExpensesData } | null>(null);
@@ -551,6 +552,7 @@ export default function ListingEditor({
 
           setLoadedListingStatus(detail.status);
           setLoadedPendingEdit(Boolean(detail.pendingEditId));
+          setLoadedAvailableDate(isEditMode ? detail.availableFrom ?? null : null);
           setVehicleLimits({ maxMotorbikeCount: detail.maxMotorbikeCount ?? null, maxCarCount: detail.maxCarCount ?? null });
 
           const normalizedStatus = String(detail.status || "").trim().toUpperCase();
@@ -736,7 +738,7 @@ export default function ListingEditor({
         "availableDate",
         "Vui lòng chọn ngày có thể vào thuê / bàn giao."
       );
-    } else if (basicInfo.availableDate < todayStr) {
+    } else if (basicInfo.availableDate < todayStr && basicInfo.availableDate !== loadedAvailableDate) {
       addError(
         "field-available-date",
         "availableDate",
@@ -762,6 +764,13 @@ export default function ListingEditor({
       }
       if (!houseDetails.totalFloors || Number(houseDetails.totalFloors) <= 0) {
         addError("field-total-floors", "totalFloors", "Số tầng phải lớn hơn 0.");
+      } else if (Number(houseDetails.totalFloors) < (houseDetails.rentedFloorTo ?? 0)) {
+        // The kept rental scope must stay inside the building.
+        addError(
+          "field-total-floors",
+          "totalFloors",
+          `Tin đang cho thuê đến tầng ${houseDetails.rentedFloorTo}, số tầng không được nhỏ hơn.`
+        );
       }
     } else if (basicInfo.category === "room") {
       if (!roomDetails.areaM2 || Number(roomDetails.areaM2) <= 0) {

@@ -145,7 +145,7 @@ test("selected chat refreshes public profile on open, focus and visible timer wi
     "@/lib/chat-demo-state": load("lib/chat-demo-state.ts"),
   });
   const context = ChatDemoProvider({ children: null }).props.value;
-  effects[3]();
+  effects.at(-1)();
   context.setActiveConversationId('conversation');
   await new Promise(setImmediate);
   assert.equal(conversations[0].userName, 'Nguyen Minh');

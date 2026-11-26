@@ -94,11 +94,11 @@ export default function ListingItemCard({
   };
 
   return (
-    <div className="group relative flex flex-col sm:flex-row overflow-hidden rounded-2xl border border-border bg-card transition-all hover:border-primary/40 hover:shadow-md">
+    <div className="group relative flex flex-col sm:flex-row overflow-hidden rounded-2xl border border-border bg-card transition-all hover:border-primary/40 hover:shadow-md max-sm:grid max-sm:grid-cols-[auto_minmax(0,1fr)] max-sm:grid-rows-[auto_auto_auto_1fr]">
       {/* Cover Image Thumbnail */}
       <div
         onClick={handleOpenDetail}
-        className="relative h-48 sm:h-auto sm:w-56 shrink-0 bg-muted cursor-pointer overflow-hidden"
+        className="relative h-48 sm:h-auto sm:w-56 shrink-0 bg-muted cursor-pointer overflow-hidden max-sm:row-span-4 max-sm:m-2.5 max-sm:mr-0 max-sm:h-24 max-sm:w-24 max-sm:self-start max-sm:rounded-xl"
       >
         {item.coverImageUrl ? (
           <Image
@@ -115,14 +115,14 @@ export default function ListingItemCard({
         )}
 
         {/* Category Pill on Image */}
-        <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-lg bg-black/65 backdrop-blur-xs px-2.5 py-1 text-[11px] font-bold text-white shadow-2xs">
+        <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-lg bg-black/65 backdrop-blur-xs px-2.5 py-1 text-[11px] font-bold text-white shadow-2xs max-sm:hidden">
           {CATEGORY_ICONS[item.category] || <Building className="h-3 w-3" />}
           <span>{CATEGORY_LABELS[item.category] || item.category}</span>
         </span>
 
         {/* Media Count */}
         {item.mediaCount > 0 && (
-          <span className="absolute right-2.5 bottom-2.5 inline-flex items-center gap-1 rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white">
+          <span className="absolute right-2.5 bottom-2.5 inline-flex items-center gap-1 rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white max-sm:hidden">
             <Layers className="h-3 w-3" />
             {item.mediaCount} ảnh
           </span>
@@ -130,11 +130,11 @@ export default function ListingItemCard({
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 flex-col justify-between p-4 sm:p-5 space-y-3">
-        <div>
+      <div className="flex flex-1 flex-col justify-between p-4 sm:p-5 space-y-3 max-sm:contents">
+        <div className="max-sm:contents">
           {/* Status & Subtype Header */}
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2 max-sm:mb-1 max-sm:mt-2.5 max-sm:px-2.5">
+            <div className="flex items-center gap-2 max-sm:flex-wrap max-sm:gap-1.5">
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${statusConfig.badgeClassName}`}
               >
@@ -147,9 +147,13 @@ export default function ListingItemCard({
                   {item.branchName}
                 </span>
               )}
+              <span className="text-[11px] text-muted-foreground sm:hidden">
+                {CATEGORY_LABELS[item.category] || item.category}
+                {item.mediaCount > 0 && ` · ${item.mediaCount} ảnh`}
+              </span>
             </div>
 
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground max-sm:hidden">
               <Calendar className="h-3 w-3" />
               <span>Đăng: {formatDate(item.createdAt)}</span>
             </div>
@@ -158,21 +162,21 @@ export default function ListingItemCard({
           {/* Title */}
           <h2
             onClick={handleOpenDetail}
-            className="text-sm sm:text-base font-bold text-foreground hover:text-primary transition-colors cursor-pointer line-clamp-2"
+            className="text-sm sm:text-base font-bold text-foreground hover:text-primary transition-colors cursor-pointer line-clamp-2 max-sm:px-2.5"
           >
             {item.title}
           </h2>
 
           {/* Address */}
-          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground max-sm:mt-0.5 max-sm:min-w-0 max-sm:items-start max-sm:px-2.5">
             <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
-            <span className="truncate">
+            <span className="truncate max-sm:line-clamp-2 max-sm:whitespace-normal">
               {item.fullAddress || "Chưa có thông tin địa chỉ"}
             </span>
           </p>
 
           {/* Price & Area Specs */}
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs max-sm:mt-0.5 max-sm:gap-x-1.5 max-sm:gap-y-0 max-sm:self-start max-sm:px-2.5 max-sm:pb-2.5">
             <span className="font-bold text-primary text-sm sm:text-base">
               {formatCurrency(item.priceAmount)}
               <span className="text-[11px] font-normal text-muted-foreground">
@@ -183,7 +187,7 @@ export default function ListingItemCard({
             <span className="font-semibold text-foreground">{item.areaM2} m²</span>
             {item.availableFrom && (
               <>
-                <span className="text-muted-foreground">•</span>
+                <span className="text-muted-foreground max-sm:hidden">•</span>
                 <span className="text-muted-foreground text-[11px]">
                   Vào ở từ: {formatDate(item.availableFrom)}
                 </span>
@@ -193,7 +197,7 @@ export default function ListingItemCard({
 
           {/* Status Reason Alert for REJECTED or VIOLATION */}
           {item.statusReason && (item.status === "REJECTED" || item.status === "VIOLATION") && (
-            <div className="mt-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 p-2.5 text-xs text-rose-800 dark:text-rose-300 flex items-start gap-2">
+            <div className="mt-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 p-2.5 text-xs text-rose-800 dark:text-rose-300 flex items-start gap-2 max-sm:col-span-2 max-sm:mx-2.5 max-sm:mb-1.5 max-sm:mt-0 max-sm:p-2">
               <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
               <div>
                 <span className="font-bold">
@@ -206,8 +210,9 @@ export default function ListingItemCard({
         </div>
 
         {/* Actions Footer */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-border/60">
-          <div className="text-[11px] text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-border/60 max-sm:col-span-2 max-sm:mx-2.5 max-sm:gap-1 max-sm:py-1.5">
+          <div className="text-[11px] text-muted-foreground max-sm:flex max-sm:w-full max-sm:flex-wrap max-sm:gap-x-3">
+            <span className="sm:hidden">Đăng: {formatDate(item.createdAt)}</span>
             {item.publishedAt ? (
               <span>Duyệt ngày: {formatDate(item.publishedAt)}</span>
             ) : item.submittedAt ? (
@@ -215,7 +220,8 @@ export default function ListingItemCard({
             ) : null}
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
+          {/* Below sm the four actions share one row, icon above label. */}
+          <div className="flex flex-wrap items-center gap-1.5 max-sm:w-full max-sm:flex-nowrap max-sm:items-stretch max-sm:gap-1 max-sm:[&>button]:min-h-11 max-sm:[&>button]:flex-auto max-sm:[&>button]:flex-col max-sm:[&>button]:justify-center max-sm:[&>button]:gap-0.5 max-sm:[&>button]:px-1 max-sm:[&>button]:py-1">
             {/* Xem chi tiết */}
             <button
               type="button"

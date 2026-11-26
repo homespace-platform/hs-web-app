@@ -224,9 +224,9 @@ export function buildCreateListingPayload(params: BuildPayloadParams): CreateLis
       maxVehicles: houseDetails.maxVehicles ? Number(houseDetails.maxVehicles) : null,
       furnishingStatus: resolveFurnishing(houseDetails.furnishing),
       legalStatus: houseDetails.legalStatus || null,
-      rentalScopeDescription: null,
-      rentedFloorFrom: null,
-      rentedFloorTo: null,
+      rentalScopeDescription: houseDetails.rentalScopeDescription ?? null,
+      rentedFloorFrom: houseDetails.rentedFloorFrom ?? null,
+      rentedFloorTo: houseDetails.rentedFloorTo ?? null,
     };
   } else if (category === "ROOM") {
     roomDetail = {

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Loader2, RefreshCw, Wallet } from "lucide-react";
 import membershipService from "@/services/membership.service";
-import { clearPendingMembershipOrderId, formatExactVnd, getMembershipErrorMessage } from "@/lib/membership";
+import { clearPendingMembershipOrderId, formatExactVnd, getMembershipErrorMessage, getOrderProductLabel } from "@/lib/membership";
 import { buildMembershipEthTransaction, connectSepolia, formatWei, getMetaMask, isTxHash, signWalletChallenge } from "@/lib/membership-eth-payment";
 import type { MembershipEthQuote, MembershipOrderView } from "@/types/membership.type";
 
@@ -124,19 +124,19 @@ function EthOrder() {
 
   return <div className="mx-auto max-w-2xl space-y-5 p-6">
     <Link href="/dashboard/membership" className="text-sm text-primary hover:underline">← Gói hội viên</Link>
-    <h1 className="text-2xl font-bold">Thanh toán gói bằng Sepolia ETH</h1>
+    <h1 className="text-2xl font-bold">Thanh toán hội viên bằng Sepolia ETH</h1>
     {!order ? error
       ? <div role="alert" className="space-y-2 rounded-lg border border-red-300 bg-red-50 p-3 text-red-700"><p>{error}</p><button type="button" onClick={() => refreshOrder().catch((cause) => setError(getMembershipErrorMessage(cause, "Không tải được đơn hàng.")))} className="rounded-lg border border-red-300 px-3 py-1.5">Thử tải lại</button></div>
       : <p className="flex items-center gap-2"><Loader2 className="animate-spin" /> Đang tải đơn hàng...</p>
     : <>
       <div className="rounded-xl border bg-card p-5 space-y-2 text-sm">
         <p>Đơn hàng: <strong>{order.id}</strong></p>
-        <p>Gói: <strong>{order.tier}</strong></p>
+        <p>Sản phẩm: <strong>{getOrderProductLabel(order)}</strong></p>
         <p>Giá: <strong>{formatExactVnd(order.amountVnd)}</strong></p>
         <p>Trạng thái: <strong>{order.status}</strong></p>
       </div>
       {order.provider !== "ETH" ? <p className="text-red-600">Đơn này không sử dụng Sepolia ETH.</p> : null}
-      {order.status === "PAID" ? <p className="rounded-xl border border-green-300 bg-green-50 p-4 text-green-800">HomeSpace đã đối soát giao dịch và kích hoạt gói hội viên.</p> : null}
+      {order.status === "PAID" ? <p className="rounded-xl border border-green-300 bg-green-50 p-4 text-green-800">HomeSpace đã đối soát giao dịch và {order.kind === "ADDON" ? "cộng lượt mua thêm vào tài khoản" : "kích hoạt gói hội viên"}.</p> : null}
       {order.status === "REVIEW" ? <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900">Đơn cần đối soát thủ công. Không gửi thêm ETH.</p> : null}
       {order.status === "PENDING" && order.provider === "ETH" && <div className="rounded-xl border bg-card p-5 space-y-4 text-sm">
         {submitted ? <>

@@ -2,6 +2,7 @@ import axiosClient from "@/lib/axios-client";
 import {
   MEMBERSHIP_API_PATHS,
   mergeMembershipPlans,
+  normalizeAddonOffer,
   normalizeCheckoutResponse,
   normalizeMembershipQuote,
   normalizeMembershipView,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/membership";
 import type { ApiResponse } from "@/types/api.type";
 import type {
+  MembershipAddonOffer,
   MembershipCheckoutResponse,
   MembershipEthChallenge,
   MembershipEthQuote,
@@ -74,6 +76,28 @@ const membershipService = {
     );
     const payload = response.data?.result ?? response.data;
     return normalizeCheckoutResponse(payload);
+  },
+
+  /** Giá, hạn dùng và số lượng tối đa của lượt mua thêm (/api/v1/membership/addons) */
+  async getAddonOffer(): Promise<MembershipAddonOffer> {
+    const response = await axiosClient.get<ApiResponse<MembershipAddonOffer>>(
+      MEMBERSHIP_API_PATHS.addons,
+    );
+    const offer = normalizeAddonOffer(response.data?.result ?? response.data);
+    if (!offer) throw new Error("Máy chủ chưa trả về giá lượt mua thêm.");
+    return offer;
+  },
+
+  /** Tạo đơn mua thêm lượt (/api/v1/membership/addons/checkout) */
+  async checkoutAddon(
+    quantity: number,
+    provider: MembershipPaymentProvider,
+  ): Promise<MembershipCheckoutResponse> {
+    const response = await axiosClient.post<ApiResponse<MembershipCheckoutResponse>>(
+      MEMBERSHIP_API_PATHS.addonCheckout,
+      { quantity, provider },
+    );
+    return normalizeCheckoutResponse(response.data?.result ?? response.data);
   },
 
   /**

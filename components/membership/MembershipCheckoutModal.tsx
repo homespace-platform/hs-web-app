@@ -28,6 +28,7 @@ import {
   formatExactVnd,
   getMembershipErrorMessage,
   getPendingMembershipOrderId,
+  getQuotaResetLabel,
   getTierLabel,
   isMembershipPendingOrderError,
   isOrderCancelledStatus,
@@ -35,6 +36,7 @@ import {
   submitSePayCheckoutForm,
   validateCheckoutResponse,
 } from "@/lib/membership";
+import PaymentProviderPicker from "./PaymentProviderPicker";
 import type {
   MembershipPaymentProvider,
   MembershipPlan,
@@ -147,7 +149,9 @@ export default function MembershipCheckoutModal({
     !isUpgradeMode &&
     currentMembership &&
     !currentMembership.unlimited &&
-    (currentMembership.remainingUses > 0 || currentMembership.tier !== "FREE");
+    currentMembership.tier !== "FREE" &&
+    currentMembership.remainingUses > 0;
+  const quotaResetLabel = getQuotaResetLabel(currentMembership);
 
   const priceDifferenceSaved =
     isUpgradeMode && quote && plan.priceVnd > quote.amountVnd
@@ -290,7 +294,11 @@ export default function MembershipCheckoutModal({
               id="membership-checkout-modal-title"
               className="text-lg font-extrabold text-foreground"
             >
-              {isUpgradeMode ? `Nâng cấp lên ${plan.name}` : `Đăng ký ${plan.name}`}
+              {currentMembership?.tier === plan.code
+                ? `Mua lại ${plan.shortName}`
+                : isUpgradeMode
+                ? `Nâng cấp lên ${plan.name}`
+                : `Đăng ký ${plan.name}`}
             </h3>
           </div>
           <button
@@ -387,6 +395,14 @@ export default function MembershipCheckoutModal({
                     {getTierLabel(currentMembership?.tier)} (Còn {currentMembership?.remainingUses ?? 0} lượt)
                   </span>
                 </div>
+                {Boolean(currentMembership?.addonRemaining) && (
+                  <p className="text-right text-[11px] text-muted-foreground">
+                    {currentMembership?.addonRemaining} lượt mua thêm được giữ nguyên khi đổi gói.
+                  </p>
+                )}
+                {quotaResetLabel && (
+                  <p className="text-right text-[11px] text-muted-foreground">{quotaResetLabel}</p>
+                )}
 
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Gói đăng ký mới:</span>
@@ -454,76 +470,11 @@ export default function MembershipCheckoutModal({
                 </div>
               </div>
 
-              {/* Payment Provider Selection */}
-              <div
-                role="radiogroup"
-                aria-label="Chọn cổng thanh toán"
-                data-testid="payment-provider-selection"
-                className="space-y-2.5"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold text-foreground">
-                    Phương thức thanh toán
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">
-                    Thanh toán trực tuyến an toàn
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  {MEMBERSHIP_PAYMENT_PROVIDERS.map((providerOpt) => {
-                    const isSelected = selectedProvider === providerOpt.code;
-                    return (
-                      <button
-                        key={providerOpt.code}
-                        type="button"
-                        role="radio"
-                        aria-checked={isSelected}
-                        disabled={submittingCheckout}
-                        data-testid={`payment-provider-option-${providerOpt.code}`}
-                        onClick={() => {
-                          if (submittingCheckout) return;
-                          setSelectedProvider(providerOpt.code);
-                        }}
-                        className={`w-full rounded-2xl border p-3.5 text-left transition-all ${
-                          isSelected
-                            ? "border-primary bg-primary/5 ring-2 ring-primary/15 cursor-pointer"
-                            : "border-border bg-card hover:border-primary/40 cursor-pointer"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start gap-2.5">
-                            <span
-                              className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                                isSelected
-                                  ? "border-primary bg-primary text-primary-foreground"
-                                  : "border-muted-foreground/40 bg-background"
-                              }`}
-                            >
-                              {isSelected && (
-                                <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                              )}
-                            </span>
-                            <div className="space-y-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs font-extrabold text-foreground">
-                                  {providerOpt.label}
-                                </span>
-                                <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                                  {providerOpt.badge}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                {providerOpt.description}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <PaymentProviderPicker
+                value={selectedProvider}
+                disabled={submittingCheckout}
+                onChange={setSelectedProvider}
+              />
 
               {/* Security & Business Assurance */}
               <div className="rounded-xl bg-muted/50 p-3 text-[11px] text-muted-foreground flex items-start gap-2.5 leading-relaxed">

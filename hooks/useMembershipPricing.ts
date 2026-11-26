@@ -7,8 +7,8 @@ import {
   DEFAULT_MEMBERSHIP_PLANS,
   TIER_RANK,
   getMembershipErrorMessage,
+  getPlanBlockReason,
   isMembershipDowngradeError,
-  isMembershipExpired,
   isPaidTierCode,
   isUnlimitedMembership,
 } from "@/lib/membership";
@@ -24,7 +24,6 @@ export interface MembershipPlanCardState {
   isCurrentTier: boolean;
   isRequestedTier: boolean;
   unavailableReason?: string;
-  isLowerThanActivePaid: boolean;
   isTierUnavailable: boolean;
   serverQuote?: MembershipQuote;
   isServerUpgradeDiscount: boolean;
@@ -115,32 +114,25 @@ export function useMembershipPricing(onLoaded?: (info: MembershipLoadedInfo) => 
   }, [loadData]);
 
   const currentTier = membership?.tier ?? "FREE";
-  const currentExpired = isMembershipExpired(membership?.expiresAt);
 
   function getCardState(plan: MembershipPlan, requestedTier: string | null = null): MembershipPlanCardState {
     const isFree = plan.code === "FREE";
-    const isCurrentTier =
-      authenticated && !unlimited && currentTier === plan.code && (isFree || !currentExpired);
+    const isCurrentTier = authenticated && !unlimited && currentTier === plan.code;
     const paidCode = isPaidTierCode(plan.code) ? plan.code : null;
     const serverQuote = paidCode ? quotesByTier[paidCode] : undefined;
-    const unavailableReason = paidCode ? unavailableByTier[paidCode] : undefined;
-    const isLowerThanActivePaid =
-      authenticated &&
-      !unlimited &&
-      !isFree &&
-      currentTier !== "FREE" &&
-      !currentExpired &&
-      TIER_RANK[plan.code] < TIER_RANK[currentTier];
+    const blockReason =
+      authenticated && !unlimited ? getPlanBlockReason(plan.code, membership) : undefined;
+    const unavailableReason = blockReason ?? (paidCode ? unavailableByTier[paidCode] : undefined);
     return {
       isFree,
       isCurrentTier,
       isRequestedTier: requestedTier === plan.code,
       unavailableReason,
-      isLowerThanActivePaid,
-      isTierUnavailable: Boolean(unavailableReason || isLowerThanActivePaid),
+      isTierUnavailable: Boolean(unavailableReason),
       serverQuote,
       isServerUpgradeDiscount: Boolean(
         serverQuote &&
+          !isCurrentTier &&
           (serverQuote.upgrade || serverQuote.mode === "UPGRADE") &&
           serverQuote.amountVnd < plan.priceVnd,
       ),

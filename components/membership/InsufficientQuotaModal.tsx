@@ -12,7 +12,7 @@ import {
   Loader2,
   ArrowRight,
 } from "lucide-react";
-import { getTierLabel } from "@/lib/membership";
+import { getAddonBalanceLabel, getQuotaResetLabel, getTierLabel } from "@/lib/membership";
 import type { MembershipView } from "@/types/membership.type";
 
 interface InsufficientQuotaModalProps {
@@ -23,6 +23,7 @@ interface InsufficientQuotaModalProps {
   isSavingDraft?: boolean;
   onSaveDraftOnly?: () => void;
   onSaveDraftAndBuyPlan?: () => void;
+  onSaveDraftAndBuyAddon?: () => void;
   onClose: () => void;
 }
 
@@ -34,9 +35,12 @@ export default function InsufficientQuotaModal({
   isSavingDraft = false,
   onSaveDraftOnly,
   onSaveDraftAndBuyPlan,
+  onSaveDraftAndBuyAddon,
   onClose,
 }: InsufficientQuotaModalProps) {
   if (!isOpen) return null;
+  const quotaResetLabel = getQuotaResetLabel(membership);
+  const addonLabel = getAddonBalanceLabel(membership) ?? "Lượt mua thêm: 0";
 
   const modalContent = (
     <div
@@ -65,12 +69,20 @@ export default function InsufficientQuotaModal({
               >
                 Không đủ lượt đăng tin khả dụng
               </h3>
-              <p className="text-xs text-muted-foreground">
-                Gói hiện tại: <strong className="text-foreground">{getTierLabel(membership?.tier)}</strong> • Còn{" "}
-                <strong className="text-rose-600 dark:text-rose-400">
-                  {membership?.remainingUses ?? 0} lượt
-                </strong>
-              </p>
+              {membership && (
+                <p className="text-xs text-muted-foreground">
+                  Gói hiện tại: <strong className="text-foreground">{getTierLabel(membership?.tier)}</strong> • Còn{" "}
+                  <strong className="text-rose-600 dark:text-rose-400">
+                    {membership?.remainingUses ?? 0} lượt
+                  </strong>
+                </p>
+              )}
+              {membership && !membership.unlimited && (
+                <p className="text-xs text-muted-foreground">{addonLabel}</p>
+              )}
+              {quotaResetLabel && (
+                <p className="text-xs text-muted-foreground">{quotaResetLabel}</p>
+              )}
             </div>
           </div>
 
@@ -96,7 +108,7 @@ export default function InsufficientQuotaModal({
                   </p>
                   <p>
                     Việc <strong>Lưu tin nháp</strong> và <strong>Chỉnh sửa tin</strong> là hoàn toàn miễn phí.
-                    Bạn có thể lưu bài đăng này dưới dạng tin nháp ngay bây giờ để không mất dữ liệu, sau đó mua hoặc nâng cấp gói hội viên để gửi duyệt.
+                    Bạn có thể lưu bài đăng này dưới dạng tin nháp ngay bây giờ để không mất dữ liệu, sau đó mua thêm lượt hoặc mua, nâng cấp gói để gửi duyệt.
                   </p>
                 </div>
               </div>
@@ -119,17 +131,17 @@ export default function InsufficientQuotaModal({
               )}
               <p>
                 Thao tác đăng lại hoặc gửi duyệt lại tin đăng yêu cầu <strong>1 lượt đăng tin khả dụng</strong>.
-                Hiện tại tài khoản của bạn đã hết lượt đăng trong gói.
+                Hiện tại tài khoản của bạn đã hết lượt gói và lượt mua thêm.
               </p>
               <p className="rounded-xl border border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/50 dark:bg-emerald-950/30 p-3 text-emerald-900 dark:text-emerald-200">
-                Tin đăng của bạn vẫn được lưu an toàn. Hãy mua hoặc nâng cấp gói hội viên để tiếp tục đăng lại bài đăng này.
+                Tin đăng của bạn vẫn được lưu an toàn. Hãy mua thêm lượt hoặc mua, nâng cấp gói để tiếp tục đăng lại bài đăng này.
               </p>
             </div>
           )}
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2.5 border-t border-border bg-muted/20 px-6 py-4">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-end gap-2.5 border-t border-border bg-muted/20 px-6 py-4">
           <button
             type="button"
             disabled={isSavingDraft}
@@ -153,6 +165,24 @@ export default function InsufficientQuotaModal({
               )}
               <span>Chỉ lưu tin nháp (Miễn phí)</span>
             </button>
+          )}
+
+          {context === "editor" && onSaveDraftAndBuyAddon ? (
+            <button
+              type="button"
+              disabled={isSavingDraft}
+              onClick={onSaveDraftAndBuyAddon}
+              className="inline-flex h-10 items-center justify-center rounded-xl border border-primary px-4 text-xs font-bold text-primary hover:bg-primary/10 disabled:opacity-60 cursor-pointer"
+            >
+              Lưu nháp & Mua thêm lượt
+            </button>
+          ) : (
+            <Link
+              href="/dashboard/membership?addon=1"
+              className="inline-flex h-10 items-center justify-center rounded-xl border border-primary px-4 text-xs font-bold text-primary hover:bg-primary/10"
+            >
+              Mua thêm lượt
+            </Link>
           )}
 
           {context === "editor" && onSaveDraftAndBuyPlan ? (

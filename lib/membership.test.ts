@@ -48,20 +48,19 @@ describe("membership domain logic and DTO adapters", () => {
       { code: "PRO", publicationUses: 30, durationDays: 30, priceVnd: 129_000 },
       { code: "STARTER", publicationUses: 10, durationDays: 30, priceVnd: 49_000 },
       { code: "BUSINESS", publicationUses: 100, durationDays: 30, priceVnd: 349_000 },
-      { code: "FREE", publicationUses: 3, durationDays: 0, priceVnd: 0 },
+      { code: "FREE", publicationUses: 3, durationDays: 30, priceVnd: 0 },
     ]);
 
     assert.equal(merged.length, 4);
     assert.deepEqual(
       merged.map((p) => [p.code, p.publicationUses, p.durationDays, p.priceVnd]),
       [
-        ["FREE", 3, 0, 0],
+        ["FREE", 3, 30, 0],
         ["STARTER", 10, 30, 49_000],
         ["PRO", 30, 30, 129_000],
         ["BUSINESS", 100, 30, 349_000],
       ],
     );
-    assert.equal(merged[0].isOneTime, true);
     assert.equal(merged[2].isPopular, true);
   });
 
@@ -849,8 +848,8 @@ describe("membership domain logic and DTO adapters", () => {
     );
   });
 
-  it("configures SePay-only checkout modal provider selection without wallet balance UI", () => {
-    assert.equal(MEMBERSHIP_PAYMENT_PROVIDERS.length, 1);
+  it("configures SePay and ETH checkout provider selection without wallet balance UI", () => {
+    assert.deepEqual(MEMBERSHIP_PAYMENT_PROVIDERS.map((p) => [p.code, p.enabled]), [["SEPAY", true], ["ETH", true]]);
     const sepayOption = MEMBERSHIP_PAYMENT_PROVIDERS.find(
       (p) => p.code === "SEPAY",
     );
@@ -866,8 +865,13 @@ describe("membership domain logic and DTO adapters", () => {
       ),
       "utf8",
     );
-    assert.match(modalSource, /payment-provider-selection/);
-    assert.match(modalSource, /payment-provider-option-\$\{providerOpt\.code\}/);
+    const pickerSource = fs.readFileSync(
+      path.join(repoRoot, "components", "membership", "PaymentProviderPicker.tsx"),
+      "utf8",
+    );
+    assert.match(pickerSource, /payment-provider-selection/);
+    assert.match(pickerSource, /payment-provider-option-\$\{providerOpt\.code\}/);
+    assert.match(modalSource, /<PaymentProviderPicker/);
     assert.match(modalSource, /submitSePayCheckoutForm\(checkoutRes\)/);
     assert.match(modalSource, /validateCheckoutResponse/);
     assert.match(modalSource, /cancelOrderOnQuoteChange/);

@@ -13,7 +13,7 @@ function fixture() {
   const auth={initialized:true,authenticated:true,userId:'owner',login:path=>logins.push(path)};
   let search=`orderId=${ID}`,cancelCalls=0;
   const window={location:{pathname:'/dashboard/membership/return',search:`?${search}`,hash:'#result'},...timers.globals};
-  const mocks={react:runtime.hooks,'next/link':Link,'next/navigation':{useSearchParams:()=>new URLSearchParams(search)},'lucide-react':icons,
+  const mocks={react:runtime.hooks,'next/link':Link,'@/components/common/PolicyDialog':{PolicyNotice:()=>null},'next/navigation':{useSearchParams:()=>new URLSearchParams(search)},'lucide-react':icons,
     '@/features/auth/useAuth':{useAuth:()=>auth},'@/services/notification.service':notifications,
     '@/lib/membership':{...membershipLib,getPendingMembershipOrderId:()=>null,clearPendingMembershipOrderId(){}},
     '@/services/membership.service':{getOrder(id){const call={...deferred(),id};requests.push(call);return call.promise;},
@@ -29,7 +29,7 @@ function fixture() {
 }
 
 test('membership tags distinguish activation/review and old payment schemas retain fallback',()=>{
-  const api=service();assert.equal(api.getNotificationTag({category:'PAYMENT',type:'MEMBERSHIP_ACTIVATED'}),'Kích hoạt gói');
+  const api=service();assert.equal(api.getNotificationTag({category:'PAYMENT',type:'MEMBERSHIP_ACTIVATED'}),'Kích hoạt hội viên');
   assert.equal(api.getNotificationTag({category:'PAYMENT',type:'MEMBERSHIP_PAYMENT_REVIEW'}),'Chờ đối soát');
   for(const type of ['constructor','__proto__','PAYMENT_SUCCESSFUL'])assert.equal(api.getNotificationTag({category:'PAYMENT',type}),'Thanh toán');
 });

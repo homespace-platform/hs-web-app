@@ -1,5 +1,6 @@
 import axios from "axios";
 import type {
+  MembershipAddonOffer,
   MembershipCheckoutResponse,
   MembershipOrderStatus,
   MembershipOrderView,
@@ -29,7 +30,7 @@ export const MEMBERSHIP_PAYMENT_PROVIDERS: readonly MembershipPaymentProviderOpt
     label: "SePay (Cổng thanh toán & Chuyển khoản QR)",
     shortLabel: "SePay",
     description:
-      "Thanh toán trực tuyến an toàn qua cổng SePay. Tự động kích hoạt gói sau khi máy chủ xác nhận giao dịch.",
+      "Thanh toán trực tuyến an toàn qua cổng SePay. Tự động kích hoạt đơn sau khi máy chủ xác nhận giao dịch.",
     enabled: true,
     badge: "Đang hỗ trợ",
   },
@@ -37,7 +38,7 @@ export const MEMBERSHIP_PAYMENT_PROVIDERS: readonly MembershipPaymentProviderOpt
     code: "ETH",
     label: "MetaMask (Sepolia ETH)",
     shortLabel: "Sepolia ETH",
-    description: "Thanh toán gói hội viên bằng ETH thử nghiệm; hệ thống đối soát giao dịch trước khi kích hoạt gói.",
+    description: "Thanh toán bằng ETH thử nghiệm; hệ thống đối soát giao dịch trước khi kích hoạt đơn.",
     enabled: true,
     badge: "Thử nghiệm",
   },
@@ -52,6 +53,8 @@ export const MEMBERSHIP_API_PATHS = {
   me: `${MEMBERSHIP_API_BASE_PATH}/me`,
   quote: `${MEMBERSHIP_API_BASE_PATH}/quote`,
   checkout: `${MEMBERSHIP_API_BASE_PATH}/checkout`,
+  addons: `${MEMBERSHIP_API_BASE_PATH}/addons`,
+  addonCheckout: `${MEMBERSHIP_API_BASE_PATH}/addons/checkout`,
   order: (orderId: string) =>
     `${MEMBERSHIP_API_BASE_PATH}/orders/${encodeURIComponent(orderId)}`,
   cancelOrder: (orderId: string) =>
@@ -72,15 +75,9 @@ export const DEFAULT_MEMBERSHIP_PLANS: MembershipPlan[] = [
     name: "Gói Miễn Phí (Free)",
     shortName: "Free",
     publicationUses: 3,
-    durationDays: 0,
+    durationDays: 30,
     priceVnd: 0,
-    isOneTime: true,
     tagline: "Dành cho chủ nhà mới bắt đầu trải nghiệm đăng tin trên HomeSpace",
-    features: [
-      "3 lượt đăng tin dùng một lần (không giới hạn thời hạn kích hoạt)",
-      "Tạo và lưu tin nháp, chỉnh sửa nội dung hoàn toàn miễn phí",
-      "Tin đã hiển thị được giữ nguyên tới khi hết hạn riêng của bài đăng",
-    ],
   },
   {
     code: "STARTER",
@@ -90,12 +87,6 @@ export const DEFAULT_MEMBERSHIP_PLANS: MembershipPlan[] = [
     durationDays: 30,
     priceVnd: 49_000,
     tagline: "Phù hợp cho chủ nhà cá nhân có ít phòng hoặc căn hộ cho thuê",
-    features: [
-      "10 lượt đăng mới hoặc đăng lại tin trong 30 ngày",
-      "Lưu tin nháp và chỉnh sửa bài đăng miễn phí không giới hạn",
-      "Hỗ trợ nâng cấp lên Pro / Business chỉ tính chênh lệch giá trong 24h đầu",
-      "Tin đã duyệt vẫn hiển thị đủ thời hạn riêng ngay cả khi gói hết hạn",
-    ],
   },
   {
     code: "PRO",
@@ -107,13 +98,6 @@ export const DEFAULT_MEMBERSHIP_PLANS: MembershipPlan[] = [
     badge: "Phổ biến nhất",
     isPopular: true,
     tagline: "Tối ưu cho chủ nhà quản lý khu trọ, dãy phòng hoặc nhiều căn hộ",
-    features: [
-      "30 lượt đăng mới hoặc đăng lại tin trong 30 ngày",
-      "Tiết kiệm chi phí trên mỗi lượt đăng tin (~4.300 ₫/lượt)",
-      "Lưu tin nháp và chỉnh sửa bài đăng miễn phí không giới hạn",
-      "Hỗ trợ nâng cấp lên Business chỉ tính chênh lệch giá trong 24h đầu",
-      "Tin đã duyệt vẫn hiển thị đủ thời hạn riêng ngay cả khi gói hết hạn",
-    ],
   },
   {
     code: "BUSINESS",
@@ -124,13 +108,6 @@ export const DEFAULT_MEMBERSHIP_PLANS: MembershipPlan[] = [
     priceVnd: 349_000,
     badge: "Quy mô lớn",
     tagline: "Dành cho hệ thống tòa nhà, chuỗi căn hộ dịch vụ và đơn vị vận hành",
-    features: [
-      "100 lượt đăng mới hoặc đăng lại tin trong 30 ngày",
-      "Mức phí tốt nhất chỉ 3.490 ₫ cho mỗi lượt đăng tin",
-      "Lưu tin nháp và chỉnh sửa bài đăng miễn phí không giới hạn",
-      "Đáp ứng nhu cầu xoay vòng phòng trống và đăng lại tin liên tục",
-      "Tin đã duyệt vẫn hiển thị đủ thời hạn riêng ngay cả khi gói hết hạn",
-    ],
   },
 ];
 
@@ -179,7 +156,6 @@ export function normalizeMembershipPlan(raw: Partial<MembershipPlanDto> | null |
     publicationUses,
     durationDays,
     priceVnd,
-    isOneTime: code === "FREE" || durationDays <= 0,
   };
 }
 
@@ -196,6 +172,21 @@ export function mergeMembershipPlans(dtos: MembershipPlanDto[] | null | undefine
   return orderedCodes.map(
     (code) => normalizedMap.get(code) ?? PLAN_METADATA_BY_CODE[code],
   );
+}
+
+function toCount(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+/** No fallback price: an incomplete offer is unusable. */
+export function normalizeAddonOffer(raw: unknown): MembershipAddonOffer | null {
+  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const offer = {
+    unitPriceVnd: toCount(obj.unitPriceVnd),
+    validDays: toCount(obj.validDays),
+    maxQuantity: Math.floor(toCount(obj.maxQuantity)),
+  };
+  return offer.unitPriceVnd && offer.validDays && offer.maxQuantity ? offer : null;
 }
 
 export function normalizeMembershipView(raw: unknown): MembershipView {
@@ -226,6 +217,12 @@ export function normalizeMembershipView(raw: unknown): MembershipView {
     expiresAt,
     freeUsed,
     unlimited,
+    quotaResetsAt:
+      typeof obj.quotaResetsAt === "string" && obj.quotaResetsAt.trim() ? obj.quotaResetsAt : null,
+    addonRemaining: toCount(obj.addonRemaining),
+    addonReserved: toCount(obj.addonReserved),
+    addonExpiresAt:
+      typeof obj.addonExpiresAt === "string" && obj.addonExpiresAt.trim() ? obj.addonExpiresAt : null,
   };
 }
 
@@ -610,12 +607,15 @@ export async function cancelOrderOnQuoteChange(
 
 export function normalizeOrderView(raw: unknown): MembershipOrderView {
   const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const tier = normalizeTierCode(obj.tier);
+  const kind = String(obj.kind ?? "").trim().toUpperCase() === "ADDON" ? "ADDON" : "PLAN";
+  const tier = kind === "ADDON" ? null : normalizeTierCode(obj.tier);
   const status = String(obj.status ?? "PENDING").trim().toUpperCase() as MembershipOrderStatus;
   const provider = normalizeOrderProvider(obj.provider);
   return {
     id: String(obj.id ?? obj.orderId ?? "").trim(),
     tier,
+    kind,
+    quantity: toCount(obj.quantity) || null,
     amountVnd:
       typeof obj.amountVnd === "number" && Number.isFinite(obj.amountVnd)
         ? Math.max(0, obj.amountVnd)
@@ -637,11 +637,42 @@ export function isUnlimitedMembership(
   return false;
 }
 
-export function isMembershipExpired(expiresAt?: string | null): boolean {
-  if (!expiresAt) return false;
-  const timestamp = new Date(expiresAt).getTime();
-  if (Number.isNaN(timestamp)) return false;
-  return timestamp <= Date.now();
+/**
+ * UX-only mirror of the purchase rules; the backend decides. The server reports a paid tier only
+ * while it is active, so no browser clock is involved.
+ */
+export function getPlanBlockReason(
+  target: MembershipTierCode,
+  membership?: MembershipView | null,
+): string | undefined {
+  if (!membership || membership.unlimited || target === "FREE" || membership.tier === "FREE") {
+    return undefined;
+  }
+  if (TIER_RANK[target] < TIER_RANK[membership.tier]) return "Đang sử dụng gói cao hơn";
+  if (target === membership.tier && membership.remainingUses > 0) {
+    return "Mua lại được khi đã dùng hết lượt gói";
+  }
+  return undefined;
+}
+
+export function formatVnDateTime(iso?: string | null): string | null {
+  const date = new Date(iso ?? "");
+  if (!iso || Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+/** "Hồi lượt vào ..." for FREE users; null when the server sends no valid reset time. */
+export function getQuotaResetLabel(membership?: MembershipView | null): string | null {
+  if (!membership || membership.unlimited || membership.tier !== "FREE") return null;
+  const formatted = formatVnDateTime(membership.quotaResetsAt);
+  return formatted ? `Hồi lượt vào ${formatted}` : null;
 }
 
 export function getTierLabel(tier?: MembershipTierCode | string | null): string {
@@ -657,8 +688,29 @@ export function getTierLabel(tier?: MembershipTierCode | string | null): string 
       return "Starter (10 lượt / 30 ngày)";
     case "FREE":
     default:
-      return "Free (3 lượt dùng một lần)";
+      return "Free (3 lượt / 30 ngày)";
   }
+}
+
+export function getOrderProductLabel(
+  order: Pick<MembershipOrderView, "kind" | "tier" | "quantity">,
+): string {
+  if (order.kind !== "ADDON") return getTierLabel(order.tier);
+  return order.quantity ? `Mua thêm ${order.quantity} lượt đăng tin` : "Mua thêm lượt đăng tin";
+}
+
+/** Everything the user can publish with right now: plan uses (spent first) plus extra uses. */
+export function getPublishableUses(membership?: MembershipView | null): number {
+  return (membership?.remainingUses ?? 0) + (membership?.addonRemaining ?? 0);
+}
+
+/** Extra-use balance line; null when there is nothing to show. */
+export function getAddonBalanceLabel(membership?: MembershipView | null): string | null {
+  if (!membership || membership.unlimited) return null;
+  const { addonRemaining = 0, addonReserved = 0, addonExpiresAt } = membership;
+  if (!addonRemaining && !addonReserved) return null;
+  const expiry = addonRemaining ? formatVnDateTime(addonExpiresAt) : null;
+  return `Lượt mua thêm: ${addonRemaining}${expiry ? ` (hạn gần nhất ${expiry})` : ""}`;
 }
 
 export function getTierShortLabel(tier?: MembershipTierCode | string | null): string {
@@ -749,6 +801,7 @@ export interface CancelOrderOutcome {
 export function resolveCancelOrderOutcome(
   order: Pick<MembershipOrderView, "status"> & {
     provider?: MembershipPaymentProvider | string | null;
+    kind?: MembershipOrderView["kind"];
   },
 ): CancelOrderOutcome {
   const status = String(order.status ?? "").trim().toUpperCase();
@@ -772,8 +825,9 @@ export function resolveCancelOrderOutcome(
       shouldStopPolling: true,
       shouldClearPendingOrder: true,
       noticeTone: "success",
-      noticeMessage:
-        "Đơn hàng đã được xác nhận thanh toán (PAID) trước khi yêu cầu hủy hoàn tất. Gói hội viên của bạn đã được kích hoạt.",
+      noticeMessage: `Đơn hàng đã được xác nhận thanh toán (PAID) trước khi yêu cầu hủy hoàn tất. ${
+        order.kind === "ADDON" ? "Lượt mua thêm đã được cộng vào tài khoản." : "Gói hội viên của bạn đã được kích hoạt."
+      }`,
     };
   }
 
@@ -827,14 +881,14 @@ export function getOrderStatusPresentation(
     return {
       label: "Đã thanh toán & Kích hoạt",
       tone: "success",
-      description: `Hệ thống HomeSpace đã xác nhận giao dịch thành công từ ${providerLabel} và cập nhật hạn mức lượt đăng tin cho tài khoản của bạn.`,
+      description: `Hệ thống HomeSpace đã xác nhận giao dịch thành công từ ${providerLabel} và cập nhật lượt đăng tin cho tài khoản của bạn.`,
     };
   }
   if (isOrderReviewStatus(status)) {
     return {
       label: "Đang chờ đối soát (REVIEW)",
       tone: "warning",
-      description: `${providerLabel} đã ghi nhận thanh toán nhưng thời hạn đơn hoặc điều kiện nâng cấp đã thay đổi tại thời điểm đối soát. Đơn hàng đã được chuyển sang trạng thái REVIEW để bộ phận vận hành đối soát và xử lý cho bạn.`,
+      description: `${providerLabel} đã ghi nhận thanh toán nhưng thời hạn đơn hoặc điều kiện kích hoạt đã thay đổi tại thời điểm đối soát. Đơn hàng đã được chuyển sang trạng thái REVIEW để bộ phận vận hành đối soát và xử lý cho bạn.`,
     };
   }
   if (isOrderFailedStatus(status)) {
@@ -903,7 +957,7 @@ export function isListingQuotaExhaustedError(error: unknown): boolean {
 
 export function isMembershipDowngradeError(error: unknown): boolean {
   const code = extractBackendErrorCode(error);
-  if (code === 4016) return true;
+  if (code === 4016 || code === 4082) return true; // 4082: same tier still has uses
   if (!axios.isAxiosError(error)) return false;
   const msg = String(error.response?.data?.message ?? "").toUpperCase();
   return msg.includes("DOWNGRADE");
@@ -924,17 +978,17 @@ export function getMembershipErrorMessage(
   const code = extractBackendErrorCode(error);
   switch (code) {
     case 4013:
-      return "Bạn đã hết lượt đăng tin khả dụng trong gói hiện tại. Vui lòng mua hoặc nâng cấp gói hội viên.";
+      return "Bạn đã hết lượt đăng tin. Vui lòng mua thêm lượt, mua hoặc nâng cấp gói hội viên.";
     case 4014:
       return "Không tìm thấy thông tin giữ chỗ lượt đăng tin cho bài đăng này.";
     case 4015:
       return "Gói hội viên đã chọn không hợp lệ.";
     case 4016:
-      return "Không hỗ trợ hạ cấp xuống gói thấp hơn khi gói hiện tại còn hạn, hoặc mua trùng gói trong 24 giờ đầu tiên.";
+      return "Không thể hạ cấp khi gói còn hạn; chỉ mua lại cùng gói khi đã dùng hết lượt.";
     case 4017:
       return "Đơn hàng hội viên không còn đủ điều kiện kích hoạt.";
     case 4018:
-      return "Bạn đang có một đơn thanh toán gói hội viên chờ xử lý (trong khung 15 phút). Vui lòng hoàn tất đơn đó hoặc đợi đơn hết hạn trước khi tạo đơn mới.";
+      return "Bạn đang có một đơn thanh toán hội viên chờ xử lý (trong khung 15 phút). Vui lòng hoàn tất đơn đó hoặc đợi đơn hết hạn trước khi tạo đơn mới.";
     case 4019:
       return "Không tìm thấy đơn hàng hội viên này hoặc bạn không có quyền xem.";
     default: {

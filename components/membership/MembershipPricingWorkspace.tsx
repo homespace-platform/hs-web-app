@@ -1,23 +1,12 @@
 "use client";
 
-import { PolicyNotice } from "@/components/common/PolicyDialog";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Zap,
-  Clock,
-  FileText,
-  ArrowRight,
-  RefreshCw,
-  Crown,
-  Building2,
-  AlertTriangle,
-} from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
 import { useAuth } from "@/features/auth/useAuth";
 import {
-  TIER_RANK,
-  isMembershipExpired,
+  getPlanBlockReason,
   isPaidTierCode,
   isUnlimitedMembership,
 } from "@/lib/membership";
@@ -25,10 +14,16 @@ import {
   useMembershipPricing,
   type MembershipLoadedInfo,
 } from "@/hooks/useMembershipPricing";
-import type { MembershipPlan, PaidMembershipTierCode } from "@/types/membership.type";
+import membershipService from "@/services/membership.service";
+import type { MembershipAddonOffer, MembershipPlan, PaidMembershipTierCode } from "@/types/membership.type";
 import MembershipPlanCard from "./MembershipPlanCard";
 import MembershipStatusCard from "./MembershipStatusCard";
 import MembershipCheckoutModal from "./MembershipCheckoutModal";
+import MembershipAddonModal from "./MembershipAddonModal";
+import MembershipRules from "./MembershipRules";
+
+const HEADER_ACTION =
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 export default function MembershipPricingWorkspace() {
   const pathname = usePathname();
@@ -39,6 +34,8 @@ export default function MembershipPricingWorkspace() {
 
   const [requestedTier, setRequestedTier] = useState<PaidMembershipTierCode | null>(null);
   const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<MembershipPlan | null>(null);
+  const [addonOpen, setAddonOpen] = useState(false);
+  const [addonOffer, setAddonOffer] = useState<MembershipAddonOffer | null>(null);
 
   const onLoaded = useCallback(
     ({ me, loadedPlans, unavailableByTier }: MembershipLoadedInfo) => {
@@ -47,14 +44,9 @@ export default function MembershipPricingWorkspace() {
         autoOpenedTierRef.current !== requestedTier &&
         !unavailableByTier[requestedTier]
       ) {
-        const meUnlimited = isUnlimitedMembership(me, profile);
-        const meExpired = isMembershipExpired(me.expiresAt);
-        const isLower =
-          !meUnlimited &&
-          me.tier !== "FREE" &&
-          !meExpired &&
-          TIER_RANK[requestedTier] < TIER_RANK[me.tier];
-        if (!isLower) {
+        const blocked =
+          !isUnlimitedMembership(me, profile) && Boolean(getPlanBlockReason(requestedTier, me));
+        if (!blocked) {
           const matchedPlan = loadedPlans.find((p) => p.code === requestedTier);
           if (matchedPlan) {
             autoOpenedTierRef.current = requestedTier;
@@ -81,6 +73,8 @@ export default function MembershipPricingWorkspace() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
+    // The modal itself only renders for signed-in, non-unlimited users.
+    if (params.get("addon") === "1") setAddonOpen(true);
     const tierParam = params.get("tier") ?? params.get("plan");
     if (isPaidTierCode(tierParam)) {
       const normalized = tierParam.trim().toUpperCase() as PaidMembershipTierCode;
@@ -91,6 +85,12 @@ export default function MembershipPricingWorkspace() {
     }
   }, []);
 
+  // Price line only; if this fails the buy button stays and the modal reports the error.
+  useEffect(() => {
+    if (!authenticated || unlimited) return;
+    membershipService.getAddonOffer().then(setAddonOffer, () => setAddonOffer(null));
+  }, [authenticated, unlimited]);
+
   function handleSelectPlan(plan: MembershipPlan) {
     if (plan.code === "FREE" || plan.code === "ADMIN") return;
     if (!authenticated) {
@@ -100,92 +100,67 @@ export default function MembershipPricingWorkspace() {
     setSelectedPlanForCheckout(plan);
   }
 
-  function scrollToPlans() {
-    plansGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   return (
     <div className="space-y-8 pb-16 animate-in fade-in-50 duration-200">
-      {/* Page Title & Quick Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-            <Crown className="h-3.5 w-3.5" />
-            <span>Dành cho Chủ nhà & Đơn vị cho thuê</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-foreground">
+          <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
             Gói hội viên & Lượt đăng tin
           </h1>
-          <PolicyNotice tone="neutral" className="max-w-2xl" title="Gói lượt đăng tin" summary="Linh hoạt lựa chọn gói lượt đăng tin phù hợp quy mô vận hành."><p>Linh hoạt lựa chọn gói lượt đăng tin phù hợp quy mô vận hành. Lưu nháp và chỉnh sửa luôn miễn phí, thanh toán tức thì qua SePay.</p></PolicyNotice>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            Chọn gói theo quy mô cho thuê. Lưu nháp và chỉnh sửa luôn miễn phí; thanh toán qua SePay hoặc Sepolia ETH.
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-          {authenticated ? (
-            <>
-              {!isDashboardView && (
-                <Link
-                  href="/dashboard/membership"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3.5 py-2 text-xs font-bold text-primary hover:bg-primary/15 transition-colors shadow-2xs"
-                >
-                  <Crown className="h-3.5 w-3.5" />
-                  <span>Quản lý gói trong Dashboard</span>
-                </Link>
-              )}
-              <Link
-                href="/dashboard/properties"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-2xs"
-              >
-                <Building2 className="h-3.5 w-3.5 text-primary" />
-                <span>Quản lý tin đăng</span>
+        {authenticated && (
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {!isDashboardView && (
+              <Link href="/dashboard/membership" className={HEADER_ACTION}>
+                Quản lý gói trong Dashboard
               </Link>
-              <button
-                type="button"
-                onClick={loadData}
-                disabled={loadingPlans || loadingMembership}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50 cursor-pointer shadow-2xs"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${loadingPlans || loadingMembership ? "animate-spin text-primary" : ""}`} />
-                <span>Làm mới</span>
-              </button>
-            </>
-          ) : (
+            )}
+            <Link href="/dashboard/properties" className={HEADER_ACTION}>
+              Quản lý tin đăng
+            </Link>
             <button
               type="button"
-              onClick={() => login(requestedTier ? `/membership?tier=${encodeURIComponent(requestedTier)}` : "/membership")}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-colors shadow-2xs cursor-pointer"
+              onClick={loadData}
+              disabled={loadingPlans || loadingMembership}
+              className={`${HEADER_ACTION} cursor-pointer disabled:opacity-60`}
             >
-              <span>Đăng nhập để mua gói</span>
-              <ArrowRight className="h-3.5 w-3.5" />
+              {(loadingPlans || loadingMembership) && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+              Làm mới
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* Active Membership & Remaining Quota Card */}
       {authenticated ? (
         <MembershipStatusCard
           membership={membership}
           profile={profile}
           loading={loadingMembership}
-          showManageLink={false}
-          onRefresh={loadData}
-          onSelectUpgrade={scrollToPlans}
+          planQuota={plans.find((plan) => plan.code === currentTier)?.publicationUses}
+          addonOffer={addonOffer}
+          onBuyAddon={() => setAddonOpen(true)}
         />
       ) : (
-        <div className="rounded-3xl border border-primary/25 bg-primary/5 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <h2 className="text-base font-bold text-foreground">
-              Đăng nhập để xem số lượt đăng tin còn lại & thanh toán gói hội viên
+              Đăng nhập để xem lượt đăng tin còn lại và mua gói
             </h2>
-            <PolicyNotice tone="info" title="Lượt đăng tin miễn phí" summary="Mỗi tài khoản mới được tặng sẵn 3 lượt đăng tin miễn phí dùng một lần."><p>Mỗi tài khoản mới được tặng sẵn <strong>3 lượt đăng tin miễn phí</strong> dùng một lần. Bạn có thể xem trước bảng giá công khai và đăng nhập khi chọn mua gói.</p></PolicyNotice>
+            <p className="text-sm text-muted-foreground">
+              Gói Free trọn đời có 3 lượt đăng tin miễn phí mỗi 30 ngày. Bảng giá xem được không cần đăng nhập.
+            </p>
           </div>
           <button
             type="button"
             onClick={() => login(requestedTier ? `/membership?tier=${encodeURIComponent(requestedTier)}` : "/membership")}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 transition-all cursor-pointer shrink-0"
+            className="inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            <span>Đăng nhập ngay</span>
-            <ArrowRight className="h-4 w-4" />
+            Đăng nhập
+            <ArrowRight className="h-4 w-4" aria-hidden />
           </button>
         </div>
       )}
@@ -199,21 +174,15 @@ export default function MembershipPricingWorkspace() {
 
       {/* Plans Grid */}
       <div ref={plansGridRef} className="space-y-4 scroll-mt-24">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
-          <div>
-            <h2 className="text-lg sm:text-xl font-extrabold text-foreground">
-              Bảng gói lượt đăng tin
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Các gói có thời hạn 30 ngày thay thế nhau khi kích hoạt (không cộng dồn lượt cũ).
-            </p>
-          </div>
-          <span className="text-[11px] font-semibold text-muted-foreground">
-            Đơn vị tính: VNĐ (Đã bao gồm thuế theo quy định)
-          </span>
+        <div className="space-y-1">
+          <h2 className="text-lg font-bold text-foreground">Bảng gói lượt đăng tin</h2>
+          <p className="text-sm text-muted-foreground">
+            Mọi gói: lưu nháp và chỉnh sửa miễn phí; tin đã duyệt hiển thị đủ hạn riêng. Gói trả phí có hạn 30 ngày
+            và thay thế nhau, không cộng dồn lượt gói cũ. Giá bằng VNĐ, đã gồm thuế theo quy định.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {plans.map((plan) => (
             <MembershipPlanCard
               key={plan.code}
@@ -230,38 +199,17 @@ export default function MembershipPricingWorkspace() {
         </div>
       </div>
 
-      {/* Business Rules & Policy Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-        <div className="rounded-2xl border border-border bg-card p-5 space-y-2 shadow-2xs">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-            <Zap className="h-4 w-4" />
-          </div>
-          <h3 className="text-sm font-bold text-foreground">
-            Nâng cấp trong 24h đầu tiên
-          </h3>
-          <PolicyNotice tone="neutral" title="Nâng cấp trong 24h đầu tiên" summary="Nâng cấp lên gói cao hơn trong 24 giờ đầu chỉ thanh toán phần chênh lệch giá."><p>Trong vòng 24 giờ kể từ giao dịch mua gói trả phí đầu tiên, nếu nâng cấp lên gói cao hơn, bạn chỉ thanh toán <strong>phần chênh lệch giá</strong>. Số lượt mới sẽ bằng định mức gói mục tiêu trừ đi số lượt đã sử dụng.</p></PolicyNotice>
-        </div>
+      <MembershipRules />
 
-        <div className="rounded-2xl border border-border bg-card p-5 space-y-2 shadow-2xs">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-            <Clock className="h-4 w-4" />
-          </div>
-          <h3 className="text-sm font-bold text-foreground">
-            Thay thế gói & Giữ hiển thị tin
-          </h3>
-          <PolicyNotice tone="neutral" title="Quy tắc đổi gói hội viên" actionLabel="Xem quy tắc" summary="Các gói hội viên thay thế nhau chứ không cộng dồn."><p>Các gói hội viên thay thế nhau chứ không cộng dồn. Sau 24h đầu, mua gói mới sẽ tính nguyên giá và kết thúc lượt cũ chưa dùng. <strong>Tin đã đăng hiển thị vẫn giữ nguyên cho tới khi hết hạn riêng của tin đó</strong> dù gói hết hạn.</p></PolicyNotice>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-5 space-y-2 shadow-2xs">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-            <FileText className="h-4 w-4" />
-          </div>
-          <h3 className="text-sm font-bold text-foreground">
-            Nháp & Chỉnh sửa miễn phí 100%
-          </h3>
-          <PolicyNotice tone="neutral" title="Nháp & Chỉnh sửa miễn phí 100%" summary="Hệ thống chỉ trừ 1 lượt khi gửi duyệt tin mới hoặc đăng lại."><p>Bạn có thể tạo tin nháp, lưu trữ và chỉnh sửa thông tin bài đăng hoàn toàn miễn phí. Hệ thống chỉ trừ 1 lượt khi bạn bấm <strong>Gửi duyệt tin mới</strong> hoặc <strong>Đăng lại / Gửi duyệt lại</strong> tin.</p></PolicyNotice>
-        </div>
-      </div>
+      {addonOpen && authenticated && !unlimited && (
+        <MembershipAddonModal
+          // Fallback catalogue prices are not the server's, so no comparison without it.
+          starterPriceVnd={
+            plansError || loadingPlans ? null : plans.find((p) => p.code === "STARTER")?.priceVnd ?? null
+          }
+          onClose={() => setAddonOpen(false)}
+        />
+      )}
 
       {/* Checkout Confirmation Modal */}
       <MembershipCheckoutModal

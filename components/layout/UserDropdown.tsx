@@ -21,8 +21,9 @@ import { useAppSelector } from "@/store/hooks";
 import { useDashboardRole } from "@/components/dashboard/DashboardRoleContext";
 import membershipService from "@/services/membership.service";
 import {
+  getAddonBalanceLabel,
+  getQuotaResetLabel,
   getTierShortLabel,
-  isMembershipExpired,
   isUnlimitedMembership,
 } from "@/lib/membership";
 import type { MembershipView } from "@/types/membership.type";
@@ -96,7 +97,7 @@ export default function UserDropdown() {
 
   const displayName = username || "Người dùng";
   const unlimited = isUnlimitedMembership(membership, profile);
-  const expired = !unlimited && membership !== null && isMembershipExpired(membership.expiresAt);
+  const quotaResetLabel = unlimited || loadingMembership ? null : getQuotaResetLabel(membership);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -188,13 +189,19 @@ export default function UserDropdown() {
                       : loadingMembership || (!membership && !membershipError)
                       ? "Đang tải thông tin gói & lượt đăng..."
                       : membership
-                      ? `Còn ${membership.remainingUses} lượt khả dụng${
-                          membership.reservedUses > 0
-                            ? ` • ${membership.reservedUses} chờ duyệt`
+                      ? `Lượt gói còn: ${membership.remainingUses}${
+                          membership.reservedUses + membership.addonReserved > 0
+                            ? ` • ${membership.reservedUses + membership.addonReserved} chờ duyệt`
                             : ""
-                        }${expired ? " • Đã hết hạn" : ""}`
+                        }`
                       : "Tạm thời chưa tải được hạn mức • Xem chi tiết"}
                   </p>
+                  {!unlimited && !loadingMembership && getAddonBalanceLabel(membership) && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{getAddonBalanceLabel(membership)}</p>
+                  )}
+                  {quotaResetLabel && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{quotaResetLabel}</p>
+                  )}
                 </div>
               </div>
               <ChevronRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground/60 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />

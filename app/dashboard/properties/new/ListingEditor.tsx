@@ -19,7 +19,7 @@ import { isKycSatisfied, requireKyc } from "@/lib/kyc-gate";
 import { useFeatureGate } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { FEATURE_LOCKED_MESSAGE } from "@/lib/permissions";
-import { isListingQuotaExhaustedError } from "@/lib/membership";
+import { getPublishableUses, isListingQuotaExhaustedError } from "@/lib/membership";
 import MembershipStatusCard from "@/components/membership/MembershipStatusCard";
 import InsufficientQuotaModal from "@/components/membership/InsufficientQuotaModal";
 import {
@@ -1416,6 +1416,8 @@ export default function ListingEditor({
         membership={membership}
         profile={profile}
         loading={loadingMembership}
+        showManageLink={!quotaExhaustedBanner && !(membership && getPublishableUses(membership) === 0)}
+        onBuyAddon={() => setQuotaExhaustedModalOpen(true)}
       />
 
       {/* Duplicate Mode Banner */}
@@ -1492,7 +1494,7 @@ export default function ListingEditor({
                   Bạn đã hết lượt đăng tin khả dụng — Nội dung bài đăng vẫn được giữ nguyên!
                 </p>
                 <p>
-                  Hãy bấm <strong>&quot;Lưu nháp&quot;</strong> (miễn phí) để không mất dữ liệu vừa nhập, sau đó mua hoặc nâng cấp gói hội viên để gửi duyệt.
+                  Hãy bấm <strong>&quot;Lưu nháp&quot;</strong> (miễn phí) để không mất dữ liệu vừa nhập, sau đó mua thêm lượt hoặc mua, nâng cấp gói để gửi duyệt.
                 </p>
               </div>
             </div>
@@ -1501,7 +1503,7 @@ export default function ListingEditor({
               onClick={() => setQuotaExhaustedModalOpen(true)}
               className="shrink-0 rounded-xl bg-amber-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-amber-700 transition-colors cursor-pointer"
             >
-              Xem tùy chọn lưu nháp & mua gói
+              Xem tùy chọn lưu nháp & mua lượt
             </button>
           </div>
         )}
@@ -1539,6 +1541,9 @@ export default function ListingEditor({
         onSaveDraftOnly={() => handleSaveListing("SAVE_DRAFT")}
         onSaveDraftAndBuyPlan={() =>
           handleSaveListing("SAVE_DRAFT", { redirectTo: "/dashboard/membership" })
+        }
+        onSaveDraftAndBuyAddon={() =>
+          handleSaveListing("SAVE_DRAFT", { redirectTo: "/dashboard/membership?addon=1" })
         }
         onClose={() => setQuotaExhaustedModalOpen(false)}
       />

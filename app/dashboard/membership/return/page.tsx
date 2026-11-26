@@ -26,11 +26,12 @@ import {
   canCancelMembershipOrder,
   clearPendingMembershipOrderId,
   formatExactVnd,
+  getAddonBalanceLabel,
   getMembershipErrorMessage,
+  getOrderProductLabel,
   getOrderStatusPresentation,
   getPaymentProviderDisplayName,
   getPendingMembershipOrderId,
-  getTierLabel,
   isOrderCancelledStatus,
   isOrderFailedStatus,
   isOrderPaidStatus,
@@ -524,6 +525,7 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
   const isReview = Boolean(order && isOrderReviewStatus(order.status));
   const isPending = !order || isOrderPendingStatus(order.status);
   const isTrustedPending = canCancelMembershipOrder(order);
+  const isAddon = order?.kind === "ADDON";
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-16 animate-in fade-in-50 duration-200">
@@ -616,7 +618,9 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
 
               <h1 className="text-xl sm:text-2xl font-extrabold text-foreground">
                 {isPaid
-                  ? "Kích hoạt gói hội viên thành công!"
+                  ? isAddon
+                    ? "Mua thêm lượt đăng thành công!"
+                    : "Kích hoạt gói hội viên thành công!"
                   : isReview
                   ? "Đơn hàng đang chờ bộ phận vận hành đối soát"
                   : isCancelled
@@ -670,8 +674,8 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted-foreground">Gói đăng ký:</span>
-                  <span className="font-bold text-primary">{getTierLabel(order.tier)}</span>
+                  <span className="text-muted-foreground">{isAddon ? "Sản phẩm:" : "Gói đăng ký:"}</span>
+                  <span className="font-bold text-primary">{getOrderProductLabel(order)}</span>
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
@@ -729,7 +733,7 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                   <div className="rounded-xl bg-white/80 dark:bg-card p-3 border border-emerald-200/60 dark:border-emerald-900/50">
                     <span className="text-muted-foreground block text-[11px]">
-                      Lượt đăng tin khả dụng
+                      Lượt gói còn lại
                     </span>
                     <span className="text-base font-extrabold text-emerald-700 dark:text-emerald-300">
                       {membership.unlimited
@@ -745,6 +749,11 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
                       {formatDateTimeVi(membership.expiresAt)}
                     </span>
                   </div>
+                  {getAddonBalanceLabel(membership) && (
+                    <p className="sm:col-span-2 font-semibold text-foreground">
+                      {getAddonBalanceLabel(membership)}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -880,13 +889,15 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
 
               {isFailed && (
                 <Link
-                  href="/dashboard/membership"
+                  href={isAddon ? "/dashboard/membership?addon=1" : "/dashboard/membership"}
                   data-testid="new-membership-checkout-link"
                   className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 transition-all"
                 >
                   <Crown className="h-4 w-4" />
                   <span>
-                    {isCancelled ? "Chọn gói & Tạo đơn thanh toán mới" : "Chọn lại gói & Thanh toán lại"}
+                    {isAddon
+                      ? "Mua thêm lượt lại"
+                      : isCancelled ? "Chọn gói & Tạo đơn thanh toán mới" : "Chọn lại gói & Thanh toán lại"}
                   </span>
                 </Link>
               )}

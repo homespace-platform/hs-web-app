@@ -30,6 +30,8 @@ import { useFeatureGate } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { isListingQuotaExhaustedError } from "@/lib/membership";
 import InsufficientQuotaModal from "@/components/membership/InsufficientQuotaModal";
+import membershipService from "@/services/membership.service";
+import type { MembershipView } from "@/types/membership.type";
 
 const ACTION_ICONS: Record<ListingOwnerActionIcon, LucideIcon> = {
   hide: EyeOff,
@@ -64,6 +66,7 @@ export default function ListingStatusActionMenu({
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [quotaExhaustedOpen, setQuotaExhaustedOpen] = useState(false);
+  const [membership, setMembership] = useState<MembershipView | null>(null);
 
   const actions = getListingOwnerActions(listing.status, listing.expiresAt);
   const currentStatus = getListingStatusConfig(listing.status);
@@ -135,8 +138,10 @@ export default function ListingStatusActionMenu({
       if (isListingQuotaExhaustedError(error)) {
         setModalOpen(false);
         setPendingAction(null);
+        setMembership(null);
         setQuotaExhaustedOpen(true);
-        toast.error("Bạn đã hết lượt đăng tin khả dụng. Vui lòng mua hoặc nâng cấp gói hội viên để đăng lại tin.");
+        membershipService.getMyMembership().then(setMembership).catch(() => {});
+        toast.error("Bạn đã hết lượt đăng tin. Vui lòng mua thêm lượt hoặc mua, nâng cấp gói để đăng lại tin.");
       } else {
         toast.error(getApiErrorMessage(error, "Không thể đổi trạng thái tin đăng. Vui lòng thử lại."));
       }
@@ -328,6 +333,7 @@ export default function ListingStatusActionMenu({
 
       <InsufficientQuotaModal
         isOpen={quotaExhaustedOpen}
+        membership={membership}
         context="republish"
         listingTitle={listing.title}
         onClose={() => setQuotaExhaustedOpen(false)}

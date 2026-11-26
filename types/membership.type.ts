@@ -17,8 +17,6 @@ export interface MembershipPlan extends MembershipPlanDto {
   tagline: string;
   badge?: string;
   isPopular?: boolean;
-  isOneTime?: boolean;
-  features: string[];
 }
 
 export interface MembershipView {
@@ -28,7 +26,22 @@ export interface MembershipView {
   expiresAt: string | null;
   freeUsed: number;
   unlimited: boolean;
+  /** Next FREE refill (ISO instant); only set while tier is FREE. */
+  quotaResetsAt: string | null;
+  /** One-off extra uses, kept apart from the plan balance (remainingUses). */
+  addonRemaining: number;
+  addonReserved: number;
+  /** Earliest expiry among extra uses still remaining. */
+  addonExpiresAt: string | null;
 }
+
+export interface MembershipAddonOffer {
+  unitPriceVnd: number;
+  validDays: number;
+  maxQuantity: number;
+}
+
+export type MembershipOrderKind = "PLAN" | "ADDON";
 
 export type MembershipQuoteMode = "UPGRADE" | "NEW";
 
@@ -69,7 +82,10 @@ export type MembershipOrderStatus =
 
 export interface MembershipOrderView {
   id: string;
-  tier: PaidMembershipTierCode | MembershipTierCode;
+  /** null for ADDON orders. */
+  tier: PaidMembershipTierCode | MembershipTierCode | null;
+  kind: MembershipOrderKind;
+  quantity: number | null;
   amountVnd: number;
   status: MembershipOrderStatus;
   provider: MembershipPaymentProvider | null;

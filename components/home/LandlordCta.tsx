@@ -67,11 +67,11 @@ export default function LandlordCta() {
               Bảng gói hội viên & Lượt đăng tin cho thuê
             </h2>
             <p className="mt-3 text-base text-muted-foreground">
-              Mỗi tài khoản mới có sẵn{" "}
+              Gói Free trọn đời có{" "}
               <strong className="font-semibold text-foreground">
                 3 lượt đăng tin miễn phí
               </strong>{" "}
-              dùng một lần. Tạo nháp và chỉnh sửa bài đăng hoàn toàn miễn phí — linh hoạt mua hoặc
+              mỗi 30 ngày (không cộng dồn). Tạo nháp và chỉnh sửa bài đăng hoàn toàn miễn phí — linh hoạt mua hoặc
               nâng cấp gói 30 ngày qua SePay khi cần mở rộng quy mô.
             </p>
           </div>

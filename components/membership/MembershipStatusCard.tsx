@@ -8,20 +8,21 @@ import {
   Sparkles,
   ShieldCheck,
   CalendarClock,
-  CheckCircle2,
-  AlertTriangle,
   ArrowUpRight,
   Infinity as InfinityIcon,
-  Layers,
   RefreshCw,
 } from "lucide-react";
 import {
+  formatVndPrice,
+  formatVnDateTime,
+  getAddonBalanceLabel,
+  getPublishableUses,
+  getQuotaResetLabel,
   getTierLabel,
   getTierShortLabel,
-  isMembershipExpired,
   isUnlimitedMembership,
 } from "@/lib/membership";
-import type { MembershipView } from "@/types/membership.type";
+import type { MembershipAddonOffer, MembershipView } from "@/types/membership.type";
 import type { UserProfile } from "@/types/user.type";
 
 interface MembershipStatusCardProps {
@@ -31,7 +32,11 @@ interface MembershipStatusCardProps {
   compact?: boolean;
   showManageLink?: boolean;
   onRefresh?: () => void;
-  onSelectUpgrade?: () => void;
+  /** Full view only: uses included in the current plan, and the server's extra-use offer. */
+  planQuota?: number;
+  addonOffer?: MembershipAddonOffer | null;
+  /** Overrides the "buy extra uses" link, e.g. so the editor keeps its form data. */
+  onBuyAddon?: () => void;
 }
 
 function formatDateTimeVi(iso?: string | null): string {
@@ -56,15 +61,22 @@ export default function MembershipStatusCard({
   compact = false,
   showManageLink = true,
   onRefresh,
-  onSelectUpgrade,
+  planQuota,
+  addonOffer,
+  onBuyAddon,
 }: MembershipStatusCardProps) {
   const unlimited = isUnlimitedMembership(membership, profile);
   const tierCode = unlimited ? "ADMIN" : membership?.tier ?? "FREE";
-  const expired = !unlimited && isMembershipExpired(membership?.expiresAt);
+  const quotaResetLabel = unlimited ? null : getQuotaResetLabel(membership);
   const remainingUses = membership?.remainingUses ?? 0;
   const reservedUses = membership?.reservedUses ?? 0;
   const freeUsed = membership?.freeUsed ?? 0;
-  const lowQuota = !unlimited && remainingUses <= 1;
+  const addonRemaining = membership?.addonRemaining ?? 0;
+  const addonReserved = membership?.addonReserved ?? 0;
+  const addonLabel = unlimited ? null : getAddonBalanceLabel(membership);
+  const publishableUses = getPublishableUses(membership);
+  const lowQuota = !unlimited && publishableUses <= 1;
+  const exhausted = !unlimited && membership !== null && publishableUses === 0;
 
   if (loading && !membership) {
     return (
@@ -86,7 +98,7 @@ export default function MembershipStatusCard({
         className={`rounded-2xl border p-4 shadow-2xs transition-all ${
           unlimited
             ? "border-indigo-200 bg-indigo-50/70 dark:border-indigo-900/50 dark:bg-indigo-950/30"
-            : lowQuota || expired
+            : lowQuota
             ? "border-amber-200 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-950/30"
             : "border-border bg-card"
         }`}
@@ -97,7 +109,7 @@ export default function MembershipStatusCard({
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
                 unlimited
                   ? "bg-indigo-600 text-white"
-                  : lowQuota || expired
+                  : lowQuota
                   ? "bg-amber-500 text-white"
                   : "bg-primary/10 text-primary"
               }`}
@@ -122,29 +134,38 @@ export default function MembershipStatusCard({
                 ) : (
                   <span
                     className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                      remainingUses > 0
+                      publishableUses > 0
                         ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                         : "bg-rose-500/15 text-rose-700 dark:text-rose-300"
                     }`}
                   >
-                    Còn {remainingUses} lượt đăng khả dụng
+                    Lượt gói còn: {remainingUses}
                   </span>
                 )}
 
-                {reservedUses > 0 && (
+                {addonLabel && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
+                    {addonLabel}
+                  </span>
+                )}
+
+                {reservedUses + addonReserved > 0 && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                    Đang giữ chỗ chờ duyệt: {reservedUses} lượt
+                    Đang giữ chỗ chờ duyệt: {reservedUses + addonReserved} lượt
                   </span>
                 )}
 
                 {!unlimited && membership?.expiresAt && (
-                  <span
-                    className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-                      expired ? "text-rose-600 dark:text-rose-400 font-bold" : "text-muted-foreground"
-                    }`}
-                  >
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
                     <CalendarClock className="h-3.5 w-3.5" />
-                    {expired ? "Đã hết hạn:" : "Hạn gói:"} {formatDateTimeVi(membership.expiresAt)}
+                    Hạn gói: {formatDateTimeVi(membership.expiresAt)}
+                  </span>
+                )}
+
+                {quotaResetLabel && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+                    <CalendarClock className="h-3.5 w-3.5" />
+                    {quotaResetLabel}
                   </span>
                 )}
               </div>
@@ -166,13 +187,29 @@ export default function MembershipStatusCard({
                 <RefreshCw className="h-3.5 w-3.5" />
               </button>
             )}
+            {exhausted && (onBuyAddon ? (
+              <button
+                type="button"
+                onClick={onBuyAddon}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-primary px-3.5 py-2 text-xs font-bold text-primary hover:bg-primary/10 cursor-pointer"
+              >
+                Mua thêm lượt
+              </button>
+            ) : (
+              <Link
+                href="/dashboard/membership?addon=1"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-primary px-3.5 py-2 text-xs font-bold text-primary hover:bg-primary/10"
+              >
+                Mua thêm lượt
+              </Link>
+            ))}
             {showManageLink && (
               <Link
                 href="/dashboard/membership"
                 className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-primary-foreground shadow-2xs hover:bg-primary/90 transition-all"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>{unlimited ? "Xem bảng gói hội viên" : remainingUses === 0 ? "Mua thêm lượt đăng" : "Mua / Nâng cấp gói"}</span>
+                <span>{unlimited ? "Xem bảng gói hội viên" : "Mua / Nâng cấp gói"}</span>
                 <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
             )}
@@ -182,143 +219,76 @@ export default function MembershipStatusCard({
     );
   }
 
+  const isFreeTier = tierCode === "FREE";
+  // The server's freeUsed is per FREE period; a paid plan's used count is what is neither left nor held.
+  const planUsed = isFreeTier
+    ? freeUsed
+    : planQuota !== undefined
+    ? Math.max(0, planQuota - remainingUses - reservedUses)
+    : null;
+  const addonExpiry = addonRemaining ? formatVnDateTime(membership?.addonExpiresAt) : null;
+  const held = reservedUses + addonReserved;
+  const validityLabel = unlimited
+    ? "Vĩnh viễn (ADMIN)"
+    : membership?.expiresAt
+    ? `Hạn gói: ${formatDateTimeVi(membership.expiresAt)}`
+    : quotaResetLabel;
+
   return (
-    <div className="rounded-3xl border border-border bg-card p-5 sm:p-6 shadow-xs space-y-5">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/70 pb-5">
-        <div className="flex items-start gap-3.5">
-          <div
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-xs ${
-              unlimited
-                ? "bg-indigo-600 text-white"
-                : "bg-primary text-primary-foreground"
-            }`}
-          >
-            {unlimited ? <InfinityIcon className="h-6 w-6" /> : <Crown className="h-6 w-6" />}
+    <section aria-label="Số dư lượt đăng tin" className="rounded-2xl border border-border bg-card">
+      <div className="flex flex-col gap-1 border-b border-border px-5 py-4 sm:flex-row sm:items-baseline sm:justify-between">
+        <h2 className="text-base font-bold text-foreground">
+          {membership || unlimited ? getTierLabel(tierCode) : "Chưa tải được thông tin gói"}
+        </h2>
+        {validityLabel && <p className="text-sm text-muted-foreground">{validityLabel}</p>}
+      </div>
+
+      {unlimited ? (
+        <p className="px-5 py-4 text-sm text-muted-foreground">
+          Tài khoản ADMIN được đăng và đăng lại tin không giới hạn số lượt.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+          <div className="space-y-1 px-5 py-4">
+            <p className="text-sm text-muted-foreground">{isFreeTier ? "Lượt miễn phí còn lại" : "Lượt gói còn lại"}</p>
+            <p className="text-3xl font-bold tabular-nums text-foreground">{membership ? remainingUses : "—"}</p>
+            {membership && planUsed !== null && planQuota !== undefined && (
+              <p className="text-sm text-muted-foreground">Đã dùng {planUsed}/{planQuota} lượt</p>
+            )}
           </div>
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Gói đang kích hoạt
-              </span>
-              {unlimited && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700 dark:text-indigo-300">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Chế độ ADMIN / Kiểm thử không giới hạn
-                </span>
-              )}
-              {!unlimited && expired && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 border border-rose-500/30 px-2.5 py-0.5 text-[11px] font-bold text-rose-700 dark:text-rose-300">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  Gói đã hết hạn
-                </span>
+
+          <div className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Lượt mua thêm</p>
+              <p className="text-3xl font-bold tabular-nums text-foreground">{membership ? addonRemaining : "—"}</p>
+              {addonExpiry && <p className="text-sm text-muted-foreground">Hạn gần nhất: {addonExpiry}</p>}
+              {addonOffer && (
+                <p className="text-sm text-muted-foreground">
+                  {formatVndPrice(addonOffer.unitPriceVnd)}/lượt, dùng trong {addonOffer.validDays} ngày
+                </p>
               )}
             </div>
-            <h2 className="text-lg sm:text-xl font-extrabold text-foreground">
-              {getTierLabel(tierCode)}
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {unlimited
-                ? "Tài khoản ADMIN được cấp quyền đăng và đăng lại tin không giới hạn số lượt."
-                : tierCode === "FREE"
-                ? `Bạn đã dùng ${freeUsed}/3 lượt đăng tin khởi đầu miễn phí.`
-                : "Các gói hội viên thay thế nhau khi mua mới hoặc nâng cấp (không cộng dồn lượt cũ)."}
-            </p>
+            {onBuyAddon && (
+              <button
+                type="button"
+                onClick={onBuyAddon}
+                className="min-h-11 shrink-0 cursor-pointer self-start rounded-xl border border-primary px-4 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:text-blue-300 lg:self-center"
+              >
+                Mua thêm lượt
+              </button>
+            )}
           </div>
         </div>
+      )}
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          {onRefresh && (
-            <button
-              type="button"
-              onClick={onRefresh}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors cursor-pointer"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              <span>Làm mới trạng thái</span>
-            </button>
+      {!unlimited && (
+        <div className="space-y-1 border-t border-border px-5 py-3 text-sm text-muted-foreground">
+          {held > 0 && (
+            <p className="font-semibold text-foreground">{held} lượt đang giữ chỗ cho tin chờ duyệt.</p>
           )}
-          {onSelectUpgrade && !unlimited && (
-            <button
-              type="button"
-              onClick={onSelectUpgrade}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 transition-all cursor-pointer"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Chọn gói bên dưới</span>
-            </button>
-          )}
+          <p>Lượt gói được dùng trước; lượt mua thêm giữ nguyên khi đổi gói.</p>
         </div>
-      </div>
-
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-        <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-1">
-          <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
-            <span>Lượt đăng khả dụng</span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-          </div>
-          <div className="text-2xl font-extrabold text-foreground">
-            {unlimited ? "Không giới hạn (∞)" : `${remainingUses} lượt`}
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            {unlimited
-              ? "Áp dụng cho tài khoản Quản trị viên"
-              : "Dùng để gửi duyệt tin mới hoặc đăng lại tin hết hạn"}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-1">
-          <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
-            <span>Lượt đang giữ chỗ</span>
-            <Layers className="h-4 w-4 text-blue-500" />
-          </div>
-          <div className="text-2xl font-extrabold text-foreground">
-            {reservedUses} lượt
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Số lượt đang tạm giữ cho các bài đăng chờ duyệt
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-1">
-          <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
-            <span>Thời hạn hiệu lực gói</span>
-            <CalendarClock className="h-4 w-4 text-amber-500" />
-          </div>
-          <div className="text-base sm:text-lg font-extrabold text-foreground truncate">
-            {unlimited
-              ? "Vĩnh viễn (ADMIN)"
-              : membership?.expiresAt
-              ? formatDateTimeVi(membership.expiresAt)
-              : "Không giới hạn ngày (3 lượt đầu)"}
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            {expired
-              ? "Gói hiện tại đã hết hạn sử dụng"
-              : "Tin đã hiển thị vẫn duy trì tới hết hạn riêng của tin"}
-          </p>
-        </div>
-      </div>
-
-      {/* Key Policy Notes */}
-      <PolicyNotice
-        tone="info"
-        title="Quy tắc sử dụng lượt đăng & bảo toàn hiển thị bài đăng"
-        actionLabel="Xem quy tắc"
-        summary="Lưu nháp miễn phí; chỉ trừ lượt khi gửi duyệt hoặc đăng lại."
-      >
-        <ul>
-            <li>
-              <strong>Lưu tin nháp và chỉnh sửa tin đăng hoàn toàn miễn phí.</strong> Chỉ khi tạo tin mới gửi duyệt hoặc đăng lại tin mới cần 1 lượt đăng khả dụng.
-            </li>
-            <li>
-              <strong>Tin đang hiển thị (PUBLISHED) vẫn tiếp tục hiển thị công khai</strong> cho đến khi hết thời hạn hiển thị riêng của bài đăng đó, ngay cả khi gói hội viên của bạn hết hạn.
-            </li>
-            <li>
-              <strong>Chính sách nâng cấp 24h:</strong> Trong vòng 24 giờ kể từ lần mua gói trả phí đầu tiên, nâng cấp lên gói cao hơn chỉ thanh toán phần chênh lệch giá và nhận số lượt của gói mới trừ đi số lượt đã dùng. Sau 24 giờ, mua gói mới sẽ tính nguyên giá và thay thế gói cũ (lượt cũ chưa dùng sẽ kết thúc).
-            </li>
-          </ul>
-      </PolicyNotice>
-    </div>
+      )}
+    </section>
   );
 }

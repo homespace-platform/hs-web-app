@@ -15,7 +15,7 @@ function harness(error) {
   const requests=[],messages=[],routes=[];let rejected=true;
   const noop=()=>{};
   const context={isSubmitting:false,isEditMode:true,isDuplicateMode:false,loadedListingStatus:'RESERVED',rentedLockListing:null,
-    profile:{id:'owner'},router:{push:path=>routes.push(path)},requireKyc:()=>true,validateFields:()=>true,validatePolicies:()=>true,setPreviewOpen:noop,MISSING_EDIT_ID_ERROR:'missing',buildParams:(action,media)=>({id:'listing',basicInfo:{title:'Nội dung đang sửa',images:[{storageObjectId:'existing-photo'}],videos:[]},roomDetails:{roomCode:'P0200'},uploadedMediaList:media,submissionAction:action}),
+    profile:{id:'owner'},router:{push:path=>routes.push(path)},requireKyc:()=>true,validateFields:()=>true,validatePolicies:()=>true,generationRef:{current:null},MISSING_EDIT_ID_ERROR:'missing',buildParams:(action,media)=>({id:'listing',basicInfo:{title:'Nội dung đang sửa',images:[{storageObjectId:'existing-photo'}],videos:[]},roomDetails:{roomCode:'P0200'},uploadedMediaList:media,submissionAction:action}),
     listingOptions:{amenities:[],policies:[{code:'petPolicy',valueType:'TEXT',required:true}]},policyCatalogError:null,
     listingPolicies:[{code:'petPolicy',value:'Giữ vệ sinh'}],selectedBranch:null,
     basicInfo:{title:'Nội dung đang sửa',images:[{storageObjectId:'existing-photo'}],videos:[]},
@@ -49,4 +49,18 @@ test('the actual externally rented error still locks the form and prevents resub
   await h.context.save('SUBMIT_FOR_REVIEW');
   assert.equal(h.context.loadedListingStatus,'RENTED_EXTERNALLY');assert.equal(h.context.rentedLockListing.isExternal,true);
   await h.context.save('SUBMIT_FOR_REVIEW');assert.equal(h.requests.length,1);
+});
+
+test('edit submit saves only after validation and an explicit confirmation',async()=>{
+  const source=fs.readFileSync(require.resolve('../app/dashboard/properties/new/ListingEditor.tsx'),'utf8');
+  const ast=ts.createSourceFile('page.tsx',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+  let submit;
+  (function visit(node){if(ts.isFunctionDeclaration(node)&&node.name?.text==='handleEditSubmitClick')submit=node;ts.forEachChild(node,visit);})(ast);
+  const js=ts.transpileModule(submit.getText(ast)+';globalThis.submit=handleEditSubmitClick;',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
+  for(const [valid,confirmed,saves] of [[false,true,0],[true,false,0],[true,true,1]]) {
+    const saved=[];
+    const context={isSubmitting:false,validateFields:()=>valid,validatePolicies:()=>true,confirm:async()=>confirmed,handleSaveListing:async action=>saved.push(action)};
+    vm.runInNewContext(js,context);await context.submit();
+    assert.deepEqual(saved,Array(saves).fill('SUBMIT_FOR_REVIEW'));
+  }
 });

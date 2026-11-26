@@ -86,8 +86,6 @@ function formatLocationLabel(value: string) {
 const focusRing =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
-const previewLinkProps = { tabIndex: -1, "aria-disabled": true, style: { pointerEvents: "none" as const } };
-
 const chipClass =
   "inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1.5 text-sm text-foreground";
 
@@ -148,8 +146,6 @@ export interface RentDetailViewProps {
   alertBanner?: React.ReactNode;
   sidebarActions?: React.ReactNode;
   showLandlordContact?: boolean;
-  /** Xem trước tin trong form đăng: ẩn mọi hành động/API của khách xem. */
-  previewMode?: boolean;
 }
 
 export default function RentDetailView({
@@ -158,7 +154,6 @@ export default function RentDetailView({
   alertBanner,
   sidebarActions,
   showLandlordContact = true,
-  previewMode = false,
 }: RentDetailViewProps) {
   const provinceCode = property.provinceCode ?? "";
   const provinceName = property.provinceName ?? property.city;
@@ -191,8 +186,8 @@ export default function RentDetailView({
 
   const [descExpanded, setDescExpanded] = useState(false);
   // Header is h-20 (80px); stick 16px below it.
-  const [setAsideEl, asideTop] = useStickyTop<HTMLDivElement>(previewMode ? 16 : 96);
-  const showVisitorCta = !previewMode && !(isOwner || !showLandlordContact);
+  const [setAsideEl, asideTop] = useStickyTop<HTMLDivElement>(96);
+  const showVisitorCta = !(isOwner || !showLandlordContact);
   const [quickMessage, setQuickMessage] = useState("");
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [hasActiveBooking, setHasActiveBooking] = useState(false);
@@ -200,7 +195,7 @@ export default function RentDetailView({
   const [activeRentalRequest, setActiveRentalRequest] = useState<RentalRequestResponse | null>(null);
 
   React.useEffect(() => {
-    if (!previewMode && authenticated && property?.id) {
+    if (authenticated && property?.id) {
       appointmentService.getMyBookingByListing(property.id).then((b) => {
         setHasActiveBooking(Boolean(b && ["PENDING", "CONFIRMED"].includes(b.status)));
       }).catch(() => { });
@@ -209,7 +204,7 @@ export default function RentDetailView({
         setActiveRentalRequest(r);
       }).catch(() => { });
     }
-  }, [previewMode, authenticated, property?.id]);
+  }, [authenticated, property?.id]);
 
   const QUICK_SUGGESTIONS = [
     "Nhà này còn không?",
@@ -294,13 +289,6 @@ export default function RentDetailView({
 
   return (
     <div className={`space-y-6 ${showVisitorCta ? "pb-24 lg:pb-0" : ""}`}>
-      {previewMode && (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-          <Eye className="w-3.5 h-3.5" />
-          Bản xem trước
-        </span>
-      )}
-
       {/* Optional Top Bar (e.g. Breadcrumbs + Status + Dashboard Actions) */}
       {topBar}
 
@@ -359,12 +347,12 @@ export default function RentDetailView({
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {wardLabel && (
-                <Link href={wardHref} className={locationChipClass} {...(previewMode ? previewLinkProps : {})}>
+                <Link href={wardHref} className={locationChipClass}>
                   {wardLabel}
                 </Link>
               )}
               {provinceCode && provinceLabel && (
-                <Link href={provinceHref} className={locationChipClass} {...(previewMode ? previewLinkProps : {})}>
+                <Link href={provinceHref} className={locationChipClass}>
                   {provinceLabel}
                 </Link>
               )}
@@ -611,25 +599,7 @@ export default function RentDetailView({
               </div>
             )}
           </section>
-          {previewMode && (
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-xs">
-              <div className="flex items-center gap-3">
-                <UserAvatar
-                  src={property.landlord.avatar}
-                  name={property.landlord.name}
-                  sizeClassName="w-14 h-14 text-lg font-bold shadow-xs"
-                />
-                <div className="min-w-0 flex-1">
-                  <h4 className="font-heading font-bold text-base text-foreground truncate">{property.landlord.name}</h4>
-                  <p className="text-xs text-muted-foreground mt-0.5">{property.landlord.role || "Cá nhân"}</p>
-                </div>
-              </div>
-              <p className="mt-4 rounded-xl border border-dashed border-border bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
-                Nút yêu cầu thuê, đặt lịch xem và nhắn tin sẽ hiển thị cho khách sau khi tin được đăng.
-              </p>
-            </div>
-          )}
-          {!showVisitorCta && !previewMode && (
+          {!showVisitorCta && (
             /* Khi là bài đăng của bản thân: Bỏ card liên hệ, hiện thông tin chính chủ & nút quản lý */
             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-xs space-y-4">
               <div className="flex items-center gap-3">
@@ -918,11 +888,9 @@ export default function RentDetailView({
             </SectionCard>
           )}
 
-          {!previewMode && (
-            <NearbyPlacesPanel listingId={property.id}
-              latitude={listingAddress?.latitude}
-              longitude={listingAddress?.longitude} />
-          )}
+          <NearbyPlacesPanel listingId={property.id}
+            latitude={listingAddress?.latitude}
+            longitude={listingAddress?.longitude} />
         </div>
       </div>
 

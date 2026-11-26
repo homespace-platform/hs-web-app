@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Copy, AlertTriangle, X } from "lucide-react";
+import { Loader2, Copy, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/features/auth/useAuth";
 import type { VietmapAddress } from "@/services/vietmap.service";
 import listingService from "@/services/listing.service";
@@ -47,7 +47,6 @@ import LocationSection, { type AddressMode } from "./components/LocationSection"
 import ViewingScheduleSection from "./components/ViewingScheduleSection";
 import DescriptionSection from "./components/DescriptionSection";
 import FormActions, { WizardActions } from "./components/FormActions";
-import ListingFormPreview from "@/components/listing/ListingFormPreview";
 import ListingWizardStepper from "./ListingWizardStepper";
 import EditSectionNav from "./EditSectionNav";
 import { scrollToFirstInvalid } from "./utils/scrollToFirstInvalid";
@@ -84,7 +83,7 @@ const WIZARD_STEPS = [
   { id: 3, label: "Giá & chi phí" },
   { id: 4, label: "Chính sách & lịch xem" },
   { id: 5, label: "Vị trí & mô tả" },
-  { id: 6, label: "Xem trước & gửi" },
+  { id: 6, label: "Kiểm tra & gửi" },
 ];
 
 const EDIT_SECTIONS = [
@@ -691,7 +690,9 @@ export default function ListingEditor({
   const [currentStep, setCurrentStep] = useState(1);
   const pendingFocusIds = useRef<string[] | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Edit screen and the wizard's last step share one page with every section.
+  const isSinglePage = isEditMode || currentStep === WIZARD_STEPS.length;
 
   // After a step change: scroll to the first invalid field if we jumped for an error, else to the top.
   useEffect(() => {
@@ -856,8 +857,8 @@ export default function ListingEditor({
 
   function revealErrors(list: FieldError[]) {
     const first = list[0];
-    const ids = list.filter((e) => e.step === first.step).map((e) => e.id);
-    if (!isEditMode && first.step !== currentStep) goToStep(first.step, ids);
+    const ids = list.filter((e) => isSinglePage || e.step === first.step).map((e) => e.id);
+    if (!isSinglePage && first.step !== currentStep) goToStep(first.step, ids);
     else scrollToFirstInvalid(ids);
     toast.error(first.msg || "Vui lòng kiểm tra lại các trường thông tin bị lỗi.");
   }
@@ -879,7 +880,8 @@ export default function ListingEditor({
     const definitions = listingOptions.policies ?? [];
     const fail = (message: string) => {
       toast.error(message);
-      if (!isEditMode && currentStep !== 4) goToStep(4, ["section-policies"]);
+      setErrors((prev) => ({ ...prev, policies: message }));
+      if (!isSinglePage && currentStep !== 4) goToStep(4, ["section-policies"]);
       else scrollToFirstInvalid(["section-policies"]);
       return false;
     };
@@ -907,11 +909,17 @@ export default function ListingEditor({
     goToStep(currentStep + 1);
   }
 
-  // Edit mode: full validation first, then the preview modal; the modal confirm submits.
-  function handleEditSubmitClick() {
+  // Edit mode keeps a confirmation before the update is sent.
+  async function handleEditSubmitClick() {
     if (isSubmitting) return;
     if (!validateFields() || !validatePolicies("SUBMIT_FOR_REVIEW")) return;
-    setPreviewOpen(true);
+    const confirmed = await confirm({
+      title: "Xác nhận gửi?",
+      description: "Đây là nội dung sau khi chỉnh sửa; thay đổi chỉ có hiệu lực sau khi bạn lưu.",
+      confirmLabel: "Xác nhận gửi",
+      cancelLabel: "Quay lại chỉnh sửa",
+    });
+    if (confirmed) await handleSaveListing("SUBMIT_FOR_REVIEW");
   }
 
   // First step with an error; wizard steps up to it are reachable from the stepper.
@@ -948,25 +956,7 @@ export default function ListingEditor({
     };
   }
 
-  // Preview only: media already stored/linked; not-yet-uploaded files are shown from basicInfo.
-  function previewMedia(): BuildPayloadParams["uploadedMediaList"] {
-    const out: BuildPayloadParams["uploadedMediaList"] = [];
-    const add = (m: { sourceMediaId?: string; storageObjectId?: string }, mediaType: "IMAGE" | "VIDEO") => {
-      if (m.sourceMediaId) out.push({ sourceMediaId: m.sourceMediaId, mediaType });
-      else if (m.storageObjectId) out.push({ storageObjectId: m.storageObjectId, mediaType });
-    };
-    basicInfo.images.forEach((m) => add(m, "IMAGE"));
-    basicInfo.videos.forEach((m) => add(m, "VIDEO"));
-    return out;
-  }
-
-  const previewExtras = {
-    address: (addressMode === "saved" ? savedUserAddress : selectedAddress) as ListingDetailResponse["address"] | undefined,
-    amenityLabels: Object.fromEntries(listingOptions.amenities.map((a) => [a.code, a.name])),
-    policyDefinitions: listingOptions.policies,
-    owner: profile as unknown as ListingDetailResponse["owner"] | undefined,
-  };
-  const previewBranchName = branches.find((b) => b.id === basicInfo.branchId)?.name ?? null;
+  const amenityLabels = Object.fromEntries(listingOptions.amenities.map((a) => [a.code, a.name]));
 
   const { confirm, dialog: actionDialog } = useActionDialog();
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
@@ -978,7 +968,7 @@ export default function ListingEditor({
     return toDescriptionRequest(
       buildCreateListingPayload(buildParams("SAVE_DRAFT", [])),
       addressMode === "saved" ? savedUserAddress : selectedAddress,
-      previewExtras.amenityLabels,
+      amenityLabels,
     );
   }
   // The answer arrives seconds later: compare it with the form as it is then, not as it was on click.
@@ -1058,7 +1048,7 @@ export default function ListingEditor({
 
     if (!validateFields()) return;
     if (!validatePolicies(action)) return;
-    setPreviewOpen(false);
+    generationRef.current?.abort(); // a late generated text must not appear after the payload is taken
 
     try {
       setIsSubmitting(true);
@@ -1354,6 +1344,7 @@ export default function ListingEditor({
       <PolicyNotice tone="neutral" className="mb-5 mt-2" title="Chính sách & nội quy thuê" summary="Người thuê sẽ xem các quy định này trước khi gửi yêu cầu thuê.">
         <p>Người thuê sẽ xem các quy định này trước khi gửi yêu cầu thuê. Phí phạt đóng trễ chỉ nhập khi soạn hợp đồng, không nhập ở đây.</p>
       </PolicyNotice>
+      {errors.policies && <p role="alert" className="mb-3 text-sm font-medium text-destructive">{errors.policies}</p>}
       {policyCatalogError ? <p role="alert" className="text-sm text-amber-800">{policyCatalogError}</p> : <ListingPolicyFields category={basicInfo.category.toUpperCase()} definitions={listingOptions.policies ?? []} values={effectivePolicies} onChange={setListingPolicies} />}
     </section>
   );
@@ -1400,7 +1391,7 @@ export default function ListingEditor({
   );
 
   return (
-    <div ref={topRef} className={`mx-auto space-y-6 pb-12 animate-in fade-in-50 duration-200 ${isEditMode || currentStep === 6 ? "max-w-6xl" : "max-w-4xl"}`}>
+    <div ref={topRef} className={`mx-auto space-y-6 pb-12 animate-in fade-in-50 duration-200 ${isSinglePage ? "max-w-6xl" : "max-w-4xl"}`}>
       {/* Page Header */}
       <div className="space-y-1">
         <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
@@ -1456,9 +1447,16 @@ export default function ListingEditor({
       )}
 
       <form onSubmit={(e) => e.preventDefault()} noValidate className="space-y-6">
-        {isEditMode ? (
+        {!isEditMode && isSinglePage && (
+          <p className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
+            Kiểm tra lại thông tin trước khi gửi, bạn có thể sửa ngay tại đây. Tin chỉ được đăng sau khi bạn gửi.
+          </p>
+        )}
+
+        {isSinglePage ? (
           <div className="gap-6 space-y-4 lg:grid lg:grid-cols-[180px_minmax(0,1fr)] lg:space-y-0">
-            <EditSectionNav items={EDIT_SECTIONS} />
+            {/* Remount when the category swaps the details section, so the nav observes the new element. */}
+            <EditSectionNav key={basicInfo.category} items={EDIT_SECTIONS} />
             <div className="space-y-6">
               {basicSection}
               {detailsSection}
@@ -1478,14 +1476,6 @@ export default function ListingEditor({
             {currentStep === 3 && (<>{pricingSection}{expensesSection}</>)}
             {currentStep === 4 && (<>{policiesSection}{viewingSection}</>)}
             {currentStep === 5 && (<>{locationSection}{descriptionSection}</>)}
-            {currentStep === 6 && (
-              <ListingFormPreview
-                params={buildParams("SUBMIT_FOR_REVIEW", previewMedia())}
-                branchName={previewBranchName}
-                {...previewExtras}
-                mode="create"
-              />
-            )}
           </div>
         )}
 
@@ -1539,32 +1529,6 @@ export default function ListingEditor({
           />
         )}
       </form>
-
-      {previewOpen && (
-        <div role="dialog" aria-modal="true" aria-label="Xem trước tin đăng" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-6">
-          <div className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border px-5 py-3">
-              <h2 className="text-base font-bold">Xem trước trước khi gửi</h2>
-              <button type="button" aria-label="Đóng" onClick={() => setPreviewOpen(false)} disabled={isSubmitting} className="rounded-lg p-1.5 hover:bg-muted disabled:opacity-50">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              <ListingFormPreview params={buildParams("SUBMIT_FOR_REVIEW", previewMedia())} branchName={previewBranchName}
-                {...previewExtras} mode="edit" />
-            </div>
-            <div className="flex justify-end gap-2.5 border-t border-border px-5 py-3">
-              <button type="button" onClick={() => setPreviewOpen(false)} disabled={isSubmitting} className="h-10 rounded-xl border border-border px-4 text-xs font-bold hover:bg-muted disabled:opacity-50">
-                Quay lại chỉnh sửa
-              </button>
-              <button type="button" onClick={() => handleSaveListing("SUBMIT_FOR_REVIEW")} disabled={isSubmitting} className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-6 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-70">
-                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                Xác nhận gửi
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Insufficient Quota Modal without losing draft */}
       <InsufficientQuotaModal

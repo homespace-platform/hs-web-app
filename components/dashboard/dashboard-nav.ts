@@ -1,7 +1,6 @@
 import {
   Gauge,
   BarChart2,
-  Users,
   FileText,
   Building2,
   Send,
@@ -40,7 +39,6 @@ export const LANDLORD_NAV: DashboardNavGroup[] = [
   {
     groupTitle: "QUẢN LÝ",
     items: [
-      { title: "Khách hàng", path: "/dashboard/customers", icon: Users },
       { title: "Tin đăng", path: "/dashboard/properties", icon: FileText },
       {
         title: "Gói hội viên & Lượt đăng",

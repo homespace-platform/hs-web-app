@@ -8,7 +8,6 @@ const ROUTES: Record<string, { label: string; parent?: string }> = {
   "/dashboard/landlord": { label: "Dashboard chủ nhà" },
   "/dashboard/tenant": { label: "Dashboard người thuê" },
   "/dashboard/analytics": { label: "Phân tích & Báo cáo" },
-  "/dashboard/customers": { label: "Khách hàng" },
   "/dashboard/properties": { label: "Tin đăng" },
   "/dashboard/properties/view": { label: "Chi tiết tin đăng", parent: "/dashboard/properties" },
   "/dashboard/properties/detail": { label: "Chi tiết tin đăng", parent: "/dashboard/properties" },

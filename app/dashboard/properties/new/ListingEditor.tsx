@@ -12,6 +12,9 @@ import listingService from "@/services/listing.service";
 import membershipService from "@/services/membership.service";
 import storageService from "@/services/storage.service";
 import branchService, { type PropertyBranch } from "@/services/branch.service";
+import branchLayoutService from "@/services/branch-layout.service";
+import { listRooms, readRoomLinkParams, withRoomId, type RoomOption } from "@/lib/listing-room-link";
+import RoomLinkBanner from "./components/RoomLinkBanner";
 import type { ListingOptionsResponse, ListingSubmissionAction, ListingDetailResponse } from "@/types/listing.type";
 import type { MembershipView } from "@/types/membership.type";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -124,6 +127,33 @@ export default function ListingEditor({
   const branchIdParam = isEditMode ? null : searchParams.get("branchId");
   const isDuplicateMode = Boolean(duplicateFrom);
   const targetListingId = isEditMode ? editId : duplicateFrom;
+
+  // Room link of a listing started from the branch map. Once removed it never comes back.
+  const roomLinkParams = readRoomLinkParams(mode, searchParams);
+  const [pickedRoomId, setPickedRoomId] = useState<string | null>(null);
+  const [isRoomLinkRemoved, setIsRoomLinkRemoved] = useState(false);
+  const roomLink = isRoomLinkRemoved ? null : roomLinkParams;
+  const linkedRoomId = roomLink ? pickedRoomId ?? roomLink.roomId : null;
+  const linkedBranchId = roomLink?.branchId ?? null;
+  const [rooms, setRooms] = useState<RoomOption[] | "error" | null>(null);
+
+  function loadRooms(branchId: string) {
+    return branchLayoutService.getLayout(branchId).then(
+      (layout) => {
+        const list = listRooms(layout);
+        setRooms(list);
+        return list;
+      },
+      (error) => {
+        setRooms("error");
+        throw error;
+      },
+    );
+  }
+
+  useEffect(() => {
+    if (linkedBranchId) loadRooms(linkedBranchId).catch((e) => console.warn("Could not load branch layout:", e));
+  }, [linkedBranchId]);
 
   const { profile } = useAuth();
 
@@ -300,6 +330,10 @@ export default function ListingEditor({
   }, [profile, router]);
 
   function handleSelectBranch(branchId: string, branchList = branches) {
+    if (roomLink && branchId !== roomLink.branchId) {
+      setIsRoomLinkRemoved(true);
+      toast.warning("Đã đổi chi nhánh nên tin mới sẽ không gắn với phòng đã chọn.");
+    }
     if (!branchId) {
       setBasicInfo((prev) => ({ ...prev, branchId: "" }));
       if (!isEditMode && !isDuplicateMode) setMonthlyExpenses({
@@ -1057,6 +1091,10 @@ export default function ListingEditor({
 
     if (!validateFields()) return;
     if (!validatePolicies(action)) return;
+    if (roomLink && basicInfo.branchId !== roomLink.branchId) {
+      toast.error("Chưa áp dụng được chi nhánh của phòng. Vui lòng chọn lại chi nhánh hoặc bỏ gắn phòng.");
+      return;
+    }
     generationRef.current?.abort(); // a late generated text must not appear after the payload is taken
 
     try {
@@ -1071,6 +1109,11 @@ export default function ListingEditor({
           ? "Đang cập nhật và gửi duyệt..."
           : "Đang xử lý tải hình ảnh và gửi duyệt...";
       toast.loading(loadingText, { id: "submit-listing" });
+
+      // The map may have changed since the editor opened: check before uploading or creating anything.
+      if (roomLink && !(await loadRooms(roomLink.branchId)).some((room) => room.id === linkedRoomId)) {
+        throw new Error("Phòng đã chọn không còn trong sơ đồ. Vui lòng chọn lại phòng trước khi tạo tin.");
+      }
 
       // 1. Upload media files if new
       const uploadedMediaList: {
@@ -1116,7 +1159,7 @@ export default function ListingEditor({
       }
 
       // 2. Build payload (upsert with id if editing; duplicate mode ALWAYS has id = null)
-      const payload = buildCreateListingPayload(buildParams(action, uploadedMediaList));
+      const payload = withRoomId(buildCreateListingPayload(buildParams(action, uploadedMediaList)), linkedRoomId);
 
       // 3. Call backend upsert API
       const saved = await listingService.upsert(payload);
@@ -1138,6 +1181,8 @@ export default function ListingEditor({
       router.push(options?.redirectTo || "/dashboard/properties");
     } catch (error: unknown) {
       console.error("Submit listing error:", error);
+      // A rejected room keeps the link; reloading lets the banner show whether the room is gone.
+      if (roomLink) loadRooms(roomLink.branchId).catch(() => {});
       if (isListingQuotaExhaustedError(error)) {
         setQuotaExhaustedBanner(true);
         setQuotaExhaustedModalOpen(true);
@@ -1428,6 +1473,21 @@ export default function ListingEditor({
         showManageLink={!quotaExhaustedBanner && !(membership && getPublishableUses(membership) === 0)}
         onBuyAddon={() => setQuotaExhaustedModalOpen(true)}
       />
+
+      {roomLink && linkedRoomId && (
+        <RoomLinkBanner
+          roomId={linkedRoomId}
+          branchId={roomLink.branchId}
+          rooms={rooms}
+          isBranchApplied={basicInfo.branchId === roomLink.branchId}
+          onPickRoom={setPickedRoomId}
+          onRetry={() => {
+            setRooms(null);
+            loadRooms(roomLink.branchId).catch(() => {});
+          }}
+          onRemove={() => setIsRoomLinkRemoved(true)}
+        />
+      )}
 
       {/* Duplicate Mode Banner */}
       {isDuplicateMode && (

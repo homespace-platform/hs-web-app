@@ -42,6 +42,14 @@ import { PROPERTY_CATEGORIES } from "../properties/new/constants";
 import type { PropertyCategoryKey } from "../properties/new/types";
 
 import { PolicyNotice } from "@/components/common/PolicyDialog";
+import { useActionDialog } from "@/components/common/ActionDialog";
+import { linkError } from "@/components/branch/linkUi";
+import { outlineButton, ring } from "@/components/branch/LayoutBoard";
+import { useRefetchOnReturn } from "@/hooks/useRefetchOnReturn";
+import branchOverviewService, { orderByAttention } from "@/services/branch-overview.service";
+import { toast } from "sonner";
+const describeAttentionError = (error: unknown) => linkError(error, "Máy chủ chưa trả lời được.");
+
 export function getChargeDisplay(c: BranchCharge) {
   if (c.billingMethod === "INCLUDED" || c.includedInRent)
     return "Đã bao gồm trong giá thuê";
@@ -89,6 +97,7 @@ interface CustomFeeRow { id: string; name: string; amount: number | string; unit
 
 export default function BranchesPage() {
   const postGate = useFeatureGate(PERMISSIONS.LISTING_POST);
+  const { confirm, dialog } = useActionDialog();
   const router = useRouter();
   const [branches, setBranches] = useState<PropertyBranch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,6 +167,10 @@ export default function BranchesPage() {
   useEffect(() => {
     loadBranches();
   }, [loadBranches]);
+
+  // Work counts are a separate read: the list stays usable when they fail.
+  const attention = useRefetchOnReturn(branchOverviewService.getAttentionSummary, describeAttentionError);
+  const workCounts = new Map(attention.data?.map((entry) => [entry.branchId, entry.count]));
 
   // Clean up object URL when modal closes or image changes
   const cleanupCoverPreview = useCallback(() => {
@@ -505,16 +518,22 @@ export default function BranchesPage() {
         coverImageId: finalCoverImageId,
       };
 
+      let createdId: string | undefined;
       if (editingBranch) {
         await branchService.updateBranch(editingBranch.id, payload);
       } else {
-        await branchService.createBranch(payload);
+        createdId = (await branchService.createBranch(payload))?.id;
       }
 
       cleanupCoverPreview();
       setIsModalOpen(false);
       setShowSyncConfirmModal(false);
-      loadBranches();
+      if (createdId) {
+        // Next step: the optional room map.
+        router.push(`/dashboard/branches/${createdId}?tab=map&setup=1`);
+      } else {
+        loadBranches();
+      }
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || "Đã xảy ra lỗi khi lưu chi nhánh.";
       alert(msg);
@@ -557,20 +576,13 @@ export default function BranchesPage() {
   };
 
   const handleDelete = async (b: PropertyBranch) => {
-    const units = b.totalUnits || 0;
-    if (units > 0) {
-      alert(
-        `Chi nhánh "${b.name}" đang có ${units} phòng/căn hộ. Không thể xóa chi nhánh khi vẫn còn phòng!\nVui lòng chuyển hoặc xóa các phòng thuộc chi nhánh này trước.`
-      );
-      return;
-    }
-    if (!confirm(`Bạn có chắc chắn muốn xóa chi nhánh "${b.name}"?`)) return;
+    if (!(await confirm({ title: `Xóa chi nhánh "${b.name}"?`, confirmLabel: "Xóa chi nhánh", tone: "danger" }))) return;
     try {
       await branchService.deleteBranch(b.id);
       loadBranches();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || "Không thể xóa chi nhánh.";
-      alert(msg);
+    } catch (error) {
+      // The server decides whether the branch can be deleted; show its reason.
+      toast.error(linkError(error, "Không thể xóa chi nhánh."), { duration: 10000 });
     }
   };
 
@@ -629,7 +641,17 @@ export default function BranchesPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {branches.map((b) => (
+          {attention.error ? (
+            <div role="alert" className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/60 bg-amber-500/10 p-3 text-sm">
+              <p className="min-w-0 flex-1 basis-48">
+                {attention.data ? "Chưa tải lại được số việc cần chú ý, số đang hiện có thể đã cũ." : "Chưa tải được số việc cần chú ý. Danh sách chi nhánh vẫn dùng được."} {attention.error}
+              </p>
+              <button type="button" disabled={attention.loading} onClick={() => void attention.reload()} className={outlineButton}>Thử lại</button>
+            </div>
+          ) : attention.loading && !attention.data ? (
+            <p role="status" className="text-xs text-muted-foreground">Đang tải số việc cần chú ý…</p>
+          ) : null}
+          {orderByAttention(branches, attention.data).map((b) => (
             <div
               key={b.id}
               onClick={() => router.push(`/dashboard/branches/${b.id}`)}
@@ -665,6 +687,18 @@ export default function BranchesPage() {
                         {b.code}
                       </span>
                     )}
+                    {workCounts.get(b.id) === 0 ? (
+                      <span className="text-[11px] text-muted-foreground">Không có việc cần chú ý</span>
+                    ) : workCounts.has(b.id) ? (
+                      <Link
+                        href={`/dashboard/branches/${b.id}?tab=attention`}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`${workCounts.get(b.id)} việc cần chú ý ở chi nhánh ${b.name}`}
+                        className={`inline-flex min-h-8 items-center rounded-md bg-amber-100 px-2 text-xs font-bold text-amber-900 underline underline-offset-2 dark:bg-amber-950 dark:text-amber-200 ${ring}`}
+                      >
+                        {workCounts.get(b.id)} việc cần chú ý
+                      </Link>
+                    ) : null}
                     {b.isComplete === false && (
                       <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 shrink-0">
                         <AlertTriangle className="h-3 w-3" />
@@ -756,17 +790,9 @@ export default function BranchesPage() {
                     type="button"
                     onClick={() => handleDelete(b)}
                     disabled={!postGate.allowed}
-                    title={
-                      postGate.title ??
-                      ((b.totalUnits || 0) > 0
-                        ? `Chi nhánh đang có ${b.totalUnits} phòng/căn, không thể xóa!`
-                        : "Xóa chi nhánh")
-                    }
-                    className={
-                      (b.totalUnits || 0) > 0
-                        ? "rounded-xl p-2 text-muted-foreground/40 cursor-not-allowed transition-colors"
-                        : "rounded-xl p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer"
-                    }
+                    title={postGate.title ?? "Xóa chi nhánh"}
+                    aria-label={`Xóa chi nhánh ${b.name}`}
+                    className="rounded-xl p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -1500,6 +1526,7 @@ export default function BranchesPage() {
           </div>
         </div>
       )}
+      {dialog}
     </div>
   );
 }

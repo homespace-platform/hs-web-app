@@ -51,6 +51,7 @@ export function inferRoleFromPath(pathname: string): DashboardRole | null {
     pathname.startsWith("/dashboard/landlord") ||
     pathname.startsWith("/dashboard/properties") ||
     pathname.startsWith("/dashboard/analytics") ||
+    pathname.startsWith("/dashboard/branches") ||
     pathname.startsWith("/dashboard/viewing-schedules") ||
     pathname.startsWith("/dashboard/rental-requests") ||
     pathname.startsWith("/dashboard/landlord/contracts")

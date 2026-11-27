@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { PolicyNotice } from "@/components/common/PolicyDialog";
 import RentalOnboardingPanel from "@/components/rental-request/RentalOnboardingPanel";
 import RentalWorkflowPanel from "@/components/rental-request/RentalWorkflowPanel";
@@ -38,10 +39,10 @@ function CancelRules({ preActive }: { preActive: boolean }) {
 }
 
 /** Amendment panel lives here, except while a draft is being edited inline (then it sits beside the editable terms). */
-export function AmendmentSlot({ where, contractId, actorId, perspective }: { where: "end" | "content"; contractId: string; actorId: string; perspective: "landlord" | "tenant" }) {
+export function AmendmentSlot({ where, contractId, actorId, perspective, focusId }: { where: "end" | "content"; contractId: string; actorId: string; perspective: "landlord" | "tenant"; focusId?: string }) {
   const editing = Boolean(useAmendmentWorkspace()?.editing);
   if ((where === "content") !== editing) return null;
-  return <ContractAmendmentPanel contractId={contractId} actorId={actorId} perspective={perspective} />;
+  return <ContractAmendmentPanel contractId={contractId} actorId={actorId} perspective={perspective} focusId={focusId} />;
 }
 
 export default function EndTab({ contract, isLandlord, actorId, perspective, preActive, onUpdated, onSnapshot }: {
@@ -54,6 +55,8 @@ export default function EndTab({ contract, isLandlord, actorId, perspective, pre
   onUpdated: () => Promise<void>;
   onSnapshot: (view: RentalOnboarding) => void;
 }) {
+  // Deep links from the branch's "Cần chú ý" list; without them nothing changes.
+  const params = useSearchParams();
   const root = !contract.parentContractId;
   const effective = ["ACTIVE", "EXPIRED", "CLOSED", "TERMINATED"].includes(contract.status);
   const amendable = ["ACTIVE", "EXPIRED", "CLOSED"].includes(contract.status);
@@ -67,7 +70,7 @@ export default function EndTab({ contract, isLandlord, actorId, perspective, pre
         <>
           <section className="space-y-3">
             <SectionTitle title="Kết thúc sớm / trả nhà" hint="Đề nghị chấm dứt hoặc trả nhà trước hạn, có sự đồng ý của hai bên." />
-            <RentalWorkflowPanel rentalRequestId={contract.rentalRequestId} kind="early-exit" onUpdated={onUpdated} />
+            <RentalWorkflowPanel rentalRequestId={contract.rentalRequestId} kind="early-exit" onUpdated={onUpdated} focusRequest={params.get("focus") === "early-exit"} />
           </section>
           {contract.status === "ACTIVE" ? (
             <section className="space-y-3">
@@ -78,7 +81,7 @@ export default function EndTab({ contract, isLandlord, actorId, perspective, pre
           {amendable ? (
             <section className="space-y-3">
               <SectionTitle title="Phụ lục / điều chỉnh" hint="Đổi điều khoản đã ký (giá thuê, phí, số người…). Có hiệu lực sau khi hai bên ký." />
-              <AmendmentSlot where="end" contractId={contract.id} actorId={actorId} perspective={perspective} />
+              <AmendmentSlot where="end" contractId={contract.id} actorId={actorId} perspective={perspective} focusId={params.get("amendmentId") ?? undefined} />
             </section>
           ) : null}
           {contract.status === "ACTIVE" ? (

@@ -305,6 +305,8 @@ export type ListingMediaRequest = {
 };
 
 export type CreateListingRequest = {
+  /** Room to link, sent only when a new listing is created from the branch map. */
+  roomId?: string;
   policies?: import("./listing-policy.type").ListingPolicyInput[];
   id?: string | null;
   duplicateSourceListingId?: string | null;

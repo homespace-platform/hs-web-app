@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Node test and isolated TS loader. */
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const ts=require('typescript');
+const {loadTs}=require('./helpers/ts-loader.cjs');
+const {withRoomId}=loadTs('lib/listing-room-link.ts');
 function harness(error) {
   const source=fs.readFileSync(require.resolve('../app/dashboard/properties/new/ListingEditor.tsx'),'utf8');
   const ast=ts.createSourceFile('page.tsx',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
@@ -17,7 +20,7 @@ function harness(error) {
   const context={isSubmitting:false,isEditMode:true,isDuplicateMode:false,loadedListingStatus:'RESERVED',rentedLockListing:null,
     profile:{id:'owner'},router:{push:path=>routes.push(path)},requireKyc:()=>true,validateFields:()=>true,validatePolicies:()=>true,generationRef:{current:null},MISSING_EDIT_ID_ERROR:'missing',buildParams:(action,media)=>({id:'listing',basicInfo:{title:'Nội dung đang sửa',images:[{storageObjectId:'existing-photo'}],videos:[]},roomDetails:{roomCode:'P0200'},uploadedMediaList:media,submissionAction:action}),
     listingOptions:{amenities:[],policies:[{code:'petPolicy',valueType:'TEXT',required:true}]},policyCatalogError:null,
-    listingPolicies:[{code:'petPolicy',value:'Giữ vệ sinh'}],selectedBranch:null,
+    listingPolicies:[{code:'petPolicy',value:'Giữ vệ sinh'}],selectedBranch:null,roomLink:null,linkedRoomId:null,withRoomId,
     basicInfo:{title:'Nội dung đang sửa',images:[{storageObjectId:'existing-photo'}],videos:[]},
     editId:'listing',duplicateFrom:null,apartmentDetails:{},houseDetails:{},roomDetails:{roomCode:'P0200'},furnishingAssets:[],
     selectedAmenities:[],monthlyExpenses:{},vehicleLimits:null,chargeBaseline:null,pricing:{},addressMode:'new',savedUserAddress:null,selectedAddress:{refId:'map-ref'},selectedViewingDays:[],selectedViewingSlots:[],
@@ -42,6 +45,7 @@ test('a validation/stale conflict keeps the edit form and entered fields availab
     assert.deepEqual(h.messages,['Kiểm tra lại trường vừa sửa']);
     await h.context.save('SUBMIT_FOR_REVIEW');
     assert.equal(h.requests.length,2);assert.deepEqual(h.routes,['/dashboard/properties']);
+    assert.ok(h.requests.every(request=>!Object.hasOwn(request,'roomId')));
   }
 });
 test('the actual externally rented error still locks the form and prevents resubmission',async()=>{

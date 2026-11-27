@@ -1,7 +1,13 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import BranchAttentionList from "@/components/branch/BranchAttentionList";
+import BranchMap from "@/components/branch/BranchMap";
+import { linkError } from "@/components/branch/linkUi";
+import { useActionDialog } from "@/components/common/ActionDialog";
+import { toast } from "sonner";
+import DetailTabs, { panelId, tabId } from "@/components/rental/DetailTabs";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -34,11 +40,33 @@ import { useFeatureGate } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getChargeDisplay, getChargeMeta } from "../page";
 
+const BRANCH_TABS = [
+  { id: "overview", label: "Tổng quan" },
+  { id: "map", label: "Sơ đồ phòng" },
+  { id: "attention", label: "Cần chú ý" },
+] as const;
+
 export default function BranchDetailPage() {
+  return (
+    <Suspense>
+      <BranchDetail />
+    </Suspense>
+  );
+}
+
+function BranchDetail() {
   const postGate = useFeatureGate(PERMISSIONS.LISTING_POST);
+  const { confirm, dialog } = useActionDialog();
   const params = useParams();
   const router = useRouter();
   const branchId = params?.id as string;
+  const searchParams = useSearchParams();
+  const askedTab = searchParams.get("tab");
+  const tab = askedTab === "map" || askedTab === "attention" ? askedTab : "overview";
+  const setup = searchParams.get("setup") === "1";
+  // The map stays mounted once opened, so switching tabs keeps the unsaved draft.
+  const [mapOpened, setMapOpened] = useState(tab === "map");
+  if (tab === "map" && !mapOpened) setMapOpened(true);
 
   const [branch, setBranch] = useState<PropertyBranch | null>(null);
   const [listings, setListings] = useState<MyListingSummaryResponse[]>([]);
@@ -104,19 +132,13 @@ export default function BranchDetailPage() {
   }, [branchId, loadBranchListings]);
 
   const handleDeleteBranch = async () => {
-    if (displayUnitsCount > 0) {
-      alert(
-        `Chi nhánh đang có ${displayUnitsCount} phòng/căn hộ. Không thể xóa chi nhánh khi vẫn còn phòng!\nVui lòng chuyển hoặc xóa các phòng thuộc chi nhánh này trước.`
-      );
-      return;
-    }
-    if (!confirm("Bạn có chắc chắn muốn xóa chi nhánh này?")) return;
+    if (!(await confirm({ title: "Xóa chi nhánh này?", confirmLabel: "Xóa chi nhánh", tone: "danger" }))) return;
     try {
       await branchService.deleteBranch(branchId);
       router.push("/dashboard/branches");
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || "Không thể xóa chi nhánh.";
-      alert(msg);
+    } catch (error) {
+      // The server decides whether the branch can be deleted; show its reason.
+      toast.error(linkError(error, "Không thể xóa chi nhánh."), { duration: 10000 });
     }
   };
 
@@ -211,17 +233,9 @@ export default function BranchDetailPage() {
                 type="button"
                 onClick={handleDeleteBranch}
                 disabled={!postGate.allowed}
-                className={
-                  displayUnitsCount > 0
-                    ? "rounded-xl border border-border/60 p-2 text-muted-foreground/40 cursor-not-allowed transition-colors"
-                    : "rounded-xl border border-border p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer"
-                }
-                title={
-                  postGate.title ??
-                  (displayUnitsCount > 0
-                    ? `Chi nhánh đang có ${displayUnitsCount} phòng/căn, không thể xóa!`
-                    : "Xóa chi nhánh")
-                }
+                className="rounded-xl border border-border p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                title={postGate.title ?? "Xóa chi nhánh"}
+                aria-label="Xóa chi nhánh"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -243,6 +257,40 @@ export default function BranchDetailPage() {
         </div>
       </div>
 
+      <DetailTabs
+        tabs={[...BRANCH_TABS]}
+        active={tab}
+        onChange={(id) => {
+          // floor / layer / month stay in the address while the other tab is shown.
+          const params = new URLSearchParams(searchParams.toString());
+          params.delete("setup");
+          if (id === "overview") params.delete("tab");
+          else params.set("tab", id);
+          const query = params.toString();
+          router.replace(`/dashboard/branches/${branchId}${query ? `?${query}` : ""}`, { scroll: false });
+        }}
+        idPrefix="branch"
+      />
+
+      {mapOpened && (
+        <div role="tabpanel" id={panelId("branch", "map")} aria-labelledby={tabId("branch", "map")} hidden={tab !== "map"}>
+          <BranchMap
+            key={branch.id}
+            branchId={branch.id}
+            isHouse={String(branch.category).toLowerCase() === "house"}
+            canEdit={postGate.allowed}
+            lockMessage={postGate.title}
+            setup={setup}
+            onExitSetup={() => router.replace(`/dashboard/branches/${branch.id}`)}
+          />
+        </div>
+      )}
+
+      <div role="tabpanel" id={panelId("branch", "attention")} aria-labelledby={tabId("branch", "attention")} hidden={tab !== "attention"}>
+        {tab === "attention" ? <BranchAttentionList key={branch.id} branchId={branch.id} /> : null}
+      </div>
+
+      <div role="tabpanel" id={panelId("branch", "overview")} aria-labelledby={tabId("branch", "overview")} hidden={tab !== "overview"} className="space-y-6">
       {/* Comprehensive Charges Grid */}
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between border-b border-border pb-3">
@@ -363,6 +411,8 @@ export default function BranchDetailPage() {
           </div>
         )}
       </div>
+      </div>
+      {dialog}
     </div>
   );
 }

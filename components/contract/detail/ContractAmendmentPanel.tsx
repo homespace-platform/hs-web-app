@@ -1,7 +1,7 @@
 "use client";
 
 import { PolicyNotice } from "@/components/common/PolicyDialog";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import * as Dialog from "@radix-ui/react-dialog";
 import ListingSyncControl from "./ListingSyncControl";
@@ -38,7 +38,7 @@ function Evidence({ ids }: { ids: string[] }) {
     catch (e) { tab?.close(); toast.error(getApiErrorMessage(e,"Không mở được minh chứng.")); }
   }}>Minh chứng {i + 1} ↗</button>)}</div>;
 }
-type Props = { contractId: string; actorId: string; perspective: "landlord" | "tenant"; agreementId?: string };
+type Props = { contractId: string; actorId: string; perspective: "landlord" | "tenant"; agreementId?: string; focusId?: string };
 function Modal({ title, description, children, footer, busy }: { title: string; description: string; children: ReactNode; footer: ReactNode; busy: boolean }) {
   return <Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" /><Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl"><div className="flex items-start justify-between gap-3 border-b p-4 sm:p-5"><div><Dialog.Title className="text-lg font-bold">{title}</Dialog.Title><Dialog.Description className="mt-1 text-sm text-muted-foreground">{description}</Dialog.Description></div><Dialog.Close disabled={busy} aria-label="Đóng cửa sổ" className="rounded-lg p-2"><X className="h-5 w-5" /></Dialog.Close></div><div className="space-y-4 overflow-y-auto p-4 sm:p-5">{children}</div><div className="flex flex-wrap justify-end gap-2 border-t p-4">{footer}</div></Dialog.Content></Dialog.Portal>;
 }
@@ -46,7 +46,7 @@ export default function ContractAmendmentPanel(props: Props) {
   const workspace = useAmendmentWorkspace();
   return workspace?.contractId === props.contractId ? <Panel {...props} /> : <Workspace {...props}><Panel {...props} /></Workspace>;
 }
-function Panel({ agreementId }: Props) {
+function Panel({ agreementId, focusId }: Props) {
   const w = useAmendmentWorkspace()!;
   const [requestOpen,setRequestOpen] = useState(false), [message,setMessage] = useState("");
   const [requestFiles,setRequestFiles] = useState<File[]>([]), [requestToken,setRequestToken] = useState("");
@@ -55,6 +55,18 @@ function Panel({ agreementId }: Props) {
   const uploaded = useRef(new Map<File,string>());
   const { data, contractId, actorId, perspective } = w;
   const isOwner = perspective === "landlord";
+  // focusId (?amendmentId=): once the card exists, open the history if it moved there, then scroll to it once.
+  const focused = useRef<string>(undefined);
+  useEffect(() => {
+    if (!focusId || !data || focused.current === focusId) return;
+    const target = document.getElementById(`amendment-${focusId}-card`);
+    if (!target) return;
+    focused.current = focusId;
+    const folded = target.closest("details");
+    if (folded) folded.open = true;
+    target.scrollIntoView({ block: "start" });
+    target.focus({ preventScroll: true });
+  }, [focusId, data]);
   if (w.error) return <section className="rounded-xl border p-4 text-sm"><p role="alert">{w.error}</p><button type="button" onClick={() => void w.load()} className="mt-2 text-primary underline">Tải lại phụ lục</button></section>;
   if (!data) return <section className="flex gap-2 rounded-xl border p-4 text-sm"><Loader2 className="h-4 w-4 animate-spin" />Đang tải phụ lục…</section>;
   const current = data.proposals.find(p => activeAmendment.has(p.status));
@@ -99,7 +111,8 @@ function Panel({ agreementId }: Props) {
   const openView = (p: AmendmentProposal) => { setView(p); setConsent(false); setNote(""); };
   const card = (p: AmendmentProposal) => {
     const request = p.status.startsWith("TENANT_");
-    return <article key={p.id} className="space-y-3 rounded-xl border bg-background p-4"><div className="flex flex-wrap justify-between gap-3"><div><p className="font-semibold">{labels[p.status]}</p><p className="mt-1 text-xs text-muted-foreground">{request ? "Yêu cầu bằng chữ của người thuê" : `${p.comparison.length} nội dung thay đổi`} · {time(p.submittedAt)}</p></div>{!request && <span className="self-start rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">{p.immediateEffect ? "Áp dụng sau khi ký đủ" : `Từ ${date(p.effectiveOn)}`}</span>}</div>
+    const linked = p.id === focusId;
+    return <article key={p.id} id={linked ? `amendment-${p.id}-card` : undefined} tabIndex={linked ? -1 : undefined} className={`space-y-3 rounded-xl border bg-background p-4${linked ? " scroll-mt-24 ring-2 ring-primary" : ""}`}><div className="flex flex-wrap justify-between gap-3"><div><p className="font-semibold">{labels[p.status]}</p><p className="mt-1 text-xs text-muted-foreground">{request ? "Yêu cầu bằng chữ của người thuê" : `${p.comparison.length} nội dung thay đổi`} · {time(p.submittedAt)}</p></div>{!request && <span className="self-start rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">{p.immediateEffect ? "Áp dụng sau khi ký đủ" : `Từ ${date(p.effectiveOn)}`}</span>}</div>
       <p className="whitespace-pre-wrap break-words text-sm">{p.reason}</p>{p.responseNote && <p className="rounded-lg bg-muted p-3 text-sm">Phản hồi: {p.responseNote}</p>}<Evidence ids={p.evidenceIds} />
       {request ? <>
         {["TENANT_REQUESTED","TENANT_ACCEPTED"].includes(p.status) && <PolicyNotice tone="neutral" title="Hạn xử lý yêu cầu điều chỉnh" summary="Không xử lý thì đóng yêu cầu; không tự chấp thuận."><p>{p.status === "TENANT_REQUESTED" ? "Hạn chủ nhà phản hồi" : "Hạn soạn và gửi đề xuất"}: {time(p.respondBy)}. Không xử lý thì đóng yêu cầu; không tự chấp thuận.</p></PolicyNotice>}
@@ -136,6 +149,7 @@ function Panel({ agreementId }: Props) {
       </button>}
     </div>}
     {w.editing && w.replacement && <PolicyNotice tone="warning" title="Chỉnh lại phụ lục chưa áp dụng" summary="Bản ký cũ vẫn giữ nguyên lịch áp dụng cho đến khi hai bên ký đủ bản thay thế."><p>Đang chỉnh lại phụ lục chưa áp dụng, giữ ngày hiệu lực {date(w.replacement.effectiveOn)}. Bản ký cũ vẫn giữ nguyên lịch áp dụng cho đến khi người thuê duyệt và hai bên ký đủ bản thay thế. Hủy thao tác hoặc bản mới không hoàn tất không làm mất bản cũ.</p></PolicyNotice>}
+    {focusId && !data.proposals.some(p => p.id === focusId) && <p role="status" className="rounded-xl border border-amber-500/60 bg-amber-500/10 p-3 text-sm">Không tìm thấy đề nghị phụ lục trong liên kết. Đề nghị có thể không còn.</p>}
     {proposals.map(card)}{history.length > 0 && !agreementId && <details className="rounded-xl border p-3"><summary className="cursor-pointer text-sm font-medium">Lịch sử yêu cầu và phụ lục ({history.length})</summary><div className="mt-3 space-y-3">{history.map(card)}</div></details>}
 {w.editing && <div role="region" aria-label="Thao tác lưu phụ lục" className="fixed left-4 right-24 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-40 m-0! rounded-xl border bg-background/95 px-4 py-3 shadow-lg backdrop-blur sm:left-auto sm:right-28 sm:max-w-[calc(100vw-8rem)]"><div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs font-medium">{w.changedGroupCount} nhóm nội dung đã chỉnh</span><div className="flex flex-wrap gap-2"><ListingSyncControl contractId={contractId} baseRevisionId={data.currentTermsRevisionId} disabled={w.busy || w.editingFinancial} onSelect={source => { w.selectListingSync(source); toast.success("Đã cập nhật dữ liệu vào phụ lục đang soạn."); }} />{w.listingSourceVersion && <button type="button" disabled={w.busy} className="rounded-lg border px-3 py-2 text-xs" onClick={() => w.selectListingSync(null)}>Bỏ bản bài đăng đã chọn</button>}<button type="button" disabled={w.busy} onClick={() => { if (window.confirm("Đóng chỉnh sửa? Thay đổi chưa lưu sẽ bị bỏ; bản nháp đã lưu vẫn giữ lại.")) w.stop(); }} className="rounded-lg border px-3 py-2 text-sm">Hủy</button><button type="button" disabled={w.busy} onClick={() => void save()} className="rounded-lg border px-3 py-2 text-sm">Lưu nháp</button><button type="button" disabled={w.busy || !w.hasChanges} onClick={() => void preview()} className={button}>{w.busy ? "Đang xử lý…" : "Xem lại thay đổi"}</button></div></div></div>}
     <Dialog.Root open={!!review || !!view} onOpenChange={open => { if (!open && !w.busy) { setReview(null); setView(null); } }}><Modal busy={w.busy} title={review ? "Kiểm tra thay đổi trước khi gửi" : "Đề xuất điều chỉnh hợp đồng"} description="Chỉ hiển thị nội dung thay đổi. Đồng ý nội dung chưa thay thế việc ký số." footer={review ? <><Dialog.Close disabled={w.busy} className="rounded-lg border px-4 py-2 text-sm">Quay lại chỉnh sửa</Dialog.Close><button type="button" disabled={w.busy || !consent} onClick={() => void submit()} className={button}>Gửi đề xuất cho người thuê</button></> : view && view.status === "REQUESTED" && view.recipientId === actorId ? <><button disabled={w.busy || note.trim().length < 10} type="button" onClick={() => void decide(view,"REJECT")} className="rounded-lg border px-3 py-2 text-sm text-rose-700 disabled:opacity-50">Từ chối</button><button disabled={w.busy || note.trim().length < 10} type="button" onClick={() => void decide(view,"REQUEST_CHANGES")} className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">Yêu cầu chỉnh lại</button>{view.status === "REQUESTED" && <button type="button" disabled={w.busy || !consent} onClick={() => void decide(view,"APPROVE")} className={button}>Đồng ý nội dung</button>}</> : <Dialog.Close className="rounded-lg border px-4 py-2 text-sm">Đóng</Dialog.Close>}>

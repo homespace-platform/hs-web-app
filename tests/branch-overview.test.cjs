@@ -93,6 +93,14 @@ test("contracts layer: no expiry listed means over 60 days when occupied, otherw
   assert.equal(ready({ ...expiry, daysRemaining: -3 }), true);
 });
 
+test("lease chip tone follows the most urgent lease in the group", () => {
+  const { leaseChipStatus } = overview;
+  assert.equal(leaseChipStatus(["LONG", "WITHIN_60", "WITHIN_30"]), "WITHIN_30");
+  assert.equal(leaseChipStatus(["LONG", "WITHIN_60"]), "WITHIN_60");
+  assert.equal(leaseChipStatus(["LONG", "LONG"]), "HAS_LEASE");
+  assert.equal(leaseChipStatus([]), "HAS_LEASE");
+});
+
 test("lease wording: last day is the day before the exclusive end, with no time zone shift", () => {
   const e = (endDateExclusive, daysRemaining) => ({ endDateExclusive, daysRemaining });
   assert.equal(overview.expiryText(e("2026-12-10", 13)), "Còn 13 ngày · hết 09/12/2026");

@@ -11,6 +11,7 @@ import {
 import {
   LAYER_LABEL,
   LAYER_STATUS_LABEL,
+  leaseChipStatus,
   confirmationCountdown,
   expiryText,
   formatInstant,
@@ -244,10 +245,15 @@ export default function BranchOverviewLayers({ floors, openRoom, mismatch, overv
   };
   const matchCount = filtering ? allSlots.filter(matches).length : 0;
   const counts = new Map<string, number>();
+  const leaseStatuses: string[] = [];
   for (const slot of allSlots) {
     const room = byId.get(slot.id ?? "");
-    if (room && ready) counts.set(roomLegendKey(room, layer), (counts.get(roomLegendKey(room, layer)) ?? 0) + 1);
+    if (!room || !ready) continue;
+    const key = roomLegendKey(room, layer);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+    if (layer === "contracts" && key === "HAS_LEASE") leaseStatuses.push(roomLayerStatus(room, layer));
   }
+  const leaseChip = leaseChipStatus(leaseStatuses);
   const labels = LAYER_STATUS_LABEL[layer];
   const shownMonth = month || overview?.month || "";
 
@@ -369,7 +375,7 @@ export default function BranchOverviewLayers({ floors, openRoom, mismatch, overv
         {!ready ? null : overview ? (
           <div role="group" aria-label={`Chú giải, ${allSlots.length} phòng. Bấm để làm nổi`} className="contents">
             {Object.keys(labels).filter((status) => (counts.get(status) ?? 0) > 0 || highlight === status).map((status) => {
-              const { icon: Icon, tone } = look(layer, status);
+              const { icon: Icon, tone } = look(layer, status === "HAS_LEASE" ? leaseChip : status);
               const count = counts.get(status) ?? 0;
               const pressed = highlight === status;
               return (

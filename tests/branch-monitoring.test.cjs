@@ -54,15 +54,19 @@ test("meter cell shows the server's state and goes to the monthly tab or the exa
   assert.doesNotMatch(recorded.props["aria-label"], /Hạn ghi/);
 });
 
-test("contract cell uses 30/60, server days and the exclusive end route", () => {
+test("contract cell shows days and the real last day, most urgent lease first, with a count", () => {
   const room = { ...oldRoom, meters: [], contracts: [expiry] };
   const sixty = renderCell(room, "contracts");
   assert.equal(sixty.props.href, expiry.target.href);
-  assert.match(sixty.props["aria-label"], /60 ngày.*Còn 35 ngày.*00:00 ngày 05\/01\/2027/);
-  const renewed = { ...room, contracts: [] };
-  assert.equal(roomLayerStatus(renewed, "contracts"), "LONG");
-  const thirty = { ...expiry, status: "WITHIN_30", daysRemaining: 30 };
-  assert.match(renderCell({ ...room, contracts: [thirty] }, "contracts").props["aria-label"], /30 ngày/);
+  assert.match(sixty.props["aria-label"], /Còn 35 ngày · hết 04\/01\/2027/);
+  assert.equal(roomLayerStatus({ ...room, contracts: [] }, "contracts"), "LONG");
+  assert.match(JSON.stringify(renderCell({ ...room, contracts: [] }, "contracts").props.children), /Còn hạn trên 60 ngày/);
+  const late = { ...expiry, contractId: "d", status: "WITHIN_30", daysRemaining: -2, endDateExclusive: "2026-11-25" };
+  const many = renderCell({ ...room, contracts: [expiry, late] }, "contracts");
+  assert.match(many.props["aria-label"], /Hết hạn 24\/11\/2026 · chưa bàn giao.*\+1 hợp đồng khác/);
+  assert.doesNotMatch(many.props["aria-label"], /Còn 35 ngày/);
+  const text = JSON.stringify(many.props.children);
+  assert.doesNotMatch(text, /line-clamp/);
 });
 
 test("a pre-P5 or malformed layer leaves the other layers readable", () => {

@@ -12,6 +12,7 @@ import {
   LAYER_LABEL,
   LAYER_STATUS_LABEL,
   confirmationCountdown,
+  expiryText,
   formatInstant,
   layerReady,
   monthLabel,
@@ -20,6 +21,7 @@ import {
   roomLayerStatus,
   roomMatches,
   shiftMonth,
+  sortExpiries,
   statusLabel,
   targetHref,
   type BranchOverview,
@@ -121,9 +123,6 @@ const meterLines = (meter: OverviewMeter) => [
   `Ngày ghi ${formatDay(meter.meterDate)}`,
   meter.status === "RECORDED" ? null : `Hạn ghi ${formatInstant(meter.deadlineAt)}`,
 ];
-/** The end is exclusive: the lease runs until the start of that day. */
-const expiryLines = (expiry: OverviewExpiry) =>
-  [`Còn ${expiry.daysRemaining} ngày`, `Mốc kết thúc: 00:00 ngày ${formatDay(expiry.endDateExclusive)}`];
 
 const meterEntry = (meter: OverviewMeter): Entry => ({
   key: meter.contractId,
@@ -139,8 +138,8 @@ const expiryEntry = (expiry: OverviewExpiry): Entry => ({
   href: targetHref(expiry.target),
   status: expiry.status,
   layer: "contracts",
-  title: statusLabel("contracts", expiry.status),
-  lines: expiryLines(expiry),
+  title: expiryText(expiry),
+  lines: [statusLabel("contracts", expiry.status)],
 });
 
 /** The current stay (or listing) and the next one. A ROOM target is the cell menu, not a page. */
@@ -272,8 +271,8 @@ export default function BranchOverviewLayers({ floors, openRoom, mismatch, overv
       if (items[0]) lines.push(...meterLines(items[0]).filter((line) => line !== null));
       entries = items.map(meterEntry);
     } else if (shown && layer === "contracts") {
-      const items = shown.contracts!;
-      if (items[0]) lines.push(...expiryLines(items[0]));
+      const items = sortExpiries(shown.contracts!);
+      if (items.length > 1) lines.push(`+${items.length - 1} hợp đồng khác`);
       entries = items.map(expiryEntry);
     } else if (room && layer === "payments" && room.payments.items.length > 0) {
       const [first] = room.payments.items;
@@ -295,7 +294,7 @@ export default function BranchOverviewLayers({ floors, openRoom, mismatch, overv
         <span className="flex items-center justify-center gap-1 text-xs font-semibold">
           <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> <span>{label}</span>
         </span>
-        {lines.map((line, i) => <span key={i} className="line-clamp-3 text-xs">{line}</span>)}
+        {lines.map((line, i) => <span key={i} className="text-xs">{line}</span>)}
         {flagged ? (
           <span className="flex items-center justify-center gap-1 text-xs font-semibold">
             <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Lệch mã tin
@@ -355,7 +354,7 @@ export default function BranchOverviewLayers({ floors, openRoom, mismatch, overv
       </div>
       {layer === "payments" ? <p className="text-xs text-muted-foreground">Gồm khoản có hạn trong tháng và nợ quá hạn của các tháng trước.</p> : null}
       {layer === "meters" ? <p className="text-xs text-muted-foreground">Bấm vào phòng để mở hóa đơn của hợp đồng; việc ghi chỉ số làm ở đó.</p> : null}
-      {layer === "contracts" ? <p className="text-xs text-muted-foreground">Hợp đồng đã xếp phòng còn tối đa 60 ngày. Hợp đồng chưa xếp phòng xem ở mục Cần chú ý.</p> : null}
+      {layer === "contracts" ? <p className="text-xs text-muted-foreground">Hợp đồng đã xếp phòng, kèm ngày hết hạn. Hợp đồng chưa xếp phòng xem ở mục Cần chú ý.</p> : null}
       {!ready ? <p role="status" className="rounded-xl border border-amber-500/60 bg-amber-500/10 p-3 text-sm">Máy chủ chưa có dữ liệu cho lớp {LAYER_LABEL[layer]}. Lớp Phòng và Thu tiền vẫn dùng được.</p> : null}
       {error ? <p role="alert" className="rounded-xl border border-amber-500/60 bg-amber-500/10 p-3 text-sm">Chưa tải lại được, tình trạng có thể đã cũ. {error}</p> : null}
 

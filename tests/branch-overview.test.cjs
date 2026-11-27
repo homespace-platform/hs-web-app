@@ -68,15 +68,38 @@ test("contracts layer: no expiry listed means over 60 days when occupied, otherw
   const expiry = { contractId: "c", status: "WITHIN_30", endDateExclusive: "2026-12-10", daysRemaining: 13, target: contract };
   const occupied = roomWith({ status: "OCCUPIED", contracts: [] });
   assert.equal(roomLayerStatus(occupied, "contracts"), "LONG");
-  assert.equal(statusLabel("contracts", "LONG"), "Còn hạn trên 60 ngày");
+  assert.equal(statusLabel("contracts", "LONG"), "Trên 60 ngày");
+  assert.equal(roomLayerLabel(occupied, "contracts"), "Còn hạn trên 60 ngày");
   for (const status of ["VACANT", "UNLINKED", "ADVERTISED", "RESERVED", "MOVING_IN", "EXTERNAL_RENT", "REPAIR"]) {
     assert.equal(roomLayerStatus(roomWith({ status, contracts: [] }), "contracts"), "NO_LEASE", status);
   }
   assert.equal(roomLayerLabel(roomWith({ contracts: [] }), "contracts"), "Không có hợp đồng");
   assert.equal(roomLayerStatus(roomWith({ status: "OCCUPIED", contracts: [expiry] }), "contracts"), "WITHIN_30");
-  assert.deepEqual(Object.keys(overview.LAYER_STATUS_LABEL.contracts), ["WITHIN_30", "WITHIN_60", "LONG", "NO_LEASE"]);
-  // LONG / NO_LEASE are client-derived: a server sending them as an expiry is a bad shape.
-  assert.equal(overview.layerReady({ rooms: [roomWith({ contracts: [{ ...expiry, status: "LONG" }] })] }, "contracts"), false);
+  assert.deepEqual(Object.values(overview.LAYER_STATUS_LABEL.contracts), ["≤ 30 ngày", "31–60 ngày", "Trên 60 ngày", "Không có hợp đồng"]);
+  // The server now sends LONG; an unknown status is still a bad shape.
+  const ready = (item) => overview.layerReady({ rooms: [roomWith({ contracts: [item] })] }, "contracts");
+  assert.equal(ready({ ...expiry, status: "LONG", daysRemaining: 90 }), true);
+  assert.equal(ready({ ...expiry, status: "SOON" }), false);
+  assert.equal(ready({ ...expiry, endDateExclusive: "later" }), false);
+  // Expired and not handed over: daysRemaining <= 0 (also negative) is valid.
+  assert.equal(ready({ ...expiry, daysRemaining: -3 }), true);
+});
+
+test("lease wording: last day is the day before the exclusive end, with no time zone shift", () => {
+  const e = (endDateExclusive, daysRemaining) => ({ endDateExclusive, daysRemaining });
+  assert.equal(overview.expiryText(e("2026-12-10", 13)), "Còn 13 ngày · hết 09/12/2026");
+  assert.equal(overview.expiryText(e("2027-01-01", 5)), "Còn 5 ngày · hết 31/12/2026");
+  assert.equal(overview.expiryText(e("2028-03-01", 90)), "Còn 90 ngày · hết 29/02/2028");
+  assert.equal(overview.expiryText(e("2026-11-27", 0)), "Hết hạn 26/11/2026 · chưa bàn giao");
+  assert.equal(overview.expiryText(e("2026-11-20", -7)), "Hết hạn 19/11/2026 · chưa bàn giao");
+  // Most urgent (fewest days) first, whatever order the server used.
+  assert.deepEqual(overview.sortExpiries([e("a", 40), e("b", -2), e("c", 10)]).map((x) => x.endDateExclusive), ["b", "c", "a"]);
+  const room = roomWith({ status: "OCCUPIED", contracts: [
+    { contractId: "x", status: "LONG", endDateExclusive: "2027-06-01", daysRemaining: 200, target: contract },
+    { contractId: "y", status: "WITHIN_30", endDateExclusive: "2026-12-10", daysRemaining: 13, target: contract },
+  ] });
+  assert.equal(roomLayerStatus(room, "contracts"), "WITHIN_30");
+  assert.equal(roomLayerLabel(room, "contracts"), "Còn 13 ngày · hết 09/12/2026");
 });
 
 test("a payment layer missing its status fails parsing instead of rendering a neutral cell", () => {

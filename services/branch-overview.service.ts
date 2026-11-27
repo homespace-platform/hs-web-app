@@ -4,6 +4,7 @@
  */
 import { LISTING_STATUS_CONFIG } from "@/config/listing-status.config";
 import axiosClient from "@/lib/axios-client";
+import { formatDay } from "@/lib/branch-assignment";
 import type { ApiResponse } from "@/types/api.type";
 
 export type RoomStatus = "VACANT" | "UNLINKED" | "ADVERTISED" | "RESERVED" | "OCCUPIED" | "MOVING_IN" | "EXTERNAL_RENT" | "REPAIR";
@@ -44,8 +45,9 @@ export interface OverviewMeter {
 
 export interface OverviewExpiry {
   contractId: string;
-  status: "WITHIN_30" | "WITHIN_60";
+  status: "WITHIN_30" | "WITHIN_60" | "LONG";
   endDateExclusive: string;
+  /** Can be 0 or negative: expired and not handed over yet. */
   daysRemaining: number;
   target: OverviewTarget;
 }
@@ -115,13 +117,24 @@ const METER_STATUS_LABEL: Record<OverviewMeter["status"] | "NONE", string> = {
   NONE: "Không có kỳ cần xem",
 };
 
-/** LONG and NO_LEASE are derived on the client: the server lists only expiries within 60 days. */
-const EXPIRY_STATUS_LABEL: Record<OverviewExpiry["status"] | "LONG" | "NO_LEASE", string> = {
-  WITHIN_30: "Hết hạn trong 30 ngày",
-  WITHIN_60: "Hết hạn sau 31–60 ngày",
-  LONG: "Còn hạn trên 60 ngày",
+/** NO_LEASE is derived on the client; an older server sends no LONG rows, so an empty list of an occupied room counts as LONG. */
+const EXPIRY_STATUS_LABEL: Record<OverviewExpiry["status"] | "NO_LEASE", string> = {
+  WITHIN_30: "≤ 30 ngày",
+  WITHIN_60: "31–60 ngày",
+  LONG: "Trên 60 ngày",
   NO_LEASE: "Không có hợp đồng",
 };
+
+/** The last day of a lease is the day before its exclusive end; pure calendar math, so no time zone can move it. */
+const lastDay = (endDateExclusive: string) => {
+  const [y, m, d] = endDateExclusive.split("-").map(Number);
+  return formatDay(new Date(Date.UTC(y, m - 1, d - 1)).toISOString());
+};
+/** "Còn 13 ngày · hết 09/12/2026", or "Hết hạn 26/11/2026 · chưa bàn giao" once no days are left. */
+export const expiryText = (e: Pick<OverviewExpiry, "endDateExclusive" | "daysRemaining">) =>
+  e.daysRemaining > 0 ? `Còn ${e.daysRemaining} ngày · hết ${lastDay(e.endDateExclusive)}` : `Hết hạn ${lastDay(e.endDateExclusive)} · chưa bàn giao`;
+/** Most urgent (fewest days left) first. */
+export const sortExpiries = <T extends Pick<OverviewExpiry, "daysRemaining">>(list: T[]) => [...list].sort((a, b) => a.daysRemaining - b.daysRemaining);
 
 /** Keys are in legend order. */
 export const LAYER_STATUS_LABEL: Record<OverviewLayer, Record<string, string>> = {
@@ -145,14 +158,19 @@ export const statusLabel = (layer: OverviewLayer, status: string) =>
 /** A vacant room shows its listing's state, "Trống · Chờ duyệt"; the listing status may be one this client does not know. */
 export function roomLayerLabel(room: OverviewRoom, layer: OverviewLayer): string {
   const label = statusLabel(layer, roomLayerStatus(room, layer));
+  if (layer === "contracts") {
+    const [first] = sortExpiries(room.contracts ?? []);
+    return first ? expiryText(first) : label === EXPIRY_STATUS_LABEL.LONG ? "Còn hạn trên 60 ngày" : label;
+  }
   if (layer !== "rooms" || room.status !== "VACANT" || typeof room.listingStatus !== "string") return label;
   const known = Object.hasOwn(LISTING_STATUS_CONFIG, room.listingStatus);
   return `${label} · ${known ? LISTING_STATUS_CONFIG[room.listingStatus as keyof typeof LISTING_STATUS_CONFIG].label : "Đang cập nhật"}`;
 }
-/** The server sorts each list, so its first item is the cell's status. An empty contracts list says nothing about the lease, so the room status decides. */
+/** The server sorts the lists (contracts: the most urgent lease decides). An empty contracts list comes from an older server, so the room status decides. */
 export const roomLayerStatus = (room: OverviewRoom, layer: OverviewLayer): string =>
   layer === "rooms" ? room.status : layer === "payments" ? room.payments.status
-    : room[layer]?.[0]?.status ?? (layer === "meters" ? "NONE" : room.status === "OCCUPIED" ? "LONG" : "NO_LEASE");
+    : layer === "meters" ? room.meters?.[0]?.status ?? "NONE"
+      : sortExpiries(room.contracts ?? [])[0]?.status ?? (room.status === "OCCUPIED" ? "LONG" : "NO_LEASE");
 
 /* ---------- links, months, time ---------- */
 
@@ -240,7 +258,8 @@ const isMeter = (m: unknown) => isObject(m) && isText(m.contractId) && isCount(m
   && m.status !== "NONE" && isKey(METER_STATUS_LABEL, m.status) && isText(m.meterDate) && isInstant(m.deadlineAt)
   && isTarget(m.target);
 const isExpiry = (e: unknown) => isObject(e) && isText(e.contractId)
-  && (e.status === "WITHIN_30" || e.status === "WITHIN_60") && isText(e.endDateExclusive) && isCount(e.daysRemaining) && isTarget(e.target);
+  && (e.status === "WITHIN_30" || e.status === "WITHIN_60" || e.status === "LONG") && isText(e.endDateExclusive) && formatDay(e.endDateExclusive) !== ""
+  && Number.isInteger(e.daysRemaining) && isTarget(e.target);
 
 /**
  * The P5 lists are checked per layer, not in `parseOverview`: a server without them, or with a broken one,

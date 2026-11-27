@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps 
 import { useSearchParams } from "next/navigation";
 import { emptyRoom, formatDay, mismatchedListings, pageCount } from "@/lib/branch-assignment";
 import branchAssignmentService from "@/services/branch-assignment.service";
-import branchOverviewService, { isMonth, isOverviewLayer, monthLabel, roomLayerLabel, type BranchOverview } from "@/services/branch-overview.service";
+import branchOverviewService, { expiryText, sortExpiries, isMonth, isOverviewLayer, monthLabel, roomLayerLabel, type BranchOverview } from "@/services/branch-overview.service";
 import type { BranchAssignments } from "@/types/branch-assignment.type";
 import BranchOverviewLayers, { UnplacedPayments } from "./BranchOverviewLayers";
 import BranchLayoutEditor from "./BranchLayoutEditor";
@@ -162,7 +162,7 @@ export default function BranchMap(props: Omit<ComponentProps<typeof BranchLayout
             <RoomPanel
               branchId={branchId} room={rooms?.get(roomId) ?? emptyRoom(roomId)} code={code} rooms={options} lock={lock}
               status={status ? roomLayerLabel(status, "rooms") : null}
-              facts={[status?.tenantName ?? "", next ? `Sắp vào ${formatDay(next.moveInDate)}: ${next.tenantName || "chưa có tên"}` : ""]}
+              facts={[status?.tenantName ?? "", ...sortExpiries(status?.contracts ?? []).map((c) => `Hợp đồng: ${expiryText(c)}`), next ? `Sắp vào ${formatDay(next.moveInDate)}: ${next.tenantName || "chưa có tên"}` : ""]}
               renameRoom={renameRoom} reload={reload}
             />
           </>

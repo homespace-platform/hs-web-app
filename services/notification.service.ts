@@ -404,7 +404,8 @@ export function withDefaultPreferences(
     return {
       category,
       push: existing?.push ?? true,
-      email: existing?.email ?? true,
+      // SYSTEM email is opt-in (default off); other categories' email is not offered yet.
+      email: existing?.email ?? category !== "SYSTEM",
     };
   });
 }

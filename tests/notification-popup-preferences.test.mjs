@@ -212,6 +212,7 @@ test('settings uses cached registered status, patches Push only, and keeps Email
     '@/features/auth/useAuth': { useAuth: () => ({ initialized: true, authenticated: true, userId: 'alice', login() {} }) },
     '@/services/notification.service': { __esModule: true, default: notifications, getCategoryMeta: service().getCategoryMeta },
     '@/utils/apiError': { getApiErrorMessage: () => 'Error' },
+    '@/components/common/PolicyDialog': { PolicyNotice: () => null },
     '@/services/notification-push.service': { getPushStatus: () => 'registered', isPushConfigured: () => true,
       isPushOptedIn: () => true, disablePush: async () => {}, enablePush: async () => {} },
   }, { ...timers.globals, window, Notification: { permission: 'granted' } }).default;
@@ -225,7 +226,9 @@ test('settings uses cached registered status, patches Push only, and keeps Email
       : [node, ...React.Children.toArray(node.props?.children).flatMap(flatten)];
     const emailSwitches = flatten(runtime.tree).filter(node => node.type === Switch && node.props['aria-label'].endsWith(' - Email'));
     assert.equal(emailSwitches.length, categories.length);
-    assert.ok(emailSwitches.every(node => node.props.disabled && node.props.onCheckedChange === undefined));
+    const systemEmail = emailSwitches.find(node => node.props['aria-label'] === 'Hệ thống - Email');
+    assert.ok(systemEmail && !systemEmail.props.disabled && typeof systemEmail.props.onCheckedChange === 'function', 'SYSTEM email is enabled');
+    assert.ok(emailSwitches.filter(node => node !== systemEmail).every(node => node.props.disabled && node.props.onCheckedChange === undefined));
     const paymentPush = flatten(runtime.tree).find(node => node.type === Switch && node.props['aria-label'] === 'Thanh toán & Hóa đơn - Push');
     assert.ok(paymentPush, 'payment Push switch is present');
     paymentPush.props.onCheckedChange(false); await runtime.settle();

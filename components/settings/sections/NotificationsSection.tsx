@@ -277,14 +277,28 @@ export default function NotificationsSection() {
                   />
                 </label>
 
-                <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-not-allowed opacity-60" title="Thông báo Email sắp có">
-                  <span className="text-muted-foreground">Email <span className="text-[10px]">(Sắp có)</span></span>
-                  <Switch
-                    checked={item.email}
-                    disabled
-                    aria-label={`${meta.settingsTitle} - Email`}
-                  />
-                </label>
+                {item.category === "SYSTEM" ? (
+                  <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
+                    <span className="text-muted-foreground">Email</span>
+                    <Switch
+                      checked={item.email}
+                      disabled={savingCategory !== null}
+                      aria-label={`${meta.settingsTitle} - Email`}
+                      onCheckedChange={(val) =>
+                        void handleToggleChannel(item.category, "email", val)
+                      }
+                    />
+                  </label>
+                ) : (
+                  <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-not-allowed opacity-60" title="Thông báo Email sắp có">
+                    <span className="text-muted-foreground">Email <span className="text-[10px]">(Sắp có)</span></span>
+                    <Switch
+                      checked={item.email}
+                      disabled
+                      aria-label={`${meta.settingsTitle} - Email`}
+                    />
+                  </label>
+                )}
               </div>
             </div>
           );

@@ -154,7 +154,7 @@ function ContractListContent({ perspective }: { perspective: Perspective }) {
   const shown = group === "ALL" ? items : items.filter((c) => groupOf(turnOf(c, perspective)) === group);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 animate-in fade-in-50 duration-200">
+    <div className="space-y-5 animate-in fade-in-50 duration-200">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2.5 text-xl font-bold tracking-tight sm:text-2xl">
@@ -178,6 +178,7 @@ function ContractListContent({ perspective }: { perspective: Perspective }) {
           {kind === "DEPOSIT" ? "Hợp đồng cọc" : "Hợp đồng thuê"}
         </button>)}
       </div>
+      {agreementKind === "LEASE" && <PolicyNotice tone="neutral" title="Hợp đồng thuê" summary="Theo dõi hiệu lực, hóa đơn hằng tháng, phụ lục và trả nhà tại đây."><p>Hợp đồng thuê được chuẩn bị khi đến ngày bắt đầu và đã xác nhận đủ tiền thuê kỳ đầu. Mở từng hợp đồng để xem hóa đơn, phụ lục, gia hạn hoặc trả nhà.</p></PolicyNotice>}
       {agreementKind === "DEPOSIT" && <PolicyNotice tone="neutral" title="Hợp đồng cọc" summary="Ký cọc, theo dõi hạn vào ở và thanh toán tháng đầu tại đây."><p>Xem và ký cọc, theo dõi hạn vào ở, thanh toán tháng đầu và xử lý hồ sơ giữ phòng tại đây. Sau khi ký cọc, bạn cần hoàn tất nghĩa vụ đúng hạn.</p></PolicyNotice>}
 
       <div className="flex flex-wrap gap-2" aria-label="Nhóm hợp đồng">
@@ -202,15 +203,14 @@ function ContractListContent({ perspective }: { perspective: Perspective }) {
       ) : items.length === 0 ? (
         <div className="space-y-2 rounded-2xl border border-dashed border-border bg-card p-8 text-center shadow-sm">
           <p className="text-base font-semibold text-foreground">{agreementKind === "DEPOSIT" ? "Chưa có hợp đồng cọc" : "Chưa có hợp đồng thuê"}</p>
-          <div className="mx-auto max-w-md space-y-2 text-left">
-            <PolicyNotice tone="neutral" title="Khi nào xuất hiện hợp đồng?" actionLabel="Xem quy tắc" summary={perspective === "landlord" ? "Hợp đồng cọc xuất hiện sau khi bạn xác nhận nhận cọc." : "Bạn ký hợp đồng cọc sau khi chủ nhà xác nhận nhận cọc."}>
+          <div className="mx-auto max-w-md text-left">
+            <PolicyNotice tone="neutral" title="Khi nào xuất hiện hợp đồng?" actionLabel="Xem quy tắc" summary={agreementKind === "DEPOSIT"
+              ? (perspective === "landlord" ? "Hợp đồng cọc xuất hiện sau khi bạn xác nhận nhận cọc." : "Bạn ký hợp đồng cọc sau khi chủ nhà xác nhận nhận cọc.")
+              : "Hợp đồng thuê xuất hiện khi đến ngày bắt đầu và đã xác nhận đủ tiền thuê kỳ đầu."}>
               <p>{perspective === "landlord"
                 ? "Với hồ sơ có cọc, hợp đồng cọc sẽ xuất hiện sau khi xác nhận nhận cọc. Hồ sơ không đặt cọc hoặc cọc 0 đồng bỏ qua hợp đồng cọc. Hợp đồng thuê được chuẩn bị khi đến ngày bắt đầu và xác nhận đủ tiền thuê."
                 : "Với hồ sơ có cọc, bạn xem và ký hợp đồng cọc sau khi chủ nhà xác nhận nhận cọc. Không đặt cọc hoặc cọc 0 đồng thì bỏ qua bước này. Hợp đồng thuê xuất hiện khi đến ngày bắt đầu và xác nhận đủ tiền."}</p>
             </PolicyNotice>
-            <Link href={perspective === "landlord" ? "/dashboard/rental-requests" : "/dashboard/rental-requests/my-requests"} className="inline-flex text-sm font-semibold text-primary hover:underline">
-              {perspective === "landlord" ? "Xem yêu cầu thuê" : "Xem yêu cầu đã gửi"}
-            </Link>
           </div>
         </div>
       ) : (

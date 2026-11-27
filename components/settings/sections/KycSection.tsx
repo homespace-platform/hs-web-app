@@ -137,7 +137,7 @@ function AccountKycSection() {
           <div className="min-w-0 space-y-1">
             <div className="text-sm font-bold text-foreground">{meta.title}</div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">{meta.description}</p>
-            {kyc?.sessionId && kyc.provider === "VNPT" && <p className="text-[11px] text-muted-foreground">Nhà cung cấp: VNPT eKYC</p>}
+            {status === "VERIFIED" && (kyc?.providerLabel ?? kyc?.provider) && <p className="text-[11px] text-muted-foreground">Nhà cung cấp: {kyc?.providerLabel ?? kyc?.provider}</p>}
             {status === "VERIFIED" && kyc?.verifiedAt && (
               <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
                 Xác minh lúc{" "}
@@ -192,7 +192,7 @@ function AccountKycSection() {
           </button>
         </div>
       </div>
-      {status === "VERIFIED" && kyc?.provider === "VNPT" && <KycVerifiedDetailsPanel key={userId} cccd={profile?.cccd} verified />}
+      {status === "VERIFIED" && <KycVerifiedDetailsPanel key={userId} cccd={profile?.cccd} verified />}
     </div>
   );
 }

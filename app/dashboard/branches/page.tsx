@@ -36,6 +36,7 @@ import branchService, {
   BranchCharge,
 } from "@/services/branch.service";
 import storageService from "@/services/storage.service";
+import { buildOptionalCharge, toFormCategory } from "@/lib/branch-form";
 import VietmapAddressPicker from "@/components/address/VietmapAddressPicker";
 import type { VietmapAddress } from "@/services/vietmap.service";
 import { PROPERTY_CATEGORIES } from "../properties/new/constants";
@@ -226,7 +227,7 @@ export default function BranchesPage() {
     setEditingBranch(branch);
     setName(branch.name);
     setCode(branch.code || "");
-    setCategory(branch.category);
+    setCategory(toFormCategory(branch.category));
 
     setSelectedAddress(branch);
     setDescription(branch.description || "");
@@ -262,7 +263,7 @@ export default function BranchesPage() {
       setManagementBillingMethod(mgmtCharge.billingMethod || "PER_MONTH");
       setManagementAmount(mgmtCharge.amount ?? "");
     } else {
-      setManagementBillingMethod(branch.category === "apartment" ? "PER_MONTH" : "NOT_APPLICABLE");
+      setManagementBillingMethod(toFormCategory(branch.category) === "apartment" ? "PER_MONTH" : "NOT_APPLICABLE");
       setManagementAmount("");
     }
 
@@ -411,44 +412,17 @@ export default function BranchesPage() {
         },
       ];
 
-      // Management fee
-      if (managementBillingMethod !== "NOT_APPLICABLE") {
-        charges.push({
-          chargeType: "MANAGEMENT",
-          billingMethod: managementBillingMethod,
-          amount: managementBillingMethod !== "INCLUDED" ? Number(managementAmount) || 0 : undefined,
-          currency: "VND",
-          unit: managementBillingMethod === "PER_M2_MONTH" ? "m²/tháng" : "phòng/tháng",
-          includedInRent: managementBillingMethod === "INCLUDED",
-          sortOrder: 3,
-        });
-      }
-
-      // Internet fee
-      if (internetBillingMethod !== "NOT_APPLICABLE") {
-        charges.push({
-          chargeType: "INTERNET",
-          billingMethod: internetBillingMethod,
-          amount: internetBillingMethod !== "INCLUDED" ? Number(internetAmount) || 0 : undefined,
-          currency: "VND",
-          unit: "phòng/tháng",
-          includedInRent: internetBillingMethod === "INCLUDED",
-          sortOrder: 4,
-        });
-      }
-
-      // Cleaning / garbage fee
-      if (cleaningBillingMethod !== "NOT_APPLICABLE") {
-        charges.push({
-          chargeType: "SERVICE_OR_GARBAGE",
-          billingMethod: cleaningBillingMethod,
-          amount: cleaningBillingMethod !== "INCLUDED" ? Number(cleaningAmount) || 0 : undefined,
-          currency: "VND",
-          unit: "phòng/tháng",
-          includedInRent: cleaningBillingMethod === "INCLUDED",
-          sortOrder: 5,
-        });
-      }
+      charges.push(
+        buildOptionalCharge(
+          "MANAGEMENT",
+          managementBillingMethod,
+          managementAmount,
+          managementBillingMethod === "PER_M2_MONTH" ? "m²/tháng" : "phòng/tháng",
+          3
+        ),
+        buildOptionalCharge("INTERNET", internetBillingMethod, internetAmount, "phòng/tháng", 4),
+        buildOptionalCharge("SERVICE_OR_GARBAGE", cleaningBillingMethod, cleaningAmount, "phòng/tháng", 5)
+      );
 
       const finalMotorbikeCap =
         motorbikeBillingMethod === "NOT_APPLICABLE"
@@ -587,7 +561,7 @@ export default function BranchesPage() {
   };
 
   const getCategoryLabel = (catKey: string) => {
-    return PROPERTY_CATEGORIES.find((c) => c.key === catKey)?.label || catKey;
+    return PROPERTY_CATEGORIES.find((c) => c.key === toFormCategory(catKey))?.label || catKey;
   };
 
   return (

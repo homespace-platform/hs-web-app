@@ -39,6 +39,7 @@ import { PROPERTY_CATEGORIES } from "../../properties/new/constants";
 import { useFeatureGate } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getChargeDisplay, getChargeMeta } from "../page";
+import { toFormCategory } from "@/lib/branch-form";
 
 const BRANCH_TABS = [
   { id: "overview", label: "Tổng quan" },
@@ -143,7 +144,7 @@ function BranchDetail() {
   };
 
   const getCategoryLabel = (catKey: string) => {
-    return PROPERTY_CATEGORIES.find((c) => c.key === catKey)?.label || catKey;
+    return PROPERTY_CATEGORIES.find((c) => c.key === toFormCategory(catKey))?.label || catKey;
   };
 
   if (loadingBranch) {

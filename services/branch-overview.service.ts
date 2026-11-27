@@ -2,9 +2,8 @@
  * Read-only branch overview and attention list (design 07, sections 1, 3, 4 and 6). The server decides every state, payment
  * order and deadline; these helpers only check the response shape and word it for the screen.
  */
-import { LISTING_STATUS_CONFIG } from "@/config/listing-status.config";
 import axiosClient from "@/lib/axios-client";
-import { formatDay } from "@/lib/branch-assignment";
+import { formatDay, listingStatusLabel } from "@/lib/branch-assignment";
 import type { ApiResponse } from "@/types/api.type";
 
 export type RoomStatus = "VACANT" | "UNLINKED" | "ADVERTISED" | "RESERVED" | "OCCUPIED" | "MOVING_IN" | "EXTERNAL_RENT" | "REPAIR";
@@ -126,7 +125,7 @@ const EXPIRY_STATUS_LABEL: Record<OverviewExpiry["status"] | "NO_LEASE", string>
 };
 
 /** The last day of a lease is the day before its exclusive end; pure calendar math, so no time zone can move it. */
-const lastDay = (endDateExclusive: string) => {
+export const lastDay = (endDateExclusive: string) => {
   const [y, m, d] = endDateExclusive.split("-").map(Number);
   return formatDay(new Date(Date.UTC(y, m - 1, d - 1)).toISOString());
 };
@@ -163,8 +162,7 @@ export function roomLayerLabel(room: OverviewRoom, layer: OverviewLayer): string
     return first ? expiryText(first) : label === EXPIRY_STATUS_LABEL.LONG ? "Còn hạn trên 60 ngày" : label;
   }
   if (layer !== "rooms" || room.status !== "VACANT" || typeof room.listingStatus !== "string") return label;
-  const known = Object.hasOwn(LISTING_STATUS_CONFIG, room.listingStatus);
-  return `${label} · ${known ? LISTING_STATUS_CONFIG[room.listingStatus as keyof typeof LISTING_STATUS_CONFIG].label : "Đang cập nhật"}`;
+  return `${label} · ${listingStatusLabel(room.listingStatus)}`;
 }
 /** The server sorts the lists (contracts: the most urgent lease decides). An empty contracts list comes from an older server, so the room status decides. */
 export const roomLayerStatus = (room: OverviewRoom, layer: OverviewLayer): string =>

@@ -6,7 +6,7 @@ const vm = require("node:vm");
 const ts = require("typescript");
 const { loadTs } = require("./helpers/ts-loader.cjs");
 
-const assignment = loadTs("lib/branch-assignment.ts");
+const assignment = loadTs("lib/branch-assignment.ts", { "@/config/listing-status.config": loadTs("config/listing-status.config.ts") });
 const { readRoomLinkParams, listRooms, withRoomId, roomCodePrefill } = loadTs("lib/listing-room-link.ts");
 const { buildCreateListingPayload } = loadTs("app/dashboard/properties/new/utils/buildListingPayload.ts");
 
@@ -246,4 +246,11 @@ test("attach messages: the lease message replaces the plain one, the note follow
   assert.equal(assignment.listingLinkOutcome(none, "101", "102").success, "Đã gắn tin vào phòng 101. Mã trên tin (102) khác mã ô.");
   assert.equal(assignment.listingLinkOutcome({ contractId: "c", contractNote: null }, "101", null).success, "Đã gắn tin và hợp đồng đang hiệu lực vào phòng 101.");
   assert.deepEqual(assignment.listingLinkOutcome({ contractId: null, contractNote: "Trùng lịch." }, "101", null), { success: "Đã gắn tin vào phòng 101.", note: "Trùng lịch." });
+});
+
+test("listing status labels come from the listing management page; unknown -> Đang cập nhật", () => {
+  assert.equal(assignment.listingStatusLabel("PUBLISHED"), "Đang hiển thị");
+  assert.equal(assignment.listingStatusLabel("DRAFT"), "Tin nháp");
+  assert.equal(assignment.listingStatusLabel("FUTURE"), "Đang cập nhật");
+  assert.equal(assignment.listingStatusLabel("toString"), "Đang cập nhật");
 });

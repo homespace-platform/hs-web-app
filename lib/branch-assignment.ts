@@ -2,6 +2,7 @@
  * Pure helpers for linking listings and contracts to map rooms (Phase 2). Business rules live on the
  * server; these only read its responses and decide what the screen can offer.
  */
+import { LISTING_STATUS_CONFIG } from "@/config/listing-status.config";
 import { normalizeRoomCode } from "@/lib/branch-layout";
 import { contractDetailPath } from "@/lib/contract-routes";
 import { contractStatus } from "@/lib/rental-labels";
@@ -15,6 +16,7 @@ import type {
   RoomManualStatus,
   RoomOption,
 } from "@/types/branch-assignment.type";
+import type { ListingStatus } from "@/types/listing.type";
 import type { LayoutDraft } from "@/types/branch-layout.type";
 
 export const PAGE_SIZE = 20;
@@ -25,20 +27,9 @@ export const MANUAL_STATUS_LABEL: Record<RoomManualStatus, string> = {
   REPAIR: "Đang sửa chữa",
 };
 
-const LISTING_STATUS: Record<string, string> = {
-  DRAFT: "Bản nháp",
-  PENDING_REVIEW: "Chờ duyệt",
-  PUBLISHED: "Đang đăng",
-  RESERVED: "Đang giữ chỗ",
-  RENTED: "Đã cho thuê",
-  RENTED_EXTERNALLY: "Đã thuê ngoài",
-  EXPIRED: "Hết hạn",
-  REJECTED: "Bị từ chối",
-  HIDDEN: "Đã ẩn",
-  VIOLATION: "Vi phạm",
-};
-
-export const listingStatusLabel = (status: string) => LISTING_STATUS[status] ?? "Đang cập nhật";
+/** One label set with the listing management page; a status this client does not know reads "Đang cập nhật". */
+export const listingStatusLabel = (status: string) =>
+  Object.hasOwn(LISTING_STATUS_CONFIG, status) ? LISTING_STATUS_CONFIG[status as ListingStatus].label : "Đang cập nhật";
 export const contractStatusLabel = (status: string) => contractStatus(status).label;
 
 /** "2026-11-26..." -> "26/11/2026", without time zone conversion; anything else -> "". */

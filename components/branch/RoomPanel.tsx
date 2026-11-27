@@ -19,6 +19,7 @@ import {
   sortContracts,
 } from "@/lib/branch-assignment";
 import { normalizeRoomCode } from "@/lib/branch-layout";
+import { lastDay } from "@/services/branch-overview.service";
 import branchAssignmentService from "@/services/branch-assignment.service";
 import type { AssignmentKind, RoomAssignment, RoomContractLink, RoomListingLink, RoomManualStatus, RoomOption } from "@/types/branch-assignment.type";
 import CandidatePicker from "./CandidatePicker";
@@ -138,7 +139,7 @@ export default function RoomPanel({ branchId, room, code, rooms, lock, status, f
             <p className="text-muted-foreground">
               {contractStatusLabel(item.status)}
               {formatDay(item.startDate) ? ` · từ ${formatDay(item.startDate)}` : ""}
-              {formatDay(item.endDateExclusive) ? ` đến trước ${formatDay(item.endDateExclusive)}` : ""}
+              {formatDay(item.endDateExclusive) && item.endDateExclusive ? ` đến hết ${lastDay(item.endDateExclusive)}` : ""}
             </p>
             <div className="flex flex-wrap gap-2">
               {primary.kind === "CONTRACT" && primary.id === item.id ? null : (

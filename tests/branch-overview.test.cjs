@@ -239,3 +239,8 @@ function findCell(node, key) {
   if (!node?.props) return undefined;
   return node.props["data-focus-key"] === key ? node : findCell(node.props.children, key);
 }
+
+test("lease last day is endDateExclusive - 1 (shared with the room panel contract line)", () => {
+  assert.equal(overview.lastDay("2026-12-10"), "09/12/2026");
+  assert.equal(overview.lastDay("2027-01-01"), "31/12/2026");
+});

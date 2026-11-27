@@ -712,3 +712,15 @@ test("Đổi mã ô reports a server refusal and a lost map without hiding it", 
     });
   }
 });
+
+test("Q12 limits block saving: 10 rows per floor, 100 slots per row, 1500 slots per layout", () => {
+  const slots = (n, at = 0) => Array.from({ length: n }, (_, i) => ({ key: `s${at}-${i}`, roomCode: `R${at}-${i}` }));
+  const row = (n, at = 0) => ({ key: `r${at}`, label: `Dãy ${at}`, slots: slots(n, at) });
+  const floor = (rows, at = 0) => ({ key: `f${at}`, label: `Tầng ${at}`, rows });
+  assert.deepEqual(layout.validateDraft([floor(Array.from({ length: 10 }, (_, i) => row(1, i)))]), []);
+  assert.deepEqual(layout.validateDraft([floor([row(100)])]), []);
+  assert.deepEqual(layout.validateDraft([floor(Array.from({ length: 11 }, (_, i) => row(1, i)), 1)]), ["Tầng 1 có quá 10 dãy. Mỗi tầng tối đa 10 dãy."]);
+  assert.deepEqual(layout.validateDraft([floor([row(101)], 1)]), ["Tầng 1, Dãy 0 có quá 100 ô. Mỗi dãy tối đa 100 ô."]);
+  const big = Array.from({ length: 16 }, (_, f) => floor([row(100, f)], f)); // 1600 slots
+  assert.deepEqual(layout.validateDraft(big), ["Sơ đồ có quá 1500 ô. Tối đa 1500 ô cho toàn sơ đồ."]);
+});

@@ -13,6 +13,10 @@ import type {
 } from "@/types/branch-layout.type";
 
 export const MAX_FLOORS = 30;
+/** Server Q12 limits (code 4073). */
+export const MAX_ROWS_PER_FLOOR = 10;
+export const MAX_SLOTS_PER_ROW = 100;
+export const MAX_SLOTS = 1500;
 export const MAX_ROOMS_PER_BATCH = 50;
 const MAX_UNDO = 50;
 
@@ -348,9 +352,13 @@ export function validateDraft(draft: LayoutDraft): string[] {
   if (!draft.some((f) => f.rows.length > 0)) errors.push("Sơ đồ cần ít nhất một dãy.");
   if (countRooms(draft) === 0) errors.push("Sơ đồ cần ít nhất một phòng.");
   const seen = new Set<string>();
+  let total = 0;
   for (const f of draft) {
     if (!f.label.trim()) errors.push("Có tầng chưa có tên.");
+    if (f.rows.length > MAX_ROWS_PER_FLOOR) errors.push(`${f.label} có quá ${MAX_ROWS_PER_FLOOR} dãy. Mỗi tầng tối đa ${MAX_ROWS_PER_FLOOR} dãy.`);
     for (const r of f.rows) {
+      total += r.slots.length;
+      if (r.slots.length > MAX_SLOTS_PER_ROW) errors.push(`${f.label}, ${r.label} có quá ${MAX_SLOTS_PER_ROW} ô. Mỗi dãy tối đa ${MAX_SLOTS_PER_ROW} ô.`);
       if (!r.label.trim()) errors.push(`${f.label} có dãy chưa có tên.`);
       for (const s of r.slots) {
         if (s.roomCode === null) continue;
@@ -361,6 +369,7 @@ export function validateDraft(draft: LayoutDraft): string[] {
       }
     }
   }
+  if (total > MAX_SLOTS) errors.push(`Sơ đồ có quá ${MAX_SLOTS} ô. Tối đa ${MAX_SLOTS} ô cho toàn sơ đồ.`);
   return errors;
 }
 

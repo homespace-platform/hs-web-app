@@ -6,6 +6,8 @@ export interface RoomListingLink {
   id: string;
   title: string;
   operationalStatus: string;
+  /** Code the listing declares (room code / unit code). Absent or null = unknown: never a warning. */
+  roomCode?: string | null;
 }
 
 export interface RoomContractLink {
@@ -55,6 +57,8 @@ export interface AssignmentCandidate {
   label: string;
   /** Room it is linked to now; null = no room (in the tray, or not linked yet). */
   roomId: string | null;
+  /** Listings only: the code the listing declares. Absent or null = unknown. */
+  roomCode?: string | null;
 }
 
 /** A room of the saved map. */

@@ -13,7 +13,7 @@ import membershipService from "@/services/membership.service";
 import storageService from "@/services/storage.service";
 import branchService, { type PropertyBranch } from "@/services/branch.service";
 import branchLayoutService from "@/services/branch-layout.service";
-import { listRooms, readRoomLinkParams, withRoomId, type RoomOption } from "@/lib/listing-room-link";
+import { listRooms, readRoomLinkParams, roomCodePrefill, withRoomId, type RoomOption } from "@/lib/listing-room-link";
 import RoomLinkBanner from "./components/RoomLinkBanner";
 import type { ListingOptionsResponse, ListingSubmissionAction, ListingDetailResponse } from "@/types/listing.type";
 import type { MembershipView } from "@/types/membership.type";
@@ -260,6 +260,18 @@ export default function ListingEditor({
     maxVehicles: "2",
     parkingPolicy: "FREE",
   });
+
+  // A listing started from a map room: the cell's code goes into the empty room code / unit number, once, editable.
+  const prefilledCodes = useRef(new Set<string>());
+  const linkedRoomCode = linkedRoomId && Array.isArray(rooms) ? rooms.find((room) => room.id === linkedRoomId)?.code : undefined;
+  useEffect(() => {
+    const patch = roomCodePrefill(basicInfo.category, linkedRoomCode, roomDetails.roomCode, apartmentDetails.unitNumber);
+    const key = `${linkedRoomId}:${patch?.target}`;
+    if (!patch || prefilledCodes.current.has(key)) return;
+    prefilledCodes.current.add(key);
+    if (patch.target === "room") setRoomDetails((prev) => ({ ...prev, roomCode: patch.value }));
+    else setApartmentDetails((prev) => ({ ...prev, unitNumber: patch.value }));
+  }, [basicInfo.category, linkedRoomCode, linkedRoomId, roomDetails.roomCode, apartmentDetails.unitNumber]);
 
   // Section 2 (dùng chung 5 loại hình): bảng kiểm kê trang thiết bị bàn giao
   const [furnishingAssets, setFurnishingAssets] = useState<FurnishingAssetRow[]>([]);

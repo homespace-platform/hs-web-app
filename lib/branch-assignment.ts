@@ -2,6 +2,7 @@
  * Pure helpers for linking listings and contracts to map rooms (Phase 2). Business rules live on the
  * server; these only read its responses and decide what the screen can offer.
  */
+import { normalizeRoomCode } from "@/lib/branch-layout";
 import { contractDetailPath } from "@/lib/contract-routes";
 import { contractStatus } from "@/lib/rental-labels";
 import type {
@@ -52,6 +53,7 @@ export const newRoomListingPath = (branchId: string, roomId: string) =>
   `/dashboard/properties/new?branchId=${encodeURIComponent(branchId)}&roomId=${encodeURIComponent(roomId)}`;
 export const listingViewPath = (listingId: string) => `/dashboard/properties/view?id=${encodeURIComponent(listingId)}`;
 export const rentalRequestPath = (requestId: string) => `/dashboard/rental-requests?requestId=${encodeURIComponent(requestId)}`;
+export const listingEditPath = (listingId: string) => `/dashboard/properties/${encodeURIComponent(listingId)}/edit`;
 export const itemPath = (kind: AssignmentKind, id: string) =>
   kind === "CONTRACT" ? contractDetailPath("landlord", id) : listingViewPath(id);
 
@@ -91,6 +93,32 @@ export function parseCandidates(value: unknown): PageOf<AssignmentCandidate> {
 export const pageCount = (page: { size: number; totalElements: number }) =>
   Math.max(1, Math.ceil(page.totalElements / Math.max(1, page.size)));
 
+/* ---------- room codes: the map is the reference ---------- */
+
+/** The code on a listing when it is a real, non-blank one; the server sends none for a whole house. */
+const declaredCode = (code: string | null | undefined) => (typeof code === "string" && code.trim() ? code.trim() : null);
+
+/** True only when the listing declares a code and it differs from the cell's (trimmed, case-insensitive). Unknown = false. */
+export function codeMismatch(listingCode: string | null | undefined, cellCode: string): boolean {
+  const declared = declaredCode(listingCode);
+  return declared !== null && normalizeRoomCode(declared) !== normalizeRoomCode(cellCode);
+}
+
+export const codeMatches = (listingCode: string | null | undefined, cellCode: string): boolean => {
+  const declared = declaredCode(listingCode);
+  return declared !== null && normalizeRoomCode(declared) === normalizeRoomCode(cellCode);
+};
+
+/** Listings of the room whose declared code differs from the cell's code. */
+export const mismatchedListings = (room: RoomAssignment | undefined, cellCode: string) =>
+  (room?.listings ?? []).filter((listing) => codeMismatch(listing.roomCode, cellCode));
+
+/** Listings with the cell's code first; the server's order is kept inside each group. Sorts one page only. */
+export function sortCandidates(items: AssignmentCandidate[], cellCode: string | undefined): AssignmentCandidate[] {
+  if (!cellCode) return items;
+  return [...items.filter((i) => codeMatches(i.roomCode, cellCode)), ...items.filter((i) => !codeMatches(i.roomCode, cellCode))];
+}
+
 /* ---------- rooms ---------- */
 
 export const emptyRoom = (roomId: string): RoomAssignment =>
@@ -106,6 +134,17 @@ const ENDED = new Set(["CLOSED", "TERMINATED", "CANCELLED"]);
 const contractRank = (c: RoomContractLink) => (c.status === "ACTIVE" ? 0 : ENDED.has(c.status) ? 2 : 1);
 /** Running contract first, ended ones last, so a cell never leads with history. */
 export const sortContracts = (contracts: RoomContractLink[]) => [...contracts].sort((a, b) => contractRank(a) - contractRank(b));
+
+/** The one main step for a room: its running contract, else a hold, else a listing, else history, else attach a listing. */
+export type RoomPrimary = { kind: "CONTRACT" | "LISTING" | "HOLD"; id: string } | { kind: "ATTACH" };
+export function roomPrimary(room: RoomAssignment): RoomPrimary {
+  const [first] = sortContracts(room.contracts);
+  const live = first && !ENDED.has(first.status) ? first : undefined;
+  if (live) return { kind: "CONTRACT", id: live.id };
+  if (room.holds[0]) return { kind: "HOLD", id: room.holds[0].rentalRequestId };
+  if (room.listings[0]) return { kind: "LISTING", id: room.listings[0].id };
+  return first ? { kind: "CONTRACT", id: first.id } : { kind: "ATTACH" };
+}
 
 /** Short text shown inside a map cell. */
 export function roomLines(room: RoomAssignment): string[] {

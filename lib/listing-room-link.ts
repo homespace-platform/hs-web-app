@@ -4,6 +4,8 @@ import type { CreateListingRequest } from "@/types/listing.type";
 export interface RoomOption {
   id: string;
   label: string;
+  /** Code of the cell on the map. */
+  code: string;
 }
 
 /** The room a new listing was started from. Only a plain create can carry it, never edit or duplicate. */
@@ -22,7 +24,7 @@ export function listRooms(layout: BranchLayout): RoomOption[] {
   return layout.floors.flatMap((floor) =>
     floor.rows.flatMap((row) =>
       row.slots.flatMap((slot) =>
-        slot.roomCode ? [{ id: slot.id, label: `${slot.roomCode} · ${floor.label} · ${row.label}` }] : [],
+        slot.roomCode ? [{ id: slot.id, code: slot.roomCode, label: `${slot.roomCode} · ${floor.label} · ${row.label}` }] : [],
       ),
     ),
   );
@@ -31,4 +33,21 @@ export function listRooms(layout: BranchLayout): RoomOption[] {
 /** Without a room, or for an existing or copied listing, the request is returned untouched. */
 export function withRoomId(request: CreateListingRequest, roomId: string | null): CreateListingRequest {
   return roomId && !request.id && !request.duplicateSourceListingId ? { ...request, roomId } : request;
+}
+
+/**
+ * The map's code for a listing started from a room: room code (ROOM) or unit number (APARTMENT), only into an
+ * empty field. Never the title. null = nothing to fill.
+ */
+export function roomCodePrefill(
+  category: string,
+  code: string | null | undefined,
+  roomCode: string | undefined,
+  unitNumber: string | undefined,
+): { target: "room" | "apartment"; value: string } | null {
+  const value = code?.trim();
+  if (!value) return null;
+  if (category === "room" && !roomCode?.trim()) return { target: "room", value };
+  if (category === "apartment" && !unitNumber?.trim()) return { target: "apartment", value };
+  return null;
 }

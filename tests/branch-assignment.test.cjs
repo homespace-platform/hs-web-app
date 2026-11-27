@@ -7,7 +7,7 @@ const ts = require("typescript");
 const { loadTs } = require("./helpers/ts-loader.cjs");
 
 const assignment = loadTs("lib/branch-assignment.ts");
-const { readRoomLinkParams, listRooms, withRoomId } = loadTs("lib/listing-room-link.ts");
+const { readRoomLinkParams, listRooms, withRoomId, roomCodePrefill } = loadTs("lib/listing-room-link.ts");
 const { buildCreateListingPayload } = loadTs("app/dashboard/properties/new/utils/buildListingPayload.ts");
 
 const layout = [{ label: "Tầng 1", rows: [{ label: "Dãy A", slots: [
@@ -185,4 +185,49 @@ test("assignment client adds to the tray without clearing a saved room", async (
     ["PUT", base + "/contracts/c", { roomId: null }], ["DELETE", base + "/contracts/c"],
     ["PUT", base + "/rooms/r/manual-status", { status: "REPAIR" }],
   ]);
+});
+
+test("a listing code only warns when it is declared and differs from the cell, ignoring case and spaces", () => {
+  assert.equal(assignment.codeMismatch("102", "101"), true);
+  assert.equal(assignment.codeMismatch(" p101 ", "P101"), false);
+  for (const unknown of [undefined, null, "", "  "]) assert.equal(assignment.codeMismatch(unknown, "101"), false);
+  const room = { ...assignment.emptyRoom("r1"), listings: [{ id: "a", roomCode: "101" }, { id: "b", roomCode: "102" }, { id: "c" }, { id: "d", roomCode: null }] };
+  assert.deepEqual(assignment.mismatchedListings(room, "101").map(l => l.id), ["b"]);
+  assert.deepEqual(assignment.mismatchedListings(undefined, "101"), []);
+});
+
+test("candidates with the cell's code come first, the server order is kept otherwise", () => {
+  const items = [{ id: "1", roomCode: "102" }, { id: "2" }, { id: "3", roomCode: "101" }, { id: "4", roomCode: "101 " }, { id: "5", roomCode: null }];
+  assert.deepEqual(assignment.sortCandidates(items, "101").map(i => i.id), ["3", "4", "1", "2", "5"]);
+  assert.strictEqual(assignment.sortCandidates(items, undefined), items);
+  assert.deepEqual(items.map(i => i.id), ["1", "2", "3", "4", "5"]);
+});
+
+test("room codes from the server survive parsing and the edit link points at the listing editor", () => {
+  const room = { roomId: "r1", listings: [{ id: "l1", title: "T", operationalStatus: "PUBLISHED", roomCode: "102" }] };
+  assert.equal(assignment.parseAssignments({ rooms: [room], unplaced: page }).rooms[0].listings[0].roomCode, "102");
+  assert.equal(assignment.parseCandidates({ ...page, items: [{ id: "c", label: "x", roomCode: "103" }] }).items[0].roomCode, "103");
+  assert.equal(assignment.listingEditPath("l/1"), "/dashboard/properties/l%2F1/edit");
+});
+
+test("a listing started from a room gets the map code in its empty code field, never in the title", () => {
+  assert.deepEqual(roomCodePrefill("room", " 101 ", "", ""), { target: "room", value: "101" });
+  assert.deepEqual(roomCodePrefill("apartment", "A-12", "", ""), { target: "apartment", value: "A-12" });
+  assert.equal(roomCodePrefill("room", "101", "P5", ""), null, "an entered code is kept");
+  assert.equal(roomCodePrefill("apartment", "101", "", " X "), null);
+  assert.equal(roomCodePrefill("house", "101", "", ""), null);
+  assert.equal(roomCodePrefill("room", undefined, "", ""), null);
+  assert.equal(listRooms({ floors: layout }).find(room => room.id === "r1").code, "101");
+});
+
+test("the room's one main step follows what is on it: running contract, hold, listing, history, then attach", () => {
+  const room = (extra) => ({ ...assignment.emptyRoom("r1"), ...extra });
+  const closed = { id: "c0", status: "CLOSED" }, active = { id: "c1", status: "ACTIVE" }, upcoming = { id: "c2", status: "SIGNED" };
+  const hold = { rentalRequestId: "h1" }, listing = { id: "l1" };
+  assert.deepEqual(assignment.roomPrimary(room({ contracts: [closed, active], holds: [hold], listings: [listing] })), { kind: "CONTRACT", id: "c1" });
+  assert.deepEqual(assignment.roomPrimary(room({ contracts: [closed, upcoming], listings: [listing] })), { kind: "CONTRACT", id: "c2" });
+  assert.deepEqual(assignment.roomPrimary(room({ contracts: [closed], holds: [hold] })), { kind: "HOLD", id: "h1" });
+  assert.deepEqual(assignment.roomPrimary(room({ contracts: [closed], listings: [listing] })), { kind: "LISTING", id: "l1" });
+  assert.deepEqual(assignment.roomPrimary(room({ contracts: [closed] })), { kind: "CONTRACT", id: "c0" });
+  assert.deepEqual(assignment.roomPrimary(room({ manualStatus: "REPAIR" })), { kind: "ATTACH" });
 });

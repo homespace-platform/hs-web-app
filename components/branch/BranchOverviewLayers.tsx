@@ -5,7 +5,7 @@ import Link from "next/link";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   AlarmClock, AlertTriangle, BadgeCheck, Ban, Bookmark, CalendarClock, ChevronLeft, ChevronRight, CircleDashed,
-  DoorOpen, ExternalLink, FileText, Hourglass, KeyRound, LogIn, Megaphone, Minus, RefreshCw, Wrench, X,
+  DoorOpen, ExternalLink, FileText, Hourglass, KeyRound, LogIn, Megaphone, Minus, RefreshCw, Unlink, Wrench, X,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -16,6 +16,7 @@ import {
   layerReady,
   monthLabel,
   paymentKindLabel,
+  roomLayerLabel,
   roomLayerStatus,
   roomMatches,
   shiftMonth,
@@ -42,12 +43,14 @@ const blue = "border-blue-600 bg-blue-50 text-blue-950 dark:border-blue-400 dark
 const orange = "border-orange-600 bg-orange-50 text-orange-950 dark:border-orange-400 dark:bg-orange-950 dark:text-orange-50";
 const red = "border-red-600 bg-red-50 text-red-950 dark:border-red-400 dark:bg-red-950 dark:text-red-50";
 const gray = "border-dashed border-slate-500 bg-slate-100 text-slate-900 dark:border-slate-400 dark:bg-slate-800 dark:text-slate-50";
+const muted = "border-border bg-muted text-muted-foreground";
 const teal = "border-teal-600 bg-teal-50 text-teal-950 dark:border-teal-400 dark:bg-teal-950 dark:text-teal-50";
 const amber = "border-amber-600 bg-amber-50 text-amber-950 dark:border-amber-400 dark:bg-amber-950 dark:text-amber-50";
 
 const LOOKS: Record<OverviewLayer, Record<string, Look>> = {
   rooms: {
     VACANT: { icon: DoorOpen, tone: NEUTRAL.tone },
+    UNLINKED: { icon: Unlink, tone: muted },
     ADVERTISED: { icon: Megaphone, tone: teal },
     RESERVED: { icon: Bookmark, tone: amber },
     OCCUPIED: { icon: KeyRound, tone: green },
@@ -144,7 +147,7 @@ function stayEntries(room: OverviewRoom): Entry[] {
   const entries: Entry[] = [];
   const href = room.target?.kind === "ROOM" ? null : targetHref(room.target);
   if (href) {
-    entries.push({ key: "current", href, status: room.status, layer: "rooms", title: statusLabel("rooms", room.status), lines: [room.tenantName] });
+    entries.push({ key: "current", href, status: room.status, layer: "rooms", title: roomLayerLabel(room, "rooms"), lines: [room.tenantName] });
   }
   const next = room.nextStay;
   if (next && targetHref(next.target)) {
@@ -253,7 +256,7 @@ export default function BranchOverviewLayers({ floors, openRoom, overview, month
     const shown = ready ? room : undefined;
     const status = shown ? roomLayerStatus(shown, layer) : "";
     const { icon: Icon, tone } = shown ? look(layer, status) : NEUTRAL;
-    const label = !overview ? "Đang tải…" : shown ? statusLabel(layer, status) : "Chưa có dữ liệu";
+    const label = !overview ? "Đang tải…" : shown ? roomLayerLabel(shown, layer) : "Chưa có dữ liệu";
 
     const lines: string[] = [];
     let entries: Entry[] = [];

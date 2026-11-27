@@ -2,10 +2,11 @@
  * Read-only branch overview and attention list (design 07, sections 1, 3, 4 and 6). The server decides every state, payment
  * order and deadline; these helpers only check the response shape and word it for the screen.
  */
+import { LISTING_STATUS_CONFIG } from "@/config/listing-status.config";
 import axiosClient from "@/lib/axios-client";
 import type { ApiResponse } from "@/types/api.type";
 
-export type RoomStatus = "VACANT" | "ADVERTISED" | "RESERVED" | "OCCUPIED" | "MOVING_IN" | "EXTERNAL_RENT" | "REPAIR";
+export type RoomStatus = "VACANT" | "UNLINKED" | "ADVERTISED" | "RESERVED" | "OCCUPIED" | "MOVING_IN" | "EXTERNAL_RENT" | "REPAIR";
 export type PaymentStatus = "OVERDUE" | "PENDING_CONFIRMATION" | "DUE_SOON" | "NOT_DUE" | "UNISSUED" | "PAID" | "NONE";
 
 export interface OverviewTarget {
@@ -54,6 +55,8 @@ export interface OverviewRoom {
   status: RoomStatus;
   tenantName: string | null;
   target: OverviewTarget | null;
+  /** VACANT only: operational status of the linked listing. null or absent (older server) = unknown. */
+  listingStatus?: string | null;
   nextStay: OverviewStay | null;
   payments: { status: PaymentStatus; count: number; items: OverviewPayment[] };
   /** Absent while the server does not have P5 yet; read only after `layerReady`. */
@@ -85,6 +88,7 @@ export const isOverviewLayer = (value: string | null): value is OverviewLayer =>
 
 export const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
   VACANT: "Trống",
+  UNLINKED: "Chưa gắn tin",
   ADVERTISED: "Đang đăng tin",
   RESERVED: "Giữ chỗ",
   OCCUPIED: "Đang thuê",
@@ -136,6 +140,13 @@ const PAYMENT_KIND_LABEL: Record<OverviewPayment["kind"], string> = {
 export const paymentKindLabel = (kind: string) => PAYMENT_KIND_LABEL[kind as OverviewPayment["kind"]] ?? "Khoản thu";
 export const statusLabel = (layer: OverviewLayer, status: string) =>
   LAYER_STATUS_LABEL[layer][status] ?? "Đang cập nhật";
+/** A vacant room shows its listing's state, "Trống · Chờ duyệt"; the listing status may be one this client does not know. */
+export function roomLayerLabel(room: OverviewRoom, layer: OverviewLayer): string {
+  const label = statusLabel(layer, roomLayerStatus(room, layer));
+  if (layer !== "rooms" || room.status !== "VACANT" || typeof room.listingStatus !== "string") return label;
+  const known = Object.hasOwn(LISTING_STATUS_CONFIG, room.listingStatus);
+  return `${label} · ${known ? LISTING_STATUS_CONFIG[room.listingStatus as keyof typeof LISTING_STATUS_CONFIG].label : "Đang cập nhật"}`;
+}
 /** The server sorts each list, so its first item is the cell's status. */
 export const roomLayerStatus = (room: OverviewRoom, layer: OverviewLayer): string =>
   layer === "rooms" ? room.status : layer === "payments" ? room.payments.status : room[layer]?.[0]?.status ?? "NONE";
@@ -220,7 +231,7 @@ const isPayments = (list: unknown): list is Raw[] => Array.isArray(list) && list
 const isLayer = (layer: unknown) => isObject(layer) && isPayments(layer.items)
   && layer.count === layer.items.length && layer.status === (layer.items[0]?.status ?? "NONE");
 const isRoom = (r: unknown) => isObject(r) && isText(r.roomId) && isKey(ROOM_STATUS_LABEL, r.status)
-  && orNull(r.tenantName, isString) && orNull(r.target, isTarget) && orNull(r.nextStay, isStay) && isLayer(r.payments);
+  && orNull(r.tenantName, isString) && orNull(r.target, isTarget) && (r.listingStatus === undefined || orNull(r.listingStatus, isString)) && orNull(r.nextStay, isStay) && isLayer(r.payments);
 
 const isMeter = (m: unknown) => isObject(m) && isText(m.contractId) && isCount(m.periodIndex)
   && m.status !== "NONE" && isKey(METER_STATUS_LABEL, m.status) && isText(m.meterDate) && isInstant(m.deadlineAt)

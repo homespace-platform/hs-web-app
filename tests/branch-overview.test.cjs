@@ -5,6 +5,7 @@ const { loadTs } = require("./helpers/ts-loader.cjs");
 
 const calls = [];
 const overview = loadTs("services/branch-overview.service.ts", {
+  "@/config/listing-status.config": loadTs("config/listing-status.config.ts"),
   "@/lib/axios-client": { get: async (...args) => {
     calls.push(args);
     return { data: { code: 1000, result: fixture } };
@@ -12,7 +13,7 @@ const overview = loadTs("services/branch-overview.service.ts", {
 });
 const { safeInvoiceSelectionId } = loadTs("lib/payment-module.ts");
 const { targetHref, isMonth, shiftMonth, monthLabel, formatInstant, confirmationCountdown,
-  roomMatches, roomLayerStatus, statusLabel, paymentKindLabel, parseOverview } = overview;
+  roomMatches, roomLayerStatus, roomLayerLabel, statusLabel, paymentKindLabel, parseOverview } = overview;
 
 const contract = { kind: "CONTRACT", id: "c", href: "/dashboard/landlord/contracts/c?tab=overview" };
 const firstRent = { kind: "INVOICE", id: "first-rent:p", href: "/dashboard/landlord/contracts/c?tab=payment&section=monthly&invoice=first-rent%3Ap" };
@@ -37,6 +38,30 @@ test("Core JSON preserves nullable keys, ordered items and the server's main sta
   assert.equal(paymentKindLabel("PROJECTED"), "Kỳ dự kiến");
   assert.throws(() => parseOverview({ ...fixture, rooms: [{ ...room, payments: { ...room.payments, items: null } }] }));
   assert.throws(() => parseOverview({ ...fixture, unplacedPayments: [null] }));
+});
+
+const listing = { kind: "LISTING", id: "l1", href: "/dashboard/properties/view?id=l1" };
+const roomWith = (patch) => ({ roomId: "r3", status: "VACANT", tenantName: null, target: listing, nextStay: null,
+  payments: { status: "NONE", count: 0, items: [] }, ...patch });
+
+test("UNLINKED and VACANT with a nullable listingStatus parse; unknown room status is still rejected", () => {
+  const rooms = [roomWith({ status: "UNLINKED", target: null }), roomWith({ listingStatus: "PENDING_REVIEW" }),
+    roomWith({ listingStatus: null }), roomWith({})];
+  assert.deepEqual(parseOverview({ ...fixture, rooms }).rooms, rooms);
+  assert.throws(() => parseOverview({ ...fixture, rooms: [roomWith({ status: "NOPE" })] }));
+  assert.throws(() => parseOverview({ ...fixture, rooms: [roomWith({ listingStatus: 5 })] }));
+});
+
+test("room cell wording: Chưa gắn tin, and Trống with the listing's Vietnamese status", () => {
+  assert.equal(statusLabel("rooms", "UNLINKED"), "Chưa gắn tin");
+  assert.deepEqual(Object.keys(overview.ROOM_STATUS_LABEL).slice(0, 2), ["VACANT", "UNLINKED"]);
+  assert.equal(roomLayerLabel(roomWith({ listingStatus: "PENDING_REVIEW" }), "rooms"), "Trống · Chờ duyệt");
+  assert.equal(roomLayerLabel(roomWith({ listingStatus: "HIDDEN" }), "rooms"), "Trống · Đã ẩn");
+  assert.equal(roomLayerLabel(roomWith({ listingStatus: "FUTURE" }), "rooms"), "Trống · Đang cập nhật");
+  assert.equal(roomLayerLabel(roomWith({ listingStatus: null }), "rooms"), "Trống");
+  assert.equal(roomLayerLabel(roomWith({}), "rooms"), "Trống");
+  assert.equal(roomLayerLabel(roomWith({ listingStatus: "HIDDEN" }), "payments"), "Không có khoản");
+  assert.equal(roomLayerLabel(roomWith({ status: "UNLINKED", listingStatus: "HIDDEN" }), "rooms"), "Chưa gắn tin");
 });
 
 test("a payment layer missing its status fails parsing instead of rendering a neutral cell", () => {

@@ -10,6 +10,7 @@ import {
   formatDay,
   itemPath,
   listingEditPath,
+  listingLinkOutcome,
   listingStatusLabel,
   newRoomListingPath,
   rentalRequestPath,
@@ -124,7 +125,7 @@ export default function RoomPanel({ branchId, room, code, rooms, lock, status, f
         ) : primary.kind === "LISTING" ? (
           <OpenLink primary href={itemPath("LISTING", primary.id)} label={`Mở tin ${room.listings.find((l) => l.id === primary.id)?.title ?? ""}`}>Mở tin</OpenLink>
         ) : (
-          <button type="button" disabled={disabled} onClick={() => open("LISTING")} className={`${primaryButton} w-full`}>Gắn tin có sẵn</button>
+          <button type="button" disabled={disabled} onClick={() => open("LISTING")} className={`${primaryButton} w-full`}>Gắn tin</button>
         )}
       </div>
 
@@ -192,24 +193,26 @@ export default function RoomPanel({ branchId, room, code, rooms, lock, status, f
               const ok = await run(
                 () => (picking === "CONTRACT"
                   ? branchAssignmentService.putContract(branchId, candidate.id, roomId)
-                  : branchAssignmentService.linkListing(branchId, roomId, candidate.id)),
-                picking === "CONTRACT"
-                  ? `Đã gắn hợp đồng vào phòng ${code}.`
-                  : `Đã gắn tin vào phòng ${code}.${differs ? ` Mã trên tin (${candidate.roomCode!.trim()}) khác mã ô.` : ""}`,
+                  : branchAssignmentService.linkListing(branchId, roomId, candidate.id)
+                    .then((result) => listingLinkOutcome(result, code, differs ? candidate.roomCode!.trim() : null))),
+                `Đã gắn hợp đồng vào phòng ${code}.`,
               );
               if (ok) setPicking(null);
               return ok;
             }}
           />
         ) : (
-          <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={disabled} onClick={() => open("LISTING")} className={outlineButton}>Gắn tin có sẵn</button>
-            <button type="button" disabled={disabled} onClick={() => open("CONTRACT")} className={outlineButton}>Gắn hợp đồng có sẵn</button>
-            {disabled ? (
-              <button type="button" disabled className={outlineButton}>Đăng tin cho phòng này</button>
-            ) : (
-              <Link href={newRoomListingPath(branchId, roomId)} className={outlineButton}>Đăng tin cho phòng này</Link>
-            )}
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={disabled} onClick={() => open("LISTING")} className={outlineButton}>Gắn tin</button>
+              {disabled ? (
+                <button type="button" disabled className={outlineButton}>Đăng tin cho phòng này</button>
+              ) : (
+                <Link href={newRoomListingPath(branchId, roomId)} className={outlineButton}>Đăng tin cho phòng này</Link>
+              )}
+            </div>
+            <button type="button" disabled={disabled} onClick={() => open("CONTRACT")} className="min-h-11 rounded text-xs text-muted-foreground underline underline-offset-2 disabled:opacity-50">Gắn hợp đồng có sẵn</button>
+            <p className="text-xs text-muted-foreground">Chỉ dùng cho hợp đồng không gắn với tin nào trong chi nhánh này.</p>
           </div>
         )}
       </Section>

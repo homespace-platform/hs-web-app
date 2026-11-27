@@ -220,3 +220,22 @@ export function candidateState(
   if (inTray && roomId === null) return { disabled: true, note: "Đã có trong khay.", action: idle };
   return { disabled: false, note: inTray ? "Đang ở khay Chưa xếp phòng." : "", action: idle };
 }
+
+/** What attaching a listing did to the lease; an older server sends neither field. */
+export interface ListingLinkResult { contractId: string | null; contractNote: string | null }
+
+export function parseListingLink(body: unknown): ListingLinkResult {
+  const b = (typeof body === "object" && body !== null ? body : {}) as Record<string, unknown>;
+  const text = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+  return { contractId: text(b.contractId), contractNote: text(b.contractNote) };
+}
+
+/** `codeWarning` = the listing's declared code when it differs from the cell, else null. */
+export function listingLinkOutcome(result: ListingLinkResult, code: string, codeWarning: string | null) {
+  return {
+    success: result.contractId
+      ? `Đã gắn tin và hợp đồng đang hiệu lực vào phòng ${code}.`
+      : `Đã gắn tin vào phòng ${code}.${codeWarning ? ` Mã trên tin (${codeWarning}) khác mã ô.` : ""}`,
+    note: result.contractNote,
+  };
+}

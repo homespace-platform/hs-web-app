@@ -19,6 +19,7 @@ import {
   paymentKindLabel,
   roomLayerLabel,
   roomLayerStatus,
+  roomLegendKey,
   roomMatches,
   shiftMonth,
   sortExpiries,
@@ -79,6 +80,7 @@ const LOOKS: Record<OverviewLayer, Record<string, Look>> = {
     WITHIN_30: { icon: AlarmClock, tone: red },
     WITHIN_60: { icon: CalendarClock, tone: orange },
     LONG: NEUTRAL,
+    HAS_LEASE: { icon: FileText, tone: NEUTRAL.tone },
     NO_LEASE: NEUTRAL,
   },
 };
@@ -238,13 +240,13 @@ export default function BranchOverviewLayers({ floors, openRoom, mismatch, overv
   const matches = (slot: DraftSlot) => {
     const room = byId.get(slot.id ?? "");
     return (!query.trim() || roomMatches(slot.roomCode ?? "", room, query))
-      && (!highlight || (!!room && roomLayerStatus(room, layer) === highlight));
+      && (!highlight || (!!room && roomLegendKey(room, layer) === highlight));
   };
   const matchCount = filtering ? allSlots.filter(matches).length : 0;
   const counts = new Map<string, number>();
   for (const slot of allSlots) {
     const room = byId.get(slot.id ?? "");
-    if (room && ready) counts.set(roomLayerStatus(room, layer), (counts.get(roomLayerStatus(room, layer)) ?? 0) + 1);
+    if (room && ready) counts.set(roomLegendKey(room, layer), (counts.get(roomLegendKey(room, layer)) ?? 0) + 1);
   }
   const labels = LAYER_STATUS_LABEL[layer];
   const shownMonth = month || overview?.month || "";

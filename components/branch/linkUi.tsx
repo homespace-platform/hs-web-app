@@ -28,16 +28,18 @@ export function useLinkAction(reload: () => Promise<void>) {
     return () => { mounted.current = false; };
   }, []);
 
-  const run = async (action: () => Promise<void>, success: string) => {
+  /** An action may return its own success text and a non-blocking note (shown after it). */
+  const run = async (action: () => Promise<void | { success?: string; note?: string | null }>, success: string) => {
     if (running.current) return false;
     running.current = true;
     setBusy(true);
     setError("");
     let ok = false;
     try {
-      await action();
+      const outcome = await action();
       ok = true;
-      toast.success(success);
+      toast.success(outcome?.success ?? success);
+      if (outcome?.note) toast.info(outcome.note);
     } catch (failure) {
       const reason = linkError(failure, "Chưa thực hiện được.");
       if (mounted.current) setError(reason);

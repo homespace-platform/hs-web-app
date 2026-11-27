@@ -170,7 +170,7 @@ test("assignment client adds to the tray without clearing a saved room", async (
   const { default: api } = loadTs("services/branch-assignment.service.ts", { "@/lib/axios-client": client });
   await api.getAssignments("b");
   await api.getCandidates("b", "CONTRACT", 2, 50);
-  await api.linkListing("b", "r", "l");
+  assert.deepEqual(await api.linkListing("b", "r", "l"), { contractId: null, contractNote: null });
   await api.unlinkListing("b", "r", "l");
   await api.addContractToTray("b", "c");
   await api.putContract("b", "c", null);
@@ -230,4 +230,20 @@ test("the room's one main step follows what is on it: running contract, hold, li
   assert.deepEqual(assignment.roomPrimary(room({ contracts: [closed], listings: [listing] })), { kind: "LISTING", id: "l1" });
   assert.deepEqual(assignment.roomPrimary(room({ contracts: [closed] })), { kind: "CONTRACT", id: "c0" });
   assert.deepEqual(assignment.roomPrimary(room({ manualStatus: "REPAIR" })), { kind: "ATTACH" });
+});
+
+test("listing attach result: contractId and contractNote are optional, an older server sends neither", () => {
+  const link = assignment.parseListingLink;
+  assert.deepEqual(link({ listingId: "l", roomId: "r" }), { contractId: null, contractNote: null });
+  assert.deepEqual(link({ contractId: "c1", contractNote: null }), { contractId: "c1", contractNote: null });
+  assert.deepEqual(link({ contractId: 5, contractNote: "  " }), { contractId: null, contractNote: null });
+  assert.deepEqual(link({ contractNote: "HĐ đang ở phòng khác." }), { contractId: null, contractNote: "HĐ đang ở phòng khác." });
+});
+
+test("attach messages: the lease message replaces the plain one, the note follows, the code warning stays", () => {
+  const none = { contractId: null, contractNote: null };
+  assert.deepEqual(assignment.listingLinkOutcome(none, "101", null), { success: "Đã gắn tin vào phòng 101.", note: null });
+  assert.equal(assignment.listingLinkOutcome(none, "101", "102").success, "Đã gắn tin vào phòng 101. Mã trên tin (102) khác mã ô.");
+  assert.equal(assignment.listingLinkOutcome({ contractId: "c", contractNote: null }, "101", null).success, "Đã gắn tin và hợp đồng đang hiệu lực vào phòng 101.");
+  assert.deepEqual(assignment.listingLinkOutcome({ contractId: null, contractNote: "Trùng lịch." }, "101", null), { success: "Đã gắn tin vào phòng 101.", note: "Trùng lịch." });
 });

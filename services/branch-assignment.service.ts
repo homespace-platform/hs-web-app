@@ -1,5 +1,5 @@
 import axiosClient from "@/lib/axios-client";
-import { PAGE_SIZE, parseAssignments, parseCandidates } from "@/lib/branch-assignment";
+import { PAGE_SIZE, parseAssignments, parseCandidates, parseListingLink, type ListingLinkResult } from "@/lib/branch-assignment";
 import type { ApiResponse } from "@/types/api.type";
 import type { AssignmentKind, RoomManualStatus } from "@/types/branch-assignment.type";
 
@@ -18,8 +18,9 @@ const branchAssignmentService = {
     return parseCandidates(response.data?.result);
   },
 
-  async linkListing(branchId: string, roomId: string, listingId: string): Promise<void> {
-    await axiosClient.put(listingLink(branchId, roomId, listingId));
+  async linkListing(branchId: string, roomId: string, listingId: string): Promise<ListingLinkResult> {
+    const response = await axiosClient.put<ApiResponse<unknown>>(listingLink(branchId, roomId, listingId));
+    return parseListingLink(response?.data?.result);
   },
 
   async unlinkListing(branchId: string, roomId: string, listingId: string): Promise<void> {

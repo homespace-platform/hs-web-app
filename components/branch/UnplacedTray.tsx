@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { ExternalLink, Plus, RefreshCw } from "lucide-react";
-import { itemPath, pageCount } from "@/lib/branch-assignment";
+import { itemPath, listingLinkOutcome, pageCount } from "@/lib/branch-assignment";
 import branchAssignmentService from "@/services/branch-assignment.service";
 import type { BranchAssignments, RoomOption, UnplacedItem } from "@/types/branch-assignment.type";
 import CandidatePicker from "./CandidatePicker";
@@ -45,7 +45,7 @@ export default function UnplacedTray({ branchId, unplaced, loading, loadError, o
   const roomChoices = rooms.map((r) => ({ value: r.id, label: r.label }));
   const keyOf = (item: UnplacedItem) => `${item.kind}-${item.id}`;
   /** The row that was acted on disappears, so focus goes back to the tray heading. */
-  const act = (action: () => Promise<void>, success: string) =>
+  const act = (action: () => Promise<void | { success?: string; note?: string | null }>, success: string) =>
     void run(action, success).then((ok) => { if (ok) { setPlacing(null); headingRef.current?.focus(); } });
 
   return (
@@ -133,7 +133,8 @@ export default function UnplacedTray({ branchId, unplaced, loading, loadError, o
                         onSubmit={(roomId) => act(
                           () => (item.kind === "CONTRACT"
                             ? branchAssignmentService.putContract(branchId, item.id, roomId)
-                            : branchAssignmentService.linkListing(branchId, roomId, item.id)),
+                            : branchAssignmentService.linkListing(branchId, roomId, item.id)
+                              .then((result) => listingLinkOutcome(result, rooms.find((r) => r.id === roomId)?.code ?? "", null))),
                           "Đã xếp phòng.",
                         )}
                       />

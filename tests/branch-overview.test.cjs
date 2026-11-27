@@ -75,7 +75,15 @@ test("contracts layer: no expiry listed means over 60 days when occupied, otherw
   }
   assert.equal(roomLayerLabel(roomWith({ contracts: [] }), "contracts"), "Không có hợp đồng");
   assert.equal(roomLayerStatus(roomWith({ status: "OCCUPIED", contracts: [expiry] }), "contracts"), "WITHIN_30");
-  assert.deepEqual(Object.values(overview.LAYER_STATUS_LABEL.contracts), ["≤ 30 ngày", "31–60 ngày", "Trên 60 ngày", "Không có hợp đồng"]);
+  // The legend has two groups; the urgency labels stay for the entries and the cell colour.
+  assert.deepEqual(overview.LAYER_STATUS_LABEL.contracts, { HAS_LEASE: "Có hợp đồng", NO_LEASE: "Không có hợp đồng" });
+  const key = (r) => overview.roomLegendKey(r, "contracts");
+  assert.equal(key(occupied), "HAS_LEASE");
+  assert.equal(key(roomWith({ status: "OCCUPIED", contracts: [expiry] })), "HAS_LEASE");
+  assert.equal(key(roomWith({ contracts: [{ ...expiry, status: "LONG", daysRemaining: 90 }] })), "HAS_LEASE");
+  assert.equal(key(roomWith({ contracts: [] })), "NO_LEASE");
+  assert.equal(overview.roomLegendKey(occupied, "rooms"), "OCCUPIED");
+  assert.equal(roomLayerLabel(roomWith({ status: "OCCUPIED", contracts: [expiry] }), "contracts"), "Còn 13 ngày · hết 09/12/2026");
   // The server now sends LONG; an unknown status is still a bad shape.
   const ready = (item) => overview.layerReady({ rooms: [roomWith({ contracts: [item] })] }, "contracts");
   assert.equal(ready({ ...expiry, status: "LONG", daysRemaining: 90 }), true);

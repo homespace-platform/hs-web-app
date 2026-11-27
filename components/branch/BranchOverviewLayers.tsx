@@ -289,7 +289,7 @@ export default function BranchOverviewLayers({ floors, openRoom, mismatch, overv
     const matched = filtering && matches(slot);
     const className = `flex min-h-24 w-full scroll-mb-28 flex-col items-center justify-center gap-0.5 rounded-lg border-2 px-1.5 py-1.5 text-center [overflow-wrap:anywhere] ${
       filtering && !matched ? "border-dashed border-border bg-card text-muted-foreground" : tone
-    } ${matched ? "outline-4 outline-offset-1 outline-foreground" : ""}`;
+    } ${matched ? "outline-2 outline-offset-2 outline-primary" : ""}`;
     const content = (
       <>
         <span className="text-base font-bold">{code}</span>
@@ -376,7 +376,7 @@ export default function BranchOverviewLayers({ floors, openRoom, mismatch, overv
                 <button
                   key={status} type="button" aria-pressed={pressed}
                   onClick={() => setPicked(pressed ? null : { layer, status })}
-                  className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl border-2 px-2.5 text-xs font-semibold ${tone} ${pressed ? "outline-4 outline-offset-1 outline-foreground" : ""} ${ring}`}
+                  className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl border-2 px-2.5 text-xs font-semibold ${tone} ${pressed ? "outline-2 outline-offset-2 outline-primary" : ""} ${ring}`}
                 >
                   <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {labels[status]}: {count}
                 </button>

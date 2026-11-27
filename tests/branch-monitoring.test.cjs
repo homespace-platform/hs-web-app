@@ -60,7 +60,7 @@ test("contract cell uses 30/60, server days and the exclusive end route", () => 
   assert.equal(sixty.props.href, expiry.target.href);
   assert.match(sixty.props["aria-label"], /60 ngày.*Còn 35 ngày.*00:00 ngày 05\/01\/2027/);
   const renewed = { ...room, contracts: [] };
-  assert.equal(roomLayerStatus(renewed, "contracts"), "NONE");
+  assert.equal(roomLayerStatus(renewed, "contracts"), "LONG");
   const thirty = { ...expiry, status: "WITHIN_30", daysRemaining: 30 };
   assert.match(renderCell({ ...room, contracts: [thirty] }, "contracts").props["aria-label"], /30 ngày/);
 });

@@ -64,6 +64,21 @@ test("room cell wording: Chưa gắn tin, and Trống with the listing's Vietnam
   assert.equal(roomLayerLabel(roomWith({ status: "UNLINKED", listingStatus: "HIDDEN" }), "rooms"), "Chưa gắn tin");
 });
 
+test("contracts layer: no expiry listed means over 60 days when occupied, otherwise no lease", () => {
+  const expiry = { contractId: "c", status: "WITHIN_30", endDateExclusive: "2026-12-10", daysRemaining: 13, target: contract };
+  const occupied = roomWith({ status: "OCCUPIED", contracts: [] });
+  assert.equal(roomLayerStatus(occupied, "contracts"), "LONG");
+  assert.equal(statusLabel("contracts", "LONG"), "Còn hạn trên 60 ngày");
+  for (const status of ["VACANT", "UNLINKED", "ADVERTISED", "RESERVED", "MOVING_IN", "EXTERNAL_RENT", "REPAIR"]) {
+    assert.equal(roomLayerStatus(roomWith({ status, contracts: [] }), "contracts"), "NO_LEASE", status);
+  }
+  assert.equal(roomLayerLabel(roomWith({ contracts: [] }), "contracts"), "Không có hợp đồng");
+  assert.equal(roomLayerStatus(roomWith({ status: "OCCUPIED", contracts: [expiry] }), "contracts"), "WITHIN_30");
+  assert.deepEqual(Object.keys(overview.LAYER_STATUS_LABEL.contracts), ["WITHIN_30", "WITHIN_60", "LONG", "NO_LEASE"]);
+  // LONG / NO_LEASE are client-derived: a server sending them as an expiry is a bad shape.
+  assert.equal(overview.layerReady({ rooms: [roomWith({ contracts: [{ ...expiry, status: "LONG" }] })] }, "contracts"), false);
+});
+
 test("a payment layer missing its status fails parsing instead of rendering a neutral cell", () => {
   const broken = structuredClone(fixture);
   delete broken.rooms[0].payments.status;

@@ -115,10 +115,12 @@ const METER_STATUS_LABEL: Record<OverviewMeter["status"] | "NONE", string> = {
   NONE: "Không có kỳ cần xem",
 };
 
-const EXPIRY_STATUS_LABEL: Record<OverviewExpiry["status"] | "NONE", string> = {
+/** LONG and NO_LEASE are derived on the client: the server lists only expiries within 60 days. */
+const EXPIRY_STATUS_LABEL: Record<OverviewExpiry["status"] | "LONG" | "NO_LEASE", string> = {
   WITHIN_30: "Hết hạn trong 30 ngày",
   WITHIN_60: "Hết hạn sau 31–60 ngày",
-  NONE: "Chưa sắp hết hạn",
+  LONG: "Còn hạn trên 60 ngày",
+  NO_LEASE: "Không có hợp đồng",
 };
 
 /** Keys are in legend order. */
@@ -147,9 +149,10 @@ export function roomLayerLabel(room: OverviewRoom, layer: OverviewLayer): string
   const known = Object.hasOwn(LISTING_STATUS_CONFIG, room.listingStatus);
   return `${label} · ${known ? LISTING_STATUS_CONFIG[room.listingStatus as keyof typeof LISTING_STATUS_CONFIG].label : "Đang cập nhật"}`;
 }
-/** The server sorts each list, so its first item is the cell's status. */
+/** The server sorts each list, so its first item is the cell's status. An empty contracts list says nothing about the lease, so the room status decides. */
 export const roomLayerStatus = (room: OverviewRoom, layer: OverviewLayer): string =>
-  layer === "rooms" ? room.status : layer === "payments" ? room.payments.status : room[layer]?.[0]?.status ?? "NONE";
+  layer === "rooms" ? room.status : layer === "payments" ? room.payments.status
+    : room[layer]?.[0]?.status ?? (layer === "meters" ? "NONE" : room.status === "OCCUPIED" ? "LONG" : "NO_LEASE");
 
 /* ---------- links, months, time ---------- */
 
@@ -236,8 +239,8 @@ const isRoom = (r: unknown) => isObject(r) && isText(r.roomId) && isKey(ROOM_STA
 const isMeter = (m: unknown) => isObject(m) && isText(m.contractId) && isCount(m.periodIndex)
   && m.status !== "NONE" && isKey(METER_STATUS_LABEL, m.status) && isText(m.meterDate) && isInstant(m.deadlineAt)
   && isTarget(m.target);
-const isExpiry = (e: unknown) => isObject(e) && isText(e.contractId) && e.status !== "NONE"
-  && isKey(EXPIRY_STATUS_LABEL, e.status) && isText(e.endDateExclusive) && isCount(e.daysRemaining) && isTarget(e.target);
+const isExpiry = (e: unknown) => isObject(e) && isText(e.contractId)
+  && (e.status === "WITHIN_30" || e.status === "WITHIN_60") && isText(e.endDateExclusive) && isCount(e.daysRemaining) && isTarget(e.target);
 
 /**
  * The P5 lists are checked per layer, not in `parseOverview`: a server without them, or with a broken one,

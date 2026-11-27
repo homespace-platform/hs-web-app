@@ -76,7 +76,8 @@ const LOOKS: Record<OverviewLayer, Record<string, Look>> = {
   contracts: {
     WITHIN_30: { icon: AlarmClock, tone: red },
     WITHIN_60: { icon: CalendarClock, tone: orange },
-    NONE: NEUTRAL,
+    LONG: NEUTRAL,
+    NO_LEASE: NEUTRAL,
   },
 };
 const look = (layer: OverviewLayer, status: string) => LOOKS[layer][status] ?? { icon: FileText, tone: NEUTRAL.tone };

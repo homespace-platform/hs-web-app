@@ -58,7 +58,7 @@ export default function KycVerifiedDetailsPanel({ cccd, verified }: {
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="rounded-xl border border-border bg-muted/40 px-3.5 py-2.5">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">CCCD</p>
-        <p className="mt-1 font-mono text-xs text-foreground">{cccd || "Chưa có số CCCD"}</p>
+        <p className="mt-1 font-mono text-xs text-foreground">{details?.cccd || cccd || "Chưa có số CCCD"}</p>
       </div>
       {fields.map(([label, value]) => <div key={label} className="rounded-xl border border-border bg-muted/40 px-3.5 py-2.5">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>

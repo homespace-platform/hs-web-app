@@ -146,8 +146,8 @@ function TemplatePicker({ onPick, onCancel }: { onPick: (draft: LayoutDraft) => 
 export interface MapLinks {
   /** null = links could not be read (yet): the map behaves as without links. */
   rooms: Map<string, RoomAssignment> | null;
-  /** The latest read of the links succeeded and none is pending. */
-  fresh: boolean;
+  /** Reads the links now: another tab can attach one without changing the layout revision. */
+  readRooms: () => Promise<Map<string, RoomAssignment>>;
   onLayoutSaved: () => void;
   roomPanel: (args: { roomId: string; code: string; options: RoomOption[]; lock: string | null }) => ReactNode;
   tray: (args: { options: RoomOption[]; lock: string | null; roomLock: string | null }) => ReactNode;
@@ -189,6 +189,11 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
   const headingRef = useRef<HTMLHeadingElement>(null);
   const loadSeq = useRef(0);
   const houseStarted = useRef(false);
+  /** Blocks a second click before the re-render. */
+  const requesting = useRef(false);
+  /** Bumped when the owner leaves, so a save still reading links never sends its PUT. */
+  const saveAttempt = useRef(0);
+  useEffect(() => () => { saveAttempt.current++; }, []);
   const { confirm, dialog } = useActionDialog();
 
   const draft = history.present;
@@ -208,7 +213,10 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
   useUnsavedGuard(dirty, async () => {
     setTarget(null); // a link inside the cell dialog: the leave question must not sit under that modal
     const leave = await confirm(LEAVE);
-    if (leave) forgetDraft();
+    if (leave) {
+      saveAttempt.current++;
+      forgetDraft();
+    }
     return leave;
   });
 
@@ -373,19 +381,22 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
   };
 
   /** Warns before the save that removes a room with attachments; the server decides what is allowed. */
-  const requestSave = async () => {
+  const acceptsLostRooms = async () => {
     const kept = new Set(roomOptions(draft).map((r) => r.id));
     const removed = roomOptions(saved).filter((r) => !kept.has(r.id)).map((r) => r.code);
-    // Without a fresh read nobody knows what is attached, so every lost room needs a yes.
-    const unchecked = !links?.fresh && removed.length > 0;
-    if (unchecked && !(await confirm({
+    if (removed.length === 0) return true;
+    const attempt = saveAttempt.current;
+    const latest = await links?.readRooms().catch(() => null);
+    if (attempt !== saveAttempt.current) return false;
+    // Without this read nobody knows what is attached, so every lost room needs a yes.
+    if (!latest) return confirm({
       title: "Chưa kiểm tra được liên kết của phòng bị bỏ",
       description: `Chưa tải được liên kết mới nhất. Lưu sẽ bỏ phòng ${removed.slice(0, 5).join(", ")}${removed.length > 5 ? ` và ${removed.length - 5} phòng khác` : ""}: tin đăng và hợp đồng cũ trên các phòng này có thể bị gỡ (hợp đồng cũ chuyển về khay Chưa xếp phòng). Nếu còn hợp đồng hiệu lực hoặc giữ chỗ, máy chủ sẽ từ chối cả lần lưu.`,
       confirmLabel: "Vẫn lưu",
       tone: "warning",
-    }))) return;
-    const lost = !unchecked && links?.rooms ? lostAttachedRooms(saved, draft, links.rooms) : [];
-    if (lost.length > 0 && !(await confirm({
+    });
+    const lost = lostAttachedRooms(saved, draft, latest);
+    return lost.length === 0 || confirm({
       title: "Lưu sẽ bỏ phòng đang có liên kết",
       description: (
         <>
@@ -398,8 +409,20 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
       ),
       confirmLabel: "Vẫn lưu",
       tone: "warning",
-    }))) return;
-    await save(draft, revision);
+    });
+  };
+
+  /** The draft stays locked from the click until the save ends or the owner backs out. */
+  const requestSave = async () => {
+    if (requesting.current || saving) return;
+    requesting.current = true;
+    setSaving(true);
+    try {
+      if (await acceptsLostRooms()) await save(draft, revision);
+    } finally {
+      requesting.current = false;
+      setSaving(false);
+    }
   };
 
   const savedRooms = roomOptions(saved);
@@ -508,7 +531,7 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
 
           {watching ? links!.overview!({ floors: saved, openRoom }) : showPicker ? (
             <TemplatePicker
-              onPick={(next) => { edit(next, "Đã tạo sơ đồ nháp. Bấm Lưu sơ đồ để giữ lại."); setPickingTemplate(false); }}
+              onPick={(next) => { if (saving) return; edit(next, "Đã tạo sơ đồ nháp. Bấm Lưu sơ đồ để giữ lại."); setPickingTemplate(false); }}
               onCancel={draft.length > 0 ? () => setPickingTemplate(false) : undefined}
             />
           ) : (
@@ -551,7 +574,8 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
             <div className="sticky bottom-2 z-10 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-3 pr-20 shadow-lg sm:pr-24">
               <p className="w-full text-sm font-semibold sm:mr-auto sm:w-auto">Có thay đổi chưa lưu</p>
               <button type="button" disabled={saving} onClick={() => void discard()} className={outlineButton}>Hủy thay đổi</button>
-              <button type="button" disabled={saving || stale} onClick={() => void requestSave()} className={primaryButton}>
+              {/* aria-disabled keeps focus here, so a closed dialog can hand it back. */}
+              <button type="button" disabled={stale} aria-disabled={saving} onClick={() => void requestSave()} className={`${primaryButton} aria-disabled:opacity-50`}>
                 {saving ? "Đang lưu…" : "Lưu sơ đồ"}
               </button>
             </div>

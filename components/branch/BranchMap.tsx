@@ -66,6 +66,8 @@ function setView(patch: Partial<Record<"floor" | "layer" | "month", string>>) {
   window.history.replaceState(null, "", `?${params}`);
 }
 
+const byRoom = (data: BranchAssignments) => new Map(data.rooms.map((r) => [r.roomId, r]));
+
 /** The floor map plus its links to listings and contracts. If the links cannot be read, the map still works. */
 export default function BranchMap(props: Omit<ComponentProps<typeof BranchLayoutEditor>, "links">) {
   const { branchId } = props;
@@ -123,7 +125,7 @@ export default function BranchMap(props: Omit<ComponentProps<typeof BranchLayout
     setPage(next);
   };
 
-  const rooms = useMemo(() => (data ? new Map(data.rooms.map((r) => [r.roomId, r])) : null), [data]);
+  const rooms = useMemo(() => (data ? byRoom(data) : null), [data]);
 
   return (
     <div className="min-w-0 space-y-4">
@@ -140,7 +142,7 @@ export default function BranchMap(props: Omit<ComponentProps<typeof BranchLayout
       {...props}
       links={{
         rooms,
-        fresh: !!data && !loading && !loadError,
+        readRooms: async () => byRoom(await branchAssignmentService.getAssignments(branchId)),
         onLayoutSaved: () => void reload(),
         overview: status.available ? ({ floors, openRoom }) => (
           <BranchOverviewLayers

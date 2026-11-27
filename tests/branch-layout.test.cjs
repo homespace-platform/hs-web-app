@@ -2,6 +2,7 @@
 const assert = require("node:assert/strict");
 const vm = require("node:vm");
 const test = require("node:test");
+const { renderToStaticMarkup } = require("react-dom/server");
 const loadPureTs = require("./helpers/load-ts.cjs");
 const { loadTs } = require("./helpers/ts-loader.cjs");
 
@@ -258,7 +259,8 @@ function mountEditor(t, initial, saveLayout = async () => assert.fail("Unexpecte
     render();
   };
   render();
-  return { settle, render, button: (label) => findButton(tree, label) };
+  const unmount = () => cells.forEach((cell) => cell?.cleanup?.());
+  return { settle, render, unmount, button: (label) => findButton(tree, label) };
 }
 
 async function restoreAndSave(editor) {
@@ -445,109 +447,149 @@ test("a reload after a 409 keeps the stored draft until the new map has been loa
   assert.equal(editor.button("Khôi phục bản nháp"), undefined, "the confirmed reload must not offer the old draft again");
 });
 
-const mapLinks = (rooms, fresh) => ({ rooms, fresh, onLayoutSaved() {}, roomPanel: () => null, tray: () => null });
+/** The links on screen show nothing attached: only the read made at save time may decide. */
+const mapLinks = (readRooms) => ({ rooms: new Map(), readRooms, onLayoutSaved() {}, roomPanel: () => null, tray: () => null });
+const attached = new Map([["s3", { roomId: "s3", manualStatus: "NONE", listings: [{}], contracts: [], holds: [] }]]);
+const offline = async () => { throw new Error("offline"); };
 
-test("without a fresh links read, removing a saved room or making it an aisle needs a confirmation before the PUT", async (t) => {
+async function openDraft(t, sent, links) {
+  mockStorage(t);
+  writeStoredDraft(userId, branchId, { revision: 4, draft: sent });
+  const editor = mountEditor(t, serverLayout(savedDraft(), 4), async () => serverLayout(sent, 5), links);
+  await editor.settle();
+  editor.button("Khôi phục bản nháp").onClick();
+  editor.render();
+  return editor;
+}
+
+test("a save that loses a saved room warns from links read at that moment; closing the dialog keeps the draft", async (t) => {
   const base = savedDraft();
+  const removed = layout.removeSlot(base, "s3");
   const cases = [
-    ["never read", null, layout.removeSlot(base, "s3")],
-    ["stale read", new Map(), layout.removeSlot(base, "s3")],
-    ["room turned into an aisle", null, layout.toggleEmptyCell(base, "s3")],
+    ["room removed", removed, async () => attached, /liên kết$/, /102.*1 tin đăng/],
+    ["room turned into an aisle", layout.toggleEmptyCell(base, "s3"), async () => attached, /liên kết$/, /102.*1 tin đăng/],
+    ["read failed", removed, offline, /Chưa kiểm tra được/, /102.*có thể bị gỡ/],
+    ["no way to read", removed, undefined, /Chưa kiểm tra được/, /102.*có thể bị gỡ/],
   ];
-  for (const [name, rooms, sent] of cases) {
+  for (const [name, sent, read, title, text] of cases) {
     await t.test(name, async (scenario) => {
-      mockStorage(scenario);
-      writeStoredDraft(userId, branchId, { revision: 4, draft: sent });
-      const editor = mountEditor(scenario, serverLayout(base, 4), async () => serverLayout(sent, 5), mapLinks(rooms, false));
-      await editor.settle();
-      editor.button("Khôi phục bản nháp").onClick();
-      editor.render();
+      const editor = await openDraft(scenario, sent, read && mapLinks(read));
       answer = false;
       editor.button("Lưu sơ đồ").onClick();
       await editor.settle();
       assert.equal(asked.length, 1);
       assert.equal(asked[0].tone, "warning");
-      assert.match(asked[0].description, /102.*có thể bị gỡ/);
+      assert.match(asked[0].title, title);
+      assert.match(renderToStaticMarkup(asked[0].description), text);
       assert.equal(api.saveLayout.mock.callCount(), 0);
+      assert.deepEqual(readStoredDraft(userId, branchId), { revision: 4, draft: sent });
 
       answer = true;
       editor.button("Lưu sơ đồ").onClick();
       await editor.settle();
-      assert.equal(api.saveLayout.mock.callCount(), 1);
+      assert.equal(asked.length, 2);
+      assert.deepEqual(api.saveLayout.mock.calls[0].arguments, [branchId, layout.toSaveRequest(sent, 4)]);
     });
   }
 });
 
-test("no extra confirmation when the links read is fresh or no saved room is lost", async (t) => {
+test("no confirmation when the new read shows nothing attached; a save that loses no room reads nothing", async (t) => {
   const base = savedDraft();
   const cases = [
-    ["fresh read without links", new Map(), true, layout.removeSlot(base, "s3")],
-    ["stale read, rename only", null, false, layout.setRoomCode(base, "s1", "A01")],
+    ["nothing attached", layout.removeSlot(base, "s3"), 1],
+    ["rename only", layout.setRoomCode(base, "s1", "A01"), 0],
   ];
-  for (const [name, rooms, fresh, sent] of cases) {
+  for (const [name, sent, reads] of cases) {
     await t.test(name, async (scenario) => {
-      mockStorage(scenario);
-      writeStoredDraft(userId, branchId, { revision: 4, draft: sent });
-      const editor = mountEditor(scenario, serverLayout(base, 4), async () => serverLayout(sent, 5), mapLinks(rooms, fresh));
-      await restoreAndSave(editor);
+      const read = scenario.mock.fn(async () => new Map());
+      const editor = await openDraft(scenario, sent, mapLinks(read));
+      editor.button("Lưu sơ đồ").onClick();
       await editor.settle();
+      assert.equal(read.mock.callCount(), reads);
       assert.equal(asked.length, 0);
       assert.equal(api.saveLayout.mock.callCount(), 1);
     });
   }
 });
 
-test("the map calls the links fresh only after the latest read succeeded", async () => {
-  const cells = [];
-  let cursor, effects;
-  const state = (initial) => {
-    const index = cursor++;
-    const cell = cells[index] ??= { value: typeof initial === "function" ? initial() : initial };
-    return [cell.value, (value) => { cell.value = typeof value === "function" ? value(cell.value) : value; }];
-  };
-  let read = () => new Promise(() => {});
+test("while the links are being read the draft is locked and a second click sends nothing more", async (t) => {
+  const sent = layout.removeSlot(savedDraft(), "s3");
+  const pending = Promise.withResolvers();
+  const read = t.mock.fn(() => pending.promise);
+  const editor = await openDraft(t, sent, mapLinks(read));
+  const save = editor.button("Lưu sơ đồ");
+  save.onClick();
+  save.onClick();
+  editor.render();
+  const busy = editor.button("Đang lưu…");
+  assert.equal(busy["aria-disabled"], true);
+  busy.onClick();
+  assert.equal(editor.button("Hủy thay đổi").disabled, true);
+  assert.equal(editor.button("Hoàn tác").disabled, true);
+  assert.equal(read.mock.callCount(), 1);
+  assert.equal(api.saveLayout.mock.callCount(), 0);
+  assert.deepEqual(readStoredDraft(userId, branchId), { revision: 4, draft: sent });
+
+  pending.resolve(new Map());
+  await editor.settle();
+  assert.equal(api.saveLayout.mock.callCount(), 1);
+});
+
+test("leaving the editor during the links read sends no PUT and keeps the stored draft", async (t) => {
+  const sent = layout.removeSlot(savedDraft(), "s3");
+  const pending = Promise.withResolvers();
+  const editor = await openDraft(t, sent, mapLinks(() => pending.promise));
+  editor.button("Lưu sơ đồ").onClick();
+  editor.unmount();
+  pending.resolve(new Map());
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(api.saveLayout.mock.callCount(), 0);
+  assert.deepEqual(readStoredDraft(userId, branchId), { revision: 4, draft: sent });
+});
+
+test("confirming a link away from the editor during the links read sends no PUT", async (t) => {
+  const sent = layout.removeSlot(savedDraft(), "s3");
+  const pending = Promise.withResolvers();
+  const editor = await openDraft(t, sent, mapLinks(() => pending.promise));
+  const here = "https://test.invalid/dashboard/branches/branch-a";
+  global.window.location = new URL(here);
+  global.window.closest = () => ({ href: "https://test.invalid/dashboard", target: "", hasAttribute: () => false });
+  router.push = t.mock.fn();
+  editor.button("Lưu sơ đồ").onClick();
+  editor.render();
+  global.window.dispatchEvent(Object.assign(new Event("click"), { button: 0 }));
+  await editor.settle();
+  pending.resolve(new Map());
+  await editor.settle();
+  assert.equal(router.push.mock.callCount(), 1);
+  assert.equal(api.saveLayout.mock.callCount(), 0);
+});
+
+test("the map reads the links anew for a save and never answers from the ones on screen", async () => {
+  let read = async () => ({ rooms: [], unplaced: { items: [], page: 0, size: 20, totalElements: 0 } });
   const Child = () => null;
   const BranchMap = loadTs("components/branch/BranchMap.tsx", {
     react: {
-      useState: state,
-      useRef: (current) => state(() => ({ current }))[0],
-      useCallback: (callback) => state(() => callback)[0],
+      useState: (initial) => [typeof initial === "function" ? initial() : initial, () => {}],
+      useRef: (current) => ({ current }),
+      useCallback: (callback) => callback,
       useMemo: (create) => create(),
-      useEffect: (effect) => { const [done, setDone] = state(false); if (!done) { setDone(true); effects.push(effect); } },
+      useEffect: () => {},
     },
     "next/navigation": { useSearchParams: () => new URLSearchParams() },
-    "@/services/branch-assignment.service": { getAssignments: () => read() },
-    "@/services/branch-overview.service": { getOverview: () => new Promise(() => {}), isMonth: () => false, isOverviewLayer: () => false },
+    "@/services/branch-assignment.service": { getAssignments: (...args) => read(...args) },
+    "@/services/branch-overview.service": { isMonth: () => false, isOverviewLayer: () => false },
     "./BranchOverviewLayers": {},
     "./BranchLayoutEditor": Child,
     "./RoomPanel": {},
     "./UnplacedTray": {},
     "./LayoutBoard": {},
-    "./linkUi": { linkError: () => "offline" },
+    "./linkUi": {},
   }).default;
-  const previousWindow = global.window;
-  global.window = new EventTarget();
-  const links = () => {
-    cursor = 0;
-    effects = [];
-    const tree = BranchMap({ branchId });
-    for (const effect of effects) effect();
-    return tree.props.children.find((node) => node?.type === Child).props.links;
-  };
-  try {
-    assert.equal(links().fresh, false, "still loading");
-    const good = { rooms: [], unplaced: { items: [], page: 0, size: 20, totalElements: 0 } };
-    read = async () => good;
-    links().onLayoutSaved();
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(links().fresh, true);
-    read = async () => { throw new Error("offline"); };
-    links().onLayoutSaved();
-    assert.equal(links().fresh, false, "a read is pending");
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(links().fresh, false, "the latest read failed");
-    assert.ok(links().rooms, "the old links stay on screen");
-  } finally {
-    global.window = previousWindow;
-  }
+  const { links } = BranchMap({ branchId }).props.children.find((node) => node?.type === Child).props;
+  assert.equal((await links.readRooms()).size, 0);
+  read = async (id) => ({ rooms: [{ roomId: id }] });
+  assert.deepEqual([...(await links.readRooms()).keys()], [branchId]);
+  read = offline;
+  await assert.rejects(links.readRooms(), /offline/);
 });

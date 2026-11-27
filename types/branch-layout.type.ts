@@ -23,8 +23,15 @@ export interface BranchLayout {
   floors: BranchFloor[];
 }
 
+/** Links the owner confirmed to detach with the save (listings, history contracts of removed rooms). */
+export interface AcknowledgedDetach {
+  listingIds: string[];
+  contractIds: string[];
+}
+
 export interface SaveBranchLayoutRequest {
   expectedRevision: number;
+  acknowledgedDetach?: AcknowledgedDetach;
   floors: {
     id?: string;
     label: string;

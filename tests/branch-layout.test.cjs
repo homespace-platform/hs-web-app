@@ -163,6 +163,8 @@ test("P1-02: add room also works after a valid code with a long numeric suffix",
 
 const branchId = "branch-a";
 const userId = "owner-a";
+const noDetach = { listingIds: [], contractIds: [] };
+const saveRequest = (draft, revision, acknowledgedDetach = noDetach) => ({ ...layout.toSaveRequest(draft, revision), acknowledgedDetach });
 const serverLayout = (draft, revision) => ({ revision, floors: layout.toSaveRequest(draft, revision).floors });
 const staleResponse = { isAxiosError: true, response: { status: 409, data: { code: 4074 } } };
 
@@ -282,7 +284,7 @@ test("P1-R01: a retry with 409 recognizes a completed PUT at the next revision w
   await restoreAndSave(editor);
   await editor.settle();
 
-  assert.deepEqual(api.saveLayout.mock.calls[0].arguments, [branchId, layout.toSaveRequest(sent, 4)]);
+  assert.deepEqual(api.saveLayout.mock.calls[0].arguments, [branchId, saveRequest(sent, 4)]);
   assert.deepEqual(notifications, ["Đã lưu sơ đồ."]);
   assert.equal(readStoredDraft(userId, branchId), null);
 });
@@ -449,7 +451,7 @@ test("a reload after a 409 keeps the stored draft until the new map has been loa
 
 /** The links on screen show nothing attached: only the read made at save time may decide. */
 const mapLinks = (readRooms) => ({ rooms: new Map(), readRooms, onLayoutSaved() {}, roomPanel: () => null, tray: () => null });
-const attached = new Map([["s3", { roomId: "s3", manualStatus: "NONE", listings: [{}], contracts: [], holds: [] }]]);
+const attached = new Map([["s3", { roomId: "s3", manualStatus: "NONE", listings: [{ id: "l1" }], contracts: [{ id: "c1", status: "CLOSED" }], holds: [] }]]);
 const offline = async () => { throw new Error("offline"); };
 
 async function openDraft(t, sent, links) {
@@ -466,8 +468,8 @@ test("a save that loses a saved room warns from links read at that moment; closi
   const base = savedDraft();
   const removed = layout.removeSlot(base, "s3");
   const cases = [
-    ["room removed", removed, async () => attached, /liên kết$/, /102.*1 tin đăng/],
-    ["room turned into an aisle", layout.toggleEmptyCell(base, "s3"), async () => attached, /liên kết$/, /102.*1 tin đăng/],
+    ["room removed", removed, async () => attached, /liên kết$/, /102.*1 hợp đồng, 1 tin đăng/],
+    ["room turned into an aisle", layout.toggleEmptyCell(base, "s3"), async () => attached, /liên kết$/, /102.*1 hợp đồng, 1 tin đăng/],
     ["read failed", removed, offline, /Chưa kiểm tra được/, /102.*có thể bị gỡ/],
     ["no way to read", removed, undefined, /Chưa kiểm tra được/, /102.*có thể bị gỡ/],
   ];
@@ -488,9 +490,60 @@ test("a save that loses a saved room warns from links read at that moment; closi
       editor.button("Lưu sơ đồ").onClick();
       await editor.settle();
       assert.equal(asked.length, 2);
-      assert.deepEqual(api.saveLayout.mock.calls[0].arguments, [branchId, layout.toSaveRequest(sent, 4)]);
+      const confirmed = read === offline || read === undefined ? noDetach : { listingIds: ["l1"], contractIds: ["c1"] };
+      assert.deepEqual(api.saveLayout.mock.calls[0].arguments, [branchId, saveRequest(sent, 4, confirmed)]);
     });
   }
+});
+
+const linksChanged = { isAxiosError: true, response: { status: 409, data: { code: 4093 } } };
+
+test("4093 keeps the draft, re-reads the links, asks again and resends only after a yes", async (t) => {
+  const sent = layout.removeSlot(savedDraft(), "s3");
+  const fresh = new Map([["s3", { roomId: "s3", manualStatus: "NONE", listings: [{ id: "l1" }, { id: "l2" }], contracts: [], holds: [] }]]);
+  const reads = [attached, fresh];
+  const read = t.mock.fn(async () => reads.shift());
+  mockStorage(t);
+  writeStoredDraft(userId, branchId, { revision: 4, draft: sent });
+  let puts = 0;
+  const editor = mountEditor(t, serverLayout(savedDraft(), 4), async () => { if (puts++ === 0) throw linksChanged; return serverLayout(sent, 5); }, mapLinks(read));
+  await editor.settle();
+  editor.button("Khôi phục bản nháp").onClick();
+  editor.render();
+
+  // declining the second question: nothing more is sent, the draft survives
+  let calls = 0;
+  const first = answer;
+  answer = true;
+  const original = asked.push.bind(asked);
+  asked.push = (o) => { if (++calls === 2) answer = false; return original(o); };
+  editor.button("Lưu sơ đồ").onClick();
+  await editor.settle();
+  assert.equal(asked.length, 2);
+  assert.match(renderToStaticMarkup(asked[1].description), /vừa thay đổi.*2 tin đăng/);
+  assert.equal(api.saveLayout.mock.callCount(), 1);
+  assert.deepEqual(readStoredDraft(userId, branchId), { revision: 4, draft: sent });
+  answer = first;
+});
+
+test("4093 then a yes resends with the new links acknowledged", async (t) => {
+  const sent = layout.removeSlot(savedDraft(), "s3");
+  const fresh = new Map([["s3", { roomId: "s3", manualStatus: "NONE", listings: [{ id: "l2" }], contracts: [], holds: [] }]]);
+  const reads = [attached, fresh];
+  mockStorage(t);
+  writeStoredDraft(userId, branchId, { revision: 4, draft: sent });
+  let puts = 0;
+  const editor = mountEditor(t, serverLayout(savedDraft(), 4), async () => { if (puts++ === 0) throw linksChanged; return serverLayout(sent, 5); }, mapLinks(async () => reads.shift()));
+  await editor.settle();
+  editor.button("Khôi phục bản nháp").onClick();
+  editor.render();
+  editor.button("Lưu sơ đồ").onClick();
+  await editor.settle();
+  await editor.settle();
+  assert.equal(asked.length, 2);
+  assert.equal(api.saveLayout.mock.callCount(), 2);
+  assert.deepEqual(api.saveLayout.mock.calls[1].arguments, [branchId, saveRequest(sent, 4, { listingIds: ["l2"], contractIds: [] })]);
+  assert.equal(api.getLayout.mock.callCount(), 1, "4093 is not a stale revision: no layout re-read");
 });
 
 test("no confirmation when the new read shows nothing attached; a save that loses no room reads nothing", async (t) => {

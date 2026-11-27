@@ -28,12 +28,12 @@ import {
   type DraftHistory,
   type LayoutTemplate,
 } from "@/lib/branch-layout";
-import { lostAttachedRooms, permissionBlock, roomLines, roomOptions, unsavedBlock } from "@/lib/branch-assignment";
+import { detachIds, lostAttachedRooms, permissionBlock, roomLines, roomOptions, unsavedBlock } from "@/lib/branch-assignment";
 import { readStoredDraft, removeStoredDraft, writeStoredDraft, type StoredDraft } from "@/lib/branch-layout-draft";
 import keycloak from "@/lib/keycloak";
 import branchLayoutService from "@/services/branch-layout.service";
 import type { RoomAssignment, RoomOption } from "@/types/branch-assignment.type";
-import type { BranchLayout, DraftSlot, LayoutDraft } from "@/types/branch-layout.type";
+import type { AcknowledgedDetach, BranchLayout, DraftSlot, LayoutDraft } from "@/types/branch-layout.type";
 import { getApiErrorMessage } from "@/utils/apiError";
 import LayoutBoard, { outlineButton, primaryButton, ring } from "./LayoutBoard";
 import LayoutDialogs, { type DialogTarget } from "./LayoutDialogs";
@@ -75,6 +75,8 @@ function useUnsavedGuard(dirty: boolean, confirmLeave: () => Promise<boolean>) {
     };
   }, [dirty, router]);
 }
+
+const NO_DETACH: AcknowledgedDetach = { listingIds: [], contractIds: [] };
 
 const TEMPLATES: { kind: Exclude<LayoutTemplate["kind"], "house">; label: string; hint: string }[] = [
   { kind: "single", label: "Một dãy", hint: "Dãy trọ một hàng phòng." },
@@ -273,7 +275,8 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
     if (setup && loaded) headingRef.current?.focus();
   }, [setup, loaded]);
 
-  const save = async (next: LayoutDraft, expectedRevision: number) => {
+  /** Returns "links-changed" when the server found links the owner has not confirmed (4093). */
+  const save = async (next: LayoutDraft, expectedRevision: number, acknowledgedDetach: AcknowledgedDetach = NO_DETACH): Promise<"links-changed" | void> => {
     const problems = validateDraft(next);
     if (problems.length) {
       setSaveErrors(problems);
@@ -282,12 +285,13 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
     setSaving(true);
     setSaveErrors([]);
     try {
-      adopt(await branchLayoutService.saveLayout(branchId, toSaveRequest(next, expectedRevision)));
+      adopt(await branchLayoutService.saveLayout(branchId, { ...toSaveRequest(next, expectedRevision), acknowledgedDetach }));
       forgetDraft(); // also when the editor was left while saving
       toast.success("Đã lưu sơ đồ.");
       links?.onLayoutSaved();
     } catch (error) {
       const response = axios.isAxiosError(error) ? error.response : undefined;
+      if (response?.status === 409 && response.data?.code === 4093) return "links-changed"; // nothing was written
       // A lost response (or a 409 from resending it) may mean the save already went through.
       if (!response || response.status === 409) {
         const latest = await branchLayoutService.getLayout(branchId).catch(() => null);
@@ -381,25 +385,30 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
   };
 
   /** Warns before the save that removes a room with attachments; the server decides what is allowed. */
-  const acceptsLostRooms = async () => {
+  /** The links the owner confirmed from a fresh read (empty when nothing is removed), or null when they declined. */
+  const acceptsLostRooms = async (again: boolean): Promise<AcknowledgedDetach | null> => {
     const kept = new Set(roomOptions(draft).map((r) => r.id));
     const removed = roomOptions(saved).filter((r) => !kept.has(r.id)).map((r) => r.code);
-    if (removed.length === 0) return true;
+    if (removed.length === 0) return NO_DETACH;
+    const changed = again ? "Liên kết của các phòng này vừa thay đổi. " : "";
     const attempt = saveAttempt.current;
     const latest = await links?.readRooms().catch(() => null);
-    if (attempt !== saveAttempt.current) return false;
-    // Without this read nobody knows what is attached, so every lost room needs a yes.
-    if (!latest) return confirm({
+    if (attempt !== saveAttempt.current) return null;
+    // Without this read nobody knows what is attached, so every lost room needs a yes; the server
+    // then rejects (4093) if anything is attached, and the question comes back with fresh links.
+    if (!latest) return (await confirm({
       title: "Chưa kiểm tra được liên kết của phòng bị bỏ",
       description: `Chưa tải được liên kết mới nhất. Lưu sẽ bỏ phòng ${removed.slice(0, 5).join(", ")}${removed.length > 5 ? ` và ${removed.length - 5} phòng khác` : ""}: tin đăng và hợp đồng cũ trên các phòng này có thể bị gỡ (hợp đồng cũ chuyển về khay Chưa xếp phòng). Nếu còn hợp đồng hiệu lực hoặc giữ chỗ, máy chủ sẽ từ chối cả lần lưu.`,
       confirmLabel: "Vẫn lưu",
       tone: "warning",
-    });
+    })) ? NO_DETACH : null;
     const lost = lostAttachedRooms(saved, draft, latest);
-    return lost.length === 0 || confirm({
+    if (lost.length === 0) return NO_DETACH;
+    return (await confirm({
       title: "Lưu sẽ bỏ phòng đang có liên kết",
       description: (
         <>
+          {changed ? <p className="mb-2 font-semibold">{changed}Hãy xem lại danh sách mới.</p> : null}
           <ul className="list-disc pl-5">
             {lost.slice(0, 5).map((r) => <li key={r.id}>Phòng {r.code}: {r.text}</li>)}
             {lost.length > 5 ? <li>và {lost.length - 5} phòng khác</li> : null}
@@ -409,7 +418,7 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
       ),
       confirmLabel: "Vẫn lưu",
       tone: "warning",
-    });
+    })) ? detachIds(saved, draft, latest) : null;
   };
 
   /** The draft stays locked from the click until the save ends or the owner backs out. */
@@ -418,7 +427,12 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
     requesting.current = true;
     setSaving(true);
     try {
-      if (await acceptsLostRooms()) await save(draft, revision);
+      // 4093: links changed under us. The draft stays; ask again with the fresh links, resend only on a yes.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const acknowledged = await acceptsLostRooms(attempt > 0);
+        if (!acknowledged || (await save(draft, revision, acknowledged)) !== "links-changed") return;
+      }
+      setSaveErrors(["Liên kết của phòng bị bỏ liên tục thay đổi nên chưa lưu được. Bản nháp vẫn còn, hãy thử lại sau."]);
     } finally {
       requesting.current = false;
       setSaving(false);

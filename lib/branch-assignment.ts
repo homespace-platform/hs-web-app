@@ -140,6 +140,12 @@ export function lostAttachedRooms(saved: LayoutDraft, next: LayoutDraft, rooms: 
   });
 }
 
+/** Listing and contract ids on the rooms saving `next` removes: what the owner confirms (acknowledgedDetach). */
+export function detachIds(saved: LayoutDraft, next: LayoutDraft, rooms: Map<string, RoomAssignment>) {
+  const lost = lostAttachedRooms(saved, next, rooms).map((r) => rooms.get(r.id)!);
+  return { listingIds: lost.flatMap((r) => r.listings.map((l) => l.id)), contractIds: lost.flatMap((r) => r.contracts.map((c) => c.id)) };
+}
+
 /* ---------- what the screen allows ---------- */
 
 /** Why linking is locked for the whole map, or null. */

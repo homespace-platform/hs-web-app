@@ -40,6 +40,11 @@ export function MembershipReceiptList({
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold">{row.itemName}</span>
             <span className="block break-all font-mono text-xs text-muted-foreground">{row.receiptNumber}</span>
+            {row.type === "OVERPAYMENT" && (
+              <span className="block text-sm font-semibold text-amber-700">
+                {row.refundStatus === "REFUNDED" ? "Đã hoàn tiền" : "Trả thừa – sẽ được hoàn lại"}
+              </span>
+            )}
             <span className="block text-sm text-muted-foreground">
               {providerName(row.provider)} ·{" "}
               {new Date(row.issuedAt).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}

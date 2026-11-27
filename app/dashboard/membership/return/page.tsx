@@ -507,7 +507,7 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
             Không tìm thấy mã đơn hàng hội viên
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-            Trang kết quả thanh toán cần mã đơn hàng (<code>orderId</code>) để đối soát trực tiếp trạng thái giao dịch với máy chủ HomeSpace.
+            Trang kết quả thanh toán cần mã đơn hàng (<code>orderId</code>) để kiểm tra trực tiếp trạng thái giao dịch với máy chủ HomeSpace.
           </p>
           <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
             <Link
@@ -552,7 +552,7 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
         summary="Xác thực trạng thái đơn hàng từ máy chủ HomeSpace"
       >
         <p>
-          Hệ thống không bao giờ xác nhận thanh toán chỉ dựa vào tham số trên thanh địa chỉ (URL). Trạng thái dưới đây được truy vấn trực tiếp từ máy chủ đơn hàng của HomeSpace sau khi đối soát kết quả thanh toán với {providerLabel}.
+          Hệ thống không bao giờ xác nhận thanh toán chỉ dựa vào tham số trên thanh địa chỉ (URL). Trạng thái dưới đây được truy vấn trực tiếp từ máy chủ đơn hàng của HomeSpace sau khi kiểm tra kết quả thanh toán với {providerLabel}.
         </p>
       </PolicyNotice>
 
@@ -637,7 +637,7 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
                     ? "Mua thêm lượt đăng thành công!"
                     : "Kích hoạt gói hội viên thành công!"
                   : isReview
-                  ? "Đơn hàng đang chờ bộ phận vận hành đối soát"
+                  ? "Đơn hàng đang được xử lý"
                   : isCancelled
                   ? "Đơn hàng hội viên đã được hủy"
                   : isFailed
@@ -806,7 +806,7 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
                         Thao tác này chỉ <strong>hủy đơn hàng trên HomeSpace</strong> (chuyển sang trạng thái <code>CANCELLED</code>). {activeProvider === "ETH" ? "Nếu đã lấy báo giá ETH, hệ thống chỉ cho hủy khi báo giá hết hạn và blockchain xác nhận chưa thanh toán." : `Bạn có thể tạo giao dịch mới ngay khi gặp lỗi thanh toán qua ${providerLabel}.`}
                       </p>
                       <p>
-                        Lưu ý quan trọng: Thao tác này <strong>không thể hủy hoặc hoàn trả giao dịch thu tiền phía {providerLabel}</strong> nếu bạn đã thanh toán. {activeProvider === "ETH" ? "Nếu đã gửi giao dịch qua MetaMask, hãy tiếp tục đối soát thay vì hủy đơn." : `Nếu ${providerLabel} xác nhận trừ tiền thành công muộn sau khi hủy, đơn hàng sẽ chuyển sang trạng thái REVIEW để đối soát thủ công.`}
+                        Lưu ý quan trọng: Thao tác này <strong>không thể hủy hoặc hoàn trả giao dịch thu tiền phía {providerLabel}</strong> nếu bạn đã thanh toán. {activeProvider === "ETH" ? "Nếu đã gửi giao dịch qua MetaMask, hãy tiếp tục kiểm tra giao dịch thay vì hủy đơn." : `Nếu ${providerLabel} xác nhận trừ tiền thành công muộn sau khi hủy, hệ thống vẫn tự áp dụng khoản thanh toán đó cho tài khoản của bạn.`}
                       </p>
                     </div>
                   </div>
@@ -877,7 +877,7 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
                   href={`/dashboard/membership/eth?orderId=${encodeURIComponent(order.id)}`}
                   className="inline-flex items-center gap-2 rounded-xl border border-primary px-5 py-2.5 text-xs font-bold text-primary hover:bg-primary/5"
                 >
-                  <span>Tiếp tục thanh toán / đối soát MetaMask</span>
+                  <span>Tiếp tục thanh toán / kiểm tra MetaMask</span>
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               )}

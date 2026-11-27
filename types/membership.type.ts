@@ -74,7 +74,7 @@ export type MembershipOrderStatus =
   | "PAID"
   | "SUCCEEDED"
   | "COMPLETED"
-  | "REVIEW"
+  | "REVIEW" // legacy: no longer produced; show as "Đang xử lý"
   | "FAILED"
   | "CANCELLED"
   | "EXPIRED"

@@ -297,7 +297,7 @@ describe("membership domain logic and DTO adapters", () => {
     const cancelledMeta = getOrderStatusPresentation("CANCELLED");
     assert.equal(cancelledMeta.label, "Đã hủy thanh toán");
     assert.equal(cancelledMeta.tone, "danger");
-    assert.match(cancelledMeta.description, /REVIEW/);
+    assert.doesNotMatch(cancelledMeta.description, /REVIEW|đối soát/);
 
     const cancelledOutcome = resolveCancelOrderOutcome({
       status: "CANCELLED",
@@ -309,7 +309,7 @@ describe("membership domain logic and DTO adapters", () => {
     assert.equal(cancelledOutcome.shouldClearPendingOrder, true);
     assert.match(cancelledOutcome.noticeMessage, /HomeSpace đã được hủy/);
     assert.match(cancelledOutcome.noticeMessage, /SePay/);
-    assert.match(cancelledOutcome.noticeMessage, /REVIEW/);
+    assert.doesNotMatch(cancelledOutcome.noticeMessage, /REVIEW|đối soát/);
 
     const paidRaceOutcome = resolveCancelOrderOutcome({ status: "PAID" });
     assert.equal(paidRaceOutcome.outcome, "already_paid");
@@ -324,7 +324,7 @@ describe("membership domain logic and DTO adapters", () => {
     assert.equal(reviewRaceOutcome.cancelled, false);
     assert.equal(reviewRaceOutcome.shouldStopPolling, true);
     assert.equal(reviewRaceOutcome.shouldClearPendingOrder, true);
-    assert.match(reviewRaceOutcome.noticeMessage, /REVIEW/);
+    assert.doesNotMatch(reviewRaceOutcome.noticeMessage, /REVIEW|đối soát/);
     assert.doesNotMatch(reviewRaceOutcome.noticeMessage, /HomeSpace đã được hủy/);
 
     const failedRaceOutcome = resolveCancelOrderOutcome({ status: "FAILED" });
@@ -359,7 +359,7 @@ describe("membership domain logic and DTO adapters", () => {
       /không thể hủy hoặc hoàn trả giao dịch thu tiền phía \{providerLabel\}/,
     );
     assert.match(returnPageSource, /normalizeOrderProvider\(order\.provider\)/);
-    assert.match(returnPageSource, /REVIEW/);
+    assert.doesNotMatch(returnPageSource, /đối soát/);
     assert.match(returnPageSource, /data-testid="cancel-pending-order-button"/);
     assert.match(returnPageSource, /data-testid="confirm-cancel-order-button"/);
     assert.match(returnPageSource, /data-testid="new-membership-checkout-link"/);
@@ -822,22 +822,7 @@ describe("membership domain logic and DTO adapters", () => {
       getOrderStatusPresentation("PAID", null).description,
       /SePay/,
     );
-    assert.match(
-      getOrderStatusPresentation("REVIEW", "SEPAY").description,
-      /SePay/,
-    );
-    assert.doesNotMatch(
-      getOrderStatusPresentation("REVIEW", null).description,
-      /SePay/,
-    );
-    assert.match(
-      getOrderStatusPresentation("CANCELLED", "SEPAY").description,
-      /SePay/,
-    );
-    assert.doesNotMatch(
-      getOrderStatusPresentation("CANCELLED", null).description,
-      /SePay/,
-    );
+    assert.equal(getOrderStatusPresentation("REVIEW", "SEPAY").label, "Đang xử lý");
     assert.match(
       getOrderStatusPresentation("PENDING", "SEPAY").description,
       /SePay/,

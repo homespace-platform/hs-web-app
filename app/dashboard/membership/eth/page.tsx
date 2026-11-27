@@ -60,7 +60,7 @@ function EthOrder() {
         setError(null);
       }
     } catch (cause) {
-      setError(getMembershipErrorMessage(cause, "Giao dịch đã gửi. Hệ thống đang chờ đủ xác nhận; thử đối soát lại sau."));
+      setError(getMembershipErrorMessage(cause, "Giao dịch đã gửi. Hệ thống đang chờ đủ xác nhận; thử kiểm tra lại sau."));
     } finally {
       settling.current = false;
     }
@@ -136,13 +136,13 @@ function EthOrder() {
         <p>Trạng thái: <strong>{order.status}</strong></p>
       </div>
       {order.provider !== "ETH" ? <p className="text-red-600">Đơn này không sử dụng Sepolia ETH.</p> : null}
-      {order.status === "PAID" ? <p className="rounded-xl border border-green-300 bg-green-50 p-4 text-green-800">HomeSpace đã đối soát giao dịch và {order.kind === "ADDON" ? "cộng lượt mua thêm vào tài khoản" : "kích hoạt gói hội viên"}.</p> : null}
-      {order.status === "REVIEW" ? <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900">Đơn cần đối soát thủ công. Không gửi thêm ETH.</p> : null}
+      {order.status === "PAID" ? <p className="rounded-xl border border-green-300 bg-green-50 p-4 text-green-800">HomeSpace đã xác nhận giao dịch và {order.kind === "ADDON" ? "cộng lượt mua thêm vào tài khoản" : "kích hoạt gói hội viên"}.</p> : null}
+      {order.status === "REVIEW" ? <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900">Đơn đang được xử lý. Không gửi thêm ETH.</p> : null}
       {order.status === "PENDING" && order.provider === "ETH" && <div className="rounded-xl border bg-card p-5 space-y-4 text-sm">
         {submitted ? <>
           <p>Giao dịch đã gửi: <a className="text-primary underline" target="_blank" rel="noopener noreferrer" href={`https://sepolia.etherscan.io/tx/${submitted.txHash}`}>{submitted.txHash}</a></p>
-          <p>Hệ thống cần ít nhất 3 block xác nhận. Trang sẽ tự thử đối soát lại; đừng chuyển ETH lần nữa.</p>
-          <button type="button" onClick={() => settle(submitted)} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"><RefreshCw className="h-4 w-4" /> Đối soát lại</button>
+          <p>Hệ thống cần ít nhất 3 block xác nhận. Trang sẽ tự kiểm tra lại; đừng chuyển ETH lần nữa.</p>
+          <button type="button" onClick={() => settle(submitted)} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"><RefreshCw className="h-4 w-4" /> Kiểm tra lại</button>
         </> : <>
           <button type="button" disabled={busy} onClick={connectAndQuote} className="flex items-center gap-2 rounded-lg border px-4 py-2 disabled:opacity-50"><Wallet className="h-4 w-4" /> {wallet ? "Lấy lại báo giá" : "Kết nối MetaMask và lấy báo giá"}</button>
           {quote && <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-4">

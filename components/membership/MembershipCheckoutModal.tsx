@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
@@ -83,6 +83,7 @@ export default function MembershipCheckoutModal({
   const [hasPendingOrderConflict, setHasPendingOrderConflict] = useState(false);
   const [preservedOrderId, setPreservedOrderId] = useState<string | null>(null);
   const [submittingCheckout, setSubmittingCheckout] = useState(false);
+  const submitLock = useRef(false);
   const [selectedProvider, setSelectedProvider] =
     useState<MembershipPaymentProvider>("SEPAY");
 
@@ -123,6 +124,7 @@ export default function MembershipCheckoutModal({
       setHasPendingOrderConflict(false);
       setPreservedOrderId(null);
       setSubmittingCheckout(false);
+      submitLock.current = false;
       setSelectedProvider("SEPAY");
     }
   }, [isOpen, targetTier, authenticated, fetchServerQuote]);
@@ -163,7 +165,8 @@ export default function MembershipCheckoutModal({
       login(targetTier ? `/membership?tier=${encodeURIComponent(targetTier)}` : "/membership");
       return;
     }
-    if (!targetTier || !quote || submittingCheckout) return;
+    if (!targetTier || !quote || submittingCheckout || submitLock.current) return;
+    submitLock.current = true; // sync lock: state updates are async, a fast double click would slip through
     setSubmittingCheckout(true);
     setCheckoutError(null);
     setHasPendingOrderConflict(false);
@@ -200,6 +203,7 @@ export default function MembershipCheckoutModal({
           toast.error(errMsg);
         }
         setSubmittingCheckout(false);
+        submitLock.current = false;
         return;
       }
 
@@ -233,6 +237,7 @@ export default function MembershipCheckoutModal({
         setCheckoutError(invalidMsg);
         toast.error(invalidMsg);
         setSubmittingCheckout(false);
+        submitLock.current = false;
         return;
       }
 
@@ -259,6 +264,7 @@ export default function MembershipCheckoutModal({
       setHasPendingOrderConflict(isMembershipPendingOrderError(error));
       toast.error(errMsg);
       setSubmittingCheckout(false);
+      submitLock.current = false;
     }
   }
 
@@ -470,11 +476,19 @@ export default function MembershipCheckoutModal({
               />
 
               {/* Security & Business Assurance */}
+              {savedPendingOrderId && !checkoutError && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                  Bạn đang có đơn chờ thanh toán – tiếp tục thanh toán đơn này.{" "}
+                  <Link href={`/dashboard/membership/return?orderId=${encodeURIComponent(savedPendingOrderId)}`} onClick={onClose} className="font-extrabold text-primary hover:underline">
+                    Xem đơn #{savedPendingOrderId.slice(0, 8)}...
+                  </Link>
+                </div>
+              )}
               <div className="rounded-xl bg-muted/50 p-3 text-[11px] text-muted-foreground flex items-start gap-2.5 leading-relaxed">
                 <ShieldCheck className="h-4 w-4 shrink-0 text-primary mt-0.5" />
                 <span>
                   Số tiền thanh toán được xác định trực tiếp bởi máy chủ HomeSpace. {selectedProvider === "ETH"
-                    ? "Bạn sẽ ký xác thực ví rồi xác nhận giao dịch Sepolia trong MetaMask. Gói chỉ kích hoạt sau khi máy chủ đối soát blockchain."
+                    ? "Bạn sẽ ký xác thực ví rồi xác nhận giao dịch Sepolia trong MetaMask. Gói chỉ kích hoạt sau khi máy chủ xác nhận giao dịch blockchain."
                     : <>Trình duyệt sẽ gửi biểu mẫu thanh toán an toàn (POST) sang cổng <strong>SePay</strong> và kết quả đơn hàng được xác thực từ máy chủ sau khi hoàn tất.</>}
                 </span>
               </div>

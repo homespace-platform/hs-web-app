@@ -30,7 +30,7 @@ function fixture() {
 
 test('membership tags distinguish activation/review and old payment schemas retain fallback',()=>{
   const api=service();assert.equal(api.getNotificationTag({category:'PAYMENT',type:'MEMBERSHIP_ACTIVATED'}),'Kích hoạt hội viên');
-  assert.equal(api.getNotificationTag({category:'PAYMENT',type:'MEMBERSHIP_PAYMENT_REVIEW'}),'Chờ đối soát');
+  assert.equal(api.getNotificationTag({category:'PAYMENT',type:'MEMBERSHIP_PAYMENT_REVIEW'}),'Đang xử lý');
   for(const type of ['constructor','__proto__','PAYMENT_SUCCESSFUL'])assert.equal(api.getNotificationTag({category:'PAYMENT',type}),'Thanh toán');
 });
 
@@ -64,7 +64,7 @@ test('membership notices share an existing order GET, hidden tabs wait and recov
   f.notifications.notifyMembershipChanged(ID);f.document.visibilityState='hidden';await f.timers.advance(250);
   assert.equal(f.requests.length,2);f.document.visibilityState='visible';f.document.fire('visibilitychange');
   await f.timers.advance(250);assert.equal(f.requests.length,3);f.resolve(2,'REVIEW');await f.runtime.settle();
-  assert.match(html(f.runtime),/đối soát|xem xét/i);f.runtime.unmount();assert.equal(f.timers.size,0);
+  assert.match(html(f.runtime),/Đang xử lý/i);f.runtime.unmount();assert.equal(f.timers.size,0);
 });
 
 test('an old order request cannot affect a new keyed instance after unmount',async()=>{

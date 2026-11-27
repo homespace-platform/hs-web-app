@@ -38,7 +38,7 @@ export const MEMBERSHIP_PAYMENT_PROVIDERS: readonly MembershipPaymentProviderOpt
     code: "ETH",
     label: "MetaMask (Sepolia ETH)",
     shortLabel: "Sepolia ETH",
-    description: "Thanh toán bằng ETH thử nghiệm; hệ thống đối soát giao dịch trước khi kích hoạt đơn.",
+    description: "Thanh toán bằng ETH thử nghiệm; hệ thống xác nhận giao dịch trước khi kích hoạt đơn.",
     enabled: true,
     badge: "Thử nghiệm",
   },
@@ -814,7 +814,7 @@ export function resolveCancelOrderOutcome(
       shouldStopPolling: true,
       shouldClearPendingOrder: true,
       noticeTone: "info",
-      noticeMessage: `Đơn hàng trên HomeSpace đã được hủy. Bạn có thể tạo đơn thanh toán mới ngay. Lưu ý: thao tác này không hủy giao dịch phía ${providerLabel}; nếu phát sinh thanh toán muộn từ ${providerLabel}, đơn hàng sẽ được chuyển sang trạng thái REVIEW để đối soát thủ công.`,
+      noticeMessage: `Đơn hàng trên HomeSpace đã được hủy. Bạn có thể tạo đơn thanh toán mới ngay. Lưu ý: thao tác này không hủy giao dịch phía ${providerLabel}.`,
     };
   }
 
@@ -839,7 +839,7 @@ export function resolveCancelOrderOutcome(
       shouldClearPendingOrder: true,
       noticeTone: "warning",
       noticeMessage:
-        "Đơn hàng đã chuyển sang trạng thái chờ đối soát (REVIEW) trước khi yêu cầu hủy hoàn tất. Bộ phận vận hành sẽ kiểm tra giao dịch này.",
+        "Đơn hàng đang được xử lý nên chưa thể hủy.",
     };
   }
 
@@ -886,9 +886,9 @@ export function getOrderStatusPresentation(
   }
   if (isOrderReviewStatus(status)) {
     return {
-      label: "Đang chờ đối soát (REVIEW)",
+      label: "Đang xử lý",
       tone: "warning",
-      description: `${providerLabel} đã ghi nhận thanh toán nhưng thời hạn đơn hoặc điều kiện kích hoạt đã thay đổi tại thời điểm đối soát. Đơn hàng đã được chuyển sang trạng thái REVIEW để bộ phận vận hành đối soát và xử lý cho bạn.`,
+      description: `Đơn hàng đang được xử lý.`,
     };
   }
   if (isOrderFailedStatus(status)) {
@@ -903,14 +903,14 @@ export function getOrderStatusPresentation(
       label,
       tone: "danger",
       description: isCancelled
-        ? `Đơn hàng trên HomeSpace đã được hủy và gói hội viên hiện tại không bị thay đổi. Bạn có thể khởi tạo giao dịch mới ngay. Nếu ${providerLabel} vẫn ghi nhận trừ tiền muộn, đơn hàng sẽ tự động chuyển sang trạng thái REVIEW để đối soát thủ công.`
+        ? `Đơn hàng trên HomeSpace đã được hủy và gói hội viên hiện tại không bị thay đổi. Bạn có thể khởi tạo giao dịch mới ngay.`
         : "Giao dịch chưa hoàn tất hoặc đã hết thời gian thanh toán (15 phút). Gói hội viên hiện tại của bạn không bị thay đổi. Bạn có thể khởi tạo lại giao dịch mới bất cứ lúc nào.",
     };
   }
   return {
     label: "Đang chờ xác nhận từ hệ thống",
     tone: "warning",
-    description: `Hệ thống đang đối soát kết quả giao dịch trực tiếp với máy chủ ${providerLabel}. Trạng thái thanh toán chỉ được xác nhận từ máy chủ HomeSpace, không dựa trên tham số URL.`,
+    description: `Hệ thống đang kiểm tra kết quả giao dịch trực tiếp với máy chủ ${providerLabel}. Trạng thái thanh toán chỉ được xác nhận từ máy chủ HomeSpace, không dựa trên tham số URL.`,
   };
 }
 

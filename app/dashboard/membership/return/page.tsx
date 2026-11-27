@@ -19,6 +19,7 @@ import {
   Info,
 } from "lucide-react";
 import membershipService from "@/services/membership.service";
+import { membershipReceiptService } from "@/services/membership-receipt.service";
 import notificationService from "@/services/notification.service";
 import { useAuth } from "@/features/auth/useAuth";
 import {
@@ -121,6 +122,7 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
   // Never render a response that belongs to another order id (query changed while mounted).
   const order = rawOrder && rawOrder.id === (queryOrderId || resolvedOrderId) ? rawOrder : null;
   const [membership, setMembership] = useState<MembershipView | null>(null);
+  const [receiptReady, setReceiptReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
   const [rechecking, setRechecking] = useState(false);
@@ -481,6 +483,19 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
     }
   }
 
+  const paidOrderId = order && isOrderPaidStatus(order.status) ? order.id : undefined;
+  useEffect(() => {
+    if (!paidOrderId) return;
+    let live = true;
+    membershipReceiptService
+      .byOrder(paidOrderId)
+      .then(() => live && setReceiptReady(true))
+      .catch(() => {}); // no receipt (yet): the link simply stays hidden
+    return () => {
+      live = false;
+    };
+  }, [paidOrderId]);
+
   if (!resolvedOrderId && !loading) {
     return (
       <div className="mx-auto max-w-xl py-12">
@@ -721,6 +736,15 @@ function MembershipReturnBody({ queryOrderId }: { queryOrderId: string }) {
                   </div>
                 )}
               </div>
+            )}
+
+            {isPaid && receiptReady && (
+              <Link
+                href="/dashboard/invoices?tab=membership"
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+              >
+                Xem biên nhận
+              </Link>
             )}
 
             {/* Updated Membership Summary when PAID */}

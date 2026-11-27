@@ -30,6 +30,7 @@ export type PublicUserProfile = {
   lastName?: string | null;
   avatarUrl?: string | null;
   kycVerified?: boolean | null;
+  role?: string | null;
   createdAt?: string | null;
   provinceName?: string | null;
 };

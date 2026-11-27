@@ -187,9 +187,9 @@ export default function PublicProfileClient({ username }: { username: string }) 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
               <h1 className="break-words text-2xl font-bold sm:text-3xl">{fullName}</h1>
-              {profile.kycVerified && (
+              {(profile.kycVerified || profile.role === "ADMIN") && (
                 <span className="inline-flex rounded-full ring-1 ring-white/80">
-                  <IdentityBadge kycVerified={profile.kycVerified} />
+                  <IdentityBadge role={profile.role} kycVerified={profile.kycVerified} />
                 </span>
               )}
             </div>

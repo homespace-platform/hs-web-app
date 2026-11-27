@@ -603,15 +603,6 @@ export default function BranchesPage() {
           <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
             Tạo chi nhánh đầu tiên để cố định địa chỉ, ảnh bìa, toàn bộ biểu phí dịch vụ và quy định chung cho dãy phòng trọ hoặc tòa nhà của bạn.
           </p>
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            disabled={!postGate.allowed}
-            title={postGate.title}
-            className="mt-4 disabled:opacity-50 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" /> Tạo Chi nhánh ngay
-          </button>
         </div>
       ) : (
         <div className="space-y-4">

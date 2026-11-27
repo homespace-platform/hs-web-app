@@ -17,11 +17,13 @@ import {
   getMembershipErrorMessage,
   getPendingMembershipOrderId,
   isMembershipPendingOrderError,
+  isMembershipRecentlyPaidError,
   isOrderCancelledStatus,
   savePendingMembershipOrderId,
   submitSePayCheckoutForm,
   validateCheckoutResponse,
 } from "@/lib/membership";
+import RepeatPurchaseConfirm from "./RepeatPurchaseConfirm";
 import type { MembershipAddonOffer, MembershipPaymentProvider } from "@/types/membership.type";
 
 interface Props {
@@ -41,6 +43,7 @@ export default function MembershipAddonModal({ starterPriceVnd, onClose }: Props
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [repeatMessage, setRepeatMessage] = useState<string | null>(null);
 
   const loadOffer = useCallback(() => {
     membershipService.getAddonOffer().then(
@@ -65,13 +68,13 @@ export default function MembershipAddonModal({ starterPriceVnd, onClose }: Props
   const total = offer ? offer.unitPriceVnd * quantity : 0;
   const providerName = provider === "ETH" ? "MetaMask" : "SePay";
 
-  async function handleCheckout() {
+  async function handleCheckout(repeat?: boolean) {
     if (!offer || submitting) return;
     setSubmitting(true);
     setCheckoutError(null);
     setPendingOrderId(null);
     try {
-      const checkout = await membershipService.checkoutAddon(quantity, provider);
+      const checkout = await membershipService.checkoutAddon(quantity, provider, repeat === true);
       const priceChange = await cancelOrderOnQuoteChange(checkout, total, (id) =>
         membershipService.cancelOrder(id),
       );
@@ -110,6 +113,12 @@ export default function MembershipAddonModal({ starterPriceVnd, onClose }: Props
       toast.loading("Đang chuyển hướng tới cổng thanh toán SePay...", { id: "sepay-redirect" });
       submitSePayCheckoutForm(checkout);
     } catch (error: unknown) {
+      if (isMembershipRecentlyPaidError(error)) {
+        setRepeatMessage(getMembershipErrorMessage(error));
+        setSubmitting(false);
+        return;
+      }
+      setRepeatMessage(null);
       setCheckoutError(
         getMembershipErrorMessage(error, "Không thể khởi tạo giao dịch thanh toán. Vui lòng thử lại."),
       );
@@ -121,6 +130,7 @@ export default function MembershipAddonModal({ starterPriceVnd, onClose }: Props
   if (typeof document === "undefined") return null;
 
   return createPortal(
+    <>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       onClick={() => {
@@ -213,14 +223,19 @@ export default function MembershipAddonModal({ starterPriceVnd, onClose }: Props
           type="button"
           disabled={!offer || submitting || !purchaseGate.allowed}
           title={purchaseGate.title}
-          onClick={handleCheckout}
+          onClick={() => handleCheckout()}
           className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-primary text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
         >
           {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {offer ? `Thanh toán ${formatExactVnd(total)} qua ${providerName}` : `Thanh toán qua ${providerName}`}
         </button>
       </div>
-    </div>,
+    </div>
+    {repeatMessage && (
+      <RepeatPurchaseConfirm message={repeatMessage} sending={submitting}
+        onCancel={() => setRepeatMessage(null)} onConfirm={() => handleCheckout(true)} />
+    )}
+    </>,
     document.body,
   );
 }

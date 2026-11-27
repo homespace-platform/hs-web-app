@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
+import RepeatPurchaseConfirm from "./RepeatPurchaseConfirm";
 import {
   X,
   Sparkles,
@@ -31,6 +32,7 @@ import {
   getQuotaResetLabel,
   getTierLabel,
   isMembershipPendingOrderError,
+  isMembershipRecentlyPaidError,
   isOrderCancelledStatus,
   savePendingMembershipOrderId,
   submitSePayCheckoutForm,
@@ -84,6 +86,7 @@ export default function MembershipCheckoutModal({
   const [preservedOrderId, setPreservedOrderId] = useState<string | null>(null);
   const [submittingCheckout, setSubmittingCheckout] = useState(false);
   const submitLock = useRef(false);
+  const [repeatMessage, setRepeatMessage] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] =
     useState<MembershipPaymentProvider>("SEPAY");
 
@@ -160,7 +163,7 @@ export default function MembershipCheckoutModal({
       ? plan.priceVnd - quote.amountVnd
       : 0;
 
-  async function handleConfirmCheckout() {
+  async function handleConfirmCheckout(repeat?: boolean) {
     if (!authenticated) {
       login(targetTier ? `/membership?tier=${encodeURIComponent(targetTier)}` : "/membership");
       return;
@@ -174,6 +177,7 @@ export default function MembershipCheckoutModal({
       const checkoutRes = await membershipService.checkout(
         targetTier,
         selectedProvider,
+        repeat === true,
       );
 
       // If server re-quote under lock changed the price (e.g., 24h window just expired),
@@ -256,6 +260,13 @@ export default function MembershipCheckoutModal({
       });
       submitSePayCheckoutForm(checkoutRes);
     } catch (error: unknown) {
+      if (isMembershipRecentlyPaidError(error)) {
+        setRepeatMessage(getMembershipErrorMessage(error));
+        setSubmittingCheckout(false);
+        submitLock.current = false;
+        return;
+      }
+      setRepeatMessage(null);
       const errMsg = getMembershipErrorMessage(
         error,
         "Không thể khởi tạo giao dịch thanh toán SePay. Vui lòng thử lại.",
@@ -540,7 +551,7 @@ export default function MembershipCheckoutModal({
               !MEMBERSHIP_PAYMENT_PROVIDERS.some((provider) => provider.code === selectedProvider && provider.enabled)
             }
             title={purchaseGate.title}
-            onClick={handleConfirmCheckout}
+            onClick={() => handleConfirmCheckout()}
             className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-5 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
           >
             {submittingCheckout ? (
@@ -564,5 +575,16 @@ export default function MembershipCheckoutModal({
     </div>
   );
 
-  return typeof document !== "undefined" ? createPortal(modalNode, document.body) : null;
+  return typeof document !== "undefined"
+    ? createPortal(
+        <>
+          {modalNode}
+          {repeatMessage && (
+            <RepeatPurchaseConfirm message={repeatMessage} sending={submittingCheckout}
+              onCancel={() => setRepeatMessage(null)} onConfirm={() => handleConfirmCheckout(true)} />
+          )}
+        </>,
+        document.body,
+      )
+    : null;
 }

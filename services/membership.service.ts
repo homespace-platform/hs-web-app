@@ -69,10 +69,11 @@ const membershipService = {
   async checkout(
     tier: PaidMembershipTierCode,
     provider: MembershipPaymentProvider = "SEPAY",
+    confirmRepeat = false,
   ): Promise<MembershipCheckoutResponse> {
     const response = await axiosClient.post<ApiResponse<MembershipCheckoutResponse>>(
       "/api/v1/membership/checkout",
-      { tier, provider },
+      { tier, provider, confirmRepeat },
     );
     const payload = response.data?.result ?? response.data;
     return normalizeCheckoutResponse(payload);
@@ -92,10 +93,11 @@ const membershipService = {
   async checkoutAddon(
     quantity: number,
     provider: MembershipPaymentProvider,
+    confirmRepeat = false,
   ): Promise<MembershipCheckoutResponse> {
     const response = await axiosClient.post<ApiResponse<MembershipCheckoutResponse>>(
       MEMBERSHIP_API_PATHS.addonCheckout,
-      { quantity, provider },
+      { quantity, provider, confirmRepeat },
     );
     return normalizeCheckoutResponse(response.data?.result ?? response.data);
   },

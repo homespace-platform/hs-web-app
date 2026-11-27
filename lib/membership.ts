@@ -963,6 +963,9 @@ export function isMembershipDowngradeError(error: unknown): boolean {
   return msg.includes("DOWNGRADE");
 }
 
+/** Code 4084: the same item was paid moments ago; the user must confirm a repeat purchase. */
+export const isMembershipRecentlyPaidError = (error: unknown) => extractBackendErrorCode(error) === 4084;
+
 export function isMembershipPendingOrderError(error: unknown): boolean {
   const code = extractBackendErrorCode(error);
   if (code === 4018) return true;

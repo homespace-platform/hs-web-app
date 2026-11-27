@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { toast } from "sonner";
-import { Hash, Plus, Undo2 } from "lucide-react";
+import { Eye, Hash, Pencil, Plus, Undo2 } from "lucide-react";
 import { useActionDialog } from "@/components/common/ActionDialog";
 import {
   MAX_FLOORS,
@@ -21,14 +21,16 @@ import {
   fromLayout,
   isSavedCopy,
   nextRoomCode,
+  roomCodeError,
   sameLayout,
+  setRoomCode,
   toSaveRequest,
   undoEdit,
   validateDraft,
   type DraftHistory,
   type LayoutTemplate,
 } from "@/lib/branch-layout";
-import { detachIds, lostAttachedRooms, permissionBlock, roomLines, roomOptions, unsavedBlock } from "@/lib/branch-assignment";
+import { detachIds, lostAttachedRooms, mismatchedListings, permissionBlock, roomLines, roomOptions, unsavedBlock } from "@/lib/branch-assignment";
 import { readStoredDraft, removeStoredDraft, writeStoredDraft, type StoredDraft } from "@/lib/branch-layout-draft";
 import keycloak from "@/lib/keycloak";
 import branchLayoutService from "@/services/branch-layout.service";
@@ -151,7 +153,14 @@ export interface MapLinks {
   /** Reads the links now: another tab can attach one without changing the layout revision. */
   readRooms: () => Promise<Map<string, RoomAssignment>>;
   onLayoutSaved: () => void;
-  roomPanel: (args: { roomId: string; code: string; options: RoomOption[]; lock: string | null }) => ReactNode;
+  roomPanel: (args: {
+    roomId: string;
+    code: string;
+    options: RoomOption[];
+    lock: string | null;
+    /** Saves the map with this room's code changed (same path as the save button). Resolves "" on success, else the reason. */
+    renameRoom: (code: string) => Promise<string>;
+  }) => ReactNode;
   tray: (args: { options: RoomOption[]; lock: string | null; roomLock: string | null }) => ReactNode;
   /** Phase 3 status view of the saved map; absent when it cannot be read. Shown until the owner edits. */
   overview?: (args: { floors: LayoutDraft; openRoom?: (roomId: string) => void }) => ReactNode;
@@ -193,6 +202,8 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
   const houseStarted = useRef(false);
   /** Blocks a second click before the re-render. */
   const requesting = useRef(false);
+  /** First reason of the last failed save, for callers that show it themselves. */
+  const lastError = useRef("");
   /** Bumped when the owner leaves, so a save still reading links never sends its PUT. */
   const saveAttempt = useRef(0);
   useEffect(() => () => { saveAttempt.current++; }, []);
@@ -275,20 +286,26 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
     if (setup && loaded) headingRef.current?.focus();
   }, [setup, loaded]);
 
-  /** Returns "links-changed" when the server found links the owner has not confirmed (4093). */
-  const save = async (next: LayoutDraft, expectedRevision: number, acknowledgedDetach: AcknowledgedDetach = NO_DETACH): Promise<"links-changed" | void> => {
+  const showErrors = (messages: string[]) => {
+    lastError.current = messages[0] ?? "";
+    setSaveErrors(messages);
+  };
+
+  /** Returns "links-changed" when the server found links the owner has not confirmed (4093), "saved" on success. */
+  const save = async (next: LayoutDraft, expectedRevision: number, acknowledgedDetach: AcknowledgedDetach = NO_DETACH, report: (messages: string[]) => void = showErrors): Promise<"links-changed" | "saved" | void> => {
     const problems = validateDraft(next);
     if (problems.length) {
-      setSaveErrors(problems);
+      report(problems);
       return;
     }
     setSaving(true);
-    setSaveErrors([]);
+    report([]);
     try {
       adopt(await branchLayoutService.saveLayout(branchId, { ...toSaveRequest(next, expectedRevision), acknowledgedDetach }));
       forgetDraft(); // also when the editor was left while saving
       toast.success("Đã lưu sơ đồ.");
       links?.onLayoutSaved();
+      return "saved";
     } catch (error) {
       const response = axios.isAxiosError(error) ? error.response : undefined;
       if (response?.status === 409 && response.data?.code === 4093) return "links-changed"; // nothing was written
@@ -300,18 +317,20 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
           forgetDraft();
           toast.success("Đã lưu sơ đồ.");
           links?.onLayoutSaved();
-          return;
+          return "saved";
         }
         // Same revision after a 409: nobody changed the map, the server refused this save
         // (e.g. a removed room still has a contract). Show its reason.
         if (response && latest?.revision === expectedRevision) {
-          setSaveErrors([getApiErrorMessage(error, "Chưa lưu được sơ đồ.")]);
+          report([getApiErrorMessage(error, "Chưa lưu được sơ đồ.")]);
           links?.onLayoutSaved();
           return;
         }
       }
-      if (response?.status === 409) setConflict(true);
-      else setSaveErrors([response ? getApiErrorMessage(error, "Chưa lưu được sơ đồ.") : "Không kết nối được máy chủ. Hãy thử lưu lại."]);
+      if (response?.status === 409) {
+        setConflict(true);
+        lastError.current = "Sơ đồ đã được thay đổi ở nơi khác. Hãy tải lại sơ đồ rồi làm lại.";
+      } else report([response ? getApiErrorMessage(error, "Chưa lưu được sơ đồ.") : "Không kết nối được máy chủ. Hãy thử lưu lại."]);
     } finally {
       setSaving(false);
     }
@@ -439,30 +458,59 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
     }
   };
 
+  /** "Đổi mã ô thành <mã tin>": one cell's code through the normal save. Only from a clean map; resolves "" on success. */
+  const renameRoomCode = async (slotKey: string, code: string): Promise<string> => {
+    if (requesting.current || saving) return "Đang lưu sơ đồ, vui lòng đợi.";
+    const blocked = unsavedBlock(dirty, false) ?? (stale ? "Sơ đồ đã được thay đổi ở nơi khác. Hãy tải lại sơ đồ rồi làm lại." : null);
+    if (blocked) return blocked;
+    const problem = roomCodeError(saved, slotKey, code);
+    if (problem) return problem;
+    requesting.current = true;
+    lastError.current = "";
+    try {
+      // Nothing is removed, so there is nothing to confirm; a 4093 here would mean the server disagrees.
+      const result = await save(setRoomCode(saved, slotKey, code), revision, NO_DETACH, (messages) => { lastError.current = messages[0] ?? ""; });
+      if (result === "saved") return "";
+      return lastError.current || (result === "links-changed" ? "Liên kết của phòng vừa thay đổi. Hãy thử lại." : "Chưa đổi được mã ô.");
+    } finally {
+      requesting.current = false;
+    }
+  };
+
+  const renameRef = useRef(renameRoomCode);
+  useEffect(() => { renameRef.current = renameRoomCode; });
+
   const savedRooms = roomOptions(saved);
   const savedRoomIds = new Set(savedRooms.map((r) => r.id));
   const isSavedRoom = (slot: DraftSlot) => slot.roomCode !== null && !!slot.id && savedRoomIds.has(slot.id);
   const linkRooms = links?.rooms ?? null;
   const linkLock = permissionBlock(canEdit, lockMessage);
 
-  const targetSlot = linkRooms && target?.type === "cell" ? findSlot(draft, target.key)?.slot : undefined;
+  const rooms = countRooms(draft);
+  const showPicker = canEdit && !offer && (draft.length === 0 || pickingTemplate);
+  // Two explicit modes: Xem (default) and Sửa sơ đồ. Without the link layer the map is the plain editor.
+  const switchable = !!links && canEdit && !setup && loaded && draft.length > 0 && !showPicker && !offer;
+  const editMode = canEdit && (!links || setup || editing || dirty || showPicker || !!offer);
+  const boardEditable = editMode && editable;
+  const hasOverview = !!links?.overview && loaded && !setup && !editMode && draft.length > 0;
+
+  const targetSlot = linkRooms && !editMode && target?.type === "cell" ? findSlot(draft, target.key)?.slot : undefined;
   let linkPanel: ReactNode = null;
   if (links && targetSlot && targetSlot.roomCode !== null) {
     linkPanel = isSavedRoom(targetSlot)
+      // The ref is only read when the owner clicks "Đổi mã ô", never while rendering.
+      // eslint-disable-next-line react-hooks/refs
       ? links.roomPanel({
         roomId: targetSlot.id!,
         code: savedRooms.find((r) => r.id === targetSlot.id)!.code,
         options: savedRooms,
         lock: linkLock ?? unsavedBlock(dirty, saving),
+        renameRoom: (code) => renameRef.current(targetSlot.key, code),
       })
       : <p className="rounded-xl border border-amber-500/60 bg-amber-500/10 p-3 text-sm">Phòng này chưa được lưu. Hãy bấm Lưu sơ đồ trước rồi mới gắn hợp đồng hoặc tin đăng.</p>;
   }
 
-  const rooms = countRooms(draft);
-  const showPicker = canEdit && !offer && (draft.length === 0 || pickingTemplate);
-  const hasOverview = !!links?.overview && loaded && !setup && !dirty && !saving && !offer && !showPicker && draft.length > 0;
-  const watching = hasOverview && !editing;
-  const openRoom = editable || linkRooms ? (roomId: string) => {
+  const openRoom = linkRooms ? (roomId: string) => {
     const slot = saved.flatMap((f) => f.rows.flatMap((r) => r.slots)).find((s) => s.id === roomId);
     if (slot) setTarget({ type: "cell", key: slot.key });
   } : undefined;
@@ -477,19 +525,30 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
           <p className="text-sm text-muted-foreground">
             {setup ? "Bước này không bắt buộc, bạn có thể làm sau. " : ""}
             {loaded && draft.length > 0 ? `${rooms} phòng.` : ""}
-            {loaded && editable && draft.length > 0 && !showPicker && !watching ? ` Bấm vào ô để ${linkRooms ? "gắn hợp đồng, tin đăng hoặc sửa ô" : "sửa"}, bấm + để thêm phòng.` : ""}
+            {loaded && draft.length > 0 && !showPicker && !setup
+              ? editMode
+                ? editable ? " Bấm vào ô để sửa mã hoặc vị trí, bấm + để thêm phòng." : ""
+                : linkRooms ? " Bấm vào phòng để xem, gắn tin, hợp đồng hoặc đánh dấu." : ""
+              : ""}
+            {loaded && editable && setup && draft.length > 0 && !showPicker ? " Bấm vào ô để sửa, bấm + để thêm phòng." : ""}
           </p>
         </div>
         {setup ? (
           <button type="button" onClick={() => void exitSetup()} disabled={saving} className={outlineButton}>
             {revision > 0 && !dirty ? "Xong" : "Bỏ qua"}
           </button>
-        ) : hasOverview ? (
-          <button type="button" onClick={() => setEditing(watching)} className={outlineButton}>
-            {!watching ? "Xem tình trạng phòng" : canEdit ? "Sửa sơ đồ, liên kết" : "Xem liên kết từng phòng"}
-          </button>
+        ) : switchable ? (
+          <div role="group" aria-label="Chế độ sơ đồ" className="flex gap-1 rounded-2xl border border-border bg-muted/40 p-1">
+            <button type="button" aria-pressed={!editMode} disabled={saving || dirty} onClick={() => { setTarget(null); setEditing(false); }} className={`${outlineButton} ${!editMode ? "!border-primary !bg-primary !text-primary-foreground hover:!bg-primary/90" : "!border-transparent !bg-transparent"}`}>
+              <Eye className="h-4 w-4" aria-hidden="true" /> Xem
+            </button>
+            <button type="button" aria-pressed={editMode} disabled={saving} onClick={() => { setTarget(null); setEditing(true); }} className={`${outlineButton} ${editMode ? "!border-primary !bg-primary !text-primary-foreground hover:!bg-primary/90" : "!border-transparent !bg-transparent"}`}>
+              <Pencil className="h-4 w-4" aria-hidden="true" /> Sửa sơ đồ
+            </button>
+          </div>
         ) : null}
       </div>
+      {switchable && dirty ? <p className="text-xs text-muted-foreground">Lưu hoặc hủy thay đổi rồi mới về chế độ Xem.</p> : null}
 
       <p aria-live="polite" className="sr-only">{notice}</p>
 
@@ -524,7 +583,7 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
             </div>
           ) : null}
 
-          {!watching && canEdit && !offer && (draft.length > 0 || history.past.length > 0) ? (
+          {editMode && !offer && (draft.length > 0 || history.past.length > 0) ? (
             <div className="flex flex-wrap gap-2">
               <button type="button" disabled={!editable || history.past.length === 0} onClick={undo} className={outlineButton}>
                 <Undo2 className="h-4 w-4" aria-hidden="true" /> Hoàn tác
@@ -543,7 +602,7 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
             </div>
           ) : null}
 
-          {watching ? links!.overview!({ floors: saved, openRoom }) : showPicker ? (
+          {hasOverview ? links!.overview!({ floors: saved, openRoom }) : showPicker ? (
             <TemplatePicker
               onPick={(next) => { if (saving) return; edit(next, "Đã tạo sơ đồ nháp. Bấm Lưu sơ đồ để giữ lại."); setPickingTemplate(false); }}
               onCancel={draft.length > 0 ? () => setPickingTemplate(false) : undefined}
@@ -551,7 +610,8 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
           ) : (
             <LayoutBoard
               draft={draft}
-              editable={editable}
+              editable={boardEditable}
+              warn={linkRooms ? (slot) => isSavedRoom(slot) && mismatchedListings(linkRooms.get(slot.id!), slot.roomCode ?? "").length > 0 : undefined}
               info={linkRooms ? (slot) => {
                 const room = isSavedRoom(slot) ? linkRooms.get(slot.id!) : undefined;
                 return room ? roomLines(room) : [];
@@ -583,7 +643,7 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
             </div>
           ) : null}
 
-          {canEdit && (dirty || saving) ? (
+          {editMode && (dirty || saving) ? (
             // Extra right padding on phones keeps the buttons clear of the floating chat button.
             <div className="sticky bottom-2 z-10 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-3 pr-20 shadow-lg sm:pr-24">
               <p className="w-full text-sm font-semibold sm:mr-auto sm:w-auto">Có thay đổi chưa lưu</p>
@@ -601,9 +661,10 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
 
       <LayoutDialogs
         draft={draft}
-        editable={editable}
+        editable={boardEditable}
         linkPanel={linkPanel}
-        target={editable || linkPanel ? target : null}
+        linkHint={!!linkRooms}
+        target={boardEditable || linkPanel ? target : null}
         onTarget={setTarget}
         apply={(next, key, message) => { focusKey.current = key; edit(next, message); setTarget(null); }}
         onCloseFocus={restoreFocus}

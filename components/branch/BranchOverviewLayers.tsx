@@ -5,7 +5,7 @@ import Link from "next/link";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   AlarmClock, AlertTriangle, BadgeCheck, Ban, Bookmark, CalendarClock, ChevronLeft, ChevronRight, CircleDashed,
-  DoorOpen, ExternalLink, FileText, Hourglass, KeyRound, LogIn, Megaphone, Minus, RefreshCw, Unlink, Wrench, X,
+  DoorOpen, ExternalLink, FileText, Hourglass, KeyRound, LogIn, Megaphone, Minus, RefreshCw, Search, TriangleAlert, Unlink, Wrench, X,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -201,11 +201,13 @@ export function UnplacedPayments({ overview, fetchedAt }: { overview: BranchOver
 const pressable = (pressed: boolean) => `${outlineButton} ${pressed ? "!border-primary !bg-primary/10 ring-1 ring-primary" : ""}`;
 
 /** The map as a status view: one layer at a time; every cell leads to the page where the work is done. */
-export default function BranchOverviewLayers({ floors, openRoom, overview, month, fetchedAt, error, layer, floorId, onView, onRefresh }: {
+export default function BranchOverviewLayers({ floors, openRoom, mismatch, overview, month, fetchedAt, error, layer, floorId, onView, onRefresh }: {
   /** The saved map. */
   floors: LayoutDraft;
   /** Opens the room menu of the map (attach, mark, post a listing); absent when it has nothing to offer. */
   openRoom?: (roomId: string) => void;
+  /** Whether a listing on this room declares another code than the cell: shows the small reminder. */
+  mismatch?: (roomId: string, code: string) => boolean;
   /** null while another month is loading. */
   overview: BranchOverview | null;
   /** The month asked for; "" = the server's current month. */
@@ -280,23 +282,34 @@ export default function BranchOverviewLayers({ floors, openRoom, overview, month
       entries = room.payments.items.map((p) => paymentEntry(p, overview!, elapsed));
     }
 
+    const panel = layer === "rooms" && !!overview && !!openRoom;
+    const flagged = !!slot.id && !!mismatch?.(slot.id, code);
     const matched = filtering && matches(slot);
     const className = `flex min-h-24 w-full scroll-mb-28 flex-col items-center justify-center gap-0.5 rounded-lg border-2 px-1.5 py-1.5 text-center [overflow-wrap:anywhere] ${
       filtering && !matched ? "border-dashed border-border bg-card text-muted-foreground" : tone
     } ${matched ? "outline-4 outline-offset-1 outline-foreground" : ""}`;
     const content = (
       <>
-        <span className="text-sm font-bold">{code}</span>
+        <span className="text-base font-bold">{code}</span>
         <span className="flex items-center justify-center gap-1 text-xs font-semibold">
           <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> <span>{label}</span>
         </span>
         {lines.map((line, i) => <span key={i} className="line-clamp-3 text-xs">{line}</span>)}
-        {entries.length > 1 ? <span className="text-xs font-semibold underline">Xem {entries.length} mục</span> : null}
+        {flagged ? (
+          <span className="flex items-center justify-center gap-1 text-xs font-semibold">
+            <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Lệch mã tin
+          </span>
+        ) : null}
+        {entries.length > 1 && !panel ? <span className="text-xs font-semibold underline">Xem {entries.length} mục</span> : null}
       </>
     );
-    const name = [`Phòng ${code}`, place, label, ...lines, matched ? "đang được làm nổi" : ""].filter(Boolean).join(", ");
+    const name = [`Phòng ${code}`, place, label, ...lines, flagged ? "mã trên tin khác mã ô" : "", matched ? "đang được làm nổi" : ""].filter(Boolean).join(", ");
     const shared = { "data-focus-key": slot.key, className: `${className} ${ring}` };
 
+    // On the room layer the cell opens the room panel (status, main step, links, flags); other layers go to the page.
+    if (panel) {
+      return <button type="button" {...shared} aria-haspopup="dialog" onClick={() => openRoom!(slot.id!)} aria-label={`${name}. Mở chi tiết phòng`}>{content}</button>;
+    }
     if (entries.length > 1) {
       return (
         <button
@@ -308,10 +321,6 @@ export default function BranchOverviewLayers({ floors, openRoom, overview, month
       );
     }
     if (entries[0]?.href) return <Link href={entries[0].href} {...shared} aria-label={`${name}. Mở trang`}>{content}</Link>;
-    // Nothing to open as a page: on the room layer the cell menu is the way on.
-    if (layer === "rooms" && overview && openRoom) {
-      return <button type="button" {...shared} onClick={() => openRoom(slot.id!)} aria-label={`${name}. Mở tùy chọn phòng`}>{content}</button>;
-    }
     return <div data-focus-key={slot.key} tabIndex={-1} className={className}>{content}</div>;
   };
 
@@ -339,8 +348,8 @@ export default function BranchOverviewLayers({ floors, openRoom, overview, month
             {month ? <button type="button" onClick={() => onView({ month: "" })} className={outlineButton}>Tháng hiện tại</button> : null}
           </div>
         ) : null}
-        <button type="button" onClick={onRefresh} className={`${outlineButton} sm:ml-auto`}>
-          <RefreshCw className="h-4 w-4" aria-hidden="true" /> Làm mới
+        <button type="button" onClick={onRefresh} aria-label="Làm mới tình trạng phòng" title="Làm mới" className={`${outlineButton} w-11 !px-0 sm:ml-auto`}>
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
       {layer === "payments" ? <p className="text-xs text-muted-foreground">Gồm khoản có hạn trong tháng và nợ quá hạn của các tháng trước.</p> : null}
@@ -349,36 +358,35 @@ export default function BranchOverviewLayers({ floors, openRoom, overview, month
       {!ready ? <p role="status" className="rounded-xl border border-amber-500/60 bg-amber-500/10 p-3 text-sm">Máy chủ chưa có dữ liệu cho lớp {LAYER_LABEL[layer]}. Lớp Phòng và Thu tiền vẫn dùng được.</p> : null}
       {error ? <p role="alert" className="rounded-xl border border-amber-500/60 bg-amber-500/10 p-3 text-sm">Chưa tải lại được, tình trạng có thể đã cũ. {error}</p> : null}
 
-      <div>
-        <label htmlFor={searchId} className="mb-1 block text-sm font-semibold">Tìm mã phòng hoặc tên người thuê</label>
-        <input id={searchId} type="search" value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" className={`${inputClass} sm:max-w-sm`} />
-      </div>
-
-      {!ready ? null : overview ? (
-        <div role="group" aria-label={`Chú giải, ${allSlots.length} phòng. Bấm để làm nổi`} className="flex flex-wrap gap-2">
-          {Object.keys(labels).map((status) => {
-            const { icon: Icon, tone } = look(layer, status);
-            const count = counts.get(status) ?? 0;
-            const pressed = highlight === status;
-            return (
-              <button
-                key={status} type="button" aria-pressed={pressed} disabled={count === 0 && !pressed}
-                onClick={() => setPicked(pressed ? null : { layer, status })}
-                className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl border-2 px-2.5 text-xs font-semibold disabled:cursor-default disabled:opacity-60 ${tone} ${pressed ? "outline-4 outline-offset-1 outline-foreground" : ""} ${ring}`}
-              >
-                <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {labels[status]}: {count}
-              </button>
-            );
-          })}
-        </div>
-      ) : <p role="status" className="text-sm text-muted-foreground">Đang tải tình trạng phòng…</p>}
-
       <div className="flex flex-wrap items-center gap-2">
-        <p aria-live="polite" className="text-sm font-semibold">
-          {filtering && overview ? (matchCount ? `Làm nổi ${matchCount} phòng.` : "Không có phòng nào khớp.") : ""}
-        </p>
+        <div className="relative w-full sm:w-64">
+          <label htmlFor={searchId} className="sr-only">Tìm mã phòng hoặc tên người thuê</label>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <input id={searchId} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm mã phòng, người thuê" autoComplete="off" className={`${inputClass} !pl-9`} />
+        </div>
+        {!ready ? null : overview ? (
+          <div role="group" aria-label={`Chú giải, ${allSlots.length} phòng. Bấm để làm nổi`} className="contents">
+            {Object.keys(labels).filter((status) => (counts.get(status) ?? 0) > 0 || highlight === status).map((status) => {
+              const { icon: Icon, tone } = look(layer, status);
+              const count = counts.get(status) ?? 0;
+              const pressed = highlight === status;
+              return (
+                <button
+                  key={status} type="button" aria-pressed={pressed}
+                  onClick={() => setPicked(pressed ? null : { layer, status })}
+                  className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl border-2 px-2.5 text-xs font-semibold ${tone} ${pressed ? "outline-4 outline-offset-1 outline-foreground" : ""} ${ring}`}
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {labels[status]}: {count}
+                </button>
+              );
+            })}
+          </div>
+        ) : <p role="status" className="text-sm text-muted-foreground">Đang tải tình trạng phòng…</p>}
         {filtering ? <button type="button" onClick={() => { setQuery(""); setPicked(null); }} className={outlineButton}>Bỏ làm nổi</button> : null}
       </div>
+      <p aria-live="polite" className="text-sm font-semibold empty:hidden">
+        {filtering && overview ? (matchCount ? `Làm nổi ${matchCount} phòng.` : "Không có phòng nào khớp.") : ""}
+      </p>
 
       {floors.length > 1 ? (
         <div role="group" aria-label="Chọn tầng" className="flex flex-wrap gap-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, MoreHorizontal, Plus } from "lucide-react";
+import { Copy, MoreHorizontal, Plus, TriangleAlert } from "lucide-react";
 import type { DraftSlot, LayoutDraft } from "@/types/branch-layout.type";
 
 export const ring = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
@@ -9,15 +9,17 @@ export const primaryButton = `inline-flex min-h-11 items-center justify-center g
 
 export type BoardTarget = { type: "cell" | "row" | "floor"; key: string };
 
-const roomClass = "flex min-h-14 w-full items-center justify-center rounded-lg border-2 border-primary/40 bg-card px-1.5 py-1 text-center text-sm font-bold text-foreground [overflow-wrap:anywhere]";
+const roomClass = "flex min-h-14 w-full items-center justify-center rounded-lg border-2 border-primary/40 bg-card px-1.5 py-1 text-center text-base font-bold text-foreground [overflow-wrap:anywhere]";
 const emptyClass = "flex min-h-14 w-full items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/40 px-1.5 py-1 text-center text-xs font-medium text-muted-foreground";
 
 /** Each floor is a block, each row ("dãy") a column of cells stacked top to bottom. */
-export default function LayoutBoard({ draft, editable, info, canOpen, onOpen, onAddRoom, onAddRow, onDuplicate }: {
+export default function LayoutBoard({ draft, editable, info, warn, canOpen, onOpen, onAddRoom, onAddRow, onDuplicate }: {
   draft: LayoutDraft;
   editable: boolean;
   /** Short text about what is attached to a room, shown inside its cell. */
   info?: (slot: DraftSlot) => string[];
+  /** Cells that get the "listing code differs" reminder. */
+  warn?: (slot: DraftSlot) => boolean;
   /** Cells that open even when the map cannot be edited (to see what is attached). */
   canOpen?: (slot: DraftSlot) => boolean;
   onOpen: (target: BoardTarget) => void;
@@ -68,12 +70,18 @@ export default function LayoutBoard({ draft, editable, info, canOpen, onOpen, on
                       const empty = slot.roomCode === null;
                       const text = empty ? "Ô trống" : slot.roomCode;
                       const lines = empty ? [] : (info?.(slot) ?? []);
-                      const name = [empty ? "Ô trống" : `Phòng ${slot.roomCode}`, row.label, floor.label, ...lines].join(", ");
+                      const flagged = !empty && !!warn?.(slot);
+                      const name = [empty ? "Ô trống" : `Phòng ${slot.roomCode}`, row.label, floor.label, ...lines, flagged ? "mã trên tin khác mã ô" : ""].filter(Boolean).join(", ");
                       const openable = editable || !!canOpen?.(slot);
-                      const content = lines.length === 0 ? text : (
+                      const content = lines.length === 0 && !flagged ? text : (
                         <span className="flex w-full min-w-0 flex-col gap-0.5">
                           <span>{text}</span>
                           {lines.map((line, i) => <span key={i} className="line-clamp-2 text-xs font-medium text-muted-foreground">{line}</span>)}
+                          {flagged ? (
+                            <span className="inline-flex items-center justify-center gap-1 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                              <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Lệch mã tin
+                            </span>
+                          ) : null}
                         </span>
                       );
                       return (

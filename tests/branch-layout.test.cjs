@@ -203,6 +203,7 @@ const Editor = loadTs("components/branch/BranchLayoutEditor.tsx", {
   "@/components/common/ActionDialog": { useActionDialog: () => ({ confirm: async (options) => { asked.push(options); return answer; } }) },
   "@/lib/branch-layout": layout,
   "@/lib/keycloak": { subject: userId },
+  "@/utils/apiError": { getApiErrorMessage: (error, fallback) => error?.response?.data?.message ?? fallback },
   "@/services/branch-layout.service": api,
   "./LayoutBoard": {},
   "./LayoutDialogs": {},
@@ -262,7 +263,13 @@ function mountEditor(t, initial, saveLayout = async () => assert.fail("Unexpecte
   };
   render();
   const unmount = () => cells.forEach((cell) => cell?.cleanup?.());
-  return { settle, render, unmount, button: (label) => findButton(tree, label) };
+  const findProps = (node, match) => {
+    if (!node || typeof node !== "object") return undefined;
+    if (Array.isArray(node)) return node.map((child) => findProps(child, match)).find(Boolean);
+    if (node.props && match(node.props)) return node.props;
+    return findProps(node.props?.children, match);
+  };
+  return { settle, render, unmount, button: (label) => findButton(tree, label), find: (match) => findProps(tree, match) };
 }
 
 async function restoreAndSave(editor) {
@@ -645,4 +652,63 @@ test("the map reads the links anew for a save and never answers from the ones on
   assert.deepEqual([...(await links.readRooms()).keys()], [branchId]);
   read = offline;
   await assert.rejects(links.readRooms(), /offline/);
+});
+
+/** View mode of a clean map with the link layer; the room panel is captured instead of rendered. */
+async function mountView(t, saveLayout) {
+  mockStorage(t);
+  let panel;
+  const links = { ...mapLinks(async () => new Map()), rooms: new Map(), roomPanel: (args) => { panel = args; return null; } };
+  const editor = mountEditor(t, serverLayout(savedDraft(), 4), saveLayout, links);
+  await editor.settle();
+  return { editor, panel: () => {
+    editor.find((props) => props.onTarget).onTarget({ type: "cell", key: "s1" });
+    editor.render();
+    return panel;
+  } };
+}
+
+test("the map opens in view mode; structural tools only exist after choosing Sửa sơ đồ", async (t) => {
+  const { editor } = await mountView(t);
+  assert.equal(editor.button("Hoàn tác"), undefined);
+  assert.equal(editor.button("Thêm tầng"), undefined);
+  assert.equal(editor.find((props) => props.editable !== undefined && props.draft)?.editable, false);
+  assert.equal(editor.button("Xem")["aria-pressed"], true);
+  editor.button("Sửa sơ đồ").onClick();
+  editor.render();
+  assert.ok(editor.button("Hoàn tác"));
+  assert.ok(editor.button("Thêm tầng"));
+  assert.equal(editor.find((props) => props.editable !== undefined && props.draft)?.editable, true);
+  editor.button("Xem").onClick();
+  editor.render();
+  assert.equal(editor.button("Thêm tầng"), undefined);
+});
+
+test("Đổi mã ô thành <mã tin> saves the map with only that code changed, nothing detached", async (t) => {
+  const { panel } = await mountView(t, async () => serverLayout(layout.setRoomCode(savedDraft(), "s1", "A01"), 5));
+  const rename = panel().renameRoom;
+  assert.equal(await rename("A01"), "");
+  assert.deepEqual(api.saveLayout.mock.calls[0].arguments, [branchId, saveRequest(layout.setRoomCode(savedDraft(), "s1", "A01"), 4)]);
+  assert.deepEqual(api.saveLayout.mock.calls[0].arguments[1].acknowledgedDetach, noDetach);
+});
+
+test("Đổi mã ô refuses a code another cell has or a map with unsaved changes, without any PUT", async (t) => {
+  const { panel } = await mountView(t);
+  assert.match(await panel().renameRoom("102"), /đã có/);
+  assert.match(await panel().renameRoom("  "), /nhập mã phòng/);
+  assert.equal(api.saveLayout.mock.callCount(), 0);
+});
+
+test("Đổi mã ô reports a server refusal and a lost map without hiding it", async (t) => {
+  for (const [failure, expected] of [
+    [{ isAxiosError: true, response: { status: 500, data: { message: "Máy chủ từ chối" } } }, /Máy chủ từ chối/],
+    [linksChanged, /Liên kết của phòng vừa thay đổi/],
+    [staleResponse, /thay đổi ở nơi khác/],
+  ]) {
+    await t.test(String(expected), async (scenario) => {
+      const { panel } = await mountView(scenario, async () => { throw failure; });
+      if (failure === staleResponse) api.getLayout.mock.mockImplementation(async () => serverLayout(savedDraft(), 9));
+      assert.match(await panel().renameRoom("A01"), expected);
+    });
+  }
 });

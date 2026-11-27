@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { useSearchParams } from "next/navigation";
-import { emptyRoom, pageCount } from "@/lib/branch-assignment";
+import { emptyRoom, formatDay, mismatchedListings, pageCount } from "@/lib/branch-assignment";
 import branchAssignmentService from "@/services/branch-assignment.service";
-import branchOverviewService, { isMonth, isOverviewLayer, monthLabel, type BranchOverview } from "@/services/branch-overview.service";
+import branchOverviewService, { isMonth, isOverviewLayer, monthLabel, roomLayerLabel, type BranchOverview } from "@/services/branch-overview.service";
 import type { BranchAssignments } from "@/types/branch-assignment.type";
 import BranchOverviewLayers, { UnplacedPayments } from "./BranchOverviewLayers";
 import BranchLayoutEditor from "./BranchLayoutEditor";
@@ -149,15 +149,25 @@ export default function BranchMap(props: Omit<ComponentProps<typeof BranchLayout
             floors={floors} openRoom={openRoom} overview={overview} month={month}
             fetchedAt={fetchedAt} error={overview ? status.current?.error ?? "" : ""}
             layer={layer} floorId={searchParams.get("floor")} onView={setView} onRefresh={() => void reload()}
+            mismatch={rooms ? (roomId, code) => mismatchedListings(rooms.get(roomId), code).length > 0 : undefined}
           />
         ) : undefined,
-        roomPanel: ({ roomId, code, options, lock }) => (
+        roomPanel: ({ roomId, code, options, lock, renameRoom }) => {
+          const status = overview?.rooms.find((r) => r.roomId === roomId);
+          const next = status?.nextStay;
+          return (
           <>
             {/* The tray's own warning is hidden behind the cell dialog. */}
             <ErrorNote message={loadError && `Chưa tải lại được, thông tin phòng có thể đã cũ. ${loadError}`} />
-            <RoomPanel branchId={branchId} room={rooms?.get(roomId) ?? emptyRoom(roomId)} code={code} rooms={options} lock={lock} reload={reload} />
+            <RoomPanel
+              branchId={branchId} room={rooms?.get(roomId) ?? emptyRoom(roomId)} code={code} rooms={options} lock={lock}
+              status={status ? roomLayerLabel(status, "rooms") : null}
+              facts={[status?.tenantName ?? "", next ? `Sắp vào ${formatDay(next.moveInDate)}: ${next.tenantName || "chưa có tên"}` : ""]}
+              renameRoom={renameRoom} reload={reload}
+            />
           </>
-        ),
+          );
+        },
         tray: ({ options, lock, roomLock }) => (
           <>
             {overview ? <UnplacedPayments overview={overview} fetchedAt={fetchedAt} /> : null}

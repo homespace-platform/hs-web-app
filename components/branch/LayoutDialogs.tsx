@@ -170,12 +170,14 @@ function RecodeBody({ draft, initialFloor, apply }: { draft: LayoutDraft; initia
 }
 
 /** Radix dialog: traps focus and closes on Esc; bottom sheet on phones. */
-export default function LayoutDialogs({ draft, editable, linkPanel, target, onTarget, apply, onCloseFocus }: {
+export default function LayoutDialogs({ draft, editable, linkPanel, linkHint, target, onTarget, apply, onCloseFocus }: {
   draft: LayoutDraft;
   /** false: only the link panel of a cell is shown. */
   editable: boolean;
   /** What is attached to the target room, with its actions. */
   linkPanel?: ReactNode;
+  /** The cell menu is the structural one: point to the view mode for links. */
+  linkHint?: boolean;
   target: DialogTarget | null;
   onTarget: (target: DialogTarget | null) => void;
   apply: Apply;
@@ -193,6 +195,9 @@ export default function LayoutDialogs({ draft, editable, linkPanel, target, onTa
           {editable ? (
             <div className={linkPanel ? "space-y-4 border-t border-border pt-4" : "space-y-4"}>
               {linkPanel ? <h3 className="text-sm font-bold">Sửa ô trên sơ đồ</h3> : null}
+              {linkHint && found.slot.roomCode !== null ? (
+                <p className="text-sm text-muted-foreground">Chỉ sửa ô trên sơ đồ. Muốn gắn tin, hợp đồng hoặc đánh dấu phòng, bấm Xem rồi chọn phòng này.</p>
+              ) : null}
               <CellBody draft={draft} slotKey={target.key} apply={apply} />
             </div>
           ) : null}

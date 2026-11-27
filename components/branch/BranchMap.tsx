@@ -140,6 +140,7 @@ export default function BranchMap(props: Omit<ComponentProps<typeof BranchLayout
       {...props}
       links={{
         rooms,
+        fresh: !!data && !loading && !loadError,
         onLayoutSaved: () => void reload(),
         overview: status.available ? ({ floors, openRoom }) => (
           <BranchOverviewLayers

@@ -184,6 +184,8 @@ let hooks;
 const api = {};
 const notifications = [];
 const router = {};
+const asked = [];
+let answer = true;
 const Editor = loadTs("components/branch/BranchLayoutEditor.tsx", {
   react: {
     useState: (...args) => hooks.state(...args),
@@ -195,7 +197,7 @@ const Editor = loadTs("components/branch/BranchLayoutEditor.tsx", {
   "next/navigation": { useRouter: () => router },
   sonner: { toast: { success: (message) => notifications.push(message) } },
   "lucide-react": {},
-  "@/components/common/ActionDialog": { useActionDialog: () => ({ confirm: async () => true }) },
+  "@/components/common/ActionDialog": { useActionDialog: () => ({ confirm: async (options) => { asked.push(options); return answer; } }) },
   "@/lib/branch-layout": layout,
   "@/lib/keycloak": { subject: userId },
   "@/services/branch-layout.service": api,
@@ -203,7 +205,7 @@ const Editor = loadTs("components/branch/BranchLayoutEditor.tsx", {
   "./LayoutDialogs": {},
 }).default;
 
-function mountEditor(t, initial, saveLayout = async () => assert.fail("Unexpected PUT")) {
+function mountEditor(t, initial, saveLayout = async () => assert.fail("Unexpected PUT"), links) {
   let cursor;
   let effects;
   let tree;
@@ -221,6 +223,8 @@ function mountEditor(t, initial, saveLayout = async () => assert.fail("Unexpecte
   };
 
   notifications.length = 0;
+  asked.length = 0;
+  answer = true;
   api.getLayout = t.mock.fn(async () => initial);
   api.saveLayout = t.mock.fn(saveLayout);
   const render = () => {
@@ -246,7 +250,7 @@ function mountEditor(t, initial, saveLayout = async () => assert.fail("Unexpecte
         });
       },
     };
-    tree = Editor({ branchId, canEdit: true, isHouse: false, setup: false });
+    tree = Editor({ branchId, canEdit: true, isHouse: false, setup: false, links });
     for (const effect of effects) effect();
   };
   const settle = async () => {
@@ -416,4 +420,134 @@ test("P1-R04: a stored draft with missing editor keys is rejected", (t) => {
   writeStoredDraft(userId, branchId, { revision: 4, draft });
 
   assert.equal(readStoredDraft(userId, branchId), null);
+});
+
+test("a reload after a 409 keeps the stored draft until the new map has been loaded", async (t) => {
+  mockStorage(t);
+  const base = savedDraft();
+  const stored = { revision: 4, draft: layout.setRoomCode(base, "s1", "A01") };
+  writeStoredDraft(userId, branchId, stored);
+  const newer = serverLayout(layout.setRoomCode(base, "s1", "B01"), 5);
+  const editor = mountEditor(t, newer);
+  await editor.settle();
+  editor.button("Khôi phục bản nháp").onClick();
+  editor.render();
+
+  api.getLayout.mock.mockImplementationOnce(async () => { throw { isAxiosError: true }; });
+  editor.button("Tải lại sơ đồ").onClick();
+  await editor.settle();
+  assert.deepEqual(readStoredDraft(userId, branchId), stored);
+
+  editor.button("Thử lại").onClick();
+  await editor.settle();
+  await editor.settle();
+  assert.equal(readStoredDraft(userId, branchId), null);
+  assert.equal(editor.button("Khôi phục bản nháp"), undefined, "the confirmed reload must not offer the old draft again");
+});
+
+const mapLinks = (rooms, fresh) => ({ rooms, fresh, onLayoutSaved() {}, roomPanel: () => null, tray: () => null });
+
+test("without a fresh links read, removing a saved room or making it an aisle needs a confirmation before the PUT", async (t) => {
+  const base = savedDraft();
+  const cases = [
+    ["never read", null, layout.removeSlot(base, "s3")],
+    ["stale read", new Map(), layout.removeSlot(base, "s3")],
+    ["room turned into an aisle", null, layout.toggleEmptyCell(base, "s3")],
+  ];
+  for (const [name, rooms, sent] of cases) {
+    await t.test(name, async (scenario) => {
+      mockStorage(scenario);
+      writeStoredDraft(userId, branchId, { revision: 4, draft: sent });
+      const editor = mountEditor(scenario, serverLayout(base, 4), async () => serverLayout(sent, 5), mapLinks(rooms, false));
+      await editor.settle();
+      editor.button("Khôi phục bản nháp").onClick();
+      editor.render();
+      answer = false;
+      editor.button("Lưu sơ đồ").onClick();
+      await editor.settle();
+      assert.equal(asked.length, 1);
+      assert.equal(asked[0].tone, "warning");
+      assert.match(asked[0].description, /102.*có thể bị gỡ/);
+      assert.equal(api.saveLayout.mock.callCount(), 0);
+
+      answer = true;
+      editor.button("Lưu sơ đồ").onClick();
+      await editor.settle();
+      assert.equal(api.saveLayout.mock.callCount(), 1);
+    });
+  }
+});
+
+test("no extra confirmation when the links read is fresh or no saved room is lost", async (t) => {
+  const base = savedDraft();
+  const cases = [
+    ["fresh read without links", new Map(), true, layout.removeSlot(base, "s3")],
+    ["stale read, rename only", null, false, layout.setRoomCode(base, "s1", "A01")],
+  ];
+  for (const [name, rooms, fresh, sent] of cases) {
+    await t.test(name, async (scenario) => {
+      mockStorage(scenario);
+      writeStoredDraft(userId, branchId, { revision: 4, draft: sent });
+      const editor = mountEditor(scenario, serverLayout(base, 4), async () => serverLayout(sent, 5), mapLinks(rooms, fresh));
+      await restoreAndSave(editor);
+      await editor.settle();
+      assert.equal(asked.length, 0);
+      assert.equal(api.saveLayout.mock.callCount(), 1);
+    });
+  }
+});
+
+test("the map calls the links fresh only after the latest read succeeded", async () => {
+  const cells = [];
+  let cursor, effects;
+  const state = (initial) => {
+    const index = cursor++;
+    const cell = cells[index] ??= { value: typeof initial === "function" ? initial() : initial };
+    return [cell.value, (value) => { cell.value = typeof value === "function" ? value(cell.value) : value; }];
+  };
+  let read = () => new Promise(() => {});
+  const Child = () => null;
+  const BranchMap = loadTs("components/branch/BranchMap.tsx", {
+    react: {
+      useState: state,
+      useRef: (current) => state(() => ({ current }))[0],
+      useCallback: (callback) => state(() => callback)[0],
+      useMemo: (create) => create(),
+      useEffect: (effect) => { const [done, setDone] = state(false); if (!done) { setDone(true); effects.push(effect); } },
+    },
+    "next/navigation": { useSearchParams: () => new URLSearchParams() },
+    "@/services/branch-assignment.service": { getAssignments: () => read() },
+    "@/services/branch-overview.service": { getOverview: () => new Promise(() => {}), isMonth: () => false, isOverviewLayer: () => false },
+    "./BranchOverviewLayers": {},
+    "./BranchLayoutEditor": Child,
+    "./RoomPanel": {},
+    "./UnplacedTray": {},
+    "./LayoutBoard": {},
+    "./linkUi": { linkError: () => "offline" },
+  }).default;
+  const previousWindow = global.window;
+  global.window = new EventTarget();
+  const links = () => {
+    cursor = 0;
+    effects = [];
+    const tree = BranchMap({ branchId });
+    for (const effect of effects) effect();
+    return tree.props.children.find((node) => node?.type === Child).props.links;
+  };
+  try {
+    assert.equal(links().fresh, false, "still loading");
+    const good = { rooms: [], unplaced: { items: [], page: 0, size: 20, totalElements: 0 } };
+    read = async () => good;
+    links().onLayoutSaved();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(links().fresh, true);
+    read = async () => { throw new Error("offline"); };
+    links().onLayoutSaved();
+    assert.equal(links().fresh, false, "a read is pending");
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(links().fresh, false, "the latest read failed");
+    assert.ok(links().rooms, "the old links stay on screen");
+  } finally {
+    global.window = previousWindow;
+  }
 });

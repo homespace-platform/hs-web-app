@@ -146,6 +146,8 @@ function TemplatePicker({ onPick, onCancel }: { onPick: (draft: LayoutDraft) => 
 export interface MapLinks {
   /** null = links could not be read (yet): the map behaves as without links. */
   rooms: Map<string, RoomAssignment> | null;
+  /** The latest read of the links succeeded and none is pending. */
+  fresh: boolean;
   onLayoutSaved: () => void;
   roomPanel: (args: { roomId: string; code: string; options: RoomOption[]; lock: string | null }) => ReactNode;
   tray: (args: { options: RoomOption[]; lock: string | null; roomLock: string | null }) => ReactNode;
@@ -201,6 +203,8 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
     if (owned.current) removeStoredDraft(keycloak.subject, branchId, owned.current);
     owned.current = null;
   }, [branchId]);
+  /** A confirmed reload drops the draft only once the new map has arrived, also through retries. */
+  const discardOnLoad = useRef(false);
   useUnsavedGuard(dirty, async () => {
     setTarget(null); // a link inside the cell dialog: the leave question must not sit under that modal
     const leave = await confirm(LEAVE);
@@ -238,6 +242,8 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
       const layout = await branchLayoutService.getLayout(branchId);
       if (seq !== loadSeq.current) return;
       adopt(layout);
+      if (discardOnLoad.current) forgetDraft();
+      discardOnLoad.current = false;
       const stored = readStoredDraft(keycloak.subject, branchId);
       // Only a draft identical to the loaded tree (ids included) at the same revision holds nothing
       // unsaved. Anything else is offered; the owner decides.
@@ -250,7 +256,7 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
       setLoadError(axios.isAxiosError(error) && !error.response ? "Không kết nối được máy chủ." : getApiErrorMessage(error));
       setPhase("error");
     }
-  }, [branchId, adopt]);
+  }, [branchId, adopt, forgetDraft]);
 
   useEffect(() => { void fetchLayout(); }, [fetchLayout]);
 
@@ -339,7 +345,7 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
 
   const reload = async () => {
     if (!(await confirm({ ...LEAVE, title: "Tải lại sơ đồ?", description: "Bản nháp này sẽ mất. Hãy ghi lại các thay đổi cần áp lại trước khi tải.", confirmLabel: "Tải lại", cancelLabel: "Giữ bản nháp" }))) return;
-    forgetDraft();
+    discardOnLoad.current = true;
     setPhase("loading");
     await fetchLayout();
   };
@@ -368,7 +374,17 @@ export default function BranchLayoutEditor({ branchId, isHouse, canEdit, lockMes
 
   /** Warns before the save that removes a room with attachments; the server decides what is allowed. */
   const requestSave = async () => {
-    const lost = links?.rooms ? lostAttachedRooms(saved, draft, links.rooms) : [];
+    const kept = new Set(roomOptions(draft).map((r) => r.id));
+    const removed = roomOptions(saved).filter((r) => !kept.has(r.id)).map((r) => r.code);
+    // Without a fresh read nobody knows what is attached, so every lost room needs a yes.
+    const unchecked = !links?.fresh && removed.length > 0;
+    if (unchecked && !(await confirm({
+      title: "Chưa kiểm tra được liên kết của phòng bị bỏ",
+      description: `Chưa tải được liên kết mới nhất. Lưu sẽ bỏ phòng ${removed.slice(0, 5).join(", ")}${removed.length > 5 ? ` và ${removed.length - 5} phòng khác` : ""}: tin đăng và hợp đồng cũ trên các phòng này có thể bị gỡ (hợp đồng cũ chuyển về khay Chưa xếp phòng). Nếu còn hợp đồng hiệu lực hoặc giữ chỗ, máy chủ sẽ từ chối cả lần lưu.`,
+      confirmLabel: "Vẫn lưu",
+      tone: "warning",
+    }))) return;
+    const lost = !unchecked && links?.rooms ? lostAttachedRooms(saved, draft, links.rooms) : [];
     if (lost.length > 0 && !(await confirm({
       title: "Lưu sẽ bỏ phòng đang có liên kết",
       description: (

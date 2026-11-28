@@ -47,3 +47,16 @@ export function getVisiblePages(
   pages.push(total);
   return pages;
 }
+
+export const PAGE_SIZE = 10;
+
+export const pageCount = (total: number, size = PAGE_SIZE) =>
+  Math.max(1, Math.ceil(Math.max(0, total) / size));
+
+/** Keeps a page number inside 1..pages; junk (NaN, 0, negatives) becomes 1. */
+export const clampPage = (page: number, pages: number) =>
+  Math.min(Math.max(1, Math.trunc(page) || 1), Math.max(1, pages));
+
+/** ?page= value to a page number; missing or invalid means 1. */
+export const parsePage = (raw: string | null | undefined) =>
+  clampPage(Number(raw), Number.MAX_SAFE_INTEGER);

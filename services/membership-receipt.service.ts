@@ -42,6 +42,11 @@ export const membershipReceiptService = {
   async list(params: { page?: number; size?: number }) {
     return (await axiosClient.get<PageResponse<MembershipReceipt>>(base, { params })).data;
   },
+  async get(id: string) {
+    return (
+      await axiosClient.get<ApiResponse<MembershipReceipt>>(`${base}/${encodeURIComponent(id)}`)
+    ).data.result;
+  },
   async byOrder(orderId: string) {
     return (
       await axiosClient.get<ApiResponse<MembershipReceipt>>(

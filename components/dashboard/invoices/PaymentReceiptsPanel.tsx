@@ -3,7 +3,7 @@
 import { PolicyNotice } from "@/components/common/PolicyDialog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { FileCheck2, RefreshCw, RotateCcw, X } from "lucide-react";
+import { FileCheck2, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   paymentReceiptService,
@@ -11,17 +11,27 @@ import {
 } from "@/services/payment-receipt.service";
 import PaymentReceiptActions from "@/components/payment/PaymentReceiptActions";
 import { getApiErrorMessage } from "@/utils/apiError";
+import Pagination from "@/components/common/Pagination";
+import { PAGE_SIZE, clampPage } from "@/lib/pagination";
+import ReceiptRow, { Badge, downloadBlob } from "./ReceiptRow";
 
 export default function PaymentReceiptsPanel({
   role,
   contractId,
+  page,
+  onPage,
+  refreshKey,
 }: {
   role: "landlord" | "tenant";
   contractId?: string;
+  page: number;
+  onPage: (page: number, replace?: boolean) => void;
+  refreshKey: number;
 }) {
   const [rows, setRows] = useState<PaymentReceipt[]>([]),
-    [page, setPage] = useState(1),
     [pages, setPages] = useState(1),
+    [total, setTotal] = useState(0),
+    [busyId, setBusyId] = useState<string | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [retrying, setRetrying] = useState<string | null>(null),
@@ -37,11 +47,15 @@ export default function PaymentReceiptsPanel({
           role: role.toUpperCase() as "LANDLORD" | "TENANT",
           contractId,
           page,
-          size: 12,
+          size: PAGE_SIZE,
         });
         if (token !== counter.value) return;
+        const count = Math.max(1, data.totalPages);
+        // A stale ?page= beyond the last page jumps to the last one.
+        if (page > count) return onPage(clampPage(page, count), true);
         setRows(data.result ?? []);
-        setPages(Math.max(1, data.totalPages));
+        setPages(count);
+        setTotal(data.totalElements ?? 0);
         setError("");
       } catch (e) {
         if (token === counter.value)
@@ -50,7 +64,7 @@ export default function PaymentReceiptsPanel({
         if (token === counter.value) setLoading(false);
       }
     },
-    [role, contractId, page],
+    [role, contractId, page, onPage],
   );
   useEffect(() => {
     const counter = sequence.current;
@@ -63,7 +77,18 @@ export default function PaymentReceiptsPanel({
       ++counter.value;
       clearInterval(timer);
     };
-  }, [load]);
+    // refreshKey is bumped by the page-level "Làm mới" button.
+  }, [load, refreshKey]);
+  async function pdf(row: PaymentReceipt) {
+    setBusyId(row.id);
+    try {
+      downloadBlob(await paymentReceiptService.pdf(row.id), `${row.receiptNumber}.pdf`);
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, "Chưa tải được PDF."));
+    } finally {
+      setBusyId(null);
+    }
+  }
   async function retry(row: PaymentReceipt) {
     if (retrying) return;
     setRetrying(row.id);
@@ -91,22 +116,6 @@ export default function PaymentReceiptsPanel({
   const selected = rows.find((row) => row.id === selectedId);
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold sm:text-2xl">Lịch sử thanh toán</h1>
-          <PolicyNotice tone="neutral" title="Lịch sử thanh toán" summary="Mỗi khoản tiền đã được bên nhận xác nhận có một phiếu riêng."><p>Mỗi khoản tiền đã được bên nhận xác nhận có một phiếu riêng. Dữ liệu
-            trên phiếu được giữ nguyên để đối chiếu.</p></PolicyNotice>
-        </div>
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => void load()}
-          className="inline-flex items-center gap-2 rounded-xl border bg-card px-3 py-2 text-sm font-semibold disabled:opacity-50"
-        >
-          <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-          Làm mới
-        </button>
-      </div>
       {error && (
         <p
           role="alert"
@@ -130,61 +139,24 @@ export default function PaymentReceiptsPanel({
       ) : (
         <ul className="divide-y overflow-hidden rounded-2xl border bg-card shadow-sm">
           {rows.map((row) => (
-            <li key={row.id}>
-              <button
-                type="button"
-                onClick={() => setSelectedId(row.id)}
-                className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {row.kind === "REFUND" ? (
-                  <RotateCcw className="size-4 shrink-0 text-primary" />
-                ) : (
-                  <FileCheck2 className="size-4 shrink-0 text-primary" />
-                )}
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-baseline justify-between gap-3">
-                    <span className="truncate text-sm font-semibold">{row.title}</span>
-                    <span className="shrink-0 text-sm font-bold tabular-nums text-primary">{money(row)}</span>
-                  </span>
-                  <span className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                    <span className="truncate">
-                      {[row.contractNumber ?? row.propertyAddress, day(row.issuedAt), `${row.payerName} → ${row.payeeName}`]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                    <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">
-                      Đã xác nhận
-                    </span>
-                  </span>
-                </span>
-              </button>
-            </li>
+            <ReceiptRow
+              key={row.id}
+              icon={row.kind === "REFUND" ? <RotateCcw className="size-4" /> : <FileCheck2 className="size-4" />}
+              title={row.title}
+              subtitle={[row.contractNumber ?? row.propertyAddress, day(row.issuedAt), `${row.payerName} → ${row.payeeName}`]
+                .filter(Boolean)
+                .join(" · ")}
+              amount={money(row)}
+              status={<Badge>Đã xác nhận</Badge>}
+              pdfStatus={row.pdfStatus}
+              busy={busyId === row.id}
+              onView={() => setSelectedId(row.id)}
+              onPdf={() => void pdf(row)}
+            />
           ))}
         </ul>
       )}
-      {pages > 1 && (
-        <div className="flex items-center justify-end gap-3 text-sm">
-          <button
-            type="button"
-            disabled={loading || page <= 1}
-            onClick={() => setPage((v) => v - 1)}
-            className="rounded-lg border px-3 py-2 disabled:opacity-40"
-          >
-            Trước
-          </button>
-          <span>
-            Trang {page} / {pages}
-          </span>
-          <button
-            type="button"
-            disabled={loading || page >= pages}
-            onClick={() => setPage((v) => v + 1)}
-            className="rounded-lg border px-3 py-2 disabled:opacity-40"
-          >
-            Tiếp
-          </button>
-        </div>
-      )}
+      {!loading && total > 0 && <Pagination page={page} pages={pages} total={total} onPage={onPage} />}
       <Dialog.Root open={!!selected} onOpenChange={(open) => !open && setSelectedId(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm" />

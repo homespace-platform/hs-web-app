@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tải chứng từ chuyển khoản | HomeSpace</title>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/payment-proof/page.css">
+  <script src="/payment-proof/page.js" defer></script>
+</head>
+<body>
+  <main>
+    <img class="logo" src="/logo/homespace-horizontal-logo-crop-removebg.png" alt="HomeSpace" width="148" height="43">
+    <section class="card" aria-labelledby="title">
+      <h1 id="title">Tải chứng từ chuyển khoản</h1>
+      <p id="session-status" role="status">Đang kiểm tra phiên tải…</p>
+      <button id="retry" type="button" class="secondary" hidden>Kiểm tra lại</button>
+      <form id="proof-form" hidden>
+        <div class="pickers">
+          <label class="picker secondary">Chọn tệp
+            <input id="library" type="file" aria-label="Chọn tệp chứng từ" aria-describedby="allowed-files" accept="image/jpeg,image/png,image/webp,application/pdf">
+          </label>
+          <label class="picker secondary">Chụp ảnh
+            <input id="camera" type="file" aria-label="Chụp ảnh chứng từ" aria-describedby="allowed-files" accept="image/*" capture="environment">
+          </label>
+        </div>
+        <p class="muted" id="allowed-files">JPG, PNG, WebP hoặc PDF. Tối đa 15 MB.</p>
+        <div class="selection" id="selection" hidden>
+          <img id="preview" alt="Ảnh chứng từ đã chọn" hidden>
+          <span id="filename"></span>
+          <button id="remove" type="button" class="secondary" aria-label="Bỏ tệp đã chọn">Bỏ tệp</button>
+        </div>
+        <p id="upload-error" role="alert" hidden></p>
+        <button id="submit" type="submit" disabled>Gửi chứng từ</button>
+      </form>
+      <noscript><p>Bật JavaScript trong trình duyệt để tải chứng từ.</p></noscript>
+    </section>
+  </main>
+</body>
+</html>

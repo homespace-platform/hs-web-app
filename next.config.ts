@@ -11,6 +11,17 @@ const nextConfig: NextConfig = {
         }]
       : [];
   },
+  async rewrites() {
+    const gateway = process.env.NEXT_PUBLIC_GATEWAY_BASE_URL?.replace(/\/+$/, "");
+    return [
+      { source: "/payment-proof", destination: "/payment-proof.html" },
+      ...(gateway ? [{ source: "/api/payment-proof", destination: `${gateway}/u/payment-proof/session` }] : []),
+    ];
+  },
+  experimental: {
+    // The proof file limit is 15 MiB, plus the multipart envelope.
+    proxyClientMaxBodySize: "16mb",
+  },
   // The KYC page (also opened by the mobile app) must not be framed by another site (clickjacking on "Hủy phiên").
   // Its own same-origin VNPT iframe (/kyc/vnpt-frame.html) stays allowed by 'self'.
   async headers() {
@@ -20,6 +31,17 @@ const nextConfig: NextConfig = {
         { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
         { key: "X-Frame-Options", value: "SAMEORIGIN" },
       ],
+    }, {
+      source: "/:proofPage(payment-proof|payment-proof\\.html)",
+      headers: [
+        { key: "Referrer-Policy", value: "no-referrer" },
+        { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        { key: "X-Frame-Options", value: "DENY" },
+        { key: "Content-Security-Policy", value: "default-src 'none'; img-src 'self' blob:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" },
+      ],
+    }, {
+      source: "/api/payment-proof",
+      headers: [{ key: "Cache-Control", value: "no-store" }],
     }];
   },
   allowedDevOrigins: process.env.DEV_TUNNEL_ORIGIN

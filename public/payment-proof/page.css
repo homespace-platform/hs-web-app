@@ -1,0 +1,24 @@
+:root { color-scheme: light; font-family: system-ui, sans-serif; color: #0f172a; background: #f4f7fb; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { width: min(100%, 30rem); margin: 0 auto; padding: 2.25rem 1rem; }
+.logo { display: block; object-fit: contain; margin: 0 auto 1.25rem; }
+.card { padding: 1.4rem; background: #fff; border: 1px solid #d9e2f0; border-radius: 1.25rem; box-shadow: 0 8px 32px #1835530c; }
+h1 { margin: 0 0 .7rem; font-size: 1.4rem; line-height: 1.25; }
+p { margin: 0 0 1rem; line-height: 1.5; }
+.muted { color: #4c607a; font-size: .875rem; margin-top: .55rem; }
+.pickers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+button, .picker { min-height: 44px; border-radius: .7rem; border: 1px solid transparent; padding: .55rem .75rem; font: inherit; font-weight: 650; cursor: pointer; }
+button { background: #1d4ed8; color: #fff; }
+.secondary { background: #eff5ff; border-color: #c7d9fb; color: #1e40af; }
+.picker { position: relative; display: grid; place-items: center; text-align: center; }
+.picker input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.picker:focus-within, button:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+button:disabled { opacity: .5; cursor: default; }
+#submit { width: 100%; }
+#upload-error, [data-tone="error"] { color: #b42318; }
+[data-tone="success"] { color: #047857; }
+.selection { display: flex; align-items: center; gap: .65rem; margin-bottom: 1rem; }
+.selection img { width: 3rem; height: 3rem; border-radius: .5rem; object-fit: cover; }
+#filename { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: .9rem; }
+[hidden] { display: none !important; }

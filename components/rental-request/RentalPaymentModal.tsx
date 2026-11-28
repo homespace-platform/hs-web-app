@@ -372,7 +372,12 @@ function ScopedPaymentModal({
     try {
       const res = await paymentRequestService.createProofUploadSession(payment.id);
       if (!alive.current) return;
-      const qrDataUrl = await QRCode.toDataURL(res.uploadPageUrl, {
+      const token = /^\/u\/payment-proof\/([A-Za-z0-9_-]{43})$/.exec(res.uploadPath)?.[1];
+      if (!token) throw new Error("Liên kết tải chứng từ không hợp lệ.");
+      const uploadUrl = new URL("/payment-proof", window.location.origin);
+      uploadUrl.hash = token;
+      const uploadPageUrl = uploadUrl.toString();
+      const qrDataUrl = await QRCode.toDataURL(uploadPageUrl, {
         width: 240,
         margin: 2,
         color: { dark: "#0f172a", light: "#ffffff" },
@@ -380,7 +385,7 @@ function ScopedPaymentModal({
       if (!alive.current) return;
       setMobileSessionId(res.sessionId);
       setMobileQrDataUrl(qrDataUrl);
-      setMobileUploadPageUrl(res.uploadPageUrl);
+      setMobileUploadPageUrl(uploadPageUrl);
       setMobileSessionExpiresAt(res.expiresAt);
       const remainingSecs = Math.max(
         0,

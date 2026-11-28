@@ -50,7 +50,7 @@ function RentalRequestsManagementView({ mode }: RentalRequestsManagementProps) {
   const contractGate = useFeatureGate(PERMISSIONS.CONTRACT_MANAGE);
   const list = useRentalRequestList({ mode, initialized, authenticated, userId });
   const { requests, loading, statusFilter, changeFilter, page, setPage, totalElements, totalPages, fetchRequests, refreshRequests } = list;
-  const { contractsByRequest, agreementsByRequest, rememberContract } = useRequestContracts(requests);
+  const { contractsByRequest, agreementsByRequest, rememberContract, refreshContracts } = useRequestContracts(requests);
   const holdMinutes = useRentalHoldMinutes(authenticated);
   const holdLabel = holdMinutes ? `${holdMinutes} phút` : null;
 
@@ -191,7 +191,7 @@ function RentalRequestsManagementView({ mode }: RentalRequestsManagementProps) {
           </p>
         </div>
         <button
-          type="button" onClick={() => void fetchRequests()} disabled={loading}
+          type="button" onClick={() => { void fetchRequests(); refreshContracts(); }} disabled={loading}
           className="inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-xl border border-border bg-card px-4 text-sm font-semibold text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 sm:self-auto"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin text-primary" : ""}`} aria-hidden="true" />

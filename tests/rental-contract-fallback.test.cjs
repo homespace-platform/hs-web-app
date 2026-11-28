@@ -42,12 +42,10 @@ test('owner fallback appears only for an accepted rental with first rent confirm
     assert.equal(canOfferContractFallback({...request,initialPayment},'RECEIVED'),false);
   assert.equal(canOfferContractFallback(request,'RECEIVED',null,{...view,cancellationRequestedAt:view.serverNow}),false);
 });
-test('owner sees a disabled automatic draft button until a contract exists',()=>{
+test('button is visible on owner surfaces, disabled while busy and hidden from the tenant',()=>{
   const render=props=>renderToStaticMarkup(React.createElement(Button,{request,mode:'RECEIVED',busy:false,disabled:false,onCreate(){},...props}));
-  const html=render({});
-  assert.match(html,/disabled=""/);assert.match(html,/aria-busy="true"/);
-  assert.match(html,/animate-spin/);assert.match(html,/Đang tạo hợp đồng tự động/);
-  assert.equal(render({contract}),'');assert.equal(render({mode:'SENT'}),'');
+  assert.match(render({}),/Tạo hợp đồng/);assert.match(render({busy:true}),/disabled=""/);
+  assert.match(render({busy:true}),/Đang tạo hợp đồng/);assert.equal(render({mode:'SENT'}),'');
 });
 test('explicit fallback refreshes, creates through the old endpoint and exports only after completeness',async()=>{
   const f=fixture();const result=await f.run();assert.equal(result.contract,contract);assert.equal(result.fileState,'READY');

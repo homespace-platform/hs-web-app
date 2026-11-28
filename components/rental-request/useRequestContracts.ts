@@ -55,8 +55,32 @@ export function useRequestContracts(requests: RentalRequestResponse[]) {
     return () => { cancelled = true; window.clearInterval(interval); };
   }, [activeKey, lookup]);
 
+  // A confirmed first payment without a lease means Core is drafting it right now: ask often so the card flips quickly.
+  const waitingKey = useMemo(() => requests
+    .filter((r) => r.status === "ACCEPTED" && r.initialPayment?.status === "CONFIRMED" && !contractsByRequest[r.id])
+    .map((r) => r.id).join(","), [requests, contractsByRequest]);
+
+  useEffect(() => {
+    if (!waitingKey) return;
+    let cancelled = false;
+    let busy = false;
+    // shortcut: fast polling stops after 2 minutes (e.g. missing template); the 30 s poll above carries on.
+    const stopAt = Date.now() + 120000;
+    const interval = window.setInterval(() => {
+      if (Date.now() > stopAt) return window.clearInterval(interval);
+      if (busy || document.visibilityState !== "visible") return;
+      busy = true;
+      void lookup(waitingKey.split(","), () => cancelled).finally(() => { busy = false; });
+    }, 4000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, [waitingKey, lookup]);
+
+  const refreshContracts = useCallback(() => {
+    if (allKey) void lookup(allKey.split(","), () => false);
+  }, [allKey, lookup]);
+
   const rememberContract = useCallback((requestId: string, contract: ContractResponse) => {
     setContractsByRequest((previous) => ({ ...previous, [requestId]: contract }));
   }, []);
-  return { contractsByRequest, agreementsByRequest, rememberContract };
+  return { contractsByRequest, agreementsByRequest, rememberContract, refreshContracts };
 }

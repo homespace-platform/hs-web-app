@@ -237,7 +237,8 @@ export default function NotificationsSection() {
       </div>
 
       <div className="bg-card rounded-2xl border border-border divide-y divide-border/70 shadow-2xs overflow-hidden">
-        {items.map((item) => {
+        {/* Categories with email first; the rest keep their order and show Push only. */}
+        {[...items].sort((a, b) => Number(EMAIL_ENABLED_CATEGORIES.includes(b.category)) - Number(EMAIL_ENABLED_CATEGORIES.includes(a.category))).map((item) => {
           const meta = getCategoryMeta(item.category);
           const isSavingThis = savingCategory === item.category;
 
@@ -296,16 +297,7 @@ export default function NotificationsSection() {
                       }
                     />
                   </label>
-                ) : (
-                  <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-not-allowed opacity-60" title="Thông báo Email sắp có">
-                    <span className="text-muted-foreground">Email <span className="text-[10px]">(Sắp có)</span></span>
-                    <Switch
-                      checked={item.email}
-                      disabled
-                      aria-label={`${meta.settingsTitle} - Email`}
-                    />
-                  </label>
-                )}
+                ) : null}
               </div>
             </div>
           );

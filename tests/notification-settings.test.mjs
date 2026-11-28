@@ -27,7 +27,7 @@ async function render(items) {
   return html(runtime);
 }
 
-test('email toggle is enabled only for SYSTEM, PAYMENT and CONTRACT, with server values and notes', async () => {
+test('email toggle shows only for SYSTEM, PAYMENT and CONTRACT, listed first, with server values and notes', async () => {
   // Server effective values: CONTRACT/PAYMENT email ON by default, others off.
   const markup = await render(CATEGORIES.map(category => ({ category, push: true, email: ['CONTRACT', 'PAYMENT'].includes(category) })));
   const email = Object.fromEntries([...markup.matchAll(/<input[^>]*>/g)].map(m => m[0])
@@ -36,7 +36,11 @@ test('email toggle is enabled only for SYSTEM, PAYMENT and CONTRACT, with server
   const open = Object.keys(email).filter(k => !email[k].disabled);
   assert.equal(open.length, 3, JSON.stringify(email));
   for (const title of ['Thanh toán &amp; Hóa đơn', 'Hợp đồng thuê &amp; Đặt cọc']) assert.ok(open.includes(title) && email[title].checked, title);
-  assert.equal(markup.match(/Sắp có/g)?.length, CATEGORIES.length - 3);
+  assert.equal(Object.keys(email).length, 3, 'only email-capable categories render an Email toggle');
+  assert.doesNotMatch(markup, /Sắp có/);
+  // Email-capable categories are listed first.
+  const order = [...markup.matchAll(/data-category="([A-Z_]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(new Set(order.slice(0, 3)), new Set(['SYSTEM', 'PAYMENT', 'CONTRACT']));
   assert.match(markup, /Biên nhận thanh toán luôn được gửi qua email kèm file PDF\./);
   assert.match(markup, /Khi hợp đồng thuê ký xong, email kèm PDF hợp đồng thuê và hợp đồng cọc\./);
 });

@@ -140,14 +140,17 @@ test("export uses current report filters and rejects empty downloads", async () 
     if (name === "@/lib/landlord-analytics") return helper;
     return nodeRequire(name);
   }).landlordAnalyticsService;
+  const signal = new AbortController().signal;
   await service.export(
     { from: "2026-01", to: "2026-12", branchId: "branch", noLeadsOnly: true },
     "revenue",
     "pdf",
     "month",
+    signal,
   );
   assert.equal(requests[0].url, "/api/v1/dashboard/analytics/export");
   assert.equal(requests[0].config.responseType, "blob");
+  assert.equal(requests[0].config.signal, signal);
   assert.deepEqual(requests[0].config.params, {
     from: "2026-01",
     to: "2026-12",

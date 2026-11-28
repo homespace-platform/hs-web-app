@@ -26,8 +26,6 @@ const ROUTES: Record<string, { label: string; parent?: string }> = {
   "/dashboard/landlord/contracts": { label: "Hợp đồng cho thuê" },
   "/dashboard/tenant/contracts": { label: "Hợp đồng đi thuê" },
   "/dashboard/invoices": { label: "Lịch sử thanh toán" },
-  "/dashboard/deposit": { label: "Nạp tiền" },
-  "/dashboard/withdraw": { label: "Rút tiền" },
   "/dashboard/transactions": { label: "Lịch sử giao dịch" },
   "/dashboard/payments": { label: "Thanh toán" },
 };

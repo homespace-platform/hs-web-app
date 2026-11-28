@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import axios from "axios";
@@ -32,6 +32,7 @@ import {
   type AnalyticsReport,
 } from "@/lib/landlord-analytics";
 import { formatInvoiceDate } from "@/lib/invoice-status";
+import { DashboardAccess } from "@/components/dashboard/overview/SummaryUi";
 
 const AnalyticsCharts = dynamic(
   () => import("@/components/dashboard/analytics/AnalyticsCharts"),
@@ -68,6 +69,16 @@ function requestError(error: unknown): string {
 }
 
 export default function AnalyticsPage() {
+  return (
+    <DashboardAccess>
+      <AnalyticsContent />
+    </DashboardAccess>
+  );
+}
+
+function AnalyticsContent() {
+  const exportRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => exportRequest.current?.abort(), []);
   const [draft, setDraft] = useState<AnalyticsFilters>(emptyFilters);
   const [query, setQuery] = useState<AnalyticsQuery>({
     listingPage: 1,
@@ -195,6 +206,8 @@ export default function AnalyticsPage() {
 
   async function exportReport(format: "csv" | "pdf") {
     if (!data || exporting) return;
+    const controller = new AbortController();
+    exportRequest.current = controller;
     setExporting(format);
     setExportError(null);
     try {
@@ -203,7 +216,9 @@ export default function AnalyticsPage() {
         report,
         format,
         granularity,
+        controller.signal,
       );
+      if (controller.signal.aborted) return;
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -213,6 +228,7 @@ export default function AnalyticsPage() {
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
     } catch (error) {
+      if (controller.signal.aborted) return;
       setExportError(
         axios.isAxiosError(error) &&
           error.response?.status === 503 &&
@@ -223,7 +239,7 @@ export default function AnalyticsPage() {
             : requestError(error),
       );
     } finally {
-      setExporting(null);
+      if (!controller.signal.aborted) setExporting(null);
     }
   }
 

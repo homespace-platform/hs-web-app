@@ -118,6 +118,7 @@ export const landlordAnalyticsService = {
     report: AnalyticsReport,
     format: "csv" | "pdf",
     granularity: "month" | "receipt",
+    signal?: AbortSignal,
   ) {
     const response = await axiosClient.get<Blob>(
       "/api/v1/dashboard/analytics/export",
@@ -129,6 +130,7 @@ export const landlordAnalyticsService = {
           ...(report === "revenue" ? { granularity } : {}),
         },
         responseType: "blob",
+        signal,
       },
     );
     if (!response.data.size)

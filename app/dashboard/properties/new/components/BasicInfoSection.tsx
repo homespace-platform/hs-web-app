@@ -162,7 +162,7 @@ export default function BasicInfoSection({
             }}
             className={selectClass}
           >
-            <option value="">-- Bất động sản độc lập (Không chọn chi nhánh) --</option>
+            <option value="">-- Nhà cho thuê độc lập (không chọn chi nhánh) --</option>
             {(branches || []).map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name} {b.code ? `(${b.code})` : ""} - {b.display}
@@ -380,7 +380,7 @@ export default function BasicInfoSection({
               tone="warning"
               title="Loại hình theo chi nhánh"
               summary="Loại hình được lấy từ chi nhánh đã chọn."
-              text="Loại hình bất động sản được chọn tự động và cố định từ chi nhánh đã chọn."
+              text="Loại nhà cho thuê được xác định theo chi nhánh đã chọn."
             />
           )}
         </div>

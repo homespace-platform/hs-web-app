@@ -365,7 +365,7 @@ export default function ListingEditor({
         carParkingFee: "",
         customFees: [],
       });
-      toast.info("Đã chuyển sang Bất động sản độc lập (bạn có thể tự nhập thủ công tất cả thông tin).");
+      toast.info("Đã chuyển sang nhà cho thuê độc lập. Bạn có thể tự điền thông tin.");
       return;
     }
 

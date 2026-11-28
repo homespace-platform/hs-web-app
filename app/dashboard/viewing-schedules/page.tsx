@@ -373,7 +373,7 @@ function ViewingSchedulesHostContent() {
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
             {selectedDateFilter
               ? "Không tìm thấy lịch hẹn nào trong ngày đã chọn. Thử chọn ngày khác hoặc xem tất cả."
-              : "Hiện chưa có khách hàng nào đặt lịch xem các bất động sản của bạn."}
+              : "Hiện chưa có khách hàng nào đặt lịch xem nhà của bạn."}
           </p>
           {selectedDateFilter && (
             <button

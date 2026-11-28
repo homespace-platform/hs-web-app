@@ -6,6 +6,7 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ArrowUpRight, ImageOff } from "lucide-react";
+import { formatHousingWording } from "@/lib/housing-wording";
 
 const LISTING_HREF = /^\/rent\/[0-9a-fA-F-]{36}$/;
 const SAFE_IMAGE = /^https:\/\/[^\s<>()"'\\]+$/;
@@ -16,6 +17,7 @@ type MarkdownNode = { type: string; value?: string; children?: MarkdownNode[] };
 function remarkTableBreaks() {
   return (tree: MarkdownNode) => {
     function visit(node: MarkdownNode, inCell = false) {
+      if (node.type === "text" && node.value) node.value = formatHousingWording(node.value);
       const cell = inCell || node.type === "tableCell";
       node.children = node.children?.map(child => {
         if (cell && child.type === "html" && /^<br\s*\/?\s*>$/i.test(child.value ?? "")) return { type: "break" };

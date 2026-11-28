@@ -641,7 +641,7 @@ export default function Header() {
 
             {!authenticated && (
               <Link
-                href="#download-app"
+                href="/#download-app"
                 onClick={() => setMobileMenuOpen(false)}
                 className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
               >
@@ -654,7 +654,7 @@ export default function Header() {
             {authenticated ? (
               <div className="flex items-center justify-between px-1">
                 <Link
-                  href="#"
+                  href="/settings/profile"
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2.5 text-xs font-semibold text-foreground hover:text-primary transition-colors"
                 >

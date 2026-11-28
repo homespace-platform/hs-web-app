@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { publicLinks } from "./(public-info)/_content/navigation";
 import { SITE_URL } from "@/lib/listing-public-server";
 import { listingDetailPath } from "@/lib/listing-detail-access";
 import type { PageResponse } from "@/types/api.type";
@@ -33,7 +34,8 @@ const toDate = (...values: Array<string | null | undefined>) => {
 };
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const entries: MetadataRoute.Sitemap = ["", "/rent", "/news"].map((path) => ({ url: `${SITE_URL}${path}` }));
+  const paths = ["", "/rent", ...Object.values(publicLinks).map(({ href }) => href)];
+  const entries: MetadataRoute.Sitemap = paths.map((path) => ({ url: `${SITE_URL}${path}` }));
 
   try {
     const listings = await fetchAll<PublicListingSummaryResponse>("/api/v1/public/listings");

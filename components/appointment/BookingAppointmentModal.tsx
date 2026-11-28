@@ -310,7 +310,7 @@ export default function BookingAppointmentModal({
                 {isRescheduleMode ? "Yêu cầu đổi lịch xem nhà" : "Đặt lịch xem nhà"}
               </h2>
               <p className="text-xs text-muted-foreground">
-                Hẹn gặp trực tiếp chủ nhà tại bất động sản
+                Hẹn gặp trực tiếp chủ nhà tại địa điểm cho thuê
               </p>
             </div>
           </div>

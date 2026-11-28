@@ -474,7 +474,7 @@ export default function RentDetailView({
                     type="button"
                     disabled
                     className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-muted py-3.5 px-4 text-sm font-bold text-muted-foreground border border-border/50 cursor-not-allowed opacity-80"
-                    title={`Bất động sản này đang được giữ chỗ trong ${RENTAL_HOLD_DURATION_LABEL} cho một khách thuê khác`}
+                    title={`Chỗ thuê này đang được giữ chỗ trong ${RENTAL_HOLD_DURATION_LABEL} cho một khách thuê khác`}
                   >
                     <ShieldCheck className="w-4 h-4" />
                     <span>Đang giữ chỗ (Tạm khóa)</span>
@@ -541,7 +541,7 @@ export default function RentDetailView({
                       ? "bg-emerald-500/10 border border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
                       : "border border-border bg-card hover:bg-muted text-foreground hover:border-primary/40"
                       }`}
-                    title={bookGate.title ?? "Đặt lịch hẹn gặp trực tiếp chủ nhà tại bất động sản"}
+                    title={bookGate.title ?? "Đặt lịch gặp chủ nhà tại địa điểm cho thuê"}
                   >
                     {hasActiveBooking ? (
                       <>

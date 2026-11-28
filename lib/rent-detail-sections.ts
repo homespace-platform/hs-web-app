@@ -383,7 +383,7 @@ function categoryTitle(category: RentPropertyItem["category"]) {
     commercial: "Thông tin mặt bằng kinh doanh",
     office: "Thông số văn phòng & tòa nhà",
     villa: "Thông tin biệt thự",
-  }[category] || "Thông số bất động sản";
+  }[category] || "Thông số nhà cho thuê";
 }
 
 function detail(labelText: string, value: unknown, suffix = "", money = false): RentDetailItem {

@@ -1,194 +1,143 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import {
-  ShieldCheck,
-  Sparkles,
-  Mail,
-  Globe,
-  Share2,
-} from "lucide-react";
+import { useState } from "react";
+import { ArrowUpRight, Mail, Share2 } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { contactLink, publicLinks } from "@/app/(public-info)/_content/navigation";
 
-const FOCUS_RING =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-primary-dark dark:focus-visible:ring-offset-card rounded-sm";
-
-const LINK =
-  `text-sm text-slate-300 hover:text-white transition-colors duration-150 ${FOCUS_RING}`;
-
-const STORE_BTN =
-  `flex items-center gap-3 px-4 min-h-11 py-2 rounded-xl bg-white/10 border border-white/15 hover:bg-white/15 transition-colors duration-200 active:scale-[0.98] group ${FOCUS_RING}`;
-
-const SOCIAL_BTN =
-  `w-11 h-11 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/15 transition-colors duration-200 active:scale-[0.98] ${FOCUS_RING}`;
-
-const HEADING = "text-sm font-semibold text-white font-heading";
+const focus = "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300";
+const linkStyle = `inline-flex min-h-8 items-center rounded-sm text-sm leading-snug text-slate-300 hover:text-white hover:underline hover:underline-offset-4 ${focus}`;
+const utilityStyle = `inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 text-sm font-medium text-slate-100 hover:bg-white/10 hover:text-white ${focus}`;
+const { about, news, projects, careers, press, support, depositGuide, housingCriteria, privacy, terms } = publicLinks;
+const aboutLinks = [about, news, projects, careers, press];
+const helpLinks = [support, depositGuide, housingCriteria];
+const legalLinks = [privacy, terms];
+const stores = [
+  { name: "App Store", icon: "/application/appstore.png" },
+  { name: "Google Play", icon: "/application/googleplay.webp" },
+];
 
 export default function Footer() {
+  const [store, setStore] = useState("");
+  const [shareUrl, setShareUrl] = useState("");
+
+  async function shareHomeSpace() {
+    const url = new URL("/", window.location.origin).href;
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareUrl("");
+      toast.success("Đã sao chép liên kết HomeSpace.");
+    } catch {
+      setShareUrl(url);
+    }
+  }
+
   return (
-    <footer className="bg-primary-dark dark:bg-card text-slate-100 border-t border-white/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12 mb-12">
-          {/* Brand Column */}
-          <div className="flex flex-col gap-5">
-            <Link href="/" className={`flex items-center self-start group ${FOCUS_RING}`}>
-              <div className="bg-white/10 border border-white/15 rounded-2xl px-5 py-3.5 group-hover:bg-white/15 transition-colors duration-200 inline-flex items-center justify-center">
+    <footer className="border-t border-slate-800 bg-slate-950 text-white">
+      <div className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 sm:pt-14 lg:px-8">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-8 pb-9 sm:gap-x-10 lg:grid-cols-[1.25fr_0.85fr_1fr_1fr] lg:pb-12">
+          <div className="col-span-2 min-w-0 lg:col-span-1">
+            <Link href="/" className={`inline-flex items-center gap-3 ${focus}`}>
+              <span className="grid size-11 place-items-center rounded-xl border border-white/20 bg-white/10">
                 <Image
                   src="/logo/homespace-vertical-logo-removebg-crop-removebg.png"
-                  alt="HomeSpace Logo"
-                  width={80}
-                  height={80}
+                  alt=""
+                  width={30}
+                  height={30}
                   unoptimized
-                  className="h-16 w-16 sm:h-20 sm:w-20 object-contain brightness-0 invert"
+                  className="size-[30px] object-contain brightness-0 invert"
                 />
-              </div>
+              </span>
+              <span className="font-heading text-xl font-extrabold tracking-tight">HomeSpace</span>
             </Link>
-
-            <p className="text-sm text-slate-300 leading-6">
-              Nền tảng PropTech tiên phong kết hợp sức mạnh Blockchain & AI mang
-              lại sự minh bạch, bảo mật tuyệt đối và tìm kiếm thông minh cho thị
-              trường nhà cho thuê.
+            <p className="mt-4 max-w-xs text-sm leading-6 text-slate-300">
+              Dự án khoá luận về trải nghiệm tìm nhà cho thuê, từ xem tin đến tìm hiểu quy trình đặt cọc và ký hợp đồng.
             </p>
-
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-              <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
-                <ShieldCheck aria-hidden="true" className="w-4 h-4" />
-                <span>Hợp đồng On-chain</span>
+            <div className="mt-5">
+              <h2 className="mb-2 text-sm font-semibold">Kết nối cộng đồng</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link href={contactLink.href} className={utilityStyle}>
+                  <Mail aria-hidden="true" className="size-4" />
+                  Liên hệ
+                </Link>
+                <Button type="button" variant="ghost" className={`${utilityStyle} cursor-pointer`} onClick={shareHomeSpace}>
+                  <Share2 aria-hidden="true" className="size-4" />
+                  Chia sẻ
+                </Button>
               </div>
-              <div className="flex items-center gap-1.5 text-cyan-300 font-medium">
-                <Sparkles aria-hidden="true" className="w-4 h-4" />
-                <span>AI Valuation</span>
-              </div>
+              {shareUrl && (
+                <div className="mt-3 max-w-xs space-y-2">
+                  <p role="status" className="text-sm text-slate-300">Hãy sao chép liên kết theo cách thủ công.</p>
+                  <input
+                    type="url"
+                    aria-label="Liên kết trang chủ HomeSpace"
+                    readOnly
+                    value={shareUrl}
+                    onFocus={(event) => event.currentTarget.select()}
+                    className={`w-full rounded-sm border border-white/20 bg-white/5 px-2 py-1 text-sm text-white ${focus}`}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Column 2: Về HomeSpace */}
-          <div className="flex flex-col gap-4">
-            <h4 className={HEADING}>Về HomeSpace</h4>
-            <nav className="flex flex-col gap-3">
-              <Link href="#" className={LINK}>
-                Về chúng tôi
-              </Link>
-              <Link href="/news" className={LINK}>
-                Tin tức & Blog
-              </Link>
-              <Link href="/rent" className={LINK}>
-                Dự án tiêu biểu
-              </Link>
-              <Link href="#" className={LINK}>
-                Tuyển dụng & Sự nghiệp
-              </Link>
-              <Link href="#" className={LINK}>
-                Báo chí đưa tin
-              </Link>
-            </nav>
-          </div>
+          <nav aria-label="Về HomeSpace" className="min-w-0">
+            <h2 className="mb-2 font-heading text-sm font-bold">Về HomeSpace</h2>
+            <ul>
+              {aboutLinks.map(({ href, label }) => (
+                <li key={href}><Link href={href} className={linkStyle}>{label}</Link></li>
+              ))}
+            </ul>
+          </nav>
 
-          {/* Column 3: Hỗ trợ khách hàng */}
-          <div className="flex flex-col gap-4">
-            <h4 className={HEADING}>Hỗ trợ khách hàng</h4>
-            <nav className="flex flex-col gap-3">
-              <Link href="#" className={LINK}>
-                Chính sách bảo mật
-              </Link>
-              <Link href="#" className={LINK}>
-                Điều khoản sử dụng
-              </Link>
-              <Link href="#" className={LINK}>
-                Hướng dẫn đặt cọc Smart Contract
-              </Link>
-              <Link href="#" className={LINK}>
-                Quy chuẩn thẩm định nhà ở
-              </Link>
-              <a
-                href="mailto:homespace.platform.cskh@gmail.com"
-                className={`${LINK} flex items-start gap-2 break-all`}
-              >
-                <Mail aria-hidden="true" className="w-4 h-4 mt-0.5 shrink-0 text-cyan-300" />
-                <span>homespace.platform.cskh@gmail.com</span>
-              </a>
-            </nav>
-          </div>
+          <nav aria-label="Hỗ trợ khách hàng" className="min-w-0">
+            <h2 className="mb-2 font-heading text-sm font-bold">Hỗ trợ khách hàng</h2>
+            <ul>
+              {helpLinks.map(({ href, label }) => (
+                <li key={href}><Link href={href} className={linkStyle}>{label}</Link></li>
+              ))}
+            </ul>
+          </nav>
 
-          {/* Column 4: App Download & Social */}
-          <div id="download-app" className="flex flex-col gap-6">
-            <div className="flex flex-col gap-3">
-              <h4 className={HEADING}>Tải ứng dụng</h4>
-              <p className="text-sm text-slate-300 leading-6">
-                Tìm nhà và ký hợp đồng mọi lúc, mọi nơi ngay trên di động.
-              </p>
-
-              <div className="flex flex-col gap-3 pt-1">
-                <a href="#" className={STORE_BTN}>
-                  <div className="w-7 h-7 relative flex items-center justify-center shrink-0">
-                    <Image
-                      src="/application/appstore.png"
-                      alt="App Store"
-                      width={28}
-                      height={28}
-                      unoptimized
-                      className="w-7 h-7 object-contain rounded-lg"
-                    />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-[10px] uppercase text-slate-300 leading-none font-medium">
-                      Tải trên
-                    </span>
-                    <span className="text-sm font-semibold text-white leading-tight mt-0.5">
-                      App Store
-                    </span>
-                  </div>
-                </a>
-
-                <a href="#" className={STORE_BTN}>
-                  <div className="w-7 h-7 relative flex items-center justify-center shrink-0">
-                    <Image
-                      src="/application/googleplay.webp"
-                      alt="Google Play"
-                      width={28}
-                      height={28}
-                      unoptimized
-                      className="w-7 h-7 object-contain"
-                    />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-[10px] uppercase text-slate-300 leading-none font-medium">
-                      Khám phá trên
-                    </span>
-                    <span className="text-sm font-semibold text-white leading-tight mt-0.5">
-                      Google Play
-                    </span>
-                  </div>
-                </a>
-              </div>
+          <section id="download-app" aria-labelledby="footer-app-title" className="col-span-2 min-w-0 scroll-mt-28 lg:col-span-1">
+            <h2 id="footer-app-title" className="mb-3 font-heading text-sm font-bold">Ứng dụng di động</h2>
+            <div className="flex flex-wrap gap-2 lg:flex-col">
+              {stores.map(({ name, icon }) => (
+                <Button
+                  key={name}
+                  type="button"
+                  variant="ghost"
+                  className={`h-11 cursor-pointer justify-start rounded-xl border border-white/20 bg-white/5 px-3 text-white hover:bg-white/10 hover:text-white ${focus}`}
+                  onClick={() => setStore(name)}
+                >
+                  <Image src={icon} alt="" width={21} height={21} unoptimized className="size-[21px] rounded object-contain" />
+                  {name}
+                </Button>
+              ))}
             </div>
-
-            <div className="flex flex-col gap-3">
-              <h4 className={HEADING}>Kết nối cộng đồng</h4>
-              <div className="flex items-center gap-2">
-                <a href="#" className={SOCIAL_BTN} aria-label="Website">
-                  <Globe aria-hidden="true" className="w-4 h-4" />
-                </a>
-                <a href="#" className={SOCIAL_BTN} aria-label="Social Share">
-                  <Share2 aria-hidden="true" className="w-4 h-4" />
-                </a>
-              </div>
-            </div>
-          </div>
+            <p role="status" className="mt-2 text-sm leading-snug text-sky-200">
+              {store && <>Ứng dụng đang phát triển <span className="text-slate-300">({store})</span></>}
+            </p>
+          </section>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="pt-6 border-t border-white/15 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs text-slate-400">
-          <p>© 2026 HomeSpace Inc. Nền tảng PropTech tiên phong Việt Nam.</p>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <Link href="#" className={`hover:text-white transition-colors duration-150 ${FOCUS_RING}`}>
-              Chính sách quyền riêng tư
-            </Link>
-            <Link href="#" className={`hover:text-white transition-colors duration-150 ${FOCUS_RING}`}>
-              Điều khoản Dịch vụ
-            </Link>
-            <Link href="#" className={`hover:text-white transition-colors duration-150 ${FOCUS_RING}`}>
-              Sitemap
-            </Link>
-          </div>
+        <div className="flex flex-col gap-2 border-t border-white/15 py-4 pr-16 text-sm text-slate-400 lg:flex-row lg:items-center lg:justify-between lg:pr-12">
+          <p>© 2026 HomeSpace · Bản demo khoá luận</p>
+          <nav aria-label="Chính sách và sơ đồ trang web">
+            <ul className="flex flex-wrap items-center gap-x-5 gap-y-1 sm:gap-x-6">
+              {legalLinks.map(({ href, label }) => (
+                <li key={href}><Link href={href} className={linkStyle}>{label}</Link></li>
+              ))}
+              <li>
+                <a href="/sitemap.xml" className={`${linkStyle} gap-1.5`}>
+                  Sơ đồ trang web <ArrowUpRight aria-hidden="true" className="size-3.5" />
+                </a>
+              </li>
+            </ul>
+          </nav>
         </div>
       </div>
     </footer>

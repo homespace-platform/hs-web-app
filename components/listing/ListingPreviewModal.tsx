@@ -428,7 +428,7 @@ export default function ListingPreviewModal({
               <div className="p-5 rounded-2xl bg-card border border-border space-y-4">
                 <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-primary" />
-                  Thông số chi tiết bất động sản
+                  Thông số nhà cho thuê
                 </h4>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">

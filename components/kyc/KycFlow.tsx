@@ -138,7 +138,7 @@ export default function KycFlow({ params }: { params: KycParams }) {
     const { kyc } = state;
     const meta = statusMeta(kyc.status, kyc.rejectionReason);
     const Icon = meta.icon;
-    const label = kyc.status === "PENDING" ? "Tiếp tục xác minh" : kyc.status === "REJECTED" || kyc.status === "EXPIRED" ? "Xác minh lại" : "Xác minh ngay";
+    const label = kyc.status === "PENDING" ? "Đồng ý và tiếp tục" : "Đồng ý và bắt đầu xác minh";
     return (
       <div className={card}>
         <div className={`flex items-start gap-3 rounded-xl border p-3 ${meta.tone}`}>
@@ -150,6 +150,18 @@ export default function KycFlow({ params }: { params: KycParams }) {
         </div>
         {state.notice && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{state.notice}</p>}
         {!kycGate.allowed && kycGate.title && <p className="text-xs text-muted-foreground">{kycGate.title}</p>}
+        {kycGate.allowed && (
+          <section aria-labelledby="kyc-privacy-title" className="space-y-2 rounded-xl border border-border bg-muted/40 p-4">
+            <h2 id="kyc-privacy-title" className="text-sm font-semibold">Trước khi xác minh</h2>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              HomeSpace gửi ảnh hai mặt CCCD và ảnh khuôn mặt đến VNPT eKYC để kiểm tra giấy tờ và đối chiếu danh tính.
+              Bạn có thể thoát và thực hiện sau.
+            </p>
+            <Link href="/privacy#xac-minh-danh-tinh" target="_blank" rel="noopener noreferrer" className="inline-block rounded-sm text-sm font-medium text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2">
+              Chính sách quyền riêng tư <span className="sr-only">(mở trong thẻ mới)</span>
+            </Link>
+          </section>
+        )}
         <div className="flex flex-col gap-2 sm:flex-row">
           <button type="button" className={`${primaryBtn} sm:flex-1`} onClick={() => void start()} disabled={cancelling || !kycGate.allowed} title={kycGate.title}>
             <ShieldCheck className="h-4 w-4" />{label}

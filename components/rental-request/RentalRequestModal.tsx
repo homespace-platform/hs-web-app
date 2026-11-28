@@ -536,7 +536,7 @@ export default function RentalRequestModal({
 
         {/* FORM BODY */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 max-h-[75vh] overflow-y-auto">
-          {/* 1. TÓM TẮT BẤT ĐỘNG SẢN */}
+          {/* 1. TÓM TẮT TIN ĐĂNG */}
           <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 border border-border/80">
             {listingThumbnail && isValidImageUrl(listingThumbnail) ? (
               <div className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-border">

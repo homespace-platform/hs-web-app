@@ -4,6 +4,7 @@ import "@fontsource-variable/montserrat";
 import NextTopLoader from "nextjs-toploader";
 import Providers from "@/components/auth/Providers";
 import FloatingChatButton from "@/components/chat/FloatingChatButton";
+import PrivacyNotice from "@/components/layout/PrivacyNotice";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -54,6 +55,7 @@ export default function RootLayout({
         />
         <Providers>
           {children}
+          <PrivacyNotice />
           <FloatingChatButton />
         </Providers>
       </body>

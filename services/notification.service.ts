@@ -101,7 +101,7 @@ export const NOTIFICATION_CATEGORY_META: Record<
     tag: "Lịch hẹn",
     settingsTitle: "Lịch hẹn xem nhà",
     settingsDescription:
-      "Yêu cầu đặt lịch, xác nhận hoặc thay đổi lịch hẹn xem bất động sản",
+      "Yêu cầu đặt lịch, xác nhận hoặc thay đổi lịch hẹn xem nhà",
   },
   RENTAL_REQUEST: {
     category: "RENTAL_REQUEST",

@@ -35,7 +35,7 @@ export default function ContractPropertySection({
             <Home className="w-4 h-4" />
           </div>
           <h3 className="text-sm font-bold text-foreground">
-            Thông tin bất động sản bàn giao
+            Thông tin nhà bàn giao
           </h3>
         </div>
         {Boolean(listingCode) && (

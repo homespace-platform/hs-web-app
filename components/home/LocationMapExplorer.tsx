@@ -55,7 +55,7 @@ export default function LocationMapExplorer() {
 
             <div
               role="group"
-              aria-label="Loại hình bất động sản"
+              aria-label="Loại nhà cho thuê"
               className="flex flex-wrap items-center gap-2 mt-8"
             >
               {CATEGORIES.map((cat) => {

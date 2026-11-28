@@ -121,7 +121,7 @@ export default function AppointmentCardCompact({
       onClick={() => onViewDetail(appointment)}
       className="group bg-card rounded-2xl border border-border p-4 sm:p-5 shadow-2xs transition-all hover:border-primary/40 hover:shadow-md cursor-pointer flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4"
     >
-      {/* KHỐI 1: BẤT ĐỘNG SẢN */}
+      {/* KHỐI 1: ĐỊA ĐIỂM CHO THUÊ */}
       <div className="flex items-center gap-3.5 min-w-0 w-full lg:w-72 shrink-0">
         <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0">
           {isValidImageUrl(appointment.listingThumbnail) ? (

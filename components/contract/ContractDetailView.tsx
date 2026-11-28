@@ -590,7 +590,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   const address = text(property.fullAddress);
   const facts: Fact[] = [
     { label: isLandlord ? "Người thuê" : "Chủ nhà", icon: <User className="h-3.5 w-3.5" aria-hidden="true" />, value: text(counterpart.fullName) },
-    { label: "Bất động sản", icon: <MapPin className="h-3.5 w-3.5" aria-hidden="true" />,
+    { label: "Nhà thuê", icon: <MapPin className="h-3.5 w-3.5" aria-hidden="true" />,
       value: title || address ? <>{title ?? address}{title && address ? <span className="block font-normal text-muted-foreground">{address}</span> : null}</> : undefined },
     { label: "Tiền thuê · Tiền cọc", icon: <Banknote className="h-3.5 w-3.5" aria-hidden="true" />,
       value: text(financial.amountNumber) ? <>{text(financial.amountNumber)}<span className="block font-normal text-muted-foreground">Cọc: {isZeroDeposit(financial.depositAmountValue ?? financial.depositAmountNumber) ? "không đặt cọc" : text(financial.depositAmountNumber) ?? "—"}</span></> : undefined },
@@ -600,7 +600,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
   const cards: InfoCardData[] = [
     { title: "Các bên", rows: [["Chủ nhà (Bên A)", text(landlord.fullName)], ["Người thuê (Bên B)", text(tenant.fullName)],
       [isLandlord ? "Điện thoại người thuê" : "Điện thoại chủ nhà", text(counterpart.phone)]] },
-    { title: "Bất động sản", rows: [["Địa chỉ", address], ["Loại hình", text(property.propertyType)], ["Diện tích", text(property.areaText)],
+    { title: "Nhà thuê", rows: [["Địa chỉ", address], ["Loại hình", text(property.propertyType)], ["Diện tích", text(property.areaText)],
       ["Số căn / phòng", text(property.unitNumber)], ["Tầng", text(property.floor)]] },
     { title: "Thời hạn thuê", rows: [["Bắt đầu", text(lease.startDateText)], ["Kết thúc", leaseEndText], effectiveEndText ? ["Thời hạn", "Rút ngắn theo phụ lục chấm dứt sớm"] : ["Thời hạn", text(lease.durationText) ?? (text(lease.durationMonths) ? `${text(lease.durationMonths)} tháng` : undefined)],
       ["Bàn giao", text(lease.handoverDateText)]] },
@@ -691,7 +691,7 @@ export default function ContractDetailView({ perspective }: { perspective: "land
           <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-primary">
             <a href="#contract-handover">Chỉ số điện nước</a>
             <a href="#contract-parties">Thông tin hai bên</a>
-            <a href="#contract-property">Thông tin bất động sản</a>
+            <a href="#contract-property">Thông tin nhà thuê</a>
             <a href="#contract-policies">Phí chậm trả &amp; thỏa thuận</a>
           </div>
           {draftDirty && <p role="status" className="text-sm font-medium text-amber-700 dark:text-amber-400">Có thay đổi chưa lưu</p>}

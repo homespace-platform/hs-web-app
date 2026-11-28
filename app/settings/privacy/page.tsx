@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function SettingsPrivacyPage() {
-  redirect("/settings/profile");
+  redirect("/privacy");
 }

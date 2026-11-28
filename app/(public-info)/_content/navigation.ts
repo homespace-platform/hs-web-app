@@ -1,4 +1,4 @@
-export const supportEmail = "homespace.platform.cskh@gmail.com";
+export const supportEmail = "cskh@homespace.id.vn";
 
 export const publicLinks = {
   about: { href: "/about", label: "Về chúng tôi" },

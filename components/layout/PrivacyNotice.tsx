@@ -45,7 +45,7 @@ export default function PrivacyNotice() {
   return (
     <aside
       aria-labelledby="privacy-notice-title"
-      className="fixed top-1/2 left-1/2 z-30 max-h-[calc(100dvh_-_1.5rem)] w-[calc(100%_-_1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-2xl border border-border bg-card p-4 text-card-foreground shadow-xl sm:p-5"
+      className="fixed bottom-[calc(6rem_+_env(safe-area-inset-bottom))] left-1/2 z-30 max-h-[calc(100dvh_-_8rem_-_env(safe-area-inset-bottom))] w-[calc(100%_-_1.5rem)] max-w-md -translate-x-1/2 overflow-auto rounded-2xl border border-border bg-card p-4 text-card-foreground shadow-xl sm:p-5 lg:bottom-[max(1.5rem,env(safe-area-inset-bottom))] lg:max-h-[calc(100dvh_-_3rem)]"
     >
       <div className="flex items-start gap-3">
         <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent text-accent-foreground">

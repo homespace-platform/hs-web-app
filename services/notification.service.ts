@@ -59,6 +59,14 @@ export interface NotificationCategoryMeta {
   settingsDescription: string;
 }
 
+// Email channel is offered only for these categories; the effective on/off value always comes from the server.
+export const EMAIL_ENABLED_CATEGORIES: readonly NotificationCategory[] = ["SYSTEM", "PAYMENT", "CONTRACT"];
+
+export const EMAIL_SETTINGS_NOTES: Partial<Record<NotificationCategory, string>> = {
+  PAYMENT: "Biên nhận thanh toán luôn được gửi qua email kèm file PDF.",
+  CONTRACT: "Khi hợp đồng thuê ký xong, email kèm PDF hợp đồng thuê và hợp đồng cọc.",
+};
+
 export const NOTIFICATION_CATEGORY_META: Record<
   NotificationCategory,
   NotificationCategoryMeta

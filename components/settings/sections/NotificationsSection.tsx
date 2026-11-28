@@ -20,6 +20,8 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/useAuth";
 import notificationService, {
+  EMAIL_ENABLED_CATEGORIES,
+  EMAIL_SETTINGS_NOTES,
   getCategoryMeta,
 } from "@/services/notification.service";
 import type {
@@ -261,6 +263,11 @@ export default function NotificationsSection() {
                   <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-relaxed">
                     {meta.settingsDescription}
                   </p>
+                  {EMAIL_SETTINGS_NOTES[item.category] && (
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 leading-relaxed">
+                      {EMAIL_SETTINGS_NOTES[item.category]}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -277,7 +284,7 @@ export default function NotificationsSection() {
                   />
                 </label>
 
-                {item.category === "SYSTEM" ? (
+                {EMAIL_ENABLED_CATEGORIES.includes(item.category) ? (
                   <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
                     <span className="text-muted-foreground">Email</span>
                     <Switch
